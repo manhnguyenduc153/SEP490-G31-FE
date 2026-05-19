@@ -15,6 +15,7 @@ import {
   GridIcon,
   HorizontaLDots,
   ListIcon,
+  LockIcon,
   MailIcon,
   PageIcon,
   PieChartIcon,
@@ -135,6 +136,14 @@ const navItems: NavItem[] = [
       { name: "Coming Soon", path: "/coming-soon" },
       { name: "Maintenance", path: "/maintenance" },
       { name: "Success", path: "/success" },
+    ],
+  },
+  {
+    name: "Authorization",
+    icon: <LockIcon />,
+    subItems: [
+      { name: "Role", path: "/roles" },
+      { name: "Permission", path: "/permissions" },
     ],
   },
 ];
