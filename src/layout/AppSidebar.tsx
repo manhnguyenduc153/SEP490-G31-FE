@@ -30,6 +30,8 @@ import {
 } from "../icons/index";
 import SidebarWidget from "./SidebarWidget";
 
+import { useTranslation } from "react-i18next";
+
 type NavItem = {
   name: string;
   icon: React.ReactNode;
@@ -43,65 +45,65 @@ type NavItem = {
 const schoolItems: NavItem[] = [
   {
     icon: <GridIcon />,
-    name: "Dashboard",
+    name: "dashboard",
     path: "/",
   },
   {
     icon: <DocsIcon />,
-    name: "Academic Operations",
+    name: "academicOperations",
     subItems: [
-      { name: "Courses", path: "/courses", permission: "Course" },
-      { name: "Classes", path: "/classes", permission: "Class" },
-      { name: "Teachers", path: "/teachers", permission: "Teacher" },
-      { name: "Students", path: "/students", permission: "Student" },
-      { name: "Rooms", path: "/rooms", permission: "Room" },
-      { name: "Schedules", path: "/schedules", permission: "ClassSchedule" },
+      { name: "courses", path: "/courses", permission: "Course" },
+      { name: "classes", path: "/classes", permission: "Class" },
+      { name: "teachers", path: "/teachers", permission: "Teacher" },
+      { name: "students", path: "/students", permission: "Student" },
+      { name: "rooms", path: "/rooms", permission: "Room" },
+      { name: "schedules", path: "/schedules", permission: "ClassSchedule" },
     ],
   },
   {
     icon: <TableIcon />,
-    name: "Assessments",
+    name: "assessments",
     subItems: [
-      { name: "Exams", path: "/exams", permission: "ExamSchedule" },
-      { name: "Assignments", path: "/assignments", permission: "Activity" },
-      { name: "Question Bank", path: "/question-bank", permission: "Question" },
-      { name: "Question Category", path: "/question-category", permission: "QuestionCategory" },
-      { name: "Scores", path: "/scores", permission: "StudentGrade" },
+      { name: "exams", path: "/exams", permission: "ExamSchedule" },
+      { name: "assignments", path: "/assignments", permission: "Activity" },
+      { name: "questionBank", path: "/question-bank", permission: "Question" },
+      { name: "questionCategory", path: "/question-category", permission: "QuestionCategory" },
+      { name: "scores", path: "/scores", permission: "StudentGrade" },
     ],
   },
   {
     icon: <BoxCubeIcon />,
-    name: "Learning",
+    name: "learning",
     subItems: [
-      { name: "Learning Materials", path: "/learning-materials", permission: "LearningMaterial" },
-      { name: "Attendance", path: "/attendance", permission: "Attendance" },
-      { name: "Student Progress", path: "/student-progress" },
+      { name: "learningMaterials", path: "/learning-materials", permission: "LearningMaterial" },
+      { name: "attendance", path: "/attendance", permission: "Attendance" },
+      { name: "studentProgress", path: "/student-progress" },
     ],
   },
   {
     icon: <LockIcon />,
-    name: "Administration",
+    name: "administration",
     subItems: [
-      { name: "Users", path: "/users", permission: "User" },
-      { name: "Roles", path: "/roles", permission: "Role" },
-      { name: "Permissions", path: "/permissions" },
+      { name: "users", path: "/users", permission: "User" },
+      { name: "roles", path: "/roles", permission: "Role" },
+      { name: "permissions", path: "/permissions" },
     ],
   },
   {
     icon: <PieChartIcon />,
-    name: "Reports",
+    name: "reportsMenu",
     subItems: [
-      { name: "Reports", path: "/reports" },
-      { name: "Statistics", path: "/statistics" },
+      { name: "reports", path: "/reports" },
+      { name: "statistics", path: "/statistics" },
     ],
   },
   {
     icon: <GroupIcon />,
-    name: "Parent Services",
+    name: "parentServices",
     subItems: [
-      { name: "Child Profile", path: "/child-profile", permission: "ParentStudent" },
-      { name: "Child Progress", path: "/child-progress" },
-      { name: "Child Schedules", path: "/child-schedules" },
+      { name: "childProfile", path: "/child-profile", permission: "ParentStudent" },
+      { name: "childProgress", path: "/child-progress" },
+      { name: "childSchedules", path: "/child-schedules" },
     ],
   },
 ];
@@ -302,6 +304,7 @@ const supportItems: NavItem[] = [
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
+  const { t } = useTranslation();
 
   const renderMenuItems = (
     navItems: NavItem[],
@@ -334,7 +337,9 @@ const AppSidebar: React.FC = () => {
                   {nav.icon}
                 </span>
                 {(isExpanded || isHovered || isMobileOpen) && (
-                  <span className={`menu-item-text`}>{nav.name}</span>
+                  <span className={`menu-item-text`}>
+                    {menuType === "school" ? t(`sidebar.${nav.name}`) : nav.name}
+                  </span>
                 )}
                 {nav.new && (isExpanded || isHovered || isMobileOpen) && (
                   <span
@@ -377,7 +382,9 @@ const AppSidebar: React.FC = () => {
                     {nav.icon}
                   </span>
                   {(isExpanded || isHovered || isMobileOpen) && (
-                    <span className={`menu-item-text`}>{nav.name}</span>
+                    <span className={`menu-item-text`}>
+                      {menuType === "school" ? t(`sidebar.${nav.name}`) : nav.name}
+                    </span>
                   )}
                   {nav.new && (isExpanded || isHovered || isMobileOpen) && (
                     <span
@@ -418,7 +425,7 @@ const AppSidebar: React.FC = () => {
                               : "menu-dropdown-item-inactive"
                           }`}
                         >
-                          {subItem.name}
+                          {menuType === "school" ? t(`sidebar.${subItem.name}`) : subItem.name}
                           <span className="flex items-center gap-1 ml-auto">
                             {subItem.new && (
                               <span

@@ -17,6 +17,7 @@ import {
 } from "@/services/questionCategory.api";
 import { CodeHelper } from "@/helpers/CodeHelper";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
+import { useTranslation } from "react-i18next";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,17 @@ type SortOrder = "asc" | "desc";
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function QuestionCategoryTable() {
+  const { t } = useTranslation();
+
+  // ── Dynamic Metadata ──
+  useEffect(() => {
+    document.title = `${t("questionCategory.title")} | School Management System`;
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) {
+      metaDesc.setAttribute("content", t("questionCategory.description"));
+    }
+  }, [t]);
+
   // ── Data states ──
   const [items, setItems] = useState<QuestionCategoryItem[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -244,9 +256,9 @@ export default function QuestionCategoryTable() {
   const endIndex = Math.min(startIndex + items.length, totalRecords);
 
   const columns: { key: SortKey; label: string }[] = [
-    { key: "code", label: "Mã" },
-    { key: "name", label: "Tên danh mục" },
-    { key: "description", label: "Mô tả" },
+    { key: "code", label: t("questionCategory.colCode") },
+    { key: "name", label: t("questionCategory.colName") },
+    { key: "description", label: t("questionCategory.colDescription") },
   ];
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -277,7 +289,7 @@ export default function QuestionCategoryTable() {
       <div className="flex flex-col gap-3 px-6 py-5 border-b border-gray-100 dark:border-white/[0.05] sm:flex-row sm:items-center sm:justify-between">
         {/* Show N entries */}
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500 dark:text-gray-400">Hiển thị</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">{t("questionCategory.show")}</span>
           <div className="relative z-20 bg-transparent">
             <select
               className="w-full py-2 pl-3 pr-8 text-sm text-gray-800 bg-transparent border border-gray-300 rounded-lg appearance-none dark:bg-dark-900 h-9 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
@@ -299,7 +311,7 @@ export default function QuestionCategoryTable() {
               </svg>
             </span>
           </div>
-          <span className="text-sm text-gray-500 dark:text-gray-400">mục</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">{t("questionCategory.entries")}</span>
         </div>
 
         {/* Search + Add button */}
@@ -314,7 +326,7 @@ export default function QuestionCategoryTable() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Tìm kiếm danh mục..."
+              placeholder={t("questionCategory.searchPlaceholder")}
               className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent py-2.5 pl-11 pr-4 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[250px]"
             />
           </div>
@@ -326,7 +338,7 @@ export default function QuestionCategoryTable() {
               <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M8.00016 3.33331V12.6666M3.3335 7.99998H12.6668" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              Thêm danh mục
+              {t("questionCategory.addCategory")}
             </button>
           </PermissionGuard>
         </div>
@@ -379,7 +391,7 @@ export default function QuestionCategoryTable() {
                 isHeader
                 className="px-6 py-4 text-center font-semibold text-gray-800 text-theme-sm dark:text-gray-200"
               >
-                Thao tác
+                {t("questionCategory.colActions")}
               </TableCell>
             </TableRow>
           </TableHeader>

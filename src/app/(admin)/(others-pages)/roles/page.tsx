@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function RolesPage() {
   return (
     <div>
-      <PageBreadcrumb pageTitle="Roles Management" />
+      <PageBreadcrumb pageTitle="roles.title" />
       <div className="space-y-6">
         <RolesTable />
       </div>

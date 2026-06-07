@@ -12,7 +12,7 @@ import { AngleDownIcon, AngleUpIcon, PencilIcon, TrashBinIcon } from "@/icons";
 import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
 import Badge from "@/components/ui/badge/Badge";
 import { Modal } from "@/components/ui/modal";
-
+import { useTranslation } from "react-i18next";
 import { authApi, RoleItem } from "@/services/auth.api";
 
 interface PermissionNode {
@@ -65,6 +65,17 @@ const formatDate = (dateStr: string) => {
 };
 
 export default function RolesTable() {
+  const { t } = useTranslation();
+
+  // ── Dynamic Metadata ──
+  useEffect(() => {
+    document.title = `${t("roles.title")} | School Management System`;
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) {
+      metaDesc.setAttribute("content", t("roles.description"));
+    }
+  }, [t]);
+
   const [roles, setRoles] = useState<RoleItem[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
@@ -143,12 +154,12 @@ export default function RolesTable() {
             setTotalRecords(response.data.totalRecords || 0);
             setTotalPages(response.data.totalPages || 0);
           } else {
-            setError(response.message || "Không thể lấy danh sách vai trò.");
+            setError(response.message || t("roles.systemError"));
           }
         }
       } catch {
         if (isMounted) {
-          setError("Đã xảy ra lỗi không mong muốn khi lấy danh sách vai trò.");
+          setError(t("roles.systemError"));
         }
       } finally {
         if (isMounted) {
@@ -203,7 +214,7 @@ export default function RolesTable() {
     };
 
     setRoles([newRole, ...roles]);
-    showToast(`Successfully created role "${newRole.name}"!`);
+    showToast(t("roles.createSuccess", { name: newRole.name }));
     
     // Reset form fields
     setNewRoleName("");
@@ -241,7 +252,7 @@ export default function RolesTable() {
               : r
           )
         );
-        showToast(`Cập nhật quyền thành công cho vai trò "${selectedRoleForPermissions.name}"!`);
+        showToast(t("roles.updateSuccess", { name: selectedRoleForPermissions.name }));
         setIsPermissionsModalOpen(false);
         setSelectedRoleForPermissions(null);
 
@@ -256,11 +267,11 @@ export default function RolesTable() {
           }
         }
       } else {
-        showToast(response.message || "Không thể cập nhật quyền hạn.");
+        showToast(response.message || t("roles.updateError"));
       }
     } catch (err) {
       console.error(err);
-      showToast("Đã xảy ra lỗi hệ thống khi cập nhật quyền.");
+      showToast(t("roles.systemError"));
     }
   };
 
@@ -377,7 +388,7 @@ export default function RolesTable() {
       {/* Table Header Controls */}
       <div className="flex flex-col gap-3 px-6 py-5 border-b border-gray-100 dark:border-white/[0.05] sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500 dark:text-gray-400">Show</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">{t("roles.show")}</span>
           <div className="relative z-20 bg-transparent">
             <select
               className="w-full py-2 pl-3 pr-8 text-sm text-gray-800 bg-transparent border border-gray-300 rounded-lg appearance-none dark:bg-dark-900 h-9 bg-none shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
@@ -416,7 +427,7 @@ export default function RolesTable() {
               </svg>
             </span>
           </div>
-          <span className="text-sm text-gray-500 dark:text-gray-400">entries</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">{t("roles.entries")}</span>
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -446,7 +457,7 @@ export default function RolesTable() {
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              placeholder="Search roles..."
+              placeholder={t("roles.searchPlaceholder")}
               className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent py-2.5 pl-11 pr-4 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[250px]"
             />
           </div>
@@ -470,7 +481,7 @@ export default function RolesTable() {
                 strokeLinejoin="round"
               />
             </svg>
-            Add Role
+            {t("roles.addRole")}
           </button>
         </div>
       </div>
@@ -481,11 +492,11 @@ export default function RolesTable() {
           <TableHeader className="border-b border-gray-100 dark:border-white/[0.05] bg-gray-50 dark:bg-white/[0.02]">
             <TableRow>
               {[
-                { key: "name", label: "Role Name" },
-                { key: "description", label: "Description" },
-                { key: "permissionsCount", label: "Permissions Count" },
-                { key: "status", label: "Status" },
-                { key: "createdAt", label: "Created At" },
+                { key: "name", label: t("roles.colName") },
+                { key: "description", label: t("roles.colDescription") },
+                { key: "permissionsCount", label: t("roles.colPermissions") },
+                { key: "status", label: t("roles.colStatus") },
+                { key: "createdAt", label: t("roles.colCreatedAt") },
               ].map(({ key, label }) => (
                 <TableCell
                   key={key}
@@ -519,7 +530,7 @@ export default function RolesTable() {
                 </TableCell>
               ))}
               <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 text-theme-sm dark:text-gray-200">
-                Actions
+                {t("roles.colActions")}
               </TableCell>
             </TableRow>
           </TableHeader>
@@ -568,7 +579,7 @@ export default function RolesTable() {
                   </TableCell>
                   <TableCell className="px-6 py-4 text-gray-900 dark:text-white text-center whitespace-nowrap">
                     <span className="inline-flex items-center justify-center px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-gray-200">
-                      {role.permissions?.length || 0} permissions
+                      {t("roles.permissionsCount", { count: role.permissions?.length || 0 })}
                     </span>
                   </TableCell>
                   <TableCell className="px-6 py-4 whitespace-nowrap">
@@ -577,7 +588,7 @@ export default function RolesTable() {
                       color={role.status === "Active" ? "success" : "error"}
                       size="sm"
                     >
-                      {role.status}
+                      {role.status === "Active" ? t("roles.statusActive") : t("roles.statusInactive")}
                     </Badge>
                   </TableCell>
                   <TableCell className="px-6 py-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">
@@ -587,7 +598,7 @@ export default function RolesTable() {
                     <div className="flex items-center justify-center gap-2">
                       <button
                         onClick={() => openPermissionsModal(role)}
-                        title="Assign Permissions"
+                        title={t("roles.editPermissionsTooltip")}
                         className="p-1.5 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
                       >
                         {/* Gear/cogwheel SVG */}
@@ -612,13 +623,13 @@ export default function RolesTable() {
                         </svg>
                       </button>
                       <button
-                        title="Edit Role"
+                        title={t("roles.editTooltip")}
                         className="p-1.5 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
                       >
                         <PencilIcon className="w-4 h-4" />
                       </button>
                       <button
-                        title="Delete Role"
+                        title={t("roles.deleteTooltip")}
                         className="p-1.5 text-gray-500 hover:text-error-500 dark:text-gray-400 dark:hover:text-error-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
                       >
                         <TrashBinIcon className="w-4 h-4" />
@@ -630,7 +641,7 @@ export default function RolesTable() {
             ) : (
               <TableRow>
                 <TableCell colSpan={6} className="px-6 py-10 text-center text-gray-500 dark:text-gray-400">
-                  Không tìm thấy vai trò nào.
+                  {t("roles.noResults")}
                 </TableCell>
               </TableRow>
             )}
@@ -642,7 +653,7 @@ export default function RolesTable() {
       <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between px-6 py-5 bg-gray-50/50 dark:bg-white/[0.01] border-t border-gray-100 dark:border-white/[0.05]">
         <div className="pb-3 xl:pb-0">
           <p className="text-sm font-medium text-center text-gray-500 dark:text-gray-400 xl:text-left">
-            Showing {totalItems === 0 ? 0 : startIndex + 1} to {endIndex} of {totalItems} entries
+            {t("roles.showing", { start: totalItems === 0 ? 0 : startIndex + 1, end: endIndex, total: totalItems })}
           </p>
         </div>
         {totalPages > 1 && (
@@ -662,10 +673,10 @@ export default function RolesTable() {
       >
         <div className="flex flex-col gap-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Add New Role
+            {t("roles.createTitle")}
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Define a new role and configure its initial status.
+            {t("roles.createDesc")}
           </p>
 
           <form onSubmit={handleAddRoleSubmit} className="mt-2 flex flex-col">
@@ -674,26 +685,26 @@ export default function RolesTable() {
               <div className="flex-1 space-y-4">
                 <div>
               <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Role Name <span className="text-error-500">*</span>
+                {t("roles.formNameLabel")} <span className="text-error-500">*</span>
               </label>
               <input
                 type="text"
                 required
                 value={newRoleName}
                 onChange={(e) => setNewRoleName(e.target.value)}
-                placeholder="e.g. Moderator"
+                placeholder={t("roles.formNamePlaceholder")}
                 className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs"
               />
             </div>
 
             <div>
               <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Description
+                {t("roles.formDescLabel")}
               </label>
               <textarea
                 value={newRoleDesc}
                 onChange={(e) => setNewRoleDesc(e.target.value)}
-                placeholder="Brief description of role responsibilities..."
+                placeholder={t("roles.formDescPlaceholder")}
                 rows={3}
                 className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs resize-none"
               />
@@ -701,7 +712,7 @@ export default function RolesTable() {
 
             <div>
               <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Status
+                {t("roles.formStatusLabel")}
               </label>
               <div className="relative z-20 bg-transparent">
                 <select
@@ -709,8 +720,8 @@ export default function RolesTable() {
                   onChange={(e) => setNewRoleStatus(e.target.value as "Active" | "Inactive")}
                   className="w-full py-2.5 pl-3 pr-8 text-sm text-gray-800 bg-transparent border border-gray-300 rounded-lg appearance-none dark:bg-dark-900 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                 >
-                  <option value="Active" className="dark:bg-gray-900 text-gray-800 dark:text-white">Active</option>
-                  <option value="Inactive" className="dark:bg-gray-900 text-gray-800 dark:text-white">Inactive</option>
+                  <option value="Active" className="dark:bg-gray-900 text-gray-800 dark:text-white">{t("roles.statusActive")}</option>
+                  <option value="Inactive" className="dark:bg-gray-900 text-gray-800 dark:text-white">{t("roles.statusInactive")}</option>
                 </select>
                 <span className="absolute z-30 text-gray-500 -translate-y-1/2 right-3 top-1/2 dark:text-gray-400 pointer-events-none">
                   <svg
@@ -738,7 +749,7 @@ export default function RolesTable() {
           <div className="flex-[1.2] flex flex-col min-h-0">
             <div>
               <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Quyền hạn
+                {t("roles.permissionsLabel")}
               </label>
               <div className="border border-gray-200 dark:border-white/[0.05] rounded-xl p-4 bg-gray-50/20 dark:bg-white/[0.01] max-h-[300px] overflow-y-auto space-y-4 custom-scrollbar">
                 {dynamicPermissionTree.length > 0 ? (
@@ -834,7 +845,7 @@ export default function RolesTable() {
                     );
                   })
                 ) : (
-                  <p className="text-xs text-gray-500 text-center py-4">Đang tải danh sách quyền...</p>
+                  <p className="text-xs text-gray-500 text-center py-4">{t("roles.loadingPermissions", { defaultValue: "Đang tải danh sách quyền..." })}</p>
                 )}
               </div>
             </div>
@@ -847,13 +858,13 @@ export default function RolesTable() {
                 onClick={() => setIsModalOpen(false)}
                 className="px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
               >
-                Cancel
+                {t("roles.btnCancel")}
               </button>
               <button
                 type="submit"
                 className="px-4 py-2.5 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 transition-colors shadow-theme-xs"
               >
-                Create Role
+                {t("roles.btnSave")}
               </button>
             </div>
           </form>
@@ -870,10 +881,10 @@ export default function RolesTable() {
           <div className="flex items-start justify-between">
             <div>
               <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                Gán Quyền Hạn
+                {t("roles.permissionsModalTitle")}
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Thiết lập quyền truy cập cho vai trò: <strong className="text-brand-500">{selectedRoleForPermissions?.name}</strong>
+                {t("roles.permissionsModalDesc", { name: selectedRoleForPermissions?.name || "" })}
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -881,14 +892,14 @@ export default function RolesTable() {
                 onClick={expandAllCategories}
                 className="text-xs font-semibold text-brand-500 hover:underline"
               >
-                Expand All
+                {t("roles.expandAll", { defaultValue: "Mở rộng tất cả" })}
               </button>
               <span className="text-gray-300 dark:text-gray-700">|</span>
               <button
                 onClick={collapseAllCategories}
                 className="text-xs font-semibold text-brand-500 hover:underline"
               >
-                Collapse All
+                {t("roles.collapseAll", { defaultValue: "Thu gọn tất cả" })}
               </button>
             </div>
           </div>
@@ -999,7 +1010,7 @@ export default function RolesTable() {
                 );
               })
             ) : (
-              <p className="text-sm text-gray-500 text-center py-6">Đang tải danh sách quyền...</p>
+              <p className="text-sm text-gray-500 text-center py-6">{t("roles.loadingPermissions", { defaultValue: "Đang tải danh sách quyền..." })}</p>
             )}
           </div>
 
@@ -1011,13 +1022,13 @@ export default function RolesTable() {
               onClick={() => setIsPermissionsModalOpen(false)}
               className="px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
             >
-              Hủy
+              {t("roles.btnCancel")}
             </button>
             <button
               onClick={handleSavePermissions}
               className="px-5 py-2.5 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 transition-colors shadow-theme-xs"
             >
-              Lưu Thay Đổi
+              {t("roles.btnSavePermissions")}
             </button>
           </div>
         </div>

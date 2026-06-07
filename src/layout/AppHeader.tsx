@@ -1,5 +1,6 @@
 "use client";
 import { ThemeToggleButton } from "@/components/common/ThemeToggleButton";
+import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
 import NotificationDropdown from "@/components/header/NotificationDropdown";
 import UserDropdown from "@/components/header/UserDropdown";
 import { useSidebar } from "@/context/SidebarContext";
@@ -163,6 +164,7 @@ const AppHeader: React.FC = () => {
           } items-center justify-between w-full gap-4 px-5 py-4 xl:flex shadow-theme-md xl:justify-end xl:px-0 xl:shadow-none`}
         >
           <div className="flex items-center gap-2 2xsm:gap-3">
+            <LanguageSwitcher />
             {/* <!-- Dark Mode Toggler --> */}
             <ThemeToggleButton />
             {/* <!-- Dark Mode Toggler --> */}

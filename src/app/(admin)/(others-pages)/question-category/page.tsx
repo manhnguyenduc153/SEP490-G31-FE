@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function QuestionCategoryPage() {
   return (
     <div>
-      <PageBreadcrumb pageTitle="Danh mục câu hỏi" />
+      <PageBreadcrumb pageTitle="questionCategory.title" />
       <div className="space-y-6">
         <QuestionCategoryTable />
       </div>
