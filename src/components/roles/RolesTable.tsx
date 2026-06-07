@@ -154,7 +154,7 @@ export default function RolesTable() {
             setTotalRecords(response.data.totalRecords || 0);
             setTotalPages(response.data.totalPages || 0);
           } else {
-            setError(response.message || t("roles.systemError"));
+            setError(response.message ? t(`backendMessages.${response.message}`, { defaultValue: response.message }) : t("roles.systemError"));
           }
         }
       } catch {
@@ -267,7 +267,7 @@ export default function RolesTable() {
           }
         }
       } else {
-        showToast(response.message || t("roles.updateError"));
+        showToast(response.message ? t(`backendMessages.${response.message}`, { defaultValue: response.message }) : t("roles.updateError"));
       }
     } catch (err) {
       console.error(err);
@@ -800,7 +800,7 @@ export default function RolesTable() {
                             </div>
 
                             <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                              {category.name}
+                              {t(`permissions.category.${category.name}`, { defaultValue: category.name })}
                             </span>
                           </div>
                           <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-500">
@@ -830,12 +830,9 @@ export default function RolesTable() {
                                       )}
                                     </div>
                                     <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                                      {child.name}
+                                      {t(`permissions.action.${child.name}`, { defaultValue: child.name })}
                                     </span>
                                   </div>
-                                  <code className="text-[10px] text-gray-400 font-mono bg-gray-50 dark:bg-white/[0.02] px-1 py-0.5 rounded border border-gray-100 dark:border-white/[0.02]">
-                                    {child.id}
-                                  </code>
                                 </div>
                               );
                             })}
@@ -961,7 +958,7 @@ export default function RolesTable() {
 
                         {/* Category Label */}
                         <span className="font-semibold text-gray-800 dark:text-gray-200">
-                          {category.name}
+                          {t(`permissions.category.${category.name}`, { defaultValue: category.name })}
                         </span>
                       </div>
 
@@ -995,14 +992,11 @@ export default function RolesTable() {
                                   )}
                                 </div>
                                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                  {child.name}
+                                  {t(`permissions.action.${child.name}`, { defaultValue: child.name })}
                                 </span>
+                                </div>
                               </div>
-                              <code className="text-xs text-gray-400 dark:text-gray-500 font-mono bg-gray-50 dark:bg-white/[0.02] px-1.5 py-0.5 rounded border border-gray-100 dark:border-white/[0.02]">
-                                {child.id}
-                              </code>
-                            </div>
-                          );
+                            );
                         })}
                       </div>
                     )}

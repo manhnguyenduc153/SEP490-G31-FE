@@ -114,10 +114,10 @@ export default function QuestionCategoryTable() {
           setTotalRecords(res.data.totalRecords || 0);
           setTotalPages(res.data.totalPages || 0);
         } else {
-          setError(res.message || "Không thể lấy danh sách danh mục câu hỏi.");
+          setError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("questionCategory.systemError"));
         }
       } catch {
-        if (mounted) setError("Đã xảy ra lỗi khi lấy danh sách danh mục câu hỏi.");
+        if (mounted) setError(t("questionCategory.systemError"));
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -172,11 +172,11 @@ export default function QuestionCategoryTable() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formCode.trim()) {
-      setFormError("Mã danh mục không được để trống.");
+      setFormError(t("backendMessages.ERR_CODE_EMPTY"));
       return;
     }
     if (!formName.trim()) {
-      setFormError("Tên danh mục không được để trống.");
+      setFormError(t("backendMessages.ERR_NAME_EMPTY"));
       return;
     }
     setIsSubmitting(true);
@@ -194,10 +194,10 @@ export default function QuestionCategoryTable() {
           setItems((prev) =>
             prev.map((i) => (i.id === editingItem.id ? res.data : i))
           );
-          showToast(`Cập nhật danh mục "${res.data.name}" thành công!`);
+          showToast(t("questionCategory.updateSuccess", { name: res.data.name }));
           setIsModalOpen(false);
         } else {
-          setFormError(res.message || "Cập nhật thất bại.");
+          setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("questionCategory.updateError"));
         }
       } else {
         // Create
@@ -211,14 +211,14 @@ export default function QuestionCategoryTable() {
           setSearchTerm("");
           setDebouncedSearchTerm("");
           triggerRefresh();
-          showToast(`Tạo danh mục "${res.data.name}" thành công!`);
+          showToast(t("questionCategory.createSuccess", { name: res.data.name }));
           setIsModalOpen(false);
         } else {
-          setFormError(res.message || "Tạo mới thất bại.");
+          setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("questionCategory.createError"));
         }
       }
     } catch {
-      setFormError("Đã xảy ra lỗi không mong muốn.");
+      setFormError(t("questionCategory.systemError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -237,15 +237,15 @@ export default function QuestionCategoryTable() {
     try {
       const res = await questionCategoryApi.delete(deleteTarget.id);
       if (res.success) {
-        showToast(`Đã xóa danh mục "${deleteTarget.name}".`);
+        showToast(t("questionCategory.deleteSuccess", { name: deleteTarget.name }));
         setIsDeleteModalOpen(false);
         setDeleteTarget(null);
         triggerRefresh(); // ép re-fetch để đồng bộ pagination
       } else {
-        showToast(res.message || "Xóa thất bại.", "error");
+        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("questionCategory.deleteError"), "error");
       }
     } catch {
-      showToast("Đã xảy ra lỗi khi xóa.", "error");
+      showToast(t("questionCategory.systemError"), "error");
     } finally {
       setIsDeleting(false);
     }
@@ -444,7 +444,7 @@ export default function QuestionCategoryTable() {
                   <TableCell className="px-6 py-4 text-gray-600 dark:text-gray-400 max-w-[420px] truncate">
                     {item.description || (
                       <span className="italic text-gray-400 dark:text-gray-600">
-                        Không có mô tả
+                        {t("questionCategory.noDescription", { defaultValue: "Không có mô tả" })}
                       </span>
                     )}
                   </TableCell>
@@ -478,7 +478,7 @@ export default function QuestionCategoryTable() {
                   colSpan={4}
                   className="px-6 py-10 text-center text-gray-500 dark:text-gray-400"
                 >
-                  Không tìm thấy danh mục câu hỏi nào.
+                  {t("questionCategory.noResults", { defaultValue: "Không tìm thấy danh mục câu hỏi nào." })}
                 </TableCell>
               </TableRow>
             )}
@@ -490,8 +490,7 @@ export default function QuestionCategoryTable() {
       <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between px-6 py-5 bg-gray-50/50 dark:bg-white/[0.01] border-t border-gray-100 dark:border-white/[0.05]">
         <div className="pb-3 xl:pb-0">
           <p className="text-sm font-medium text-center text-gray-500 dark:text-gray-400 xl:text-left">
-            Hiển thị {totalRecords === 0 ? 0 : startIndex + 1} đến {endIndex} trong tổng số{" "}
-            {totalRecords} mục
+            {t("questionCategory.showing", { start: totalRecords === 0 ? 0 : startIndex + 1, end: endIndex, total: totalRecords, defaultValue: `Hiển thị ${totalRecords === 0 ? 0 : startIndex + 1} đến ${endIndex} trong tổng số ${totalRecords} mục` })}
           </p>
         </div>
         {totalPages > 1 && (
@@ -511,19 +510,19 @@ export default function QuestionCategoryTable() {
       >
         <div className="flex flex-col gap-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            {editingItem ? "Chỉnh sửa danh mục câu hỏi" : "Thêm danh mục câu hỏi"}
+            {editingItem ? t("questionCategory.editTitle", { defaultValue: "Chỉnh sửa danh mục câu hỏi" }) : t("questionCategory.createTitle", { defaultValue: "Thêm danh mục câu hỏi" })}
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {editingItem
-              ? "Cập nhật thông tin danh mục câu hỏi."
-              : "Điền thông tin để tạo danh mục câu hỏi mới."}
+              ? t("questionCategory.editDesc", { defaultValue: "Cập nhật thông tin danh mục câu hỏi." })
+              : t("questionCategory.createDesc", { defaultValue: "Điền thông tin để tạo danh mục câu hỏi mới." })}
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4 mt-2">
             {/* Code */}
             <div>
               <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Mã danh mục <span className="text-error-500">*</span>
+                {t("questionCategory.formCodeLabel", { defaultValue: "Mã danh mục" })} <span className="text-error-500">*</span>
               </label>
               <input
                 type="text"
@@ -531,7 +530,7 @@ export default function QuestionCategoryTable() {
                 maxLength={50}
                 value={formCode}
                 onChange={(e) => setFormCode(e.target.value)}
-                placeholder="VD: MATH, LITERATURE..."
+                placeholder={t("questionCategory.formCodePlaceholder", { defaultValue: "VD: MATH, LITERATURE..." })}
                 className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs"
               />
             </div>
@@ -539,7 +538,7 @@ export default function QuestionCategoryTable() {
             {/* Name */}
             <div>
               <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Tên danh mục <span className="text-error-500">*</span>
+                {t("questionCategory.formNameLabel", { defaultValue: "Tên danh mục" })} <span className="text-error-500">*</span>
               </label>
               <input
                 type="text"
@@ -547,7 +546,7 @@ export default function QuestionCategoryTable() {
                 maxLength={200}
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
-                placeholder="VD: Toán học, Ngữ văn..."
+                placeholder={t("questionCategory.formNamePlaceholder", { defaultValue: "VD: Toán học, Ngữ văn..." })}
                 className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs"
               />
             </div>
@@ -555,12 +554,12 @@ export default function QuestionCategoryTable() {
             {/* Description */}
             <div>
               <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Mô tả
+                {t("questionCategory.formDescLabel", { defaultValue: "Mô tả" })}
               </label>
               <textarea
                 value={formDesc}
                 onChange={(e) => setFormDesc(e.target.value)}
-                placeholder="Mô tả ngắn về danh mục (không bắt buộc)..."
+                placeholder={t("questionCategory.formDescPlaceholder", { defaultValue: "Mô tả ngắn về danh mục (không bắt buộc)..." })}
                 rows={3}
                 maxLength={500}
                 className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs resize-none"
@@ -579,7 +578,7 @@ export default function QuestionCategoryTable() {
                 onClick={() => setIsModalOpen(false)}
                 className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700 transition-colors"
               >
-                Hủy
+                {t("questionCategory.btnCancel", { defaultValue: "Hủy" })}
               </button>
               <button
                 type="submit"
@@ -587,10 +586,10 @@ export default function QuestionCategoryTable() {
                 className="px-4 py-2.5 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
               >
                 {isSubmitting
-                  ? "Đang lưu..."
+                  ? t("questionCategory.btnSaving", { defaultValue: "Đang lưu..." })
                   : editingItem
-                  ? "Cập nhật"
-                  : "Tạo mới"}
+                  ? t("questionCategory.btnUpdate", { defaultValue: "Cập nhật" })
+                  : t("questionCategory.btnSave", { defaultValue: "Tạo mới" })}
               </button>
             </div>
           </form>
@@ -608,28 +607,24 @@ export default function QuestionCategoryTable() {
             <TrashBinIcon className="w-6 h-6 text-error-500" />
           </div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Xác nhận xóa
+            {t("questionCategory.deleteConfirmTitle", { defaultValue: "Xác nhận xóa" })}
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Bạn có chắc chắn muốn xóa danh mục{" "}
-            <span className="font-semibold text-gray-800 dark:text-white">
-              &ldquo;{deleteTarget?.name}&rdquo;
-            </span>
-            ? Hành động này không thể hoàn tác.
+            {t("questionCategory.deleteConfirmDesc", { name: deleteTarget?.name, defaultValue: `Bạn có chắc chắn muốn xóa danh mục "${deleteTarget?.name}"? Hành động này không thể hoàn tác.` })}
           </p>
           <div className="flex gap-3 mt-2 w-full">
             <button
               onClick={() => setIsDeleteModalOpen(false)}
               className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700 transition-colors"
             >
-              Hủy
+              {t("questionCategory.btnCancel", { defaultValue: "Hủy" })}
             </button>
             <button
               onClick={handleDelete}
               disabled={isDeleting}
               className="flex-1 px-4 py-2.5 text-sm font-medium text-white rounded-lg bg-error-500 hover:bg-error-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
             >
-              {isDeleting ? "Đang xóa..." : "Xóa"}
+              {isDeleting ? t("questionCategory.btnDeleting", { defaultValue: "Đang xóa..." }) : t("questionCategory.btnDelete", { defaultValue: "Xóa" })}
             </button>
           </div>
         </div>

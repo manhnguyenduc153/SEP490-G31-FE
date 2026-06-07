@@ -8,6 +8,7 @@ import Link from "next/link";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { authApi } from "@/services/auth.api";
+import { useTranslation } from "react-i18next";
 
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -19,11 +20,12 @@ export default function SignInForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { t } = useTranslation();
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
-      setError("Vui lòng điền đầy đủ tên đăng nhập và mật khẩu.");
+      setError(t("backendMessages.ERR_INVALID_CREDENTIALS", { defaultValue: "Vui lòng điền đầy đủ tên đăng nhập và mật khẩu." }));
       return;
     }
 
@@ -39,10 +41,10 @@ export default function SignInForm() {
       if (res.success) {
         router.push("/");
       } else {
-        setError(res.message || "Tên đăng nhập hoặc mật khẩu không chính xác.");
+        setError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("backendMessages.ERR_INVALID_CREDENTIALS", { defaultValue: "Tên đăng nhập hoặc mật khẩu không chính xác." }));
       }
     } catch {
-      setError("Đã xảy ra lỗi kết nối với máy chủ.");
+      setError(t("roles.systemError", { defaultValue: "Đã xảy ra lỗi kết nối với máy chủ." }));
     } finally {
       setLoading(false);
     }

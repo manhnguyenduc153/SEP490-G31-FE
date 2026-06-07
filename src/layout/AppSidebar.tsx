@@ -337,7 +337,7 @@ const AppSidebar: React.FC = () => {
                   {nav.icon}
                 </span>
                 {(isExpanded || isHovered || isMobileOpen) && (
-                  <span className={`menu-item-text`}>
+                  <span className={`menu-item-text`} suppressHydrationWarning>
                     {menuType === "school" ? t(`sidebar.${nav.name}`) : nav.name}
                   </span>
                 )}
@@ -382,7 +382,7 @@ const AppSidebar: React.FC = () => {
                     {nav.icon}
                   </span>
                   {(isExpanded || isHovered || isMobileOpen) && (
-                    <span className={`menu-item-text`}>
+                    <span className={`menu-item-text`} suppressHydrationWarning>
                       {menuType === "school" ? t(`sidebar.${nav.name}`) : nav.name}
                     </span>
                   )}
@@ -425,7 +425,9 @@ const AppSidebar: React.FC = () => {
                               : "menu-dropdown-item-inactive"
                           }`}
                         >
-                          {menuType === "school" ? t(`sidebar.${subItem.name}`) : subItem.name}
+                          <span suppressHydrationWarning>
+                            {menuType === "school" ? t(`sidebar.${subItem.name}`) : subItem.name}
+                          </span>
                           <span className="flex items-center gap-1 ml-auto">
                             {subItem.new && (
                               <span

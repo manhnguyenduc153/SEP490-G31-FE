@@ -16,6 +16,7 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({ pageTitle }) => {
       <h2
         className="text-xl font-semibold text-gray-800 dark:text-white/90"
         x-text="pageName"
+        suppressHydrationWarning
       >
         {translatedTitle}
       </h2>
@@ -26,7 +27,7 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({ pageTitle }) => {
               className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400"
               href="/"
             >
-              {t("common.home", { defaultValue: "Home" })}
+              <span suppressHydrationWarning>{t("common.home", { defaultValue: "Home" })}</span>
               <svg
                 className="stroke-current"
                 width="17"
@@ -45,7 +46,7 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({ pageTitle }) => {
               </svg>
             </Link>
           </li>
-          <li className="text-sm text-gray-800 dark:text-white/90">
+          <li className="text-sm text-gray-800 dark:text-white/90" suppressHydrationWarning>
             {translatedTitle}
           </li>
         </ol>
