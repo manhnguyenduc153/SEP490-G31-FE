@@ -94,6 +94,7 @@ export const authApi = {
       const perms = localStorage.getItem("permissions");
       if (perms) {
         try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           let parsedPerms: any = JSON.parse(perms);
           if (typeof parsedPerms === "string") {
             parsedPerms = [parsedPerms];

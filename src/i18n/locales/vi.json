@@ -71,7 +71,12 @@
     "systemError": "Đã xảy ra lỗi hệ thống."
   },
   "common": {
-    "home": "Trang chủ"
+    "home": "Trang chủ",
+    "deleteConfirmTitle": "Xác nhận xóa",
+    "deleteConfirmDesc": "Bạn có chắc chắn muốn xóa \"{{name}}\"? Hành động này không thể hoàn tác.",
+    "btnCancel": "Hủy",
+    "btnDelete": "Xóa",
+    "btnDeleting": "Đang xóa..."
   },
   "roles": {
     "title": "Quản lý vai trò",

@@ -71,7 +71,12 @@
     "systemError": "System error occurred."
   },
   "common": {
-    "home": "Home"
+    "home": "Home",
+    "deleteConfirmTitle": "Confirm Delete",
+    "deleteConfirmDesc": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
+    "btnCancel": "Cancel",
+    "btnDelete": "Delete",
+    "btnDeleting": "Deleting..."
   },
   "roles": {
     "title": "Role Management",

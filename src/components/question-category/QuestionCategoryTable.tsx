@@ -10,7 +10,8 @@ import {
 } from "@/components/ui/table";
 import { AngleDownIcon, AngleUpIcon, PencilIcon, TrashBinIcon } from "@/icons";
 import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
-import { Modal } from "@/components/ui/modal";
+import { CategoryFormModal } from "./CategoryFormModal";
+import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
 import {
   questionCategoryApi,
   QuestionCategoryItem,
@@ -503,132 +504,30 @@ export default function QuestionCategoryTable() {
       </div>
 
       {/* ── Create / Edit Modal ── */}
-      <Modal
+      <CategoryFormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        className="max-w-[520px] p-6 sm:p-8"
-      >
-        <div className="flex flex-col gap-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            {editingItem ? t("questionCategory.editTitle", { defaultValue: "Chỉnh sửa danh mục câu hỏi" }) : t("questionCategory.createTitle", { defaultValue: "Thêm danh mục câu hỏi" })}
-          </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {editingItem
-              ? t("questionCategory.editDesc", { defaultValue: "Cập nhật thông tin danh mục câu hỏi." })
-              : t("questionCategory.createDesc", { defaultValue: "Điền thông tin để tạo danh mục câu hỏi mới." })}
-          </p>
-
-          <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-            {/* Code */}
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                {t("questionCategory.formCodeLabel", { defaultValue: "Mã danh mục" })} <span className="text-error-500">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                maxLength={50}
-                value={formCode}
-                onChange={(e) => setFormCode(e.target.value)}
-                placeholder={t("questionCategory.formCodePlaceholder", { defaultValue: "VD: MATH, LITERATURE..." })}
-                className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs"
-              />
-            </div>
-
-            {/* Name */}
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                {t("questionCategory.formNameLabel", { defaultValue: "Tên danh mục" })} <span className="text-error-500">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                maxLength={200}
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-                placeholder={t("questionCategory.formNamePlaceholder", { defaultValue: "VD: Toán học, Ngữ văn..." })}
-                className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs"
-              />
-            </div>
-
-            {/* Description */}
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                {t("questionCategory.formDescLabel", { defaultValue: "Mô tả" })}
-              </label>
-              <textarea
-                value={formDesc}
-                onChange={(e) => setFormDesc(e.target.value)}
-                placeholder={t("questionCategory.formDescPlaceholder", { defaultValue: "Mô tả ngắn về danh mục (không bắt buộc)..." })}
-                rows={3}
-                maxLength={500}
-                className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs resize-none"
-              />
-            </div>
-
-            {/* Form-level error */}
-            {formError && (
-              <p className="text-sm text-error-500 dark:text-error-400">{formError}</p>
-            )}
-
-            {/* Buttons */}
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700 transition-colors"
-              >
-                {t("questionCategory.btnCancel", { defaultValue: "Hủy" })}
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="px-4 py-2.5 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-              >
-                {isSubmitting
-                  ? t("questionCategory.btnSaving", { defaultValue: "Đang lưu..." })
-                  : editingItem
-                  ? t("questionCategory.btnUpdate", { defaultValue: "Cập nhật" })
-                  : t("questionCategory.btnSave", { defaultValue: "Tạo mới" })}
-              </button>
-            </div>
-          </form>
-        </div>
-      </Modal>
+        t={t}
+        editingItem={editingItem}
+        formCode={formCode}
+        setFormCode={setFormCode}
+        formName={formName}
+        setFormName={setFormName}
+        formDesc={formDesc}
+        setFormDesc={setFormDesc}
+        formError={formError}
+        isSubmitting={isSubmitting}
+        handleSubmit={handleSubmit}
+      />
 
       {/* ── Delete Confirm Modal ── */}
-      <Modal
+      <DeleteConfirmModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
-        className="max-w-[420px] p-6 sm:p-8"
-      >
-        <div className="flex flex-col items-center gap-4 text-center">
-          <div className="flex items-center justify-center w-14 h-14 rounded-full bg-error-50 dark:bg-error-500/10">
-            <TrashBinIcon className="w-6 h-6 text-error-500" />
-          </div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            {t("questionCategory.deleteConfirmTitle", { defaultValue: "Xác nhận xóa" })}
-          </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t("questionCategory.deleteConfirmDesc", { name: deleteTarget?.name, defaultValue: `Bạn có chắc chắn muốn xóa danh mục "${deleteTarget?.name}"? Hành động này không thể hoàn tác.` })}
-          </p>
-          <div className="flex gap-3 mt-2 w-full">
-            <button
-              onClick={() => setIsDeleteModalOpen(false)}
-              className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700 transition-colors"
-            >
-              {t("questionCategory.btnCancel", { defaultValue: "Hủy" })}
-            </button>
-            <button
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className="flex-1 px-4 py-2.5 text-sm font-medium text-white rounded-lg bg-error-500 hover:bg-error-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-            >
-              {isDeleting ? t("questionCategory.btnDeleting", { defaultValue: "Đang xóa..." }) : t("questionCategory.btnDelete", { defaultValue: "Xóa" })}
-            </button>
-          </div>
-        </div>
-      </Modal>
+        itemName={deleteTarget?.name}
+        isDeleting={isDeleting}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

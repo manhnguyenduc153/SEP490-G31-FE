@@ -21,7 +21,7 @@ export default function Error403() {
         </h2>
 
         <p className="mt-10 mb-6 text-base text-gray-700 dark:text-gray-400 sm:text-lg">
-          You don't have permission to access this page. Please contact the administrator.
+          You don&apos;t have permission to access this page. Please contact the administrator.
         </p>
 
         <Link

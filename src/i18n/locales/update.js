@@ -1,6 +1,15 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const fs = require('fs');
 const viPath = 'd:/SEP490-G31/fe/src/i18n/locales/vi.json';
 const viData = JSON.parse(fs.readFileSync(viPath, 'utf8'));
+
+if (!viData.common) viData.common = {};
+viData.common.deleteConfirmTitle = 'Xác nhận xóa';
+viData.common.deleteConfirmDesc = 'Bạn có chắc chắn muốn xóa "{{name}}"? Hành động này không thể hoàn tác.';
+viData.common.btnCancel = 'Hủy';
+viData.common.btnDelete = 'Xóa';
+viData.common.btnDeleting = 'Đang xóa...';
+
 viData.roles = {
   title: 'Quản lý vai trò',
   description: 'Thêm, sửa, xóa và phân quyền cho các vai trò trong hệ thống.',
@@ -103,6 +112,14 @@ fs.writeFileSync(viPath, JSON.stringify(viData, null, 2));
 
 const enPath = 'd:/SEP490-G31/fe/src/i18n/locales/en.json';
 const enData = JSON.parse(fs.readFileSync(enPath, 'utf8'));
+
+if (!enData.common) enData.common = {};
+enData.common.deleteConfirmTitle = 'Confirm Delete';
+enData.common.deleteConfirmDesc = 'Are you sure you want to delete "{{name}}"? This action cannot be undone.';
+enData.common.btnCancel = 'Cancel';
+enData.common.btnDelete = 'Delete';
+enData.common.btnDeleting = 'Deleting...';
+
 enData.roles = {
   title: 'Role Management',
   description: 'Add, edit, delete, and manage permissions for system roles.',

@@ -25,7 +25,6 @@ import {
   TableIcon,
   TaskIcon,
   UserCircleIcon,
-  UserIcon,
   DocsIcon,
 } from "../icons/index";
 import SidebarWidget from "./SidebarWidget";
