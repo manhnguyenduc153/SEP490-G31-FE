@@ -1,6 +1,24 @@
-import { api } from "./api";
+import { api, ApiResponse, parseJwt } from "./api";
 import { ENDPOINTS } from "@/constants/endpoints";
 
+export { parseJwt };
+
+export interface RoleItem {
+  id: string;
+  name: string;
+  description: string;
+  status: "Active" | "Inactive";
+  createdAt: string;
+  permissions: string[];
+}
+
+export interface RolesResponse {
+  pageIndex: number;
+  pageSize: number;
+  totalRecords: number;
+  totalPages: number;
+  items: RoleItem[];
+}
 export interface LoginCredentials {
   username: string;
   password?: string;
@@ -9,26 +27,8 @@ export interface LoginCredentials {
 export interface LoginResponse {
   token: string;
   expiration: string;
+  refreshToken: string;
   username: string;
-}
-
-// Utility to safely decode JWT payload on the client side
-export function parseJwt(token: string) {
-  try {
-    const base64Url = token.split(".")[1];
-    if (!base64Url) return null;
-    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-    const jsonPayload = decodeURIComponent(
-      window
-        .atob(base64)
-        .split("")
-        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-        .join("")
-    );
-    return JSON.parse(jsonPayload);
-  } catch {
-    return null;
-  }
 }
 
 export const authApi = {
@@ -39,6 +39,7 @@ export const authApi = {
       if (typeof window !== "undefined") {
         const token = res.data.token;
         localStorage.setItem("token", token);
+        localStorage.setItem("refreshToken", res.data.refreshToken);
         localStorage.setItem("username", res.data.username);
 
         // Decode JWT to extract role and permissions
@@ -56,9 +57,18 @@ export const authApi = {
     return res;
   },
 
-  logout() {
+  async logout() {
     if (typeof window !== "undefined") {
+      const refreshToken = localStorage.getItem("refreshToken");
+      if (refreshToken) {
+        try {
+          await api.post(ENDPOINTS.AUTH.LOGOUT, { refreshToken });
+        } catch (error) {
+          console.error("Logout API failed:", error);
+        }
+      }
       localStorage.removeItem("token");
+      localStorage.removeItem("refreshToken");
       localStorage.removeItem("username");
       localStorage.removeItem("role");
       localStorage.removeItem("permissions");
@@ -84,8 +94,26 @@ export const authApi = {
       const perms = localStorage.getItem("permissions");
       if (perms) {
         try {
-          return JSON.parse(perms);
-        } catch {
+          let parsedPerms: any = JSON.parse(perms);
+          if (typeof parsedPerms === "string") {
+            parsedPerms = [parsedPerms];
+          }
+          if (!Array.isArray(parsedPerms)) {
+            parsedPerms = [];
+          }
+          const extendedPerms = new Set<string>(parsedPerms);
+          // Auto-inject parent permissions if missing (for backward compatibility)
+          parsedPerms.forEach((perm: string) => {
+            if (perm && typeof perm === "string" && perm.includes(".")) {
+              const parent = perm.split(".")[0];
+              extendedPerms.add(parent);
+            }
+          });
+          const finalPerms = Array.from(extendedPerms);
+          console.log("[DEBUG] getPermissions returning:", finalPerms);
+          return finalPerms;
+        } catch (e) {
+          console.error("Error parsing permissions:", e);
           return [];
         }
       }
@@ -96,5 +124,26 @@ export const authApi = {
   hasPermission(permission: string): boolean {
     const permissions = this.getPermissions();
     return permissions.includes(permission);
+  },
+
+  async getAllRoles(pageIndex: number, pageSize: number, search: string = ""): Promise<ApiResponse<RolesResponse>> {
+    const query = new URLSearchParams({
+      pageIndex: String(pageIndex),
+      pageSize: String(pageSize),
+      search: search,
+    }).toString();
+    return api.get<RolesResponse>(`${ENDPOINTS.AUTH.GET_ALL_ROLES}?${query}`);
+  },
+
+  async getAllPermissions(): Promise<ApiResponse<string[]>> {
+    return api.get<string[]>(ENDPOINTS.AUTH.GET_ALL_PERMISSIONS);
+  },
+
+  async getCurrentPermissions(): Promise<ApiResponse<string[]>> {
+    return api.get<string[]>(ENDPOINTS.AUTH.GET_CURRENT_PERMISSIONS);
+  },
+
+  async assignRolePermissions(roleName: string, permissions: string[]): Promise<ApiResponse<void>> {
+    return api.post<void>(ENDPOINTS.AUTH.ASSIGN_ROLE_PERMISSIONS, { roleName, permissions });
   }
 };

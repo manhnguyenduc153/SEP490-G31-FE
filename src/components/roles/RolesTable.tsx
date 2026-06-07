@@ -13,14 +13,7 @@ import PaginationWithIcon from "@/components/tables/DataTables/TableOne/Paginati
 import Badge from "@/components/ui/badge/Badge";
 import { Modal } from "@/components/ui/modal";
 
-interface RoleItem {
-  id: string;
-  name: string;
-  description: string;
-  status: "Active" | "Inactive";
-  createdAt: string;
-  permissions: string[];
-}
+import { authApi, RoleItem } from "@/services/auth.api";
 
 interface PermissionNode {
   id: string;
@@ -28,169 +21,72 @@ interface PermissionNode {
   children?: PermissionNode[];
 }
 
-const permissionTree: PermissionNode[] = [
-  {
-    id: "Dashboard",
-    name: "Dashboard",
-    children: [
-      { id: "Dashboard.Ecommerce", name: "Ecommerce" },
-      { id: "Dashboard.Analytics", name: "Analytics" },
-      { id: "Dashboard.Marketing", name: "Marketing" },
-      { id: "Dashboard.CRM", name: "CRM" },
-      { id: "Dashboard.Stocks", name: "Stocks" },
-    ],
-  },
-  {
-    id: "Ecommerce",
-    name: "E-commerce",
-    children: [
-      { id: "Product.View", name: "Product View" },
-      { id: "Product.Create", name: "Product Create" },
-      { id: "Product.Edit", name: "Product Edit" },
-      { id: "Product.Delete", name: "Product Delete" },
-      { id: "Billing.View", name: "Billing" },
-      { id: "Invoices.View", name: "Invoices" },
-    ],
-  },
-  {
-    id: "AIAssistant",
-    name: "AI Assistant",
-    children: [
-      { id: "AI.Text", name: "Text Generator" },
-      { id: "AI.Image", name: "Image Generator" },
-      { id: "AI.Code", name: "Code Generator" },
-    ],
-  },
-  {
-    id: "Authorization",
-    name: "Authorization",
-    children: [
-      { id: "Role.View", name: "Role View" },
-      { id: "Role.Manage", name: "Role Manage" },
-      { id: "Permission.View", name: "Permission View" },
-      { id: "Permission.Manage", name: "Permission Manage" },
-    ],
-  },
-  {
-    id: "Support",
-    name: "Support",
-    children: [
-      { id: "Support.List", name: "Support List" },
-      { id: "Support.Reply", name: "Support Reply" },
-      { id: "Support.Chat", name: "Chat" },
-    ],
-  },
-];
+const buildPermissionTree = (permissions: string[]): PermissionNode[] => {
+  const groups: Record<string, PermissionNode> = {};
 
-const initialRoles: RoleItem[] = [
-  {
-    id: "1",
-    name: "Super Admin",
-    description: "Toàn quyền kiểm soát và quản trị hệ thống.",
-    status: "Active",
-    createdAt: "10 Jan, 2026",
-    permissions: [
-      "Dashboard.Ecommerce",
-      "Dashboard.Analytics",
-      "Dashboard.Marketing",
-      "Dashboard.CRM",
-      "Dashboard.Stocks",
-      "Product.View",
-      "Product.Create",
-      "Product.Edit",
-      "Product.Delete",
-      "Billing.View",
-      "Invoices.View",
-      "AI.Text",
-      "AI.Image",
-      "AI.Code",
-      "Role.View",
-      "Role.Manage",
-      "Permission.View",
-      "Permission.Manage",
-      "Support.List",
-      "Support.Reply",
-      "Support.Chat",
-    ],
-  },
-  {
-    id: "2",
-    name: "Admin",
-    description: "Quản lý người dùng, sản phẩm và các cấu hình nghiệp vụ.",
-    status: "Active",
-    createdAt: "12 Jan, 2026",
-    permissions: [
-      "Dashboard.Ecommerce",
-      "Dashboard.Analytics",
-      "Product.View",
-      "Product.Create",
-      "Product.Edit",
-      "Product.Delete",
-      "Role.View",
-      "Role.Manage",
-      "Permission.View",
-      "Permission.Manage",
-    ],
-  },
-  {
-    id: "3",
-    name: "Manager",
-    description: "Quản lý kho hàng, sản phẩm và xem báo cáo thống kê.",
-    status: "Active",
-    createdAt: "15 Jan, 2026",
-    permissions: [
-      "Dashboard.Ecommerce",
-      "Dashboard.Analytics",
-      "Product.View",
-      "Product.Create",
-      "Product.Edit",
-      "Billing.View",
-    ],
-  },
-  {
-    id: "4",
-    name: "Staff",
-    description: "Xem thông tin sản phẩm và cập nhật số lượng tồn kho.",
-    status: "Active",
-    createdAt: "18 Jan, 2026",
-    permissions: [
-      "Dashboard.Ecommerce",
-      "Product.View",
-    ],
-  },
-  {
-    id: "5",
-    name: "User",
-    description: "Khách hàng mua sắm cơ bản, xem lịch sử giao dịch.",
-    status: "Active",
-    createdAt: "20 Jan, 2026",
-    permissions: [
-      "Dashboard.Ecommerce",
-    ],
-  },
-  {
-    id: "6",
-    name: "Guest",
-    description: "Tài khoản khách vãng lai, chỉ được xem danh sách sản phẩm.",
-    status: "Inactive",
-    createdAt: "22 Jan, 2026",
-    permissions: [
-      "Product.View",
-    ],
-  },
-];
+  permissions.forEach((perm) => {
+    if (!perm) return;
+    const parts = perm.split(".");
+    const category = parts[0];
+
+    if (!groups[category]) {
+      groups[category] = { id: category, name: category, children: [] };
+    }
+
+    if (parts.length > 1) {
+      const feature = parts.slice(1).join(".");
+      groups[category].children!.push({
+        id: perm,
+        name: feature || perm,
+      });
+    }
+  });
+
+  return Object.values(groups);
+};
+
 
 type SortKey = "name" | "description" | "status" | "createdAt" | "permissionsCount";
 type SortOrder = "asc" | "desc";
 
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return "";
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+    return date.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
+};
+
 export default function RolesTable() {
-  const [roles, setRoles] = useState<RoleItem[]>(initialRoles);
+  const [roles, setRoles] = useState<RoleItem[]>([]);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   
+  // Permissions API states
+  const [systemPermissions, setSystemPermissions] = useState<string[]>([]);
+  const [currentUserPermissions, setCurrentUserPermissions] = useState<string[]>([]);
+  const [newRolePermissions, setNewRolePermissions] = useState<Set<string>>(new Set());
+
+  const dynamicPermissionTree = useMemo(() => {
+    return buildPermissionTree(systemPermissions);
+  }, [systemPermissions]);
+
   // Add Role Form states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newRoleName, setNewRoleName] = useState("");
@@ -221,6 +117,74 @@ export default function RolesTable() {
     setToastMessage(message);
   };
 
+  // Debounce Search Term
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchTerm]);
+
+  // Fetch Roles from API
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadRoles() {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await authApi.getAllRoles(currentPage, itemsPerPage, debouncedSearchTerm);
+        if (isMounted) {
+          if (response.success && response.data) {
+            setRoles(response.data.items || []);
+            setTotalRecords(response.data.totalRecords || 0);
+            setTotalPages(response.data.totalPages || 0);
+          } else {
+            setError(response.message || "Không thể lấy danh sách vai trò.");
+          }
+        }
+      } catch {
+        if (isMounted) {
+          setError("Đã xảy ra lỗi không mong muốn khi lấy danh sách vai trò.");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadRoles();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentPage, itemsPerPage, debouncedSearchTerm]);
+
+  // Fetch System and User Permissions on mount
+  useEffect(() => {
+    async function loadPermissions() {
+      try {
+        const [allRes, currRes] = await Promise.all([
+          authApi.getAllPermissions(),
+          authApi.getCurrentPermissions(),
+        ]);
+        if (allRes.success && allRes.data) {
+          setSystemPermissions(allRes.data);
+        }
+        if (currRes.success && currRes.data) {
+          setCurrentUserPermissions(currRes.data);
+        }
+      } catch (err) {
+        console.error("Lỗi khi tải danh sách quyền:", err);
+      }
+    }
+    loadPermissions();
+  }, []);
+
   const handleAddRoleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newRoleName.trim()) return;
@@ -235,7 +199,7 @@ export default function RolesTable() {
         month: "short",
         year: "numeric",
       }),
-      permissions: [],
+      permissions: Array.from(newRolePermissions),
     };
 
     setRoles([newRole, ...roles]);
@@ -245,7 +209,13 @@ export default function RolesTable() {
     setNewRoleName("");
     setNewRoleDesc("");
     setNewRoleStatus("Active");
+    setNewRolePermissions(new Set());
     setIsModalOpen(false);
+  };
+
+  const openCreateModal = () => {
+    setNewRolePermissions(new Set(currentUserPermissions));
+    setIsModalOpen(true);
   };
 
   const openPermissionsModal = (role: RoleItem) => {
@@ -254,71 +224,102 @@ export default function RolesTable() {
     setIsPermissionsModalOpen(true);
   };
 
-  const handleSavePermissions = () => {
+  const handleSavePermissions = async () => {
     if (!selectedRoleForPermissions) return;
 
     const updatedPermissions = Array.from(checkedPermissions);
-    setRoles(
-      roles.map((r) =>
-        r.id === selectedRoleForPermissions.id
-          ? { ...r, permissions: updatedPermissions }
-          : r
-      )
-    );
+    try {
+      const response = await authApi.assignRolePermissions(
+        selectedRoleForPermissions.name,
+        updatedPermissions
+      );
+      if (response.success) {
+        setRoles(
+          roles.map((r) =>
+            r.id === selectedRoleForPermissions.id
+              ? { ...r, permissions: updatedPermissions }
+              : r
+          )
+        );
+        showToast(`Cập nhật quyền thành công cho vai trò "${selectedRoleForPermissions.name}"!`);
+        setIsPermissionsModalOpen(false);
+        setSelectedRoleForPermissions(null);
 
-    showToast(`Permissions updated for role "${selectedRoleForPermissions.name}"!`);
-    setIsPermissionsModalOpen(false);
-    setSelectedRoleForPermissions(null);
+        // NẾU người dùng vừa sửa quyền của CHÍNH MÌNH -> Cập nhật lại localStorage và Reload
+        const currentRole = authApi.getRole();
+        if (currentRole === selectedRoleForPermissions.name) {
+          const currentPermsRes = await authApi.getCurrentPermissions();
+          if (currentPermsRes.success && currentPermsRes.data) {
+            localStorage.setItem("permissions", JSON.stringify(currentPermsRes.data));
+            // Reload lại trang để Guard và Sidebar nhận diện quyền mới ngay lập tức
+            window.location.reload();
+          }
+        }
+      } else {
+        showToast(response.message || "Không thể cập nhật quyền hạn.");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Đã xảy ra lỗi hệ thống khi cập nhật quyền.");
+    }
   };
 
   // Checkbox state calculations
-  const getCategorySelectionState = (node: PermissionNode) => {
+  const getCategorySelectionState = (node: PermissionNode, isCreateForm: boolean = false) => {
+    const checkedSet = isCreateForm ? newRolePermissions : checkedPermissions;
     if (!node.children || node.children.length === 0) {
-      return { isChecked: checkedPermissions.has(node.id), isIndeterminate: false };
+      return { isChecked: checkedSet.has(node.id), isIndeterminate: false };
     }
-    const childrenIds = node.children.map((c) => c.id);
-    const checkedCount = childrenIds.filter((id) => checkedPermissions.has(id)).length;
     
-    const isChecked = checkedCount === childrenIds.length;
-    const isIndeterminate = checkedCount > 0 && checkedCount < childrenIds.length;
+    const childrenIds = node.children.map((c) => c.id);
+    const checkedChildrenCount = childrenIds.filter((id) => checkedSet.has(id)).length;
+    const hasParent = checkedSet.has(node.id);
+    
+    const isChecked = hasParent && checkedChildrenCount === childrenIds.length;
+    const isIndeterminate = hasParent && !isChecked;
 
     return { isChecked, isIndeterminate };
   };
 
-  const toggleCategorySelection = (node: PermissionNode) => {
+  const toggleCategorySelection = (node: PermissionNode, isCreateForm: boolean = false) => {
+    const checkedSet = isCreateForm ? newRolePermissions : checkedPermissions;
+    const setChecked = isCreateForm ? setNewRolePermissions : setCheckedPermissions;
+    const next = new Set(checkedSet);
+    
     if (!node.children || node.children.length === 0) {
-      const next = new Set(checkedPermissions);
-      if (next.has(node.id)) {
-        next.delete(node.id);
-      } else {
-        next.add(node.id);
-      }
-      setCheckedPermissions(next);
+      if (next.has(node.id)) next.delete(node.id);
+      else next.add(node.id);
+      setChecked(next);
       return;
     }
 
-    const { isChecked } = getCategorySelectionState(node);
-    const next = new Set(checkedPermissions);
     const childrenIds = node.children.map((c) => c.id);
 
-    if (isChecked) {
-      // Uncheck all children
+    if (next.has(node.id)) {
+      // Uncheck parent and all children
+      next.delete(node.id);
       childrenIds.forEach((id) => next.delete(id));
     } else {
-      // Check all children
+      // Check parent and all children
+      next.add(node.id);
       childrenIds.forEach((id) => next.add(id));
     }
-    setCheckedPermissions(next);
+    setChecked(next);
   };
 
-  const toggleChildSelection = (childId: string) => {
-    const next = new Set(checkedPermissions);
+  const toggleChildSelection = (childId: string, parentId: string, isCreateForm: boolean = false) => {
+    const checkedSet = isCreateForm ? newRolePermissions : checkedPermissions;
+    const setChecked = isCreateForm ? setNewRolePermissions : setCheckedPermissions;
+    const next = new Set(checkedSet);
+    
     if (next.has(childId)) {
       next.delete(childId);
     } else {
       next.add(childId);
+      // Auto-check parent when a child is checked
+      next.add(parentId);
     }
-    setCheckedPermissions(next);
+    setChecked(next);
   };
 
   const toggleCategoryExpand = (categoryId: string) => {
@@ -332,7 +333,7 @@ export default function RolesTable() {
   };
 
   const expandAllCategories = () => {
-    setExpandedCategories(new Set(permissionTree.map((p) => p.id)));
+    setExpandedCategories(new Set(dynamicPermissionTree.map((p) => p.id)));
   };
 
   const collapseAllCategories = () => {
@@ -340,25 +341,19 @@ export default function RolesTable() {
   };
 
   const filteredAndSortedData = useMemo(() => {
-    return roles
-      .filter((item) =>
-        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.description.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-      .sort((a, b) => {
-        if (sortKey === "permissionsCount") {
-          const aCount = a.permissions?.length || 0;
-          const bCount = b.permissions?.length || 0;
-          return sortOrder === "asc" ? aCount - bCount : bCount - aCount;
-        }
-        return sortOrder === "asc"
-          ? String(a[sortKey]).localeCompare(String(b[sortKey]))
-          : String(b[sortKey]).localeCompare(String(a[sortKey]));
-      });
-  }, [roles, sortKey, sortOrder, searchTerm]);
+    return [...roles].sort((a, b) => {
+      if (sortKey === "permissionsCount") {
+        const aCount = a.permissions?.length || 0;
+        const bCount = b.permissions?.length || 0;
+        return sortOrder === "asc" ? aCount - bCount : bCount - aCount;
+      }
+      return sortOrder === "asc"
+        ? String(a[sortKey]).localeCompare(String(b[sortKey]))
+        : String(b[sortKey]).localeCompare(String(a[sortKey]));
+    });
+  }, [roles, sortKey, sortOrder]);
 
-  const totalItems = filteredAndSortedData.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const totalItems = totalRecords;
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -374,8 +369,8 @@ export default function RolesTable() {
   };
 
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
-  const currentData = filteredAndSortedData.slice(startIndex, endIndex);
+  const endIndex = Math.min(startIndex + roles.length, totalItems);
+  const currentData = filteredAndSortedData;
 
   return (
     <div className="overflow-hidden bg-white dark:bg-white/[0.03] rounded-xl border border-gray-100 dark:border-white/[0.05]">
@@ -456,7 +451,7 @@ export default function RolesTable() {
             />
           </div>
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={openCreateModal}
             className="flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 transition-colors shadow-theme-xs"
           >
             <svg
@@ -529,7 +524,40 @@ export default function RolesTable() {
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-            {currentData.length > 0 ? (
+            {isLoading ? (
+              Array.from({ length: itemsPerPage }).map((_, idx) => (
+                <TableRow key={idx} className="animate-pulse">
+                  <TableCell className="px-6 py-4">
+                    <div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-24"></div>
+                  </TableCell>
+                  <TableCell className="px-6 py-4">
+                    <div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-48"></div>
+                  </TableCell>
+                  <TableCell className="px-6 py-4 text-center">
+                    <div className="h-6 bg-gray-200 dark:bg-white/10 rounded-full w-24 mx-auto"></div>
+                  </TableCell>
+                  <TableCell className="px-6 py-4">
+                    <div className="h-6 bg-gray-200 dark:bg-white/10 rounded-full w-16"></div>
+                  </TableCell>
+                  <TableCell className="px-6 py-4">
+                    <div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-20"></div>
+                  </TableCell>
+                  <TableCell className="px-6 py-4">
+                    <div className="flex justify-center gap-2">
+                      <div className="h-8 w-8 bg-gray-200 dark:bg-white/10 rounded-md"></div>
+                      <div className="h-8 w-8 bg-gray-200 dark:bg-white/10 rounded-md"></div>
+                      <div className="h-8 w-8 bg-gray-200 dark:bg-white/10 rounded-md"></div>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : error ? (
+              <TableRow>
+                <TableCell colSpan={6} className="px-6 py-10 text-center text-error-500 dark:text-error-400 font-medium">
+                  {error}
+                </TableCell>
+              </TableRow>
+            ) : currentData.length > 0 ? (
               currentData.map((role) => (
                 <TableRow key={role.id} className="hover:bg-gray-50/50 dark:hover:bg-white/[0.01] transition-colors">
                   <TableCell className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">
@@ -553,7 +581,7 @@ export default function RolesTable() {
                     </Badge>
                   </TableCell>
                   <TableCell className="px-6 py-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                    {role.createdAt}
+                    {formatDate(role.createdAt)}
                   </TableCell>
                   <TableCell className="px-6 py-4 text-center whitespace-nowrap">
                     <div className="flex items-center justify-center gap-2">
@@ -602,7 +630,7 @@ export default function RolesTable() {
             ) : (
               <TableRow>
                 <TableCell colSpan={6} className="px-6 py-10 text-center text-gray-500 dark:text-gray-400">
-                  No roles found.
+                  Không tìm thấy vai trò nào.
                 </TableCell>
               </TableRow>
             )}
@@ -630,7 +658,7 @@ export default function RolesTable() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        className="max-w-[650px] p-6 sm:p-8"
+        className="max-w-[900px] p-6 sm:p-8"
       >
         <div className="flex flex-col gap-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -640,8 +668,11 @@ export default function RolesTable() {
             Define a new role and configure its initial status.
           </p>
 
-          <form onSubmit={handleAddRoleSubmit} className="space-y-4 mt-2">
-            <div>
+          <form onSubmit={handleAddRoleSubmit} className="mt-2 flex flex-col">
+            <div className="flex flex-col md:flex-row gap-6">
+              {/* Left Column: Info */}
+              <div className="flex-1 space-y-4">
+                <div>
               <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                 Role Name <span className="text-error-500">*</span>
               </label>
@@ -701,8 +732,116 @@ export default function RolesTable() {
                 </span>
               </div>
             </div>
+          </div>
 
-            <div className="flex items-center justify-end gap-3 mt-6">
+          {/* Right Column: Permissions */}
+          <div className="flex-[1.2] flex flex-col min-h-0">
+            <div>
+              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Quyền hạn
+              </label>
+              <div className="border border-gray-200 dark:border-white/[0.05] rounded-xl p-4 bg-gray-50/20 dark:bg-white/[0.01] max-h-[300px] overflow-y-auto space-y-4 custom-scrollbar">
+                {dynamicPermissionTree.length > 0 ? (
+                  dynamicPermissionTree.map((category) => {
+                    const { isChecked: isCategoryChecked, isIndeterminate: isCategoryIndeterminate } = getCategorySelectionState(category, true);
+                    const isExpanded = expandedCategories.has(category.id);
+                    const checkedChildrenCount = category.children?.filter((c) => newRolePermissions.has(c.id)).length || 0;
+                    const totalChildrenCount = category.children?.length || 0;
+
+                    return (
+                      <div key={category.id} className="border border-gray-100 dark:border-white/[0.05] rounded-lg p-3 bg-white dark:bg-dark-900">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => toggleCategoryExpand(category.id)}
+                              className="p-1 hover:bg-gray-100 dark:hover:bg-white/5 rounded transition-colors"
+                            >
+                              <svg
+                                className={`w-3.5 h-3.5 text-gray-500 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                viewBox="0 0 24 24"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                              </svg>
+                            </button>
+
+                            <div
+                              onClick={() => toggleCategorySelection(category, true)}
+                              className={`w-4.5 h-4.5 flex items-center justify-center rounded border cursor-pointer transition-all ${
+                                isCategoryChecked
+                                  ? "bg-brand-500 border-brand-500 text-white"
+                                  : isCategoryIndeterminate
+                                  ? "bg-brand-100 dark:bg-brand-500/20 border-brand-300 dark:border-brand-500/50 text-brand-600 dark:text-brand-400"
+                                  : "border-gray-300 dark:border-gray-700 bg-white dark:bg-dark-900"
+                              }`}
+                            >
+                              {isCategoryChecked && (
+                                <svg className="w-3 h-3 stroke-current" viewBox="0 0 16 16" fill="none">
+                                  <path d="M3 8L6 11L13 4" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              )}
+                              {!isCategoryChecked && isCategoryIndeterminate && (
+                                <span className="w-2 h-0.5 bg-current rounded-sm"></span>
+                              )}
+                            </div>
+
+                            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                              {category.name}
+                            </span>
+                          </div>
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-500">
+                            {checkedChildrenCount}/{totalChildrenCount}
+                          </span>
+                        </div>
+
+                        {isExpanded && category.children && category.children.length > 0 && (
+                          <div className="mt-2 ml-3 pl-3 border-l border-gray-200 dark:border-white/[0.05] space-y-2">
+                            {category.children.map((child) => {
+                              const isChildChecked = newRolePermissions.has(child.id);
+                              return (
+                                <div key={child.id} className="flex items-center justify-between py-0.5">
+                                  <div className="flex items-center gap-2">
+                                    <div
+                                      onClick={() => toggleChildSelection(child.id, category.id, true)}
+                                      className={`w-4 h-4 flex items-center justify-center rounded border cursor-pointer transition-all ${
+                                        isChildChecked
+                                          ? "bg-brand-500 border-brand-500 text-white"
+                                          : "border-gray-300 dark:border-gray-700 bg-white dark:bg-dark-900"
+                                      }`}
+                                    >
+                                      {isChildChecked && (
+                                        <svg className="w-2.5 h-2.5 stroke-current" viewBox="0 0 16 16" fill="none">
+                                          <path d="M3 8L6 11L13 4" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                      )}
+                                    </div>
+                                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                                      {child.name}
+                                    </span>
+                                  </div>
+                                  <code className="text-[10px] text-gray-400 font-mono bg-gray-50 dark:bg-white/[0.02] px-1 py-0.5 rounded border border-gray-100 dark:border-white/[0.02]">
+                                    {child.id}
+                                  </code>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-xs text-gray-500 text-center py-4">Đang tải danh sách quyền...</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-white/[0.05]">
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
@@ -758,106 +897,110 @@ export default function RolesTable() {
 
           {/* Tree View Structure */}
           <div className="max-h-[400px] overflow-y-auto pr-2 space-y-4 custom-scrollbar">
-            {permissionTree.map((category) => {
-              const { isChecked: isCategoryChecked, isIndeterminate: isCategoryIndeterminate } = getCategorySelectionState(category);
-              const isExpanded = expandedCategories.has(category.id);
-              const checkedChildrenCount = category.children?.filter((c) => checkedPermissions.has(c.id)).length || 0;
-              const totalChildrenCount = category.children?.length || 0;
+            {dynamicPermissionTree.length > 0 ? (
+              dynamicPermissionTree.map((category) => {
+                const { isChecked: isCategoryChecked, isIndeterminate: isCategoryIndeterminate } = getCategorySelectionState(category);
+                const isExpanded = expandedCategories.has(category.id);
+                const checkedChildrenCount = category.children?.filter((c) => checkedPermissions.has(c.id)).length || 0;
+                const totalChildrenCount = category.children?.length || 0;
 
-              return (
-                <div key={category.id} className="border border-gray-100 dark:border-white/[0.05] rounded-xl p-4 bg-gray-50/30 dark:bg-white/[0.01]">
-                  {/* Category Header Row */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      {/* Collapse toggle icon */}
-                      <button
-                        onClick={() => toggleCategoryExpand(category.id)}
-                        className="p-1 hover:bg-gray-100 dark:hover:bg-white/5 rounded-md transition-colors"
-                      >
-                        <svg
-                          className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${
-                            isExpanded ? "rotate-90" : ""
-                          }`}
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          viewBox="0 0 24 24"
+                return (
+                  <div key={category.id} className="border border-gray-100 dark:border-white/[0.05] rounded-xl p-4 bg-gray-50/30 dark:bg-white/[0.01]">
+                    {/* Category Header Row */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {/* Collapse toggle icon */}
+                        <button
+                          onClick={() => toggleCategoryExpand(category.id)}
+                          className="p-1 hover:bg-gray-100 dark:hover:bg-white/5 rounded-md transition-colors"
                         >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                        </svg>
-                      </button>
-
-                      {/* Custom category checkbox */}
-                      <div
-                        onClick={() => toggleCategorySelection(category)}
-                        className={`w-5 h-5 flex items-center justify-center rounded-md border cursor-pointer transition-all ${
-                          isCategoryChecked
-                            ? "bg-brand-500 border-brand-500 text-white"
-                            : isCategoryIndeterminate
-                            ? "bg-brand-100 dark:bg-brand-500/20 border-brand-300 dark:border-brand-500/50 text-brand-600 dark:text-brand-400"
-                            : "border-gray-300 dark:border-gray-700 hover:border-brand-300 dark:hover:border-brand-600 bg-white dark:bg-dark-900"
-                        }`}
-                      >
-                        {isCategoryChecked && (
-                          <svg className="w-3.5 h-3.5 stroke-current" viewBox="0 0 16 16" fill="none">
-                            <path d="M3 8L6 11L13 4" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <svg
+                            className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${
+                              isExpanded ? "rotate-90" : ""
+                            }`}
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                           </svg>
-                        )}
-                        {!isCategoryChecked && isCategoryIndeterminate && (
-                          <span className="w-2.5 h-0.5 bg-current rounded-sm"></span>
-                        )}
+                        </button>
+
+                        {/* Custom category checkbox */}
+                        <div
+                          onClick={() => toggleCategorySelection(category)}
+                          className={`w-5 h-5 flex items-center justify-center rounded-md border cursor-pointer transition-all ${
+                            isCategoryChecked
+                              ? "bg-brand-500 border-brand-500 text-white"
+                              : isCategoryIndeterminate
+                              ? "bg-brand-100 dark:bg-brand-500/20 border-brand-300 dark:border-brand-500/50 text-brand-600 dark:text-brand-400"
+                              : "border-gray-300 dark:border-gray-700 hover:border-brand-300 dark:hover:border-brand-600 bg-white dark:bg-dark-900"
+                          }`}
+                        >
+                          {isCategoryChecked && (
+                            <svg className="w-3.5 h-3.5 stroke-current" viewBox="0 0 16 16" fill="none">
+                              <path d="M3 8L6 11L13 4" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                          {!isCategoryChecked && isCategoryIndeterminate && (
+                            <span className="w-2.5 h-0.5 bg-current rounded-sm"></span>
+                          )}
+                        </div>
+
+                        {/* Category Label */}
+                        <span className="font-semibold text-gray-800 dark:text-gray-200">
+                          {category.name}
+                        </span>
                       </div>
 
-                      {/* Category Label */}
-                      <span className="font-semibold text-gray-800 dark:text-gray-200">
-                        {category.name}
+                      {/* Progress indicator */}
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400">
+                        {checkedChildrenCount}/{totalChildrenCount} selected
                       </span>
                     </div>
 
-                    {/* Progress indicator */}
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400">
-                      {checkedChildrenCount}/{totalChildrenCount} selected
-                    </span>
-                  </div>
-
-                  {/* Children Rows */}
-                  {isExpanded && category.children && category.children.length > 0 && (
-                    <div className="mt-3 ml-4 pl-4 border-l border-gray-200 dark:border-white/[0.05] space-y-2.5">
-                      {category.children.map((child) => {
-                        const isChildChecked = checkedPermissions.has(child.id);
-                        return (
-                          <div key={child.id} className="flex items-center justify-between py-0.5">
-                            <div className="flex items-center gap-3">
-                              {/* Custom child checkbox */}
-                              <div
-                                onClick={() => toggleChildSelection(child.id)}
-                                className={`w-4.5 h-4.5 flex items-center justify-center rounded-md border cursor-pointer transition-all ${
-                                  isChildChecked
-                                    ? "bg-brand-500 border-brand-500 text-white"
-                                    : "border-gray-300 dark:border-gray-700 hover:border-brand-300 dark:hover:border-brand-600 bg-white dark:bg-dark-900"
-                                }`}
-                              >
-                                {isChildChecked && (
-                                  <svg className="w-3 h-3 stroke-current" viewBox="0 0 16 16" fill="none">
-                                    <path d="M3 8L6 11L13 4" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                                  </svg>
-                                )}
+                    {/* Children Rows */}
+                    {isExpanded && category.children && category.children.length > 0 && (
+                      <div className="mt-3 ml-4 pl-4 border-l border-gray-200 dark:border-white/[0.05] space-y-2.5">
+                        {category.children.map((child) => {
+                          const isChildChecked = checkedPermissions.has(child.id);
+                          return (
+                            <div key={child.id} className="flex items-center justify-between py-0.5">
+                              <div className="flex items-center gap-3">
+                                {/* Custom child checkbox */}
+                                  <div
+                                    onClick={() => toggleChildSelection(child.id, category.id, false)}
+                                    className={`w-4.5 h-4.5 flex items-center justify-center rounded-md border cursor-pointer transition-all ${
+                                    isChildChecked
+                                      ? "bg-brand-500 border-brand-500 text-white"
+                                      : "border-gray-300 dark:border-gray-700 hover:border-brand-300 dark:hover:border-brand-600 bg-white dark:bg-dark-900"
+                                  }`}
+                                >
+                                  {isChildChecked && (
+                                    <svg className="w-3 h-3 stroke-current" viewBox="0 0 16 16" fill="none">
+                                      <path d="M3 8L6 11L13 4" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                  )}
+                                </div>
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                  {child.name}
+                                </span>
                               </div>
-                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                {child.name}
-                              </span>
+                              <code className="text-xs text-gray-400 dark:text-gray-500 font-mono bg-gray-50 dark:bg-white/[0.02] px-1.5 py-0.5 rounded border border-gray-100 dark:border-white/[0.02]">
+                                {child.id}
+                              </code>
                             </div>
-                            <code className="text-xs text-gray-400 dark:text-gray-500 font-mono bg-gray-50 dark:bg-white/[0.02] px-1.5 py-0.5 rounded border border-gray-100 dark:border-white/[0.02]">
-                              {child.id}
-                            </code>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-6">Đang tải danh sách quyền...</p>
+            )}
           </div>
 
           <div className="border-t border-gray-100 dark:border-white/[0.05] my-1"></div>

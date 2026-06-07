@@ -7,6 +7,8 @@ import Backdrop from "@/layout/Backdrop";
 import React from "react";
 import { usePathname } from "next/navigation";
 
+import { RouteGuard } from "@/components/auth/RouteGuard";
+
 export default function AdminLayout({
   children,
 }: {
@@ -50,7 +52,9 @@ export default function AdminLayout({
         {/* Header */}
         <AppHeader />
         {/* Page Content */}
-        <div className={getRouteSpecificStyles()}>{children}</div>
+        <div className={getRouteSpecificStyles()}>
+          <RouteGuard>{children}</RouteGuard>
+        </div>
       </div>
     </div>
   );
