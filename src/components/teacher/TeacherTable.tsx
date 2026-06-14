@@ -21,7 +21,7 @@ import { useTranslation } from "react-i18next";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SortKey = "code" | "name" | "email" | "phone" | "status";
+type SortKey = "code" | "name" | "email" | "phone" | "status" | "gradeLevelName";
 type SortOrder = "asc" | "desc";
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -239,6 +239,7 @@ export default function TeacherTable() {
   const columns: { key: SortKey; label: string }[] = [
     { key: "code", label: t("teacher.colCode") },
     { key: "name", label: t("teacher.colName") },
+    { key: "gradeLevelName", label: t("teacher.formGradeLevelLabel") },
     { key: "email", label: t("teacher.colEmail") },
     { key: "phone", label: t("teacher.colPhone") },
     { key: "status", label: t("teacher.colStatus") },
@@ -412,7 +413,7 @@ export default function TeacherTable() {
             ) : error ? (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={8}
                   className="px-6 py-10 text-center text-error-500 dark:text-error-400 font-medium"
                 >
                   {error}
@@ -432,6 +433,9 @@ export default function TeacherTable() {
                   </TableCell>
                   <TableCell className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">
                     {item.name}
+                  </TableCell>
+                  <TableCell className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">
+                    {item.gradeLevelName || "-"}
                   </TableCell>
                   <TableCell className="px-6 py-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">
                     {item.email || "-"}
@@ -477,7 +481,7 @@ export default function TeacherTable() {
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={8}
                   className="px-6 py-10 text-center text-gray-500 dark:text-gray-400"
                 >
                   {t("teacher.noResults")}

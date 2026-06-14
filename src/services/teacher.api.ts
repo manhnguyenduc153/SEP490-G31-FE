@@ -1,7 +1,17 @@
 import { api, ApiResponse } from "./api";
 import { ENDPOINTS } from "@/constants/endpoints";
+import { ENV } from "@/config/env";
 
-// ─── DTOs ────────────────────────────────────────────────────────────────────
+// ─── Enums & DTOs ────────────────────────────────────────────────────────────────────
+
+export enum GradeLevel {
+  Foundation = "Foundation",
+  PreIelts = "PreIelts",
+  Ielts4_5 = "Ielts4_5",
+  Ielts5_6 = "Ielts5_6",
+  Ielts6_65 = "Ielts6_65",
+  Ielts65Plus = "Ielts65Plus",
+}
 
 export interface TeacherItem {
   id: number;
@@ -14,7 +24,8 @@ export interface TeacherItem {
   address?: string | null;
   status: number;
   description?: string | null;
-  gradeLevel?: number | null;
+  gradeLevel?: GradeLevel | null;
+  gradeLevelName?: string | null;
   avatar?: string | null;
   certificate?: string | null;
 }
@@ -38,7 +49,7 @@ export interface TeacherSaveDto {
   address?: string | null;
   status: number;
   description?: string | null;
-  gradeLevel?: number | null;
+  gradeLevel?: GradeLevel | null;
   avatar?: string | null;
   certificate?: string | null;
 }
@@ -79,5 +90,27 @@ export const teacherApi = {
 
   async deactive(id: number): Promise<ApiResponse<boolean>> {
     return api.post<boolean>(ENDPOINTS.TEACHER.DEACTIVE(id), {});
+  },
+
+  async uploadFile(file: File): Promise<ApiResponse<string>> {
+    const formData = new FormData();
+    formData.append("file", file);
+    
+    const response = await fetch(`${ENV.API_BASE_URL}/api/upload/image`, {
+      method: "POST",
+      body: formData,
+    });
+    return response.json();
+  },
+
+  async uploadDocument(file: File): Promise<ApiResponse<string>> {
+    const formData = new FormData();
+    formData.append("file", file);
+    
+    const response = await fetch(`${ENV.API_BASE_URL}/api/upload/document`, {
+      method: "POST",
+      body: formData,
+    });
+    return response.json();
   },
 };
