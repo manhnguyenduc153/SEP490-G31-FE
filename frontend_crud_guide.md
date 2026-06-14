@@ -1,4 +1,3 @@
-
 # Hướng Dẫn Phát Triển Chức Năng CRUD - Frontend (Next.js / React)
 
 Tài liệu này hướng dẫn chi tiết quy trình xây dựng phần Frontend (Next.js / React) cho một màn hình chức năng CRUD (Thêm, Đọc, Sửa, Xóa) hoàn chỉnh, có áp dụng cơ chế đa ngôn ngữ (Localization), phân quyền (Permission-based), tìm kiếm trì hoãn (Debounce) và phân trang.
