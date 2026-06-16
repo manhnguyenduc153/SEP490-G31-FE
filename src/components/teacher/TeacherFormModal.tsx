@@ -3,7 +3,8 @@ import React, { useEffect, useState, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 import { TeacherItem, TeacherSaveDto, teacherApi, GradeLevel } from "@/services/teacher.api";
 import { env } from "process";
-import { EyeIcon } from "@/icons";
+import { EyeIcon, CalenderIcon } from "@/icons";
+import { CodeHelper } from "@/helpers/CodeHelper";
 
 interface TeacherFormModalProps {
   isOpen: boolean;
@@ -45,6 +46,7 @@ export function TeacherFormModal({
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const certInputRef = useRef<HTMLInputElement>(null);
+  const dobInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (editingItem && isOpen) {
@@ -65,7 +67,7 @@ export function TeacherFormModal({
       });
     } else if (isOpen) {
       setFormData({
-        code: "",
+        code: CodeHelper.generate("GV"),
         name: "",
         email: "",
         phone: "",
@@ -229,35 +231,48 @@ export function TeacherFormModal({
                     type="text"
                     name="code"
                     required
+                    disabled
                     maxLength={50}
                     value={formData.code}
                     onChange={handleChange}
                     placeholder={t("teacher.formCodePlaceholder")}
-                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                    className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm text-gray-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400 cursor-not-allowed"
                   />
                 </div>
 
                 {/* Dob */}
                 <div>
                   <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t("teacher.formDobLabel")}
+                    {t("teacher.formDobLabel")} <span className="text-error-500">*</span>
                   </label>
-                  <input
-                    type="date"
-                    name="dob"
-                    value={formData.dob || ""}
-                    onChange={handleChange}
-                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-                  />
+                  <div className="relative">
+                    <input
+                      type="date"
+                      name="dob"
+                      required
+                      ref={dobInputRef}
+                      value={formData.dob || ""}
+                      onChange={handleChange}
+                      className="w-full rounded-lg border border-gray-300 bg-transparent pl-4 pr-10 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:hidden"
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => dobInputRef.current?.showPicker()}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 transition-colors"
+                    >
+                      <CalenderIcon className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Gender */}
                 <div>
                   <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t("teacher.formGenderLabel")}
+                    {t("teacher.formGenderLabel")} <span className="text-error-500">*</span>
                   </label>
                   <select
                     name="gender"
+                    required
                     value={formData.gender === true ? "true" : formData.gender === false ? "false" : ""}
                     onChange={handleChange}
                     className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
@@ -271,11 +286,12 @@ export function TeacherFormModal({
                 {/* Email */}
                 <div>
                   <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t("teacher.formEmailLabel")}
+                    {t("teacher.formEmailLabel")} <span className="text-error-500">*</span>
                   </label>
                   <input
                     type="email"
                     name="email"
+                    required
                     maxLength={150}
                     value={formData.email || ""}
                     onChange={handleChange}
@@ -287,11 +303,12 @@ export function TeacherFormModal({
                 {/* Phone */}
                 <div>
                   <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t("teacher.formPhoneLabel")}
+                    {t("teacher.formPhoneLabel")} <span className="text-error-500">*</span>
                   </label>
                   <input
                     type="text"
                     name="phone"
+                    required
                     maxLength={20}
                     value={formData.phone || ""}
                     onChange={handleChange}
@@ -303,10 +320,11 @@ export function TeacherFormModal({
                 {/* Grade Level */}
                 <div>
                   <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t("teacher.formGradeLevelLabel")}
+                    {t("teacher.formGradeLevelLabel")} <span className="text-error-500">*</span>
                   </label>
                   <select
                     name="gradeLevel"
+                    required
                     value={formData.gradeLevel || ""}
                     onChange={handleChange}
                     className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
@@ -324,10 +342,11 @@ export function TeacherFormModal({
                 {/* Status */}
                 <div>
                   <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t("teacher.formStatusLabel")}
+                    {t("teacher.formStatusLabel")} <span className="text-error-500">*</span>
                   </label>
                   <select
                     name="status"
+                    required
                     value={formData.status}
                     onChange={handleChange}
                     className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
@@ -341,11 +360,12 @@ export function TeacherFormModal({
               {/* Address */}
               <div className="pt-2">
                 <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t("teacher.formAddressLabel")}
+                  {t("teacher.formAddressLabel")} <span className="text-error-500">*</span>
                 </label>
                 <input
                   type="text"
                   name="address"
+                  required
                   value={formData.address || ""}
                   onChange={handleChange}
                   placeholder={t("teacher.formAddressPlaceholder")}
@@ -356,10 +376,11 @@ export function TeacherFormModal({
               {/* Description */}
               <div className="pt-2">
                 <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t("teacher.formDescLabel")}
+                  {t("teacher.formDescLabel")} <span className="text-error-500">*</span>
                 </label>
                 <textarea
                   name="description"
+                  required
                   value={formData.description || ""}
                   onChange={handleChange}
                   placeholder={t("teacher.formDescPlaceholder")}
