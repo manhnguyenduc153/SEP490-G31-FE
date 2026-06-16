@@ -42,7 +42,10 @@ export function TeacherFormModal({
   });
 
   const [isUploading, setIsUploading] = useState(false);
-  const [isUploadingCert, setIsUploadingCert] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [certFile, setCertFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [certPreview, setCertPreview] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const certInputRef = useRef<HTMLInputElement>(null);
@@ -81,6 +84,12 @@ export function TeacherFormModal({
         certificate: null,
       });
     }
+
+    // Reset local files
+    setAvatarFile(null);
+    setCertFile(null);
+    setAvatarPreview(null);
+    setCertPreview(null);
   }, [editingItem, isOpen]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -105,53 +114,27 @@ export function TeacherFormModal({
     });
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    try {
-      setIsUploading(true);
-      const res = await teacherApi.uploadFile(file);
-      if (res.success && res.data) {
-        setFormData((prev) => ({
-          ...prev,
-          avatar: res.data,
-        }));
-      } else {
-        alert(res.message || "Upload failed");
-      }
-    } catch (err) {
-      alert("Error uploading file");
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+    setAvatarFile(file);
+    const url = URL.createObjectURL(file);
+    setAvatarPreview(url);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
-  const handleCertChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCertChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    try {
-      setIsUploadingCert(true);
-      const res = await teacherApi.uploadDocument(file);
-      if (res.success && res.data) {
-        setFormData((prev) => ({
-          ...prev,
-          certificate: res.data,
-        }));
-      } else {
-        alert(res.message || "Upload failed");
-      }
-    } catch (err) {
-      alert("Error uploading file");
-    } finally {
-      setIsUploadingCert(false);
-      if (certInputRef.current) {
-        certInputRef.current.value = "";
-      }
+    setCertFile(file);
+    const url = URL.createObjectURL(file);
+    setCertPreview(url);
+    if (certInputRef.current) {
+      certInputRef.current.value = "";
     }
   };
 
@@ -163,9 +146,38 @@ export function TeacherFormModal({
     certInputRef.current?.click();
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    let finalFormData = { ...formData };
+    
+    try {
+      setIsUploading(true);
+      if (avatarFile) {
+        const res = await teacherApi.uploadFile(avatarFile);
+        if (res.success && res.data) {
+          finalFormData.avatar = res.data;
+        } else {
+          alert(res.message || "Lỗi tải ảnh đại diện");
+          setIsUploading(false);
+          return;
+        }
+      }
+      if (certFile) {
+        const res = await teacherApi.uploadDocument(certFile);
+        if (res.success && res.data) {
+          finalFormData.certificate = res.data;
+        } else {
+          alert(res.message || "Lỗi tải chứng chỉ");
+          setIsUploading(false);
+          return;
+        }
+      }
+      setIsUploading(false);
+      onSubmit(finalFormData);
+    } catch (err) {
+      alert("Lỗi upload file");
+      setIsUploading(false);
+    }
   };
 
   // Helper to build full image URL
@@ -414,20 +426,20 @@ export function TeacherFormModal({
                   {isUploading ? (
                     <div className="flex flex-col items-center py-6">
                       <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
-                      <span className="mt-2 text-xs text-gray-500">Đang tải...</span>
+                      <span className="mt-2 text-xs text-gray-500">Đang lưu...</span>
                     </div>
-                  ) : formData.avatar ? (
+                  ) : avatarPreview || formData.avatar ? (
                     <div className="relative w-full aspect-square overflow-hidden rounded-lg group">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={getImageUrl(formData.avatar) as string}
+                        src={avatarPreview || (getImageUrl(formData.avatar) as string)}
                         alt="Avatar preview"
                         className="object-cover w-full h-full"
                       />
                       <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
                         <button 
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); setPreviewImage(getImageUrl(formData.avatar)); }}
+                          onClick={(e) => { e.stopPropagation(); setPreviewImage(avatarPreview || getImageUrl(formData.avatar)); }}
                           className="p-2 bg-white/20 hover:bg-white/40 rounded-full text-white transition-colors"
                           title="Xem ảnh phóng to"
                         >
@@ -470,25 +482,25 @@ export function TeacherFormModal({
                     onChange={handleCertChange}
                   />
                   
-                  {isUploadingCert ? (
+                  {isUploading ? (
                     <div className="flex flex-col items-center py-6">
                       <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
-                      <span className="mt-2 text-xs text-gray-500">Đang tải...</span>
+                      <span className="mt-2 text-xs text-gray-500">Đang lưu...</span>
                     </div>
-                  ) : formData.certificate ? (
+                  ) : certPreview || formData.certificate ? (
                     <div className="relative w-full aspect-[4/3] overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800 flex flex-col items-center justify-center group">
-                      {isImage(formData.certificate) ? (
+                      {(certFile && certFile.type.startsWith('image/')) || (!certFile && isImage(formData.certificate)) ? (
                         <>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
-                            src={getImageUrl(formData.certificate) as string}
+                            src={certPreview || (getImageUrl(formData.certificate) as string)}
                             alt="Certificate preview"
                             className="object-cover w-full h-full"
                           />
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
                             <button 
                               type="button"
-                              onClick={(e) => { e.stopPropagation(); setPreviewImage(getImageUrl(formData.certificate)); }}
+                              onClick={(e) => { e.stopPropagation(); setPreviewImage(certPreview || getImageUrl(formData.certificate)); }}
                               className="p-2 bg-white/20 hover:bg-white/40 rounded-full text-white transition-colors"
                               title="Xem ảnh phóng to"
                             >
@@ -506,7 +518,7 @@ export function TeacherFormModal({
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                             </svg>
                             <p className="text-sm font-medium text-gray-700 dark:text-gray-300 break-all max-w-full">
-                              {formData.certificate.split('/').pop()}
+                              {certFile ? certFile.name : formData.certificate?.split('/').pop()}
                             </p>
                           </div>
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -552,10 +564,10 @@ export function TeacherFormModal({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || isUploading || isUploadingCert}
+              disabled={isSubmitting || isUploading}
               className="px-5 py-2.5 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
             >
-              {isSubmitting
+              {isSubmitting || isUploading
                 ? t("common.btnSaving", { defaultValue: "Đang lưu..." })
                 : editingItem
                 ? t("teacher.btnSave", { defaultValue: "Lưu" })
