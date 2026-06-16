@@ -19,5 +19,13 @@ export const ENDPOINTS = {
     DELETE: (id: number) => `/api/QuestionCategory/${id}`,
     DEACTIVE: (id: number) => `/api/QuestionCategory/${id}/deactive`,
   },
+  TEACHER: {
+    GET_ALL: "/api/Teacher",
+    GET_BY_ID: (id: number) => `/api/Teacher/${id}`,
+    CREATE: "/api/Teacher",
+    UPDATE: (id: number) => `/api/Teacher/${id}`,
+    DELETE: (id: number) => `/api/Teacher/${id}`,
+    DEACTIVE: (id: number) => `/api/Teacher/${id}/deactive`,
+  },
 };
 
