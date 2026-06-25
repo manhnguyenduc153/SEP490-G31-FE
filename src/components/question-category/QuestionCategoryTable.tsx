@@ -8,9 +8,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AngleDownIcon, AngleUpIcon, PencilIcon, TrashBinIcon } from "@/icons";
+import { AngleDownIcon, AngleUpIcon, PencilIcon, TrashBinIcon, EyeIcon } from "@/icons";
 import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
 import { CategoryFormModal } from "./CategoryFormModal";
+import { CategoryViewModal } from "./CategoryViewModal";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
 import {
   questionCategoryApi,
@@ -69,6 +70,8 @@ export default function QuestionCategoryTable() {
   const [formDesc, setFormDesc] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
   // ── Delete confirm modal ──
   const [deleteTarget, setDeleteTarget] = useState<QuestionCategoryItem | null>(null);
@@ -167,6 +170,31 @@ export default function QuestionCategoryTable() {
     setFormDesc(item.description ?? "");
     setFormError(null);
     setIsModalOpen(true);
+  };
+
+  // ── Open view modal ──
+  const openViewModal = async (item: QuestionCategoryItem) => {
+    setFormCode("");
+    setFormName("");
+    setFormDesc("");
+    setFormError(null);
+    setIsLoadingDetail(true);
+    setIsViewModalOpen(true);
+
+    try {
+      const res = await questionCategoryApi.getById(item.id);
+      if (res.success && res.data) {
+        setFormCode(res.data.code);
+        setFormName(res.data.name);
+        setFormDesc(res.data.description ?? "");
+      } else {
+        setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("questionCategory.systemError"));
+      }
+    } catch {
+      setFormError(t("questionCategory.systemError"));
+    } finally {
+      setIsLoadingDetail(false);
+    }
   };
 
   // ── Submit create / edit ──
@@ -421,7 +449,7 @@ export default function QuestionCategoryTable() {
             ) : error ? (
               <TableRow>
                 <TableCell
-                  colSpan={4}
+                  colSpan={5}
                   className="px-6 py-10 text-center text-error-500 dark:text-error-400 font-medium"
                 >
                   {error}
@@ -451,6 +479,15 @@ export default function QuestionCategoryTable() {
                   </TableCell>
                   <TableCell className="px-6 py-4 text-center whitespace-nowrap">
                     <div className="flex items-center justify-center gap-2">
+                      <PermissionGuard requiredPermission="QuestionCategory.View">
+                        <button
+                          title={t("questionCategory.viewTooltip", { defaultValue: "Xem chi tiết" })}
+                          onClick={() => openViewModal(item)}
+                          className="p-1.5 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                        >
+                          <EyeIcon className="w-4 h-4" />
+                        </button>
+                      </PermissionGuard>
                       <PermissionGuard requiredPermission="QuestionCategory.Edit">
                         <button
                           title="Chỉnh sửa"
@@ -476,7 +513,7 @@ export default function QuestionCategoryTable() {
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={4}
+                  colSpan={5}
                   className="px-6 py-10 text-center text-gray-500 dark:text-gray-400"
                 >
                   {t("questionCategory.noResults", { defaultValue: "Không tìm thấy danh mục câu hỏi nào." })}
@@ -518,6 +555,18 @@ export default function QuestionCategoryTable() {
         formError={formError}
         isSubmitting={isSubmitting}
         handleSubmit={handleSubmit}
+      />
+
+      {/* ── View Modal ── */}
+      <CategoryViewModal
+        isOpen={isViewModalOpen}
+        onClose={() => setIsViewModalOpen(false)}
+        t={t}
+        formCode={formCode}
+        formName={formName}
+        formDesc={formDesc}
+        isLoadingDetail={isLoadingDetail}
+        formError={formError}
       />
 
       {/* ── Delete Confirm Modal ── */}
