@@ -8,6 +8,8 @@
     "students": "Students",
     "rooms": "Rooms",
     "schedules": "Schedules",
+    "teachingSchedules": "Teaching Schedules",
+    "timetable": "Timetable",
     "assessments": "Assessments",
     "exams": "Exams",
     "assignments": "Assignments",
@@ -111,7 +113,8 @@
     "formDobLabel": "Date of Birth",
     "formGenderLabel": "Gender",
     "formGenderMale": "Male",
-    "formGenderFemale": "Female",
+    "formGenderFemale": "Female"
+  },
   "teacher": {
     "title": "Teacher Management",
     "description": "Manage the list of teachers in the school.",

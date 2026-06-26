@@ -57,6 +57,8 @@ const schoolItems: NavItem[] = [
       { name: "students", path: "/students", permission: "Student" },
       { name: "rooms", path: "/rooms", permission: "Room" },
       { name: "schedules", path: "/schedules", permission: "ClassSchedule" },
+      { name: "teachingSchedules", path: "/teaching-schedules" },
+      { name: "timetable", path: "/timetable" },
     ],
   },
   {

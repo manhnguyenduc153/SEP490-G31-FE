@@ -59,7 +59,6 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
   // Filter dropdown states
   const [courses, setCourses] = useState<CourseItem[]>([]);
   const [teachers, setTeachers] = useState<TeacherItem[]>([]);
-  const [allStudents, setAllStudents] = useState<StudentItem[]>([]);
   const [rooms, setRooms] = useState<RoomItem[]>([]);
   
   // Weekly Schedules state
@@ -78,26 +77,61 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
 
   // Dropdown search for students
   const [studentSearchText, setStudentSearchText] = useState("");
+  const [selectedStudents, setSelectedStudents] = useState<StudentItem[]>([]);
+  const [searchResults, setSearchResults] = useState<StudentItem[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Load dropdown options
   useEffect(() => {
     async function loadOptions() {
       try {
-        const [cRes, tRes, sRes, rRes] = await Promise.all([
+        const [cRes, tRes, rRes] = await Promise.all([
           courseApi.getAll(1, 100, "", true),
           teacherApi.getAll(1, 100),
-          studentApi.getAll(1, 1000),
           roomApi.getAll(1, 100),
         ]);
         if (cRes.success && cRes.data) setCourses(cRes.data.items || []);
         if (tRes.success && tRes.data) setTeachers(tRes.data.items || []);
-        if (sRes.success && sRes.data) setAllStudents(sRes.data.items || []);
         if (rRes.success && rRes.data) setRooms(rRes.data.items || []);
       } catch (err) {
         console.error("Failed to load options", err);
       }
     }
     loadOptions();
+  }, []);
+
+  // Handle student search query dynamically
+  useEffect(() => {
+    if (!showDropdown) return;
+
+    const delayDebounce = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const res = await studentApi.getAll(1, 15, studentSearchText);
+        if (res.success && res.data) {
+          setSearchResults(res.data.items || []);
+        }
+      } catch (err) {
+        console.error("Search students error", err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounce);
+  }, [studentSearchText, showDropdown]);
+
+  // Click outside to close dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   // Initialize values when editing
@@ -122,6 +156,18 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
             const detail = res.data;
             const studentIds = (detail.studentClasses || []).map((sc: any) => sc.studentId);
             setFormStudentIds(studentIds);
+
+            // Populate selectedStudents list
+            const loadedStudents = (detail.studentClasses || []).map((sc: any) => ({
+              id: sc.student?.id || sc.studentId,
+              code: sc.student?.code || "",
+              name: sc.student?.name || "",
+              email: sc.student?.email || "",
+              avatar: sc.student?.avatar || null,
+              status: sc.student?.status ?? 1,
+              statusName: sc.student?.statusName || "Active"
+            }));
+            setSelectedStudents(loadedStudents);
 
             if (detail.expectedLessons !== undefined && detail.expectedLessons !== null) {
               setFormExpectedLessons(detail.expectedLessons);
@@ -186,6 +232,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
       setFormAutoRefund(false);
       setFormExpectedLessons(30);
       setFormStudentIds([]);
+      setSelectedStudents([]);
       setDayConfigs({
         1: { selected: true, startTime: "17:30", endTime: "19:00", roomId: null },
         2: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
@@ -218,12 +265,18 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
     }));
   };
 
-  const toggleStudent = (studentId: number) => {
-    setFormStudentIds((prev) =>
-      prev.includes(studentId)
-        ? prev.filter((id) => id !== studentId)
-        : [...prev, studentId]
-    );
+  const handleSelectStudent = (student: StudentItem) => {
+    if (!formStudentIds.includes(student.id)) {
+      setFormStudentIds((prev) => [...prev, student.id]);
+      setSelectedStudents((prev) => [...prev, student]);
+    }
+    setStudentSearchText("");
+    setShowDropdown(false);
+  };
+
+  const handleRemoveStudent = (studentId: number) => {
+    setFormStudentIds((prev) => prev.filter((id) => id !== studentId));
+    setSelectedStudents((prev) => prev.filter((s) => s.id !== studentId));
   };
 
   const handleSubmitForm = async (e: React.FormEvent) => {
@@ -307,12 +360,6 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
     }
   };
 
-  // Filter student list
-  const filteredStudents = allStudents.filter(
-    (s) =>
-      s.name.toLowerCase().includes(studentSearchText.toLowerCase()) ||
-      s.code.toLowerCase().includes(studentSearchText.toLowerCase())
-  );
 
   return (
     <div className="space-y-6 w-full pb-10">
@@ -497,49 +544,121 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
 
 
               {/* Chọn học sinh */}
-              <div className="col-span-1 sm:col-span-2 space-y-1.5">
+              <div className="col-span-1 sm:col-span-2 space-y-2">
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                   Chọn học sinh (Có thể thêm sau)
                 </label>
                 
-                {/* Custom multi-select checkbox list with search */}
-                <div className="border border-gray-200 dark:border-gray-800 rounded-lg p-3 bg-gray-50/20 dark:bg-gray-950">
-                  <input
-                    type="text"
-                    placeholder="Tìm kiếm học sinh..."
-                    value={studentSearchText}
-                    onChange={(e) => setStudentSearchText(e.target.value)}
-                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded-md bg-white dark:bg-gray-900 mb-2 focus:outline-hidden"
-                  />
-                  <div className="max-h-32 overflow-y-auto pr-1 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                    {filteredStudents.length === 0 ? (
-                      <span className="text-xs text-gray-400 italic col-span-2 py-1">Không tìm thấy học sinh nào</span>
-                    ) : (
-                      filteredStudents.map((student) => {
-                        const isChecked = formStudentIds.includes(student.id);
-                        return (
-                          <label
-                            key={student.id}
-                            className={`flex items-center gap-2 p-1.5 rounded border text-[11px] cursor-pointer select-none transition-colors ${
-                              isChecked
-                                ? "bg-brand-50/60 border-brand-200 dark:bg-brand-500/10 dark:border-brand-500/30 text-brand-800 dark:text-brand-300 font-medium"
-                                : "bg-white border-gray-150 dark:bg-gray-900 dark:border-gray-850 hover:bg-gray-50"
-                            }`}
-                            onClick={() => toggleStudent(student.id)}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => {}}
-                              className="rounded text-brand-600 focus:ring-brand-500 w-3 h-3"
-                            />
-                            <span className="truncate">{student.name} ({student.code})</span>
-                          </label>
-                        );
-                      })
-                    )}
+                {/* Search Combobox Container */}
+                <div ref={dropdownRef} className="relative">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Tìm kiếm và chọn học sinh theo mã hoặc tên..."
+                      value={studentSearchText}
+                      onFocus={() => setShowDropdown(true)}
+                      onChange={(e) => setStudentSearchText(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-white dark:bg-gray-900 text-gray-800 dark:text-white dark:border-gray-800 focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+                    />
+                    <span className="absolute left-3 top-2.5 text-gray-400">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-gray-400">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                      </svg>
+                    </span>
                   </div>
+
+                  {showDropdown && (
+                    <div className="absolute z-50 left-0 right-0 mt-1.5 max-h-60 overflow-y-auto bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg shadow-lg animate-fadeIn pr-1">
+                      {isSearching ? (
+                        <div className="flex items-center justify-center py-4 text-xs text-gray-500 dark:text-gray-400">
+                          <div className="inline-block animate-spin rounded-full h-4.5 w-4.5 border-2 border-brand-500 border-t-transparent mr-2"></div>
+                          Đang tìm kiếm...
+                        </div>
+                      ) : searchResults.length === 0 ? (
+                        <div className="py-3 px-4 text-xs text-gray-400 italic">
+                          Không tìm thấy học sinh nào
+                        </div>
+                      ) : (
+                        <div className="py-1">
+                          {searchResults.map((student) => {
+                            const isAlreadySelected = formStudentIds.includes(student.id);
+                            return (
+                              <button
+                                key={student.id}
+                                type="button"
+                                disabled={isAlreadySelected}
+                                onClick={() => handleSelectStudent(student)}
+                                className={`w-full text-left px-4 py-2.5 text-xs flex items-center justify-between border-b border-gray-50 dark:border-gray-900/60 last:border-0 transition-colors ${
+                                  isAlreadySelected
+                                    ? "bg-gray-50 text-gray-400 dark:bg-gray-900/40 dark:text-gray-600 cursor-not-allowed"
+                                    : "hover:bg-brand-50/50 dark:hover:bg-brand-950/20 text-gray-700 dark:text-gray-300"
+                                }`}
+                              >
+                                <span className="font-semibold text-xs">
+                                  {student.name} <span className="text-[10px] font-normal text-gray-400 dark:text-gray-500 ml-1">({student.code})</span>
+                                </span>
+                                {isAlreadySelected && (
+                                  <span className="text-[10px] bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400 px-1.5 py-0.5 rounded font-bold">
+                                    Đã chọn
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
+
+                {/* Selected Students Cards Region */}
+                {selectedStudents.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 block">
+                      Đã chọn {selectedStudents.length} học sinh:
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-64 overflow-y-auto pr-1 py-1">
+                      {selectedStudents.map((student) => (
+                        <div
+                          key={student.id}
+                          className="relative p-2.5 bg-white dark:bg-gray-900 border border-gray-150 dark:border-gray-800 rounded-xl flex items-center gap-2.5 shadow-theme-xs hover:border-rose-300 dark:hover:border-rose-500/40 transition-colors animate-fadeIn"
+                        >
+                          {/* Avatar Circle */}
+                          <div className="w-7 h-7 rounded-full bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center font-bold text-xs shrink-0">
+                            {student.name ? student.name.charAt(0).toUpperCase() : "?"}
+                          </div>
+                          
+                          {/* Student Details */}
+                          <div className="min-w-0 flex-1 pr-6">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-xs font-semibold text-gray-900 dark:text-white truncate">
+                                {student.name}
+                              </span>
+                              <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 shrink-0">
+                                {student.code}
+                              </span>
+                            </div>
+                            <span className="block text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                              {student.email || "Không có email"}
+                            </span>
+                          </div>
+
+                          {/* Remove Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveStudent(student.id)}
+                            className="absolute right-1.5 top-1.5 text-gray-400 hover:text-rose-500 dark:text-gray-500 dark:hover:text-rose-450 transition-colors p-1"
+                            title="Xóa học sinh"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-3 h-3">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

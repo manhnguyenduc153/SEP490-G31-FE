@@ -1,6 +1,26 @@
 import { api, ApiResponse } from "./api";
 import { ENDPOINTS } from "@/constants/endpoints";
 
+export interface ClassScheduleItem {
+  id: number;
+  classId?: number | null;
+  classCode?: string | null;
+  className?: string | null;
+  lessonNo?: number | null;
+  scheduleDate?: string | null;
+  slotId?: number | null;
+  slotName?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  roomId?: number | null;
+  roomName?: string | null;
+  teacherId?: number | null;
+  teacherName?: string | null;
+  teacherAvatar?: string | null;
+  status: number;
+  note?: string | null;
+}
+
 export interface ClassItem {
   id: number;
   code: string;
@@ -20,6 +40,7 @@ export interface ClassItem {
   autoRefund?: boolean | null;
   expectedLessons?: number | null;
   weeklySchedulesJson?: string | null;
+  schedules?: ClassScheduleItem[];
 }
 
 export interface ClassPagingResponse {
@@ -91,5 +112,13 @@ export const classApi = {
 
   async deactive(id: number): Promise<ApiResponse<boolean>> {
     return api.post<boolean>(ENDPOINTS.CLASS.DEACTIVE(id), {});
+  },
+
+  async getTeacherSchedules(): Promise<ApiResponse<ClassScheduleItem[]>> {
+    return api.get<ClassScheduleItem[]>("/api/Class/TeacherSchedules");
+  },
+
+  async getStudentSchedules(): Promise<ApiResponse<ClassScheduleItem[]>> {
+    return api.get<ClassScheduleItem[]>("/api/Class/StudentSchedules");
   },
 };

@@ -8,6 +8,8 @@
     "students": "Học sinh",
     "rooms": "Phòng học",
     "schedules": "Lịch học",
+    "teachingSchedules": "Lịch dạy",
+    "timetable": "Thời khóa biểu",
     "assessments": "Đánh giá & Khảo thí",
     "exams": "Kỳ thi",
     "assignments": "Bài tập",
@@ -111,7 +113,8 @@
     "formDobLabel": "Ngày sinh",
     "formGenderLabel": "Giới tính",
     "formGenderMale": "Nam",
-    "formGenderFemale": "Nữ",
+    "formGenderFemale": "Nữ"
+  },
   "teacher": {
     "title": "Quản lý Giáo viên",
     "description": "Quản lý danh sách giáo viên trong trường.",
