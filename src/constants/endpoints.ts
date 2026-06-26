@@ -26,6 +26,21 @@ export const ENDPOINTS = {
     UPDATE: (id: number) => `/api/Student/${id}`,
     DELETE: (id: number) => `/api/Student/${id}`,
     DEACTIVE: (id: number) => `/api/Student/${id}/deactive`,
+  TEACHER: {
+    GET_ALL: "/api/Teacher",
+    GET_BY_ID: (id: number) => `/api/Teacher/${id}`,
+    CREATE: "/api/Teacher",
+    UPDATE: (id: number) => `/api/Teacher/${id}`,
+    DELETE: (id: number) => `/api/Teacher/${id}`,
+    DEACTIVE: (id: number) => `/api/Teacher/${id}/deactive`,
+  },
+  COURSE: {
+    GET_ALL: "/api/Course",
+    GET_BY_ID: (id: number) => `/api/Course/${id}`,
+    CREATE: "/api/Course",
+    UPDATE: (id: number) => `/api/Course/${id}`,
+    DELETE: (id: number) => `/api/Course/${id}`,
+    DEACTIVE: (id: number) => `/api/Course/${id}/deactive`,
   },
 };
 
