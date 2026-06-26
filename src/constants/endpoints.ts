@@ -26,6 +26,7 @@ export const ENDPOINTS = {
     UPDATE: (id: number) => `/api/Student/${id}`,
     DELETE: (id: number) => `/api/Student/${id}`,
     DEACTIVE: (id: number) => `/api/Student/${id}/deactive`,
+  },
   TEACHER: {
     GET_ALL: "/api/Teacher",
     GET_BY_ID: (id: number) => `/api/Teacher/${id}`,
@@ -41,6 +42,17 @@ export const ENDPOINTS = {
     UPDATE: (id: number) => `/api/Course/${id}`,
     DELETE: (id: number) => `/api/Course/${id}`,
     DEACTIVE: (id: number) => `/api/Course/${id}/deactive`,
+  },
+  CLASS: {
+    GET_ALL: "/api/Class",
+    GET_BY_ID: (id: number) => `/api/Class/${id}`,
+    CREATE: "/api/Class",
+    UPDATE: (id: number) => `/api/Class/${id}`,
+    DELETE: (id: number) => `/api/Class/${id}`,
+    DEACTIVE: (id: number) => `/api/Class/${id}/deactive`,
+  },
+  ROOM: {
+    GET_ALL: "/api/Room",
   },
 };
 

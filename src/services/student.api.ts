@@ -7,10 +7,10 @@ export interface StudentItem {
   id: number;
   code: string;
   name: string;
-  dob?: string | null;
-  gender?: boolean | null;
   email?: string | null;
   phone?: string | null;
+  dob?: string | null;
+  gender?: boolean | null;
   address?: string | null;
   status: number;
   statusName: string;
