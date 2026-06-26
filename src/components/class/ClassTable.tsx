@@ -272,12 +272,6 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
     }
   };
 
-  const getTeacherInitial = (name: string) => {
-    if (!name) return "?";
-    const parts = name.trim().split(" ");
-    return parts[parts.length - 1].charAt(0).toUpperCase();
-  };
-
   const getUrgencyTag = (startDateStr: string | null | undefined, status: number) => {
     if (status !== 0 || !startDateStr) return null;
     const startDate = new Date(startDateStr);
@@ -469,7 +463,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
                 {t("class.colName")}
               </TableCell>
               <TableCell className="w-[20%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-                {t("class.colTeacher")} &amp; {t("class.colSchedules")}
+                {t("class.colTeacher")}
               </TableCell>
               <TableCell className="w-[15%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
                 {t("class.colCourse")}
@@ -530,46 +524,22 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
                         ) : (
                           <span className="text-xs text-gray-400">-</span>
                         )}
-                      </div>
-                    </div>
-                  </TableCell>
-
-                  {/* Teacher, Schedules & Student Count */}
-                  <TableCell className="px-5 sm:px-6 py-4">
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex items-center gap-2">
-                        {/* Student Count badge */}
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 text-[11px] font-semibold">
                           👤 {item.studentCount} {t("class.colStudents").toLowerCase()}
                         </span>
                       </div>
-                      
-                      {/* Weekly Schedule display */}
-                      {item.scheduleDisplay && (
-                        <div className="text-xs text-brand-600 dark:text-brand-400 font-medium">
-                          {item.scheduleDisplay}
-                        </div>
-                      )}
-
-                      {/* Teacher Avatar badge & Name */}
-                      {item.teacherName ? (
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {item.teacherAvatar ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={item.teacherAvatar} alt={item.teacherName} className="w-5 h-5 rounded-full object-cover" />
-                          ) : (
-                            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-brand-500 text-[10px] font-bold text-white">
-                              {getTeacherInitial(item.teacherName)}
-                            </span>
-                          )}
-                          <span className="text-xs text-gray-700 dark:text-gray-300 font-medium">
-                            {item.teacherName}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-gray-400 italic">{t("class.noTeacher")}</span>
-                      )}
                     </div>
+                  </TableCell>
+
+                  {/* Teacher Name Only */}
+                  <TableCell className="px-5 sm:px-6 py-4">
+                    {item.teacherName ? (
+                      <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+                        {item.teacherName}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400 italic">{t("class.noTeacher")}</span>
+                    )}
                   </TableCell>
 
                   {/* Course / Phân loại */}

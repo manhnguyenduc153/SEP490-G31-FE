@@ -150,15 +150,17 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
                   0: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
                 };
                 
-                parsedSchedules.forEach((s: any) => {
-                  const day = s.dayOfWeek !== undefined ? s.dayOfWeek : (s.DayOfWeek !== undefined ? s.DayOfWeek : 1);
-                  loadedConfigs[day] = {
-                    selected: true,
-                    startTime: s.startTime ?? s.StartTime ?? "17:30",
-                    endTime: s.endTime ?? s.EndTime ?? "19:00",
-                    roomId: s.roomId !== undefined ? s.roomId : (s.RoomId !== undefined ? s.RoomId : null),
-                  };
-                });
+                if (Array.isArray(parsedSchedules)) {
+                  parsedSchedules.forEach((s: any) => {
+                    const day = s.dayOfWeek !== undefined ? s.dayOfWeek : (s.DayOfWeek !== undefined ? s.DayOfWeek : 1);
+                    loadedConfigs[day] = {
+                      selected: true,
+                      startTime: s.startTime ?? s.StartTime ?? "17:30",
+                      endTime: s.endTime ?? s.EndTime ?? "19:00",
+                      roomId: s.roomId !== undefined ? s.roomId : (s.RoomId !== undefined ? s.RoomId : null),
+                    };
+                  });
+                }
                 
                 setDayConfigs(loadedConfigs);
               } catch (err) {
