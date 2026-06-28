@@ -7,6 +7,8 @@ import { teacherApi, TeacherItem } from "@/services/teacher.api";
 import { studentApi, StudentItem } from "@/services/student.api";
 import { roomApi, RoomItem } from "@/services/room.api";
 import { CodeHelper } from "@/helpers/CodeHelper";
+import * as XLSX from "xlsx";
+import { Calendar, FileSpreadsheet, Plus, Search, X, ArrowLeft, BookOpen, Info, UserPlus, BookPlus, CalendarDays, AlertCircle } from "lucide-react";
 
 interface ClassFormProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -14,6 +16,7 @@ interface ClassFormProps {
   editingItem: ClassItem | null;
   onCancel: () => void;
   onSuccess: (message: string) => void;
+  showToast: (msg: string, type?: "success" | "error") => void;
 }
 
 interface DayConfig {
@@ -41,7 +44,7 @@ const SUGGESTIONS = [
   { label: "19:30-21:00", start: "19:30", end: "21:00" },
 ];
 
-export default function ClassForm({ t, editingItem, onCancel, onSuccess }: ClassFormProps) {
+export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToast }: ClassFormProps) {
   const startDateInputRef = useRef<HTMLInputElement>(null);
   // Form states
   const [formName, setFormName] = useState("");
@@ -82,6 +85,11 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [formNewStudents, setFormNewStudents] = useState<{ name: string; email: string; phone?: string }[]>([]);
+  const [formNewTeacherEmail, setFormNewTeacherEmail] = useState<string | null>(null);
+  const [formNewTeacherName, setFormNewTeacherName] = useState<string | null>(null);
+  const [formNewCourseName, setFormNewCourseName] = useState<string | null>(null);
+  const excelInputRef = useRef<HTMLInputElement>(null);
 
   // Load dropdown options
   useEffect(() => {
@@ -233,6 +241,10 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
       setFormExpectedLessons(30);
       setFormStudentIds([]);
       setSelectedStudents([]);
+      setFormNewStudents([]);
+      setFormNewTeacherEmail(null);
+      setFormNewTeacherName(null);
+      setFormNewCourseName(null);
       setDayConfigs({
         1: { selected: true, startTime: "17:30", endTime: "19:00", roomId: null },
         2: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
@@ -279,20 +291,235 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
     setSelectedStudents((prev) => prev.filter((s) => s.id !== studentId));
   };
 
+  const handleRemoveNewStudent = (email: string) => {
+    setFormNewStudents((prev) => prev.filter((s) => s.email !== email));
+  };
+
+  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: "binary" });
+        const wsName = wb.SheetNames[0];
+        const ws = wb.Sheets[wsName];
+
+        const getValue = (cellRef: string) => {
+          const cell = ws[cellRef];
+          return cell ? String(cell.v).trim() : "";
+        };
+
+        const nameVal = getValue("B2");
+        const codeVal = getValue("B3");
+        const startDateVal = getValue("B4");
+        const expectedLessonsVal = getValue("B5");
+        const weeklySchedulesVal = getValue("B6");
+        const courseNameVal = getValue("B7");
+        const teacherEmailVal = getValue("B8");
+        const teacherNameVal = getValue("B9");
+
+        if (nameVal) setFormName(nameVal);
+        if (codeVal) setFormCode(codeVal);
+        if (startDateVal) {
+          const parts = startDateVal.split("/");
+          if (parts.length === 3) {
+            const formatted = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+            setFormStartDate(formatted);
+          } else {
+            setFormStartDate(startDateVal);
+          }
+        }
+        if (expectedLessonsVal) {
+          const lessonsNum = parseInt(expectedLessonsVal, 10);
+          if (!isNaN(lessonsNum)) {
+            setFormExpectedLessons(lessonsNum);
+          }
+        }
+
+        // Parse Weekly Schedules
+        if (weeklySchedulesVal) {
+          const schedules = weeklySchedulesVal.split(",");
+          const newConfigs: Record<number, DayConfig> = {
+            1: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
+            2: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
+            3: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
+            4: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
+            5: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
+            6: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
+            0: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
+          };
+
+          schedules.forEach((sch) => {
+            const match = sch.match(/(T\d|CN)\s*\((.*?)-(.*?)\)/i);
+            if (match) {
+              const dayStr = match[1].toUpperCase();
+              const start = match[2].trim();
+              const end = match[3].trim();
+
+              let dayOfWeek = 1;
+              if (dayStr === "T2") dayOfWeek = 1;
+              else if (dayStr === "T3") dayOfWeek = 2;
+              else if (dayStr === "T4") dayOfWeek = 3;
+              else if (dayStr === "T5") dayOfWeek = 4;
+              else if (dayStr === "T6") dayOfWeek = 5;
+              else if (dayStr === "T7") dayOfWeek = 6;
+              else if (dayStr === "CN" || dayStr === "T8") dayOfWeek = 0;
+
+              newConfigs[dayOfWeek] = {
+                selected: true,
+                startTime: start,
+                endTime: end,
+                roomId: null,
+              };
+            }
+          });
+
+          setDayConfigs(newConfigs);
+        }
+
+        // Parse Course
+        if (courseNameVal && courses.length > 0) {
+          const matchedCourse = courses.find(
+            (c) => c.name.toLowerCase().trim() === courseNameVal.toLowerCase().trim() ||
+                   c.name.toLowerCase().includes(courseNameVal.toLowerCase())
+          );
+          if (matchedCourse) {
+            setFormCourseId(matchedCourse.id);
+            setFormNewCourseName(null);
+          } else {
+            setFormCourseId(null);
+            setFormNewCourseName(courseNameVal);
+          }
+        } else if (courseNameVal) {
+          setFormCourseId(null);
+          setFormNewCourseName(courseNameVal);
+        }
+
+        // Parse Teacher
+        if (teacherEmailVal && teachers.length > 0) {
+          const matchedTeacher = teachers.find(
+            (t) => t.email?.toLowerCase().trim() === teacherEmailVal.toLowerCase().trim()
+          );
+          if (matchedTeacher) {
+            setFormTeacherId(matchedTeacher.id);
+            setFormNewTeacherEmail(null);
+            setFormNewTeacherName(null);
+          } else {
+            setFormTeacherId(null);
+            setFormNewTeacherEmail(teacherEmailVal);
+            setFormNewTeacherName(teacherNameVal || "Giáo viên mới");
+          }
+        } else if (teacherEmailVal) {
+          setFormTeacherId(null);
+          setFormNewTeacherEmail(teacherEmailVal);
+          setFormNewTeacherName(teacherNameVal || "Giáo viên mới");
+        }
+
+        // Parse Student List from Row 13 (index 12)
+        const studentsData: { name: string; email: string; phone: string }[] = [];
+        let r = 12;
+        while (true) {
+          const stt = ws[XLSX.utils.encode_cell({ r, c: 0 })];
+          const name = ws[XLSX.utils.encode_cell({ r, c: 1 })];
+          const email = ws[XLSX.utils.encode_cell({ r, c: 2 })];
+          const phone = ws[XLSX.utils.encode_cell({ r, c: 3 })];
+
+          if (!name && !email && !stt) {
+            break;
+          }
+
+          const nameVal = name ? String(name.v).trim() : "";
+          const emailVal = email ? String(email.v).trim() : "";
+          const phoneVal = phone ? String(phone.v).trim() : "";
+
+          if (nameVal && emailVal) {
+            studentsData.push({ name: nameVal, email: emailVal, phone: phoneVal });
+          }
+          r++;
+        }
+
+        if (studentsData.length > 0) {
+          const emailsToCheck = studentsData.map((s) => s.email);
+          const checkRes = await studentApi.checkEmails(emailsToCheck);
+
+          if (checkRes.success && checkRes.data) {
+            const existingDict = checkRes.data;
+            const idsToAdd: number[] = [];
+            const loadedStudents: StudentItem[] = [...selectedStudents];
+            const newStudentsList: { name: string; email: string; phone?: string }[] = [];
+
+            for (const s of studentsData) {
+              const emailLower = s.email.toLowerCase();
+              if (existingDict[emailLower]) {
+                const id = existingDict[emailLower];
+                idsToAdd.push(id);
+                
+                if (!loadedStudents.some((ls) => ls.id === id)) {
+                  loadedStudents.push({
+                    id,
+                    code: `HS_${id}`,
+                    name: s.name,
+                    email: s.email,
+                    phone: s.phone || null,
+                    status: 1,
+                    statusName: "Active",
+                  });
+                }
+              } else {
+                newStudentsList.push({
+                  name: s.name,
+                  email: s.email,
+                  phone: s.phone || undefined,
+                });
+              }
+            }
+
+            setFormStudentIds((prev) => {
+              const merged = [...prev];
+              idsToAdd.forEach((id) => {
+                if (!merged.includes(id)) merged.push(id);
+              });
+              return merged;
+            });
+            setSelectedStudents(loadedStudents);
+            setFormNewStudents(newStudentsList);
+          }
+        }
+      } catch (err) {
+        console.error("Parse Excel file error", err);
+        const errMsg = "Không thể đọc file Excel. Vui lòng kiểm tra định dạng.";
+        setFormError(errMsg);
+        showToast(errMsg, "error");
+      }
+    };
+    reader.readAsBinaryString(file);
+
+    if (e.target) e.target.value = "";
+  };
+
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim()) {
-      setFormError("Tên lớp học không được để trống");
+      const errMsg = "Tên lớp học không được để trống";
+      setFormError(errMsg);
+      showToast(errMsg, "error");
       return;
     }
 
     if (!formStartDate) {
-      setFormError("Ngày bắt đầu không được để trống");
+      const errMsg = "Ngày bắt đầu không được để trống";
+      setFormError(errMsg);
+      showToast(errMsg, "error");
       return;
     }
 
     if (!formExpectedLessons || formExpectedLessons <= 0) {
-      setFormError("Số buổi dự kiến phải lớn hơn 0");
+      const errMsg = "Số buổi dự kiến phải lớn hơn 0";
+      setFormError(errMsg);
+      showToast(errMsg, "error");
       return;
     }
 
@@ -300,14 +527,18 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
       .filter(([_, config]) => config.selected);
 
     if (selectedSchedules.length === 0) {
-      setFormError("Vui lòng cấu hình ít nhất 1 buổi học trong lịch học hàng tuần");
+      const errMsg = "Vui lòng cấu hình ít nhất 1 buổi học trong lịch học hàng tuần";
+      setFormError(errMsg);
+      showToast(errMsg, "error");
       return;
     }
 
     const finalCode = formCode.trim();
 
     if (!finalCode) {
-      setFormError("Mã lớp học không được để trống");
+      const errMsg = "Mã lớp học không được để trống";
+      setFormError(errMsg);
+      showToast(errMsg, "error");
       return;
     }
 
@@ -327,6 +558,10 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
         autoRefund: formAutoRefund,
         expectedLessons: formExpectedLessons,
         studentIds: formStudentIds,
+        newStudents: formNewStudents,
+        newTeacherEmail: formNewTeacherEmail,
+        newTeacherName: formNewTeacherName,
+        newCourseName: formNewCourseName,
         weeklySchedules: selectedSchedules.map(([dayStr, config]) => ({
           dayOfWeek: Number(dayStr),
           startTime: config.startTime,
@@ -343,18 +578,23 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
         if (res.success && res.data) {
           onSuccess(t("class.updateSuccess", { name: res.data.name }));
         } else {
-          setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("class.updateError"));
+          const errMsg = res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("class.updateError");
+          setFormError(errMsg);
+          showToast(errMsg, "error");
         }
       } else {
         const res = await classApi.create(payload);
         if (res.success && res.data) {
           onSuccess(t("class.createSuccess", { name: res.data.name }));
         } else {
-          setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("class.createError"));
+          const errMsg = res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("class.createError");
+          setFormError(errMsg);
+          showToast(errMsg, "error");
         }
       }
     } catch (err) {
       setFormError(t("class.systemError"));
+      showToast(t("class.systemError"), "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -367,9 +607,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
       <div className="flex items-center justify-between p-5 sm:p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs">
         <div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5 text-brand-500">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-            </svg>
+            <BookOpen className="w-5 h-5 text-brand-500" />
             {editingItem ? "Chỉnh Sửa Lớp Học" : "Tạo Lớp Học Mới"}
           </h2>
           <p className="text-xs text-gray-500 mt-1">
@@ -379,29 +617,47 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
 
         <div className="flex items-center gap-3">
           <button
+            type="button"
+            onClick={() => excelInputRef.current?.click()}
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950/20 dark:border-emerald-900/30 dark:hover:bg-emerald-950/40 transition-colors"
+          >
+            <FileSpreadsheet className="w-4.5 h-4.5" />
+            Import Excel
+          </button>
+          <a
+            href="/class_import_template.xlsx"
+            download
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 transition-colors"
+          >
+            Tải file mẫu (.xlsx)
+          </a>
+          <input
+            type="file"
+            ref={excelInputRef}
+            onChange={handleImportExcel}
+            accept=".xlsx, .xls"
+            style={{ display: "none" }}
+          />
+
+          <button
             onClick={onCancel}
             className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-850 dark:border-gray-700 dark:hover:bg-gray-800 transition-colors"
           >
-            &lt; Quay lại
+            <ArrowLeft className="w-4 h-4" />
+            Quay lại
           </button>
           <button
             onClick={handleSubmitForm}
             disabled={isSubmitting}
             className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-theme-xs transition-colors disabled:opacity-60"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
+            <Plus className="w-4 h-4" />
             {editingItem ? "Lưu thay đổi" : "Tạo lớp học"}
           </button>
         </div>
       </div>
 
-      {formError && (
-        <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-sm font-semibold text-rose-800 dark:bg-rose-950/20 dark:border-rose-900/30 dark:text-rose-400">
-          ⚠️ {formError}
-        </div>
-      )}
+
 
       {/* Main Form Content */}
       <div className="space-y-6 w-full">
@@ -409,7 +665,8 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
           {/* Card: Thông tin cơ bản */}
           <div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs space-y-5">
             <h3 className="text-md font-bold text-gray-900 dark:text-white flex items-center gap-2 border-b border-gray-50 dark:border-gray-800/80 pb-3">
-              📅 Thông tin cơ bản
+              <Info className="w-4.5 h-4.5 text-brand-500" />
+              Thông tin cơ bản
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -431,7 +688,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
               {/* Mã lớp học */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                  Mã lớp học
+                  Mã lớp học <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -463,9 +720,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
                       onClick={() => startDateInputRef.current?.showPicker()}
                       className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-brand-500 transition-colors"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4 h-4 text-gray-400">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z" />
-                      </svg>
+                      <Calendar className="w-4 h-4 text-gray-400" />
                     </button>
                   </div>
                 </div>
@@ -481,8 +736,9 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
                     value={formEndDate}
                     className="w-full rounded-lg border border-gray-200 bg-gray-50 dark:bg-gray-950 disabled:bg-gray-50 dark:disabled:bg-gray-950/40 disabled:text-gray-400 dark:disabled:text-gray-600 px-3 py-2 text-sm text-gray-800 dark:border-gray-800"
                   />
-                  <span className="text-[10px] text-gray-400 block">
-                    ℹ️ Tự tính dựa trên lịch &amp; số buổi
+                  <span className="text-[10px] text-gray-400 flex items-center gap-1 mt-1">
+                    <Info className="w-3 h-3 text-gray-400 shrink-0" />
+                    <span>Tự tính dựa trên lịch &amp; số buổi</span>
                   </span>
                 </div>
 
@@ -513,7 +769,11 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
                 </label>
                 <select
                   value={formTeacherId || ""}
-                  onChange={(e) => setFormTeacherId(e.target.value ? Number(e.target.value) : null)}
+                  onChange={(e) => {
+                    setFormTeacherId(e.target.value ? Number(e.target.value) : null);
+                    setFormNewTeacherEmail(null);
+                    setFormNewTeacherName(null);
+                  }}
                   className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-850 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                 >
                   <option value="">Chọn giáo viên</option>
@@ -523,6 +783,25 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
                     </option>
                   ))}
                 </select>
+                {formNewTeacherEmail && (
+                  <div className="mt-1.5 p-2 bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-150 dark:border-emerald-900/30 rounded-lg flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-emerald-800 dark:text-emerald-450 font-medium flex items-center gap-1.5">
+                      <UserPlus className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-450 shrink-0" />
+                      <span>Giáo viên mới: <strong>{formNewTeacherName}</strong> ({formNewTeacherEmail}) - Sẽ tự động tạo tài khoản.</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormNewTeacherEmail(null);
+                        setFormNewTeacherName(null);
+                      }}
+                      className="text-gray-400 hover:text-rose-500 transition-colors shrink-0"
+                      title="Hủy giáo viên mới"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Khóa học */}
@@ -532,7 +811,10 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
                 </label>
                 <select
                   value={formCourseId || ""}
-                  onChange={(e) => setFormCourseId(e.target.value ? Number(e.target.value) : null)}
+                  onChange={(e) => {
+                    setFormCourseId(e.target.value ? Number(e.target.value) : null);
+                    setFormNewCourseName(null);
+                  }}
                   className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-850 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                 >
                   <option value="">Chọn khóa học</option>
@@ -540,6 +822,24 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
+                {formNewCourseName && (
+                  <div className="mt-1.5 p-2 bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-150 dark:border-emerald-900/30 rounded-lg flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-emerald-800 dark:text-emerald-450 font-medium flex items-center gap-1.5">
+                      <BookPlus className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-450 shrink-0" />
+                      <span>Khóa học mới: <strong>{formNewCourseName}</strong> - Sẽ tự động tạo khóa học mới khi lưu.</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormNewCourseName(null);
+                      }}
+                      className="text-gray-400 hover:text-rose-500 transition-colors shrink-0"
+                      title="Hủy khóa học mới"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
 
 
@@ -561,9 +861,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
                       className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-white dark:bg-gray-900 text-gray-800 dark:text-white dark:border-gray-800 focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
                     />
                     <span className="absolute left-3 top-2.5 text-gray-400">
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-gray-400">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                      </svg>
+                      <Search className="w-4 h-4 text-gray-400" />
                     </span>
                   </div>
 
@@ -650,9 +948,52 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
                             className="absolute right-1.5 top-1.5 text-gray-400 hover:text-rose-500 dark:text-gray-500 dark:hover:text-rose-450 transition-colors p-1"
                             title="Xóa học sinh"
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-3 h-3">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* New Students Imported Cards Region */}
+                {formNewStudents.length > 0 && (
+                  <div className="mt-3 space-y-2 animate-fadeIn">
+                    <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-450 block flex items-center gap-1">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                      Học sinh mới phát hiện trong Excel ({formNewStudents.length} học sinh) - sẽ tự động tạo tài khoản:
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-64 overflow-y-auto pr-1 py-1">
+                      {formNewStudents.map((student) => (
+                        <div
+                          key={student.email}
+                          className="relative p-2.5 bg-emerald-50/20 dark:bg-emerald-950/10 border border-emerald-150 dark:border-emerald-900/30 rounded-xl flex items-center gap-2.5 shadow-theme-xs hover:border-rose-300 dark:hover:border-rose-500/40 transition-colors"
+                        >
+                          <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0">
+                            {student.name ? student.name.charAt(0).toUpperCase() : "?"}
+                          </div>
+                          
+                          <div className="min-w-0 flex-1 pr-6">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-xs font-semibold text-gray-900 dark:text-white truncate">
+                                {student.name}
+                              </span>
+                              <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-450 shrink-0">
+                                [Mới]
+                              </span>
+                            </div>
+                            <span className="block text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                              {student.email}
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveNewStudent(student.email)}
+                            className="absolute right-1.5 top-1.5 text-gray-400 hover:text-rose-500 dark:text-gray-500 dark:hover:text-rose-450 transition-colors p-1"
+                            title="Xóa học sinh"
+                          >
+                            <X className="w-3 h-3" />
                           </button>
                         </div>
                       ))}
@@ -681,7 +1022,8 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess }: Class
           <div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs space-y-4">
             <div>
               <h3 className="text-md font-bold text-gray-900 dark:text-white flex items-center gap-2 pb-1">
-                🟢 Lịch học hàng tuần
+                <CalendarDays className="w-4.5 h-4.5 text-brand-500" />
+                Lịch học hàng tuần
               </h3>
               <p className="text-xs text-gray-500">
                 Chọn các ngày trong tuần học và cấu hình thời gian, phòng học tương ứng.

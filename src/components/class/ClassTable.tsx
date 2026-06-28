@@ -8,7 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { PencilIcon, TrashBinIcon, EyeIcon } from "@/icons";
+import { Search, SlidersHorizontal, List, LayoutGrid, Eye, Pencil, Trash2 } from "lucide-react";
 import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
 import { ClassViewModal } from "./ClassViewModal";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
@@ -24,9 +24,10 @@ interface ClassTableProps {
   refreshKey?: number;
   onAddClick: () => void;
   onEditClick: (item: ClassItem) => void;
+  showToast: (msg: string, type?: "success" | "error") => void;
 }
 
-export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick, onEditClick }: ClassTableProps) {
+export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick, onEditClick, showToast }: ClassTableProps) {
   const { t } = useTranslation();
 
   // ── Dynamic Metadata ──
@@ -67,9 +68,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
   const [refreshKey, setRefreshKey] = useState(0);
   const triggerRefresh = () => setRefreshKey((k) => k + 1);
 
-  // ── Toast ──
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [toastType, setToastType] = useState<"success" | "error">("success");
+
 
   // ── Form error (retained for view detail modal) ──
   const [formError, setFormError] = useState<string | null>(null);
@@ -91,17 +90,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // ── Toast auto-hide ──
-  useEffect(() => {
-    if (!toastMessage) return;
-    const timer = setTimeout(() => setToastMessage(null), 3000);
-    return () => clearTimeout(timer);
-  }, [toastMessage]);
 
-  const showToast = (msg: string, type: "success" | "error" = "success") => {
-    setToastMessage(msg);
-    setToastType(type);
-  };
 
   // ── Debounce search ──
   useEffect(() => {
@@ -171,13 +160,20 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
             const startIndex = (currentPage - 1) * itemsPerPage;
             setItems(displayList.slice(startIndex, startIndex + itemsPerPage));
           } else {
-            setError(mainRes.message ? t(`backendMessages.${mainRes.message}`, { defaultValue: mainRes.message }) : t("class.systemError"));
+            const errMsg = allItemsRes.message ? t(`backendMessages.${allItemsRes.message}`, { defaultValue: allItemsRes.message }) : t("class.systemError");
+            setError(errMsg);
+            showToast(errMsg, "error");
           }
         } else {
-          setError(mainRes.message ? t(`backendMessages.${mainRes.message}`, { defaultValue: mainRes.message }) : t("class.systemError"));
+          const errMsg = mainRes.message ? t(`backendMessages.${mainRes.message}`, { defaultValue: mainRes.message }) : t("class.systemError");
+          setError(errMsg);
+          showToast(errMsg, "error");
         }
       } catch {
-        if (mounted) setError(t("class.systemError"));
+        if (mounted) {
+          setError(t("class.systemError"));
+          showToast(t("class.systemError"), "error");
+        }
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -212,10 +208,13 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
       if (res.success && res.data) {
         setViewingItemDetail(res.data);
       } else {
-        setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("class.systemError"));
+        const errMsg = res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("class.systemError");
+        setFormError(errMsg);
+        showToast(errMsg, "error");
       }
     } catch {
       setFormError(t("class.systemError"));
+      showToast(t("class.systemError"), "error");
     } finally {
       setIsLoadingDetail(false);
     }
@@ -291,16 +290,6 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
 
   return (
     <div className="w-full bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs overflow-hidden">
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className={`fixed top-4 right-4 z-[9999] flex items-center px-4 py-3 rounded-lg border shadow-lg transition-all duration-300 ${
-          toastType === "success" 
-            ? "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950 dark:border-emerald-800 dark:text-emerald-300"
-            : "bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950 dark:border-rose-800 dark:text-rose-300"
-        }`}>
-          <span className="text-sm font-medium">{toastMessage}</span>
-        </div>
-      )}
 
       {/* Header with Title & Add Class Button */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 sm:p-6 border-b border-gray-100 dark:border-gray-800">
@@ -377,9 +366,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
             className="w-full pl-10 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
           />
           <span className="absolute left-3 top-2.5 text-gray-400">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4 h-4">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-            </svg>
+            <Search className="w-4 h-4" />
           </span>
         </div>
 
@@ -392,23 +379,17 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
                 : "bg-white border-gray-200 text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 hover:bg-gray-50"
             }`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4 h-4">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
-            </svg>
+            <SlidersHorizontal className="w-4 h-4" />
             {t("class.filterBtn", { defaultValue: "Bộ lọc" })}
           </button>
 
           {/* View toggle (static grid/list mock icons) */}
           <div className="flex border border-gray-200 dark:border-gray-700 rounded-lg p-0.5 bg-gray-50 dark:bg-gray-800">
             <button className="p-1.5 rounded bg-white dark:bg-gray-700 shadow-sm text-gray-700 dark:text-white">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-              </svg>
+              <List className="w-4 h-4" />
             </button>
             <button className="p-1.5 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
-              </svg>
+              <LayoutGrid className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -568,7 +549,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
                         title={t("class.viewTooltip", { defaultValue: "Xem chi tiết" })}
                         className="p-1 text-gray-400 hover:text-brand-500 transition-colors"
                       >
-                        <EyeIcon className="w-4 h-4" />
+                        <Eye className="w-4 h-4" />
                       </button>
                       <PermissionGuard requiredPermission="Class.Edit">
                         <button
@@ -576,7 +557,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
                           title={t("class.editTooltip")}
                           className="p-1 text-gray-400 hover:text-amber-500 transition-colors"
                         >
-                          <PencilIcon className="w-4 h-4" />
+                          <Pencil className="w-4 h-4" />
                         </button>
                       </PermissionGuard>
                       <PermissionGuard requiredPermission="Class.Delete">
@@ -585,7 +566,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
                           title={t("class.deleteTooltip")}
                           className="p-1 text-gray-400 hover:text-rose-500 transition-colors"
                         >
-                          <TrashBinIcon className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </PermissionGuard>
                     </div>

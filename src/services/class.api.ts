@@ -71,6 +71,14 @@ export interface ClassSaveDto {
     endTime: string;
     roomId: number | null;
   }[];
+  newStudents?: {
+    name: string;
+    email: string;
+    phone?: string | null;
+  }[];
+  newTeacherEmail?: string | null;
+  newTeacherName?: string | null;
+  newCourseName?: string | null;
 }
 
 export const classApi = {
