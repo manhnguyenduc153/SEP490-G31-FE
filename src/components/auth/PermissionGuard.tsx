@@ -23,6 +23,12 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       return;
     }
 
+    const role = authApi.getRole().toLowerCase();
+    if (role === "admin") {
+      setHasPermission(true);
+      return;
+    }
+
     const userPermissions = authApi.getPermissions();
     setHasPermission(userPermissions.includes(requiredPermission));
   }, [requiredPermission]);
