@@ -592,7 +592,17 @@
     "ERR_CANNOT_ASSIGN_ADMIN_ROLE": "Không thể gán vai trò Admin cho người dùng mới",
     "ERR_USER_LOCKED": "Tài khoản của bạn đã bị vô hiệu hóa",
     "ERR_CANNOT_DELETE_SELF": "Bạn không thể tự xóa tài khoản của chính mình",
-    "ERR_CANNOT_DEACTIVATE_SELF": "Bạn không thể tự vô hiệu hóa tài khoản của chính mình"
+    "ERR_CANNOT_DEACTIVATE_SELF": "Bạn không thể tự vô hiệu hóa tài khoản của chính mình",
+    "GET_CLASS_LIST_SUCCESS": "Lấy danh sách lớp học thành công",
+    "GET_CLASS_DETAIL_SUCCESS": "Lấy chi tiết lớp học thành công",
+    "CREATE_CLASS_SUCCESS": "Tạo mới lớp học thành công",
+    "UPDATE_CLASS_SUCCESS": "Cập nhật lớp học thành công",
+    "DELETE_CLASS_SUCCESS": "Xóa lớp học thành công",
+    "ERR_CLASS_NOT_FOUND": "Không tìm thấy lớp học trên hệ thống",
+    "ERR_START_DATE_EMPTY": "Ngày bắt đầu không được để trống",
+    "ERR_EXPECTED_LESSONS_INVALID": "Số buổi học dự kiến phải lớn hơn 0",
+    "ERR_WEEKLY_SCHEDULES_EMPTY": "Lịch học hàng tuần không được để trống",
+    "ERR_SCHEDULE_MAX_LENGTH": "Lịch học hiển thị không được vượt quá 200 ký tự"
   },
   "permissions": {
     "category": {

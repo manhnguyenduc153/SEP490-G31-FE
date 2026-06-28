@@ -592,7 +592,17 @@
     "ERR_CANNOT_ASSIGN_ADMIN_ROLE": "Cannot assign Admin role to a new user",
     "ERR_USER_LOCKED": "Your account has been deactivated",
     "ERR_CANNOT_DELETE_SELF": "You cannot delete your own account",
-    "ERR_CANNOT_DEACTIVATE_SELF": "You cannot deactivate your own account"
+    "ERR_CANNOT_DEACTIVATE_SELF": "You cannot deactivate your own account",
+    "GET_CLASS_LIST_SUCCESS": "Successfully retrieved class list",
+    "GET_CLASS_DETAIL_SUCCESS": "Successfully retrieved class details",
+    "CREATE_CLASS_SUCCESS": "Successfully created class",
+    "UPDATE_CLASS_SUCCESS": "Successfully updated class",
+    "DELETE_CLASS_SUCCESS": "Successfully deleted class",
+    "ERR_CLASS_NOT_FOUND": "Class not found in the system",
+    "ERR_START_DATE_EMPTY": "Start date is required",
+    "ERR_EXPECTED_LESSONS_INVALID": "Expected lessons must be greater than 0",
+    "ERR_WEEKLY_SCHEDULES_EMPTY": "Weekly schedules cannot be empty",
+    "ERR_SCHEDULE_MAX_LENGTH": "Schedule display cannot exceed 200 characters"
   },
   "permissions": {
     "category": {

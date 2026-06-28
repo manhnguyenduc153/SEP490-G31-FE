@@ -99,4 +99,8 @@ export const studentApi = {
   async deactive(id: number): Promise<ApiResponse<boolean>> {
     return api.post<boolean>(ENDPOINTS.STUDENT.DEACTIVE(id), {});
   },
+
+  async checkEmails(emails: string[]): Promise<ApiResponse<Record<string, number>>> {
+    return api.post<Record<string, number>>("/api/Student/check-emails", emails);
+  },
 };

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Modal } from "@/components/ui/modal";
 import { roomApi } from "@/services/room.api";
+import { Info, CalendarRange } from "lucide-react";
 
 interface ClassViewModalProps {
   isOpen: boolean;
@@ -113,8 +114,9 @@ export function ClassViewModal({
             {/* Left Column: General Info & Schedule (8 columns) */}
             <div className="md:col-span-8 space-y-6">
               <div className="p-5 bg-gray-50/30 dark:bg-gray-950/40 rounded-2xl border border-gray-100 dark:border-gray-800/80 space-y-5">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-800 pb-2">
-                  📅 Thông tin chung
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-800 pb-2 flex items-center gap-2">
+                  <Info className="w-4 h-4 text-brand-500" />
+                  Thông tin chung
                 </h4>
                 
                 <div className="grid grid-cols-2 gap-y-4 gap-x-6">
@@ -196,8 +198,9 @@ export function ClassViewModal({
 
               {/* 7 Days Schedule Grid */}
               <div className="p-5 bg-gray-50/30 dark:bg-gray-950/40 rounded-2xl border border-gray-100 dark:border-gray-800/80 space-y-4">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-800 pb-2">
-                  🟢 Lịch học hàng tuần
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-800 pb-2 flex items-center gap-2">
+                  <CalendarRange className="w-4 h-4 text-brand-500" />
+                  Lịch học hàng tuần
                 </h4>
                 <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
                   {DAYS_OF_WEEK.map((dayObj) => {
