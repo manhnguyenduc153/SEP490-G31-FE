@@ -10,9 +10,10 @@ import {
 } from "@/components/ui/table";
 import { Search, SlidersHorizontal, List, LayoutGrid, Eye, Pencil, Trash2, CalendarDays } from "lucide-react";
 import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
-import { ClassViewModal } from "./ClassViewModal";
-import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
 import { classApi, ClassItem } from "@/services/class.api";
+import { ClassViewModal } from "./ClassViewModal";
+import AutoScheduleModal from "./AutoScheduleModal";
+import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
 import { teacherApi, TeacherItem } from "@/services/teacher.api";
 import { courseApi, CourseItem } from "@/services/course.api";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
@@ -93,6 +94,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
   // ── Batch selection states ──
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [isScheduling, setIsScheduling] = useState(false);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
 
   const handleToggleSelectAll = () => {
     if (items.length === 0) return;
@@ -121,14 +123,15 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
     return t(`backendMessages.${msg}`, { defaultValue: msg });
   };
 
-  const handleAutoSchedule = async () => {
+  const handleAutoSchedule = async (constraints: any) => {
     if (selectedIds.length === 0) return;
     setIsScheduling(true);
     try {
-      const res = await classApi.autoSchedule(selectedIds);
+      const res = await classApi.autoSchedule(selectedIds, constraints);
       if (res.success) {
         showToast(t("class.autoScheduleSuccess", { defaultValue: "Xếp lịch tự động thành công!" }));
         setSelectedIds([]);
+        setIsScheduleModalOpen(false);
         triggerRefresh();
       } else {
         const errMsg = res.message ? getFriendlyAutoScheduleError(res.message) : t("class.autoScheduleError", { defaultValue: "Xếp lịch tự động thất bại!" });
@@ -706,7 +709,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
               {t("class.deselectBtn", { defaultValue: "Bỏ chọn" })}
             </button>
             <button
-              onClick={handleAutoSchedule}
+              onClick={() => setIsScheduleModalOpen(true)}
               disabled={isScheduling}
               className="inline-flex items-center justify-center gap-1.5 px-4 py-1.5 text-xs font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg disabled:opacity-50 transition-colors"
             >
@@ -724,6 +727,18 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
             </button>
           </div>
         </div>
+      )}
+
+      {/* Auto Schedule Constraints Modal */}
+      {isScheduleModalOpen && (
+        <AutoScheduleModal
+          isOpen={isScheduleModalOpen}
+          onClose={() => setIsScheduleModalOpen(false)}
+          onSubmit={handleAutoSchedule}
+          selectedClasses={items.filter(c => selectedIds.includes(c.id))}
+          isSubmitting={isScheduling}
+          t={t}
+        />
       )}
     </div>
   );

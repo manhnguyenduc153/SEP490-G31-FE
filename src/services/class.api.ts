@@ -81,6 +81,13 @@ export interface ClassSaveDto {
   newCourseName?: string | null;
 }
 
+export interface AutoScheduleConstraintDto {
+  sessionsPerWeek: number;
+  timePreferences: string[];
+  allowConsecutiveDays: boolean;
+  allowWeekend: boolean;
+}
+
 export const classApi = {
   async getAll(
     pageIndex: number,
@@ -134,7 +141,7 @@ export const classApi = {
     return api.post<{ hasConflict: boolean; conflicts: any[] }>("/api/Class/check-conflict", dto);
   },
 
-  async autoSchedule(classIds: number[]): Promise<ApiResponse<ClassItem[]>> {
-    return api.post<ClassItem[]>("/api/Class/auto-schedule", classIds);
+  async autoSchedule(classIds: number[], constraints: AutoScheduleConstraintDto): Promise<ApiResponse<ClassItem[]>> {
+    return api.post<ClassItem[]>("/api/Class/auto-schedule", { classIds, constraints });
   },
 };
