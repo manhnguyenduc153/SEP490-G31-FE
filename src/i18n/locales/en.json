@@ -307,7 +307,13 @@
     "tabAll": "All",
     "tabActive": "Active",
     "tabPlanning": "Planning",
-    "tabCompleted": "Completed"
+    "tabCompleted": "Completed",
+    "selectedCount": "Selected {{count}} classes",
+    "deselectBtn": "Deselect",
+    "schedulingBtn": "Scheduling...",
+    "autoScheduleBtn": "Auto Scheduling",
+    "autoScheduleSuccess": "Auto scheduling completed successfully!",
+    "autoScheduleError": "Auto scheduling failed!"
   },
   "common": {
     "home": "Home",
@@ -602,7 +608,11 @@
     "ERR_START_DATE_EMPTY": "Start date is required",
     "ERR_EXPECTED_LESSONS_INVALID": "Expected lessons must be greater than 0",
     "ERR_WEEKLY_SCHEDULES_EMPTY": "Weekly schedules cannot be empty",
-    "ERR_SCHEDULE_MAX_LENGTH": "Schedule display cannot exceed 200 characters"
+    "ERR_SCHEDULE_MAX_LENGTH": "Schedule display cannot exceed 200 characters",
+    "ERR_NO_ACTIVE_TEACHERS": "No active teachers found in the system!",
+    "ERR_NO_ACTIVE_ROOMS": "No active rooms found in the system!",
+    "ERR_NO_TIMESLOTS": "No timeslots found in the system!",
+    "ERR_NO_FEASIBLE_SCHEDULE_FOUND": "Could not find a feasible schedule (please add more rooms, teachers, or timeslots)!"
   },
   "permissions": {
     "category": {

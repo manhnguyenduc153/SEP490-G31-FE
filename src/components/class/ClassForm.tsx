@@ -36,16 +36,30 @@ const DAYS_OF_WEEK = [
   { value: 0, label: "Chủ Nhật" },
 ];
 
-const SUGGESTIONS = [
-  { label: "08:00-09:30", start: "08:00", end: "09:30" },
-  { label: "14:00-15:30", start: "14:00", end: "15:30" },
-  { label: "17:30-19:00", start: "17:30", end: "19:00" },
-  { label: "18:00-19:30", start: "18:00", end: "19:30" },
-  { label: "19:30-21:00", start: "19:30", end: "21:00" },
+// Fixed time slots — must match FixedTimeSlot.All in the backend (ScheduleOptimizationService.cs)
+const FIXED_SLOTS = [
+  { index: 0, label: "Ca 1 (07:30 - 09:30)", start: "07:30", end: "09:30" },
+  { index: 1, label: "Ca 2 (10:00 - 12:00)", start: "10:00", end: "12:00" },
+  { index: 2, label: "Ca 3 (13:00 - 15:00)", start: "13:00", end: "15:00" },
+  { index: 3, label: "Ca 4 (16:00 - 18:00)", start: "16:00", end: "18:00" },
+  { index: 4, label: "Ca 5 (19:00 - 21:00)", start: "19:00", end: "21:00" },
 ];
 
 export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToast }: ClassFormProps) {
   const startDateInputRef = useRef<HTMLInputElement>(null);
+  
+  const getFriendlyErrorMessage = (msg: string) => {
+    if (msg.startsWith("ERR_TEACHER_CONFLICT_")) {
+      const classCode = msg.replace("ERR_TEACHER_CONFLICT_", "");
+      return `Giáo viên bị trùng lịch dạy với lớp ${classCode}. Vui lòng kiểm tra lại!`;
+    }
+    if (msg.startsWith("ERR_ROOM_CONFLICT_")) {
+      const classCode = msg.replace("ERR_ROOM_CONFLICT_", "");
+      return `Phòng học bị trùng lịch với lớp ${classCode}. Vui lòng kiểm tra lại!`;
+    }
+    return t(`backendMessages.${msg}`, { defaultValue: msg });
+  };
+
   // Form states
   const [formName, setFormName] = useState("");
   const [formCode, setFormCode] = useState("");
@@ -65,18 +79,23 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
   const [rooms, setRooms] = useState<RoomItem[]>([]);
   
   // Weekly Schedules state
+  const DEFAULT_SLOT = FIXED_SLOTS[4]; // Ca 5 (19:00-21:00) as default
   const [dayConfigs, setDayConfigs] = useState<Record<number, DayConfig>>({
-    1: { selected: true, startTime: "17:30", endTime: "19:00", roomId: null },
-    2: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
-    3: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
-    4: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
-    5: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
-    6: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
-    0: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
+    1: { selected: true,  startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+    2: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+    3: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+    4: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+    5: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+    6: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+    0: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Conflict warning states
+  const [conflicts, setConflicts] = useState<any[]>([]);
+  const [isCheckingConflict, setIsCheckingConflict] = useState(false);
 
   // Dropdown search for students
   const [studentSearchText, setStudentSearchText] = useState("");
@@ -142,6 +161,61 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Background conflict checking hook
+  useEffect(() => {
+    let active = true;
+    async function performConflictCheck() {
+      const selectedSchedules = Object.entries(dayConfigs)
+        .filter(([_, config]) => config.selected);
+
+      if (!formStartDate || !formExpectedLessons || selectedSchedules.length === 0) {
+        setConflicts([]);
+        return;
+      }
+
+      setIsCheckingConflict(true);
+      try {
+        const payload = {
+          id: editingItem ? editingItem.id : 0,
+          code: formCode || "TEMP",
+          name: formName || "TEMP",
+          status: formStatus,
+          startDate: formStartDate,
+          expectedLessons: formExpectedLessons,
+          teacherId: formTeacherId,
+          studentIds: [],
+          weeklySchedules: selectedSchedules.map(([dayStr, config]) => ({
+            dayOfWeek: Number(dayStr),
+            startTime: config.startTime,
+            endTime: config.endTime,
+            roomId: config.roomId,
+          })),
+        };
+
+        const res = await classApi.checkConflict(payload);
+        if (!active) return;
+        if (res.success && res.data) {
+          setConflicts(res.data.conflicts || []);
+        } else {
+          setConflicts([]);
+        }
+      } catch (err) {
+        console.error("Conflict check failed", err);
+      } finally {
+        if (active) setIsCheckingConflict(false);
+      }
+    }
+
+    const timer = setTimeout(() => {
+      performConflictCheck();
+    }, 600); // 600ms debounce
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [formStartDate, formExpectedLessons, formTeacherId, dayConfigs]);
+
   // Initialize values when editing
   useEffect(() => {
     if (editingItem) {
@@ -195,13 +269,13 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
               try {
                 const parsedSchedules = JSON.parse(detail.weeklySchedulesJson);
                 const loadedConfigs: Record<number, DayConfig> = {
-                  1: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
-                  2: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
-                  3: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
-                  4: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
-                  5: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
-                  6: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
-                  0: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
+                  1: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+                  2: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+                  3: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+                  4: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+                  5: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+                  6: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+                  0: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
                 };
                 
                 if (Array.isArray(parsedSchedules)) {
@@ -209,8 +283,8 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                     const day = s.dayOfWeek !== undefined ? s.dayOfWeek : (s.DayOfWeek !== undefined ? s.DayOfWeek : 1);
                     loadedConfigs[day] = {
                       selected: true,
-                      startTime: s.startTime ?? s.StartTime ?? "17:30",
-                      endTime: s.endTime ?? s.EndTime ?? "19:00",
+                      startTime: s.startTime ?? s.StartTime ?? DEFAULT_SLOT.start,
+                      endTime: s.endTime ?? s.EndTime ?? DEFAULT_SLOT.end,
                       roomId: s.roomId !== undefined ? s.roomId : (s.RoomId !== undefined ? s.RoomId : null),
                     };
                   });
@@ -246,13 +320,13 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
       setFormNewTeacherName(null);
       setFormNewCourseName(null);
       setDayConfigs({
-        1: { selected: true, startTime: "17:30", endTime: "19:00", roomId: null },
-        2: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
-        3: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
-        4: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
-        5: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
-        6: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
-        0: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
+        1: { selected: true,  startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+        2: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+        3: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+        4: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+        5: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+        6: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+        0: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
       });
     }
   }, [editingItem]);
@@ -343,13 +417,13 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
         if (weeklySchedulesVal) {
           const schedules = weeklySchedulesVal.split(",");
           const newConfigs: Record<number, DayConfig> = {
-            1: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
-            2: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
-            3: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
-            4: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
-            5: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
-            6: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
-            0: { selected: false, startTime: "17:30", endTime: "19:00", roomId: null },
+            1: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+            2: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+            3: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+            4: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+            5: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+            6: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+            0: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
           };
 
           schedules.forEach((sch) => {
@@ -526,13 +600,6 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
     const selectedSchedules = Object.entries(dayConfigs)
       .filter(([_, config]) => config.selected);
 
-    if (selectedSchedules.length === 0) {
-      const errMsg = "Vui lòng cấu hình ít nhất 1 buổi học trong lịch học hàng tuần";
-      setFormError(errMsg);
-      showToast(errMsg, "error");
-      return;
-    }
-
     const finalCode = formCode.trim();
 
     if (!finalCode) {
@@ -578,7 +645,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
         if (res.success && res.data) {
           onSuccess(t("class.updateSuccess", { name: res.data.name }));
         } else {
-          const errMsg = res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("class.updateError");
+          const errMsg = res.message ? getFriendlyErrorMessage(res.message) : t("class.updateError");
           setFormError(errMsg);
           showToast(errMsg, "error");
         }
@@ -587,7 +654,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
         if (res.success && res.data) {
           onSuccess(t("class.createSuccess", { name: res.data.name }));
         } else {
-          const errMsg = res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("class.createError");
+          const errMsg = res.message ? getFriendlyErrorMessage(res.message) : t("class.createError");
           setFormError(errMsg);
           showToast(errMsg, "error");
         }
@@ -1060,32 +1127,27 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                       </span>
                     </label>
 
-                    {/* Start Time */}
+                    {/* Time Slot (fixed dropdown) */}
                     <div className="space-y-1">
                       <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                        Bắt đầu
+                        Ca học
                       </span>
-                      <input
-                        type="time"
+                      <select
                         disabled={!isSelected}
-                        value={config?.startTime ?? "17:30"}
-                        onChange={(e) => updateDayConfig(day, "startTime", e.target.value)}
+                        value={config?.startTime ?? DEFAULT_SLOT.start}
+                        onChange={(e) => {
+                          const slot = FIXED_SLOTS.find(s => s.start === e.target.value);
+                          if (slot) {
+                            updateDayConfig(day, "startTime", slot.start);
+                            updateDayConfig(day, "endTime", slot.end);
+                          }
+                        }}
                         className="w-full px-2 py-1 text-xs border border-gray-205 dark:border-gray-800 rounded-md bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 disabled:bg-gray-50 dark:disabled:bg-gray-950/60 disabled:text-gray-400"
-                      />
-                    </div>
-
-                    {/* End Time */}
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                        Kết thúc
-                      </span>
-                      <input
-                        type="time"
-                        disabled={!isSelected}
-                        value={config?.endTime ?? "19:00"}
-                        onChange={(e) => updateDayConfig(day, "endTime", e.target.value)}
-                        className="w-full px-2 py-1 text-xs border border-gray-205 dark:border-gray-800 rounded-md bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 disabled:bg-gray-50 dark:disabled:bg-gray-950/60 disabled:text-gray-400"
-                      />
+                      >
+                        {FIXED_SLOTS.map((slot) => (
+                          <option key={slot.index} value={slot.start}>{slot.label}</option>
+                        ))}
+                      </select>
                     </div>
 
                     {/* Room */}
@@ -1105,29 +1167,6 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                         ))}
                       </select>
                     </div>
-
-                    {/* Suggestions */}
-                    <div className="space-y-1.5 pt-2 border-t border-gray-100 dark:border-gray-800/60">
-                      <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-1">
-                        Gợi ý ca:
-                      </span>
-                      <div className="flex flex-col gap-1 w-full">
-                        {SUGGESTIONS.map((sug) => (
-                          <button
-                            key={sug.label}
-                            type="button"
-                            disabled={!isSelected}
-                            onClick={() => {
-                              updateDayConfig(day, "startTime", sug.start);
-                              updateDayConfig(day, "endTime", sug.end);
-                            }}
-                            className="w-full text-center py-1.5 text-[11px] font-medium rounded border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-brand-500 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/20 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
-                          >
-                            {sug.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
                   </div>
                 );
               })}
@@ -1135,6 +1174,34 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
           </div>
 
       </div>
+
+      {/* Cảnh báo trùng lịch */}
+      {conflicts.length > 0 && (
+        <div className="mx-6 mt-4 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-xl space-y-2 animate-fadeIn">
+          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-400 font-semibold text-xs">
+            <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+            <span>Phát hiện trùng lịch học!</span>
+          </div>
+          <ul className="list-disc pl-5 space-y-1 text-[11px] text-amber-700 dark:text-amber-450">
+            {conflicts.map((c, index) => {
+              const formattedDate = c.date ? new Date(c.date).toLocaleDateString("vi-VN") : "";
+              if (c.type === "Teacher") {
+                return (
+                  <li key={index}>
+                    Giáo viên <strong>{c.teacherName}</strong> bận dạy lớp <strong>{c.conflictClassCode}</strong> vào ngày <strong>{formattedDate}</strong> ({c.startTime} - {c.endTime}).
+                  </li>
+                );
+              } else {
+                return (
+                  <li key={index}>
+                    Phòng học <strong>{c.roomName}</strong> bận cho lớp <strong>{c.conflictClassCode}</strong> vào ngày <strong>{formattedDate}</strong> ({c.startTime} - {c.endTime}).
+                  </li>
+                );
+              }
+            })}
+          </ul>
+        </div>
+      )}
 
       {/* Bottom Footer Actions Card */}
       <div className="flex items-center justify-between p-5 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs">

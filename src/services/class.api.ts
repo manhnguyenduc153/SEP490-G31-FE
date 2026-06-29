@@ -129,4 +129,12 @@ export const classApi = {
   async getStudentSchedules(): Promise<ApiResponse<ClassScheduleItem[]>> {
     return api.get<ClassScheduleItem[]>("/api/Class/StudentSchedules");
   },
+
+  async checkConflict(dto: ClassSaveDto): Promise<ApiResponse<{ hasConflict: boolean; conflicts: any[] }>> {
+    return api.post<{ hasConflict: boolean; conflicts: any[] }>("/api/Class/check-conflict", dto);
+  },
+
+  async autoSchedule(classIds: number[]): Promise<ApiResponse<ClassItem[]>> {
+    return api.post<ClassItem[]>("/api/Class/auto-schedule", classIds);
+  },
 };
