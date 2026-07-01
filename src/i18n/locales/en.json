@@ -113,7 +113,12 @@
     "formDobLabel": "Date of Birth",
     "formGenderLabel": "Gender",
     "formGenderMale": "Male",
-    "formGenderFemale": "Female"
+    "formGenderFemale": "Female",
+    "avatarLabel": "Avatar",
+    "uploadPlaceholder": "Allowed formats: *.png, *.jpg and *.jpeg. Max size: 2MB",
+    "btnCancel": "Cancel",
+    "btnSave": "Save",
+    "btnSaving": "Saving..."
   },
   "teacher": {
     "title": "Teacher Management",

@@ -1,5 +1,7 @@
 import { api, ApiResponse } from "./api";
 import { ENDPOINTS } from "@/constants/endpoints";
+import { ENV } from "@/config/env";
+
 
 // ─── DTOs ────────────────────────────────────────────────────────────────────
 
@@ -102,5 +104,16 @@ export const studentApi = {
 
   async checkEmails(emails: string[]): Promise<ApiResponse<Record<string, number>>> {
     return api.post<Record<string, number>>("/api/Student/check-emails", emails);
+  },
+
+  async uploadFile(file: File): Promise<ApiResponse<string>> {
+    const formData = new FormData();
+    formData.append("file", file);
+    
+    const response = await fetch(`${ENV.API_BASE_URL}/api/upload/image`, {
+      method: "POST",
+      body: formData,
+    });
+    return response.json();
   },
 };
