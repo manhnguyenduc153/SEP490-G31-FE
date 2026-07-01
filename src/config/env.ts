@@ -1,3 +1,3 @@
 export const ENV = {
-  API_BASE_URL: process.env.NEXT_PUBLIC_API_URL || "https://localhost:54353",
+  API_BASE_URL: process.env.NEXT_PUBLIC_API_URL || "https://localhost:53050",
 };

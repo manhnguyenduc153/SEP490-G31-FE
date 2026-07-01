@@ -146,5 +146,13 @@ export const authApi = {
 
   async assignRolePermissions(roleName: string, permissions: string[]): Promise<ApiResponse<void>> {
     return api.post<void>(ENDPOINTS.AUTH.ASSIGN_ROLE_PERMISSIONS, { roleName, permissions });
+  },
+
+  async getAllRolesList(): Promise<ApiResponse<string[]>> {
+    return api.get<string[]>(ENDPOINTS.AUTH.GET_ALL_ROLES_LIST);
+  },
+
+  async createRole(roleName: string): Promise<ApiResponse<boolean>> {
+    return api.post<boolean>(ENDPOINTS.AUTH.CREATE_ROLE, { roleName });
   }
 };

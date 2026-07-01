@@ -81,6 +81,8 @@ export default function RolesTable() {
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
+  const triggerRefresh = () => setRefreshKey((k) => k + 1);
   
   // Permissions API states
   const [systemPermissions, setSystemPermissions] = useState<string[]>([]);
@@ -166,7 +168,7 @@ export default function RolesTable() {
     return () => {
       isMounted = false;
     };
-  }, [currentPage, itemsPerPage, debouncedSearchTerm, t]);
+  }, [currentPage, itemsPerPage, debouncedSearchTerm, refreshKey, t]);
 
   // Fetch System and User Permissions on mount
   useEffect(() => {
@@ -189,32 +191,37 @@ export default function RolesTable() {
     loadPermissions();
   }, []);
 
-  const handleAddRoleSubmit = (e: React.FormEvent) => {
+  const handleAddRoleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newRoleName.trim()) return;
 
-    const newRole: RoleItem = {
-      id: String(roles.length + 1),
-      name: newRoleName.trim(),
-      description: newRoleDesc.trim(),
-      status: newRoleStatus,
-      createdAt: new Date().toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }),
-      permissions: Array.from(newRolePermissions),
-    };
-
-    setRoles([newRole, ...roles]);
-    showToast(t("roles.createSuccess", { name: newRole.name }));
-    
-    // Reset form fields
-    setNewRoleName("");
-    setNewRoleDesc("");
-    setNewRoleStatus("Active");
-    setNewRolePermissions(new Set());
-    setIsModalOpen(false);
+    setIsLoading(true);
+    try {
+      const createRes = await authApi.createRole(newRoleName.trim());
+      if (createRes.success) {
+        if (newRolePermissions.size > 0) {
+          const assignRes = await authApi.assignRolePermissions(newRoleName.trim(), Array.from(newRolePermissions));
+          if (!assignRes.success) {
+            showToast(assignRes.message ? t(`backendMessages.${assignRes.message}`, { defaultValue: assignRes.message }) : t("roles.updateError"));
+          }
+        }
+        showToast(t("roles.createSuccess", { name: newRoleName.trim() }));
+        
+        // Reset form fields
+        setNewRoleName("");
+        setNewRoleDesc("");
+        setNewRoleStatus("Active");
+        setNewRolePermissions(new Set());
+        setIsModalOpen(false);
+        triggerRefresh();
+      } else {
+        showToast(createRes.message ? t(`backendMessages.${createRes.message}`, { defaultValue: createRes.message }) : t("roles.createError"));
+      }
+    } catch {
+      showToast(t("roles.systemError"));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const openCreateModal = () => {
