@@ -27,22 +27,6 @@ import { Modal } from "@/components/ui/modal";
 type SortKey = "code" | "name" | "email" | "phone" | "status" | "gradeLevel";
 type SortOrder = "asc" | "desc";
 
-const defaultFormValues: StudentSaveDto = {
-  code: "",
-  name: "",
-  dob: null,
-  gender: null,
-  email: null,
-  phone: null,
-  address: null,
-  status: 1, // Active by default
-  description: null,
-  schoolName: null,
-  gradeLevel: null,
-  parentName: null,
-  parentPhone: null,
-  avatar: null,
-};
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -89,7 +73,6 @@ export default function StudentTable() {
   // ── Create / Edit modal ──
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<StudentItem | null>(null);
-  const [formValues, setFormValues] = useState<StudentSaveDto>(defaultFormValues);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -192,10 +175,6 @@ export default function StudentTable() {
   // ── Open create modal ──
   const openCreateModal = () => {
     setEditingItem(null);
-    setFormValues({
-      ...defaultFormValues,
-      code: CodeHelper.generate("STD"),
-    });
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -203,35 +182,17 @@ export default function StudentTable() {
   // ── Open edit modal ──
   const openEditModal = (item: StudentItem) => {
     setEditingItem(item);
-    setFormValues({
-      id: item.id,
-      code: item.code,
-      name: item.name,
-      dob: item.dob,
-      gender: item.gender,
-      email: item.email,
-      phone: item.phone,
-      address: item.address,
-      status: item.status,
-      description: item.description,
-      schoolName: item.schoolName,
-      gradeLevel: item.gradeLevel,
-      parentName: item.parentName,
-      parentPhone: item.parentPhone,
-      avatar: item.avatar,
-    });
     setFormError(null);
     setIsModalOpen(true);
   };
 
   // ── Submit create / edit ──
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formValues.code.trim()) {
+  const handleSubmit = async (formData: StudentSaveDto) => {
+    if (!formData.code.trim()) {
       setFormError(t("backendMessages.ERR_CODE_EMPTY"));
       return;
     }
-    if (!formValues.name.trim()) {
+    if (!formData.name.trim()) {
       setFormError(t("backendMessages.ERR_NAME_EMPTY"));
       return;
     }
@@ -240,7 +201,7 @@ export default function StudentTable() {
     try {
       if (editingItem) {
         // Edit
-        const res = await studentApi.update(editingItem.id, formValues);
+        const res = await studentApi.update(editingItem.id, formData);
         if (res.success && res.data) {
           setItems((prev) =>
             prev.map((i) => (i.id === editingItem.id ? res.data : i))
@@ -252,7 +213,7 @@ export default function StudentTable() {
         }
       } else {
         // Create
-        const res = await studentApi.create(formValues);
+        const res = await studentApi.create(formData);
         if (res.success && res.data) {
           setCurrentPage(1);
           setSearchTerm("");
@@ -704,11 +665,9 @@ export default function StudentTable() {
         onClose={() => setIsModalOpen(false)}
         t={t}
         editingItem={editingItem}
-        formValues={formValues}
-        setFormValues={setFormValues}
         formError={formError}
         isSubmitting={isSubmitting}
-        handleSubmit={handleSubmit}
+        onSubmit={handleSubmit}
       />
 
       {/* ── Delete Confirm Modal ── */}

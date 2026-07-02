@@ -113,7 +113,12 @@
     "formDobLabel": "Ngày sinh",
     "formGenderLabel": "Giới tính",
     "formGenderMale": "Nam",
-    "formGenderFemale": "Nữ"
+    "formGenderFemale": "Nữ",
+    "avatarLabel": "Ảnh đại diện",
+    "uploadPlaceholder": "Cho phép các định dạng: *.png, *.jpg và *.jpeg. Kích thước tối đa: 2MB",
+    "btnCancel": "Hủy",
+    "btnSave": "Lưu",
+    "btnSaving": "Đang lưu..."
   },
   "teacher": {
     "title": "Quản lý Giáo viên",
