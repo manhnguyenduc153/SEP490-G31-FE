@@ -70,7 +70,7 @@ const schoolItems: NavItem[] = [
     icon: <TableIcon />,
     name: "assessments",
     subItems: [
-      { name: "exams", path: "/exams", permission: "ExamSchedule" },
+      { name: "exams", path: "/exams", permission: "Exam" },
       { name: "assignments", path: "/assignments", permission: "Activity" },
       { name: "questionBank", path: "/question-bank", permission: "Question" },
       { name: "questionCategory", path: "/question-category", permission: "QuestionCategory" },
