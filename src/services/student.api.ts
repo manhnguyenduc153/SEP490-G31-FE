@@ -116,4 +116,8 @@ export const studentApi = {
     });
     return response.json();
   },
+
+  async import(dtos: StudentSaveDto[]): Promise<ApiResponse<StudentItem[]>> {
+    return api.post<StudentItem[]>("/api/Student/import", dtos);
+  },
 };
