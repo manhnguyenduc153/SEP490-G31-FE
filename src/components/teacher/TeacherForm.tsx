@@ -2,13 +2,11 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 import { TeacherItem, TeacherSaveDto, teacherApi, GradeLevel } from "@/services/teacher.api";
-import { env } from "process";
 import { EyeIcon, CalenderIcon } from "@/icons";
 import { CodeHelper } from "@/helpers/CodeHelper";
 
-interface TeacherFormModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+interface TeacherFormProps {
+  onCancel: () => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   t: any;
   editingItem: TeacherItem | null;
@@ -17,15 +15,14 @@ interface TeacherFormModalProps {
   onSubmit: (dto: TeacherSaveDto) => void;
 }
 
-export function TeacherFormModal({
-  isOpen,
-  onClose,
+export function TeacherForm({
+  onCancel,
   t,
   editingItem,
   formError,
   isSubmitting,
   onSubmit,
-}: TeacherFormModalProps) {
+}: TeacherFormProps) {
   const [formData, setFormData] = useState<TeacherSaveDto>({
     code: "",
     name: "",
@@ -52,7 +49,7 @@ export function TeacherFormModal({
   const dobInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (editingItem && isOpen) {
+    if (editingItem) {
       setFormData({
         id: editingItem.id,
         code: editingItem.code || "",
@@ -68,7 +65,7 @@ export function TeacherFormModal({
         avatar: editingItem.avatar || null,
         certificate: editingItem.certificate || null,
       });
-    } else if (isOpen) {
+    } else {
       setFormData({
         code: CodeHelper.generate("GV"),
         name: "",
@@ -90,7 +87,7 @@ export function TeacherFormModal({
     setCertFile(null);
     setAvatarPreview(null);
     setCertPreview(null);
-  }, [editingItem, isOpen]);
+  }, [editingItem]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -150,6 +147,13 @@ export function TeacherFormModal({
     e.preventDefault();
     let finalFormData = { ...formData };
     
+    // Clean up empty strings to null for backend optional fields
+    if (finalFormData.dob === "") finalFormData.dob = null;
+    if (finalFormData.email === "") finalFormData.email = null;
+    if (finalFormData.phone === "") finalFormData.phone = null;
+    if (finalFormData.address === "") finalFormData.address = null;
+    if (finalFormData.description === "") finalFormData.description = null;
+    
     try {
       setIsUploading(true);
       if (avatarFile) {
@@ -196,8 +200,8 @@ export function TeacherFormModal({
 
   return (
     <>
-    <Modal isOpen={isOpen} onClose={onClose} className="max-w-[800px] p-5 sm:p-6">
-      <div className="flex flex-col gap-6">
+    <div className="w-full bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs p-5 sm:p-6">
+      <div className="flex flex-col gap-5">
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             {editingItem ? t("teacher.editTitle") : t("teacher.createTitle")}
@@ -208,18 +212,18 @@ export function TeacherFormModal({
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             
             {/* Left Column: Basic Info (takes 2/3 space on large screens) */}
-            <div className="lg:col-span-2 space-y-4">
-              <h4 className="font-medium text-gray-900 dark:text-white mb-4 border-b pb-2 dark:border-gray-800">
+            <div className="lg:col-span-2 space-y-2">
+              <h4 className="font-medium text-gray-900 dark:text-white mb-2 border-b pb-1.5 dark:border-gray-800 text-sm">
                 Thông tin cơ bản
               </h4>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2.5">
                 {/* Name */}
                 <div>
-                  <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
                     {t("teacher.formNameLabel")} <span className="text-error-500">*</span>
                   </label>
                   <input
@@ -230,13 +234,13 @@ export function TeacherFormModal({
                     value={formData.name}
                     onChange={handleChange}
                     placeholder={t("teacher.formNamePlaceholder")}
-                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                   />
                 </div>
 
                 {/* Code */}
                 <div>
-                  <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
                     {t("teacher.formCodeLabel")} <span className="text-error-500">*</span>
                   </label>
                   <input
@@ -248,20 +252,19 @@ export function TeacherFormModal({
                     value={formData.code}
                     onChange={handleChange}
                     placeholder={t("teacher.formCodePlaceholder")}
-                    className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm text-gray-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400 cursor-not-allowed"
+                    className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400 cursor-not-allowed"
                   />
                 </div>
 
                 {/* Dob */}
                 <div>
-                  <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t("teacher.formDobLabel")} <span className="text-error-500">*</span>
+                  <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t("teacher.formDobLabel")}
                   </label>
                   <div className="relative">
                     <input
                       type="date"
                       name="dob"
-                      required
                       ref={dobInputRef}
                       value={formData.dob || ""}
                       onChange={handleChange}
@@ -279,15 +282,14 @@ export function TeacherFormModal({
 
                 {/* Gender */}
                 <div>
-                  <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t("teacher.formGenderLabel")} <span className="text-error-500">*</span>
+                  <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t("teacher.formGenderLabel")}
                   </label>
                   <select
                     name="gender"
-                    required
                     value={formData.gender === true ? "true" : formData.gender === false ? "false" : ""}
                     onChange={handleChange}
-                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                   >
                     <option value="">{t("teacher.formGenderPlaceholder")}</option>
                     <option value="true">{t("teacher.genderMale")}</option>
@@ -297,49 +299,46 @@ export function TeacherFormModal({
 
                 {/* Email */}
                 <div>
-                  <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t("teacher.formEmailLabel")} <span className="text-error-500">*</span>
+                  <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t("teacher.formEmailLabel")}
                   </label>
                   <input
                     type="email"
                     name="email"
-                    required
                     maxLength={150}
                     value={formData.email || ""}
                     onChange={handleChange}
                     placeholder={t("teacher.formEmailPlaceholder")}
-                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                   />
                 </div>
 
                 {/* Phone */}
                 <div>
-                  <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t("teacher.formPhoneLabel")} <span className="text-error-500">*</span>
+                  <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t("teacher.formPhoneLabel")}
                   </label>
                   <input
                     type="text"
                     name="phone"
-                    required
                     maxLength={20}
                     value={formData.phone || ""}
                     onChange={handleChange}
                     placeholder={t("teacher.formPhonePlaceholder")}
-                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                   />
                 </div>
 
                 {/* Grade Level */}
                 <div>
-                  <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t("teacher.formGradeLevelLabel")} <span className="text-error-500">*</span>
+                  <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t("teacher.formGradeLevelLabel")}
                   </label>
                   <select
                     name="gradeLevel"
-                    required
                     value={formData.gradeLevel || ""}
                     onChange={handleChange}
-                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                   >
                     <option value="">Chọn cấp độ...</option>
                     <option value={GradeLevel.Foundation}>{t("teacher.gradeLevels.Foundation")}</option>
@@ -353,7 +352,7 @@ export function TeacherFormModal({
 
                 {/* Status */}
                 <div>
-                  <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
                     {t("teacher.formStatusLabel")} <span className="text-error-500">*</span>
                   </label>
                   <select
@@ -361,7 +360,7 @@ export function TeacherFormModal({
                     required
                     value={formData.status}
                     onChange={handleChange}
-                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                   >
                     <option value={1}>{t("teacher.statusActive")}</option>
                     <option value={0}>{t("teacher.statusInactive")}</option>
@@ -370,41 +369,39 @@ export function TeacherFormModal({
               </div>
 
               {/* Address */}
-              <div className="pt-2">
-                <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t("teacher.formAddressLabel")} <span className="text-error-500">*</span>
+              <div className="pt-0.5">
+                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t("teacher.formAddressLabel")}
                 </label>
                 <input
                   type="text"
                   name="address"
-                  required
                   value={formData.address || ""}
                   onChange={handleChange}
                   placeholder={t("teacher.formAddressPlaceholder")}
-                  className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                  className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                 />
               </div>
 
               {/* Description */}
-              <div className="pt-2">
-                <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t("teacher.formDescLabel")} <span className="text-error-500">*</span>
+              <div className="pt-0.5">
+                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t("teacher.formDescLabel")}
                 </label>
                 <textarea
                   name="description"
-                  required
                   value={formData.description || ""}
                   onChange={handleChange}
                   placeholder={t("teacher.formDescPlaceholder")}
-                  rows={3}
+                  rows={2}
                   maxLength={500}
-                  className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 resize-none"
+                  className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 resize-none"
                 />
               </div>
             </div>
 
             {/* Right Column: Avatar & Certificate */}
-            <div className="lg:col-span-1 flex flex-col gap-6 border-l border-gray-100 dark:border-gray-800 pl-0 lg:pl-6">
+            <div className="lg:col-span-1 flex flex-col gap-3 border-l border-gray-100 dark:border-gray-800 pl-0 lg:pl-5">
               
               {/* Avatar */}
               <div>
@@ -412,7 +409,7 @@ export function TeacherFormModal({
                   {t("teacher.avatarLabel")}
                 </h4>
                 <div 
-                  className="mt-2 flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer group"
+                  className="mt-1.5 flex flex-col items-center justify-center p-3 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer group h-28"
                   onClick={handleAvatarClick}
                 >
                   <input
@@ -429,7 +426,7 @@ export function TeacherFormModal({
                       <span className="mt-2 text-xs text-gray-500">Đang lưu...</span>
                     </div>
                   ) : avatarPreview || formData.avatar ? (
-                    <div className="relative w-full aspect-square overflow-hidden rounded-lg group">
+                    <div className="relative w-full h-full overflow-hidden rounded-lg group">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={avatarPreview || (getImageUrl(formData.avatar) as string)}
@@ -451,8 +448,8 @@ export function TeacherFormModal({
                       </div>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center text-center py-6">
-                      <div className="w-10 h-10 mb-2 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-brand-600 dark:text-brand-400">
+                    <div className="flex flex-col items-center text-center py-2">
+                      <div className="w-8 h-8 mb-1.5 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-brand-600 dark:text-brand-400">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
@@ -471,7 +468,7 @@ export function TeacherFormModal({
                   {t("teacher.certificateLabel")}
                 </h4>
                 <div 
-                  className="mt-2 flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer group"
+                  className="mt-1.5 flex flex-col items-center justify-center p-3 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer group h-32"
                   onClick={handleCertClick}
                 >
                   <input
@@ -488,7 +485,7 @@ export function TeacherFormModal({
                       <span className="mt-2 text-xs text-gray-500">Đang lưu...</span>
                     </div>
                   ) : certPreview || formData.certificate ? (
-                    <div className="relative w-full aspect-[4/3] overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800 flex flex-col items-center justify-center group">
+                    <div className="relative w-full h-full overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800 flex flex-col items-center justify-center group">
                       {(certFile && certFile.type.startsWith('image/')) || (!certFile && isImage(formData.certificate)) ? (
                         <>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -528,8 +525,8 @@ export function TeacherFormModal({
                       )}
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center text-center py-6">
-                      <div className="w-10 h-10 mb-2 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-brand-600 dark:text-brand-400">
+                    <div className="flex flex-col items-center text-center py-2">
+                      <div className="w-8 h-8 mb-1.5 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-brand-600 dark:text-brand-400">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
@@ -554,18 +551,18 @@ export function TeacherFormModal({
           )}
 
           {/* Buttons */}
-          <div className="flex justify-end gap-3 pt-6 mt-8 border-t border-gray-200 dark:border-gray-800">
+          <div className="flex justify-end gap-3 pt-4 mt-5 border-t border-gray-200 dark:border-gray-800">
             <button
               type="button"
-              onClick={onClose}
-              className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700 transition-colors"
+              onClick={onCancel}
+              className="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700 transition-colors"
             >
               {t("teacher.btnCancel")}
             </button>
             <button
               type="submit"
               disabled={isSubmitting || isUploading}
-              className="px-5 py-2.5 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+              className="px-5 py-2 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
             >
               {isSubmitting || isUploading
                 ? t("common.btnSaving", { defaultValue: "Đang lưu..." })
@@ -576,7 +573,7 @@ export function TeacherFormModal({
           </div>
         </form>
       </div>
-    </Modal>
+    </div>
 
     {/* Image Preview Modal */}
     {previewImage && (
