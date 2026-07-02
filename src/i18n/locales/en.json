@@ -1,4 +1,10 @@
 {
+  "userDropdown": {
+    "editProfile": "Edit profile",
+    "accountSettings": "Account settings",
+    "support": "Support",
+    "signOut": "Sign out"
+  },
   "sidebar": {
     "dashboard": "Dashboard",
     "academicOperations": "Academic Operations",
@@ -7,7 +13,8 @@
     "teachers": "Teachers",
     "students": "Students",
     "rooms": "Rooms",
-    "schedules": "Schedules",
+    "schedule": "Schedule",
+    "classSchedules": "Class Schedules",
     "teachingSchedules": "Teaching Schedules",
     "timetable": "Timetable",
     "assessments": "Assessments",
@@ -30,7 +37,8 @@
     "parentServices": "Parent Services",
     "childProfile": "Child Profile",
     "childProgress": "Child Progress",
-    "childSchedules": "Child Schedules"
+    "childSchedules": "Child Schedules",
+    "schoolManagement": "IELTS Center Management"
   },
   "questionCategory": {
     "title": "Question Categories",
@@ -653,5 +661,18 @@
       "Edit": "Edit",
       "Delete": "Delete"
     }
+  },
+  "signin": {
+    "backToDashboard": "Back to dashboard",
+    "title": "Sign In",
+    "description": "Enter your username and password to sign in!",
+    "usernameLabel": "Username",
+    "usernamePlaceholder": "e.g. admin",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "Enter your password",
+    "keepMeLoggedIn": "Keep me logged in",
+    "forgotPassword": "Forgot password?",
+    "signingIn": "Signing in...",
+    "signInButton": "Sign in"
   }
 }

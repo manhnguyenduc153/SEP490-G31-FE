@@ -1,4 +1,10 @@
 {
+  "userDropdown": {
+    "editProfile": "Chỉnh sửa hồ sơ",
+    "accountSettings": "Cài đặt tài khoản",
+    "support": "Hỗ trợ",
+    "signOut": "Đăng xuất"
+  },
   "sidebar": {
     "dashboard": "Bảng điều khiển",
     "academicOperations": "Quản lý đào tạo",
@@ -7,7 +13,8 @@
     "teachers": "Giáo viên",
     "students": "Học sinh",
     "rooms": "Phòng học",
-    "schedules": "Lịch học",
+    "schedule": "Lịch trình",
+    "classSchedules": "Lịch học",
     "teachingSchedules": "Lịch dạy",
     "timetable": "Thời khóa biểu",
     "assessments": "Đánh giá & Khảo thí",
@@ -30,7 +37,8 @@
     "parentServices": "Dịch vụ Phụ huynh",
     "childProfile": "Hồ sơ học sinh",
     "childProgress": "Tiến độ học tập",
-    "childSchedules": "Lịch học của con"
+    "childSchedules": "Lịch học của con",
+    "schoolManagement": "Quản lý trung tâm IELTS"
   },
   "questionCategory": {
     "title": "Danh mục câu hỏi",
@@ -653,5 +661,18 @@
       "Edit": "Sửa",
       "Delete": "Xóa"
     }
+  },
+  "signin": {
+    "backToDashboard": "Quay lại bảng điều khiển",
+    "title": "Đăng Nhập",
+    "description": "Nhập tên đăng nhập và mật khẩu của bạn để đăng nhập!",
+    "usernameLabel": "Tên đăng nhập",
+    "usernamePlaceholder": "Ví dụ: admin",
+    "passwordLabel": "Mật khẩu",
+    "passwordPlaceholder": "Nhập mật khẩu của bạn",
+    "keepMeLoggedIn": "Duy trì đăng nhập",
+    "forgotPassword": "Quên mật khẩu?",
+    "signingIn": "Đang đăng nhập...",
+    "signInButton": "Đăng nhập"
   }
 }

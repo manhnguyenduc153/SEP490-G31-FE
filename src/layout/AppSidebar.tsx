@@ -27,7 +27,6 @@ import {
   UserCircleIcon,
   DocsIcon,
 } from "../icons/index";
-import SidebarWidget from "./SidebarWidget";
 
 import { useTranslation } from "react-i18next";
 
@@ -56,7 +55,13 @@ const schoolItems: NavItem[] = [
       { name: "teachers", path: "/teachers", permission: "Teacher" },
       { name: "students", path: "/students", permission: "Student" },
       { name: "rooms", path: "/rooms", permission: "Room" },
-      { name: "schedules", path: "/schedules", permission: "ClassSchedule" },
+    ],
+  },
+  {
+    icon: <CalenderIcon />,
+    name: "schedule",
+    subItems: [
+      { name: "classSchedules", path: "/schedules", permission: "ClassSchedule" },
       { name: "teachingSchedules", path: "/teaching-schedules" },
       { name: "timetable", path: "/timetable" },
     ],
@@ -531,16 +536,32 @@ const AppSidebar: React.FC = () => {
   }, [pathname, isActive]);
 
   useEffect(() => {
-    // Set the height of the submenu items when the submenu is opened
-    if (openSubmenu !== null) {
-      const key = `${openSubmenu.type}-${openSubmenu.index}`;
-      if (subMenuRefs.current[key]) {
-        setSubMenuHeight((prevHeights) => ({
-          ...prevHeights,
-          [key]: subMenuRefs.current[key]?.scrollHeight || 0,
-        }));
+    let active = true;
+
+    const updateHeight = () => {
+      if (!active) return;
+      if (openSubmenu !== null) {
+        const key = `${openSubmenu.type}-${openSubmenu.index}`;
+        const el = subMenuRefs.current[key];
+        if (el) {
+          const height = el.scrollHeight;
+          setSubMenuHeight((prevHeights) => ({
+            ...prevHeights,
+            [key]: height || 0,
+          }));
+
+          // If measured height is 0 (due to async PermissionGuards), retry in 100ms
+          if (height === 0) {
+            setTimeout(updateHeight, 100);
+          }
+        }
       }
-    }
+    };
+
+    updateHeight();
+    return () => {
+      active = false;
+    };
   }, [openSubmenu]);
 
   const handleSubmenuToggle = (
@@ -575,34 +596,28 @@ const AppSidebar: React.FC = () => {
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className={`py-8 flex  ${
+        className={`pt-6 pb-4 flex items-center ${
           !isExpanded && !isHovered ? "xl:justify-center" : "justify-start"
         }`}
       >
         <Link href="/">
           {isExpanded || isHovered || isMobileOpen ? (
-            <>
-              <Image
-                className="dark:hidden"
-                src="/images/logo/logo.svg"
-                alt="Logo"
-                width={150}
-                height={40}
-              />
-              <Image
-                className="hidden dark:block"
-                src="/images/logo/logo-dark.svg"
-                alt="Logo"
-                width={150}
-                height={40}
-              />
-            </>
+            <Image
+              src="/images/logo/logo-text-removebg-preview.png"
+              alt="Logo"
+              width={160}
+              height={25}
+              priority
+              className="h-[25px] w-auto object-contain"
+            />
           ) : (
             <Image
-              src="/images/logo/logo-icon.svg"
+              src="/images/logo/logo-only-removebg-preview.png"
               alt="Logo"
               width={32}
               height={32}
+              priority
+              className="h-8 w-8 object-contain"
             />
           )}
         </Link>
@@ -620,7 +635,7 @@ const AppSidebar: React.FC = () => {
                 }`}
               >
                 {isExpanded || isHovered || isMobileOpen ? (
-                  "School Management"
+                  t("sidebar.schoolManagement")
                 ) : (
                   <HorizontaLDots />
                 )}
@@ -628,7 +643,7 @@ const AppSidebar: React.FC = () => {
               {renderMenuItems(schoolItems, "school")}
             </div>
             {/* ── Original Menu section ── */}
-            <div>
+            {/* <div>
               <h2
                 className={`mb-4 text-xs uppercase flex leading-5 text-gray-400 ${
                   !isExpanded && !isHovered
@@ -675,10 +690,10 @@ const AppSidebar: React.FC = () => {
                 )}
               </h2>
               {renderMenuItems(othersItems, "others")}
-            </div>
+            </div> */}
           </div>
         </nav>
-        {isExpanded || isHovered || isMobileOpen ? <SidebarWidget /> : null}
+        {/* {isExpanded || isHovered || isMobileOpen ? <SidebarWidget /> : null} */}
       </div>
     </aside>
   );
