@@ -120,6 +120,10 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
       const code = msg.replace("ERR_CLASS_NO_COURSE_", "");
       return `Lớp ${code} chưa được gán khóa học. Vui lòng cập nhật lớp trước!`;
     }
+    if (msg.startsWith("ERR_CLASS_STUDENTS_EXCEED_ROOM_CAPACITY_")) {
+      const code = msg.replace("ERR_CLASS_STUDENTS_EXCEED_ROOM_CAPACITY_", "");
+      return `Lớp ${code} có số lượng học sinh vượt quá sức chứa của mọi phòng học hiện có!`;
+    }
     return t(`backendMessages.${msg}`, { defaultValue: msg });
   };
 
@@ -319,8 +323,8 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
   const getStatusText = (status: number) => {
     switch (status) {
       case 0: return t("class.statusPlanning", { defaultValue: "Sắp mở" });
-      case 1: return t("class.statusActive", { defaultValue: "Đang học" });
-      case 2: return t("class.statusCompleted", { defaultValue: "Hoàn thành" });
+      case 1: return t("class.statusActive", { defaultValue: "Đang diễn ra" });
+      case 2: return t("class.statusCompleted", { defaultValue: "Đã hoàn thành" });
       case 3: return t("class.statusCancelled", { defaultValue: "Đã hủy" });
       default: return "";
     }
@@ -386,7 +390,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
               : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           }`}
         >
-          {t("class.tabActive", { defaultValue: "Đang học" })} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countActive}</span>
+          {t("class.tabActive", { defaultValue: "Đang diễn ra" })} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countActive}</span>
         </button>
         <button
           onClick={() => { setActiveTab("planning"); setCurrentPage(1); }}
@@ -406,7 +410,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
               : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           }`}
         >
-          {t("class.tabCompleted", { defaultValue: "Hoàn thành" })} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countCompleted}</span>
+          {t("class.tabCompleted", { defaultValue: "Đã hoàn thành" })} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countCompleted}</span>
         </button>
       </div>
 

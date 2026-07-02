@@ -73,7 +73,7 @@ export default function AutoScheduleModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 animate-fadeIn">
+    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/55 animate-fadeIn">
       <div className="relative w-full max-w-lg overflow-hidden bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-2xl rounded-2xl animate-scaleUp">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
@@ -108,7 +108,7 @@ export default function AutoScheduleModal({
               {t("class.sessionsPerWeek", { defaultValue: "Số buổi học mỗi tuần" })}
             </label>
             <div className="flex gap-2">
-              {[1, 2, 3, 4, 5].map((num) => (
+              {[1, 2, 3].map((num) => (
                 <button
                   key={num}
                   type="button"

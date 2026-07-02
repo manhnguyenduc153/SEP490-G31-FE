@@ -57,6 +57,18 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
       const classCode = msg.replace("ERR_ROOM_CONFLICT_", "");
       return `Phòng học bị trùng lịch với lớp ${classCode}. Vui lòng kiểm tra lại!`;
     }
+    if (msg.startsWith("ERR_ROOM_CAPACITY_EXCEEDED_")) {
+      const roomName = msg.replace("ERR_ROOM_CAPACITY_EXCEEDED_", "");
+      return `Số lượng học sinh vượt quá sức chứa của phòng ${roomName}!`;
+    }
+    if (msg.startsWith("ERR_STUDENT_CONFLICT_")) {
+      const parts = msg.replace("ERR_STUDENT_CONFLICT_", "").split("__");
+      const count = parseInt(parts[0]) || 0;
+      const emailsStr = parts[1] || "";
+      const emailsList = emailsStr.split(",").filter(Boolean);
+      setConflictingEmails(emailsList);
+      return `Có ${count} học sinh đã có lịch học trùng với lớp khác trong thời gian này. Vui lòng kiểm tra lại các học sinh được highlight viền đỏ!`;
+    }
     return t(`backendMessages.${msg}`, { defaultValue: msg });
   };
 
@@ -109,6 +121,12 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
   const [formNewTeacherName, setFormNewTeacherName] = useState<string | null>(null);
   const [formNewCourseName, setFormNewCourseName] = useState<string | null>(null);
   const excelInputRef = useRef<HTMLInputElement>(null);
+  const [conflictingEmails, setConflictingEmails] = useState<string[]>([]);
+
+  // Clear conflicting emails when the student list is modified
+  useEffect(() => {
+    setConflictingEmails([]);
+  }, [formStudentIds, formNewStudents]);
 
   // Load dropdown options
   useEffect(() => {
@@ -986,7 +1004,11 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                       {selectedStudents.map((student) => (
                         <div
                           key={student.id}
-                          className="relative p-2.5 bg-white dark:bg-gray-900 border border-gray-150 dark:border-gray-800 rounded-xl flex items-center gap-2.5 shadow-theme-xs hover:border-rose-300 dark:hover:border-rose-500/40 transition-colors animate-fadeIn"
+                          className={`relative p-2.5 border rounded-xl flex items-center gap-2.5 shadow-theme-xs transition-colors duration-300 animate-fadeIn ${
+                            conflictingEmails.includes(student.email || "")
+                              ? "bg-white dark:bg-gray-900 border-red-300 dark:border-red-500/50"
+                              : "bg-white dark:bg-gray-900 border-gray-150 dark:border-gray-800 hover:border-rose-300 dark:hover:border-rose-500/40"
+                          }`}
                         >
                           {/* Avatar Circle */}
                           <div className="w-7 h-7 rounded-full bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center font-bold text-xs shrink-0">
@@ -1034,7 +1056,11 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                       {formNewStudents.map((student) => (
                         <div
                           key={student.email}
-                          className="relative p-2.5 bg-emerald-50/20 dark:bg-emerald-950/10 border border-emerald-150 dark:border-emerald-900/30 rounded-xl flex items-center gap-2.5 shadow-theme-xs hover:border-rose-300 dark:hover:border-rose-500/40 transition-colors"
+                          className={`relative p-2.5 border rounded-xl flex items-center gap-2.5 shadow-theme-xs transition-colors duration-300 ${
+                            conflictingEmails.includes(student.email)
+                              ? "bg-emerald-50/20 dark:bg-emerald-950/10 border-red-300 dark:border-red-500/50"
+                              : "bg-emerald-50/20 dark:bg-emerald-950/10 border-emerald-150 dark:border-emerald-900/30 hover:border-rose-300 dark:hover:border-rose-500/40"
+                          }`}
                         >
                           <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0">
                             {student.name ? student.name.charAt(0).toUpperCase() : "?"}
