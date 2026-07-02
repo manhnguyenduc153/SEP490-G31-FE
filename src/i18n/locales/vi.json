@@ -305,14 +305,20 @@
     "deleteError": "Xóa thất bại.",
     "systemError": "Đã xảy ra lỗi hệ thống.",
     "statusPlanning": "Sắp mở",
-    "statusActive": "Đang học",
-    "statusCompleted": "Hoàn thành",
+    "statusActive": "Đang diễn ra",
+    "statusCompleted": "Đã hoàn thành",
     "statusCancelled": "Đã hủy",
     "filterStatusAll": "Tất cả trạng thái",
     "tabAll": "Tất cả",
-    "tabActive": "Đang học",
+    "tabActive": "Đang diễn ra",
     "tabPlanning": "Sắp mở",
-    "tabCompleted": "Hoàn thành"
+    "tabCompleted": "Đã hoàn thành",
+    "selectedCount": "Đã chọn {{count}} lớp",
+    "deselectBtn": "Bỏ chọn",
+    "schedulingBtn": "Đang xếp...",
+    "autoScheduleBtn": "Xếp lịch tự động",
+    "autoScheduleSuccess": "Xếp lịch tự động thành công!",
+    "autoScheduleError": "Xếp lịch tự động thất bại!"
   },
   "common": {
     "home": "Trang chủ",
@@ -607,7 +613,11 @@
     "ERR_START_DATE_EMPTY": "Ngày bắt đầu không được để trống",
     "ERR_EXPECTED_LESSONS_INVALID": "Số buổi học dự kiến phải lớn hơn 0",
     "ERR_WEEKLY_SCHEDULES_EMPTY": "Lịch học hàng tuần không được để trống",
-    "ERR_SCHEDULE_MAX_LENGTH": "Lịch học hiển thị không được vượt quá 200 ký tự"
+    "ERR_SCHEDULE_MAX_LENGTH": "Lịch học hiển thị không được vượt quá 200 ký tự",
+    "ERR_NO_ACTIVE_TEACHERS": "Không có giáo viên hoạt động nào trong hệ thống!",
+    "ERR_NO_ACTIVE_ROOMS": "Không có phòng học hoạt động nào trong hệ thống!",
+    "ERR_NO_TIMESLOTS": "Không có ca học nào trong hệ thống!",
+    "ERR_NO_FEASIBLE_SCHEDULE_FOUND": "Không tìm thấy phương án xếp lịch khả thi (vui lòng bổ sung thêm phòng học, giáo viên hoặc kiểm tra trùng lặp ca học)!"
   },
   "permissions": {
     "category": {

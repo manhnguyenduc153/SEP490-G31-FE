@@ -67,8 +67,8 @@ export function ClassViewModal({
   const getStatusText = (status: number) => {
     switch (status) {
       case 0: return t("class.statusPlanning", { defaultValue: "Sắp mở" });
-      case 1: return t("class.statusActive", { defaultValue: "Đang học" });
-      case 2: return t("class.statusCompleted", { defaultValue: "Hoàn thành" });
+      case 1: return t("class.statusActive", { defaultValue: "Đang diễn ra" });
+      case 2: return t("class.statusCompleted", { defaultValue: "Đã hoàn thành" });
       case 3: return t("class.statusCancelled", { defaultValue: "Đã hủy" });
       default: return "";
     }
