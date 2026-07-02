@@ -913,3 +913,19 @@ pre[class*="language-"] {
 pre[class*="language-"].line-numbers {
   padding-left: 2.8em !important;
 }
+
+/* FullCalendar event hover floating effect override */
+.schedules-calendar-main .fc-event {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.schedules-calendar-main .fc-event:hover {
+  transform: translateY(-4px) !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}

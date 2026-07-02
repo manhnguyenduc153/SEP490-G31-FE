@@ -113,7 +113,7 @@ export default function PersonalScheduleCalendar({ type }: PersonalScheduleCalen
   const renderClassEventContent = (eventInfo: EventContentArg) => {
     const props = eventInfo.event.extendedProps as CalendarEvent["extendedProps"];
     return (
-      <div className="flex flex-col p-1.5 bg-brand-50/80 dark:bg-brand-950/20 text-brand-900 dark:text-brand-300 rounded-lg border border-brand-100 dark:border-brand-900/50 w-full overflow-hidden text-[11px] shadow-2xs leading-tight">
+      <div className="flex flex-col p-1.5 bg-brand-50/80 dark:bg-brand-950/20 text-brand-900 dark:text-brand-300 rounded-lg border border-brand-100 dark:border-brand-900/50 w-full overflow-hidden text-[11px] shadow-2xs leading-tight transition-all duration-200 hover:bg-brand-100/90 dark:hover:bg-brand-900/30 hover:border-brand-300 dark:hover:border-brand-700 hover:shadow-lg hover:shadow-brand-500/15">
         <div className="flex items-center gap-1 font-bold">
           <span className="bg-brand-500 text-white rounded-md px-1 py-0.2 text-[9px]">B{props.lessonNo}</span>
           <span className="truncate">{props.startTime} - {props.endTime}</span>

@@ -136,6 +136,10 @@ export const classApi = {
   async getStudentSchedules(): Promise<ApiResponse<ClassScheduleItem[]>> {
     return api.get<ClassScheduleItem[]>("/api/Class/StudentSchedules");
   },
+  
+  async getClassSchedules(): Promise<ApiResponse<ClassScheduleItem[]>> {
+    return api.get<ClassScheduleItem[]>("/api/Class/Schedules");
+  },
 
   async checkConflict(dto: ClassSaveDto): Promise<ApiResponse<{ hasConflict: boolean; conflicts: any[] }>> {
     return api.post<{ hasConflict: boolean; conflicts: any[] }>("/api/Class/check-conflict", dto);
