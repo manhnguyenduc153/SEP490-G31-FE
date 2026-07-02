@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import * as XLSX from "xlsx";
 import {
   Table,
   TableBody,
@@ -286,6 +287,170 @@ export default function StudentTable() {
     }
   };
 
+  const handleDownloadTemplate = () => {
+    const templateData = [
+      {
+        "Mã HS": "ST001",
+        "Họ và tên": "Nguyễn Văn A",
+        "Email": "nguyenvana@example.com",
+        "Số điện thoại": "0987654321",
+        "Ngày sinh": "01/01/2010",
+        "Giới tính": "Nam",
+        "Địa chỉ": "123 Đường Láng, Hà Nội",
+        "Trường học": "THCS Láng Hạ",
+        "Khối lớp": 8,
+        "Tên phụ huynh": "Nguyễn Văn B",
+        "SĐT phụ huynh": "0912345678",
+        "Ghi chú": "Học sinh khá"
+      }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template Nhập Học sinh");
+    XLSX.writeFile(wb, "Template_Nhap_Hoc_Sinh.xlsx");
+    showToast("Tải file mẫu Excel thành công!");
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      const res = await studentApi.getAll(1, 10000, searchTerm, filterStatus, filterGrade, filterGender);
+      if (res.success && res.data) {
+        const exportItems = res.data.items || [];
+        
+        const sheetData = exportItems.map((item, idx) => ({
+          "STT": idx + 1,
+          "Mã HS": item.code,
+          "Họ và tên": item.name,
+          "Email": item.email || "",
+          "Số điện thoại": item.phone || "",
+          "Ngày sinh": item.dob ? new Date(item.dob).toLocaleDateString("vi-VN") : "",
+          "Giới tính": item.gender === true ? "Nam" : item.gender === false ? "Nữ" : "",
+          "Địa chỉ": item.address || "",
+          "Trường học": item.schoolName || "",
+          "Khối lớp": item.gradeLevel || "",
+          "Tên phụ huynh": item.parentName || "",
+          "SĐT phụ huynh": item.parentPhone || "",
+          "Ghi chú": item.description || ""
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(sheetData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Danh sách Học sinh");
+        XLSX.writeFile(wb, "Danh_Sach_Hoc_Sinh.xlsx");
+        showToast("Xuất dữ liệu Excel thành công!");
+      } else {
+        showToast(res.message || "Không thể xuất file Excel", "error");
+      }
+    } catch (err) {
+      console.error("Export Excel error", err);
+      showToast("Lỗi hệ thống khi xuất Excel", "error");
+    }
+  };
+
+  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: "binary" });
+        const wsName = wb.SheetNames[0];
+        const ws = wb.Sheets[wsName];
+
+        const rows = XLSX.utils.sheet_to_json(ws);
+        if (rows.length === 0) {
+          showToast("File Excel không có dữ liệu", "error");
+          return;
+        }
+
+        const dtos: StudentSaveDto[] = [];
+        for (const row of rows as any[]) {
+          const name = row["Họ và tên"] || row["Name"] || row["name"];
+          const email = row["Email"] || row["email"];
+          const phone = row["Số điện thoại"] || row["SĐT"] || row["Phone"] || row["phone"];
+          const code = row["Mã HS"] || row["Mã học sinh"] || row["Code"] || row["code"];
+          const dobStr = row["Ngày sinh"] || row["Dob"] || row["dob"];
+          const genderStr = row["Giới tính"] || row["Gender"] || row["gender"];
+          const address = row["Địa chỉ"] || row["Address"] || row["address"];
+          const schoolName = row["Trường học"] || row["School"] || row["school"];
+          const gradeLevelStr = row["Khối lớp"] || row["Grade"] || row["grade"];
+          const parentName = row["Tên phụ huynh"] || row["Phụ huynh"] || row["ParentName"];
+          const parentPhone = row["SĐT phụ huynh"] || row["ParentPhone"];
+          const description = row["Ghi chú"] || row["Note"] || row["description"];
+
+          if (!name || !email) {
+            continue;
+          }
+
+          let dob = null;
+          if (dobStr) {
+            const parts = String(dobStr).split("/");
+            if (parts.length === 3) {
+              dob = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+            } else {
+              dob = String(dobStr);
+            }
+          }
+
+          let gender = null;
+          if (genderStr) {
+            const normalizedGender = String(genderStr).toLowerCase().trim();
+            if (normalizedGender === "nam" || normalizedGender === "true" || normalizedGender === "1") {
+              gender = true;
+            } else if (normalizedGender === "nữ" || normalizedGender === "female" || normalizedGender === "false" || normalizedGender === "0") {
+              gender = false;
+            }
+          }
+
+          let gradeLevel = null;
+          if (gradeLevelStr) {
+            const parsedGrade = parseInt(String(gradeLevelStr), 10);
+            if (!isNaN(parsedGrade)) {
+              gradeLevel = parsedGrade;
+            }
+          }
+
+          dtos.push({
+            code: code ? String(code).trim() : "",
+            name: String(name).trim(),
+            email: String(email).trim(),
+            phone: phone ? String(phone).trim() : null,
+            dob,
+            gender,
+            address: address ? String(address).trim() : null,
+            schoolName: schoolName ? String(schoolName).trim() : null,
+            gradeLevel,
+            parentName: parentName ? String(parentName).trim() : null,
+            parentPhone: parentPhone ? String(parentPhone).trim() : null,
+            description: description ? String(description).trim() : null,
+            status: 1
+          });
+        }
+
+        if (dtos.length === 0) {
+          showToast("Không tìm thấy dòng dữ liệu hợp lệ (yêu cầu Họ và tên & Email)", "error");
+          return;
+        }
+
+        const res = await studentApi.import(dtos);
+        if (res.success) {
+          showToast(`Nhập thành công ${res.data?.length || dtos.length} học sinh!`);
+          triggerRefresh();
+        } else {
+          showToast(res.message || "Lỗi khi nhập danh sách học sinh", "error");
+        }
+      } catch (err: any) {
+        console.error("Import Excel error", err);
+        showToast("Lỗi khi đọc file Excel: " + err.message, "error");
+      }
+    };
+    reader.readAsBinaryString(file);
+    e.target.value = "";
+  };
+
   // ── Pagination helpers ──
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = Math.min(startIndex + items.length, totalRecords);
@@ -447,10 +612,46 @@ export default function StudentTable() {
                 className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent py-2.5 pl-11 pr-4 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[250px]"
               />
             </div>
+            <button
+              onClick={handleExportExcel}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 h-11 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg"
+            >
+              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              {t("student.exportExcel", { defaultValue: "Xuất Excel" })}
+            </button>
+            <PermissionGuard requiredPermission="Student.Create">
+              <button
+                onClick={handleDownloadTemplate}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 h-11 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg"
+              >
+                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                </svg>
+                {t("student.downloadTemplate", { defaultValue: "Tải file mẫu" })}
+              </button>
+            </PermissionGuard>
+            <PermissionGuard requiredPermission="Student.Create">
+              <label
+                className="flex items-center justify-center gap-2 px-4 py-2.5 h-11 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg cursor-pointer"
+              >
+                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                </svg>
+                {t("student.importExcel", { defaultValue: "Nhập Excel" })}
+                <input
+                  type="file"
+                  accept=".xlsx, .xls"
+                  onChange={handleImportExcel}
+                  className="hidden"
+                />
+              </label>
+            </PermissionGuard>
             <PermissionGuard requiredPermission="Student.Create">
               <button
                 onClick={openCreateModal}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 transition-colors shadow-theme-xs"
+                className="flex items-center justify-center gap-2 px-4 py-2.5 h-11 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 transition-colors shadow-theme-xs"
               >
                 <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M8.00016 3.33331V12.6666M3.3335 7.99998H12.6668" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
