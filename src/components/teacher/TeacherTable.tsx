@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 import {
   Table,
   TableBody,
@@ -12,7 +13,7 @@ import PaginationWithIcon from "@/components/tables/DataTables/TableOne/Paginati
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
 import { AngleDownIcon, AngleUpIcon, PencilIcon, TrashBinIcon } from "@/icons";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
-import { teacherApi, TeacherItem } from "@/services/teacher.api";
+import { teacherApi, TeacherItem, TeacherSaveDto, GradeLevel } from "@/services/teacher.api";
 import { useTranslation } from "react-i18next";
 
 type SortKey = "code" | "name" | "email" | "phone" | "status" | "gradeLevelName";
@@ -144,6 +145,161 @@ export default function TeacherTable({
     }
   };
 
+  const handleDownloadTemplate = () => {
+    const templateData = [
+      {
+        "Mã GV": "GV001",
+        "Họ Tên": "Nguyễn Văn A",
+        "Email": "nguyenvana@example.com",
+        "Số điện thoại": "0987654321",
+        "Ngày sinh": "01/01/1990",
+        "Giới tính": "Nam",
+        "Địa chỉ": "123 Đường Láng, Hà Nội",
+        "Cấp độ": "Ielts65Plus",
+        "Trạng thái": 1,
+        "Mô tả": "Giáo viên giỏi"
+      }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template Nhập Giáo viên");
+    XLSX.writeFile(wb, "Template_Nhap_Giao_Vien.xlsx");
+    showToast("Tải file mẫu Excel thành công!");
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      const res = await teacherApi.getAll(1, 10000, searchTerm);
+      if (res.success && res.data) {
+        const exportItems = res.data.items || [];
+        
+        const sheetData = exportItems.map((item, idx) => ({
+          "STT": idx + 1,
+          "Mã GV": item.code,
+          "Họ Tên": item.name,
+          "Email": item.email || "",
+          "Số điện thoại": item.phone || "",
+          "Ngày sinh": item.dob ? new Date(item.dob).toLocaleDateString("vi-VN") : "",
+          "Giới tính": item.gender === true ? "Nam" : item.gender === false ? "Nữ" : "",
+          "Địa chỉ": item.address || "",
+          "Cấp độ": item.gradeLevelName || "",
+          "Trạng thái": item.status === 1 ? "Hoạt động" : "Ngưng hoạt động",
+          "Mô tả": item.description || ""
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(sheetData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Danh sách Giáo viên");
+        XLSX.writeFile(wb, "Danh_Sach_Giao_Vien.xlsx");
+        showToast("Xuất dữ liệu Excel thành công!");
+      } else {
+        showToast(res.message || "Không thể xuất file Excel", "error");
+      }
+    } catch (err) {
+      console.error("Export Excel error", err);
+      showToast("Lỗi hệ thống khi xuất Excel", "error");
+    }
+  };
+
+  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: "binary" });
+        const wsName = wb.SheetNames[0];
+        const ws = wb.Sheets[wsName];
+
+        const rows = XLSX.utils.sheet_to_json(ws);
+        if (rows.length === 0) {
+          showToast("File Excel không có dữ liệu", "error");
+          return;
+        }
+
+        const dtos: TeacherSaveDto[] = [];
+        for (const row of rows as any[]) {
+          const name = row["Họ Tên"] || row["Name"] || row["name"];
+          const email = row["Email"] || row["email"];
+          const phone = row["Số điện thoại"] || row["SĐT"] || row["Phone"] || row["phone"];
+          const code = row["Mã GV"] || row["Mã giáo viên"] || row["Code"] || row["code"];
+          const dobStr = row["Ngày sinh"] || row["Dob"] || row["dob"];
+          const genderStr = row["Giới tính"] || row["Gender"] || row["gender"];
+          const address = row["Địa chỉ"] || row["Address"] || row["address"];
+          const gradeLevelStr = row["Cấp độ"] || row["Grade"] || row["grade"];
+          const statusStr = row["Trạng thái"] || row["Status"] || row["status"];
+          const description = row["Mô tả"] || row["Note"] || row["description"];
+
+          if (!name || !email) {
+            continue;
+          }
+
+          let dob = null;
+          if (dobStr) {
+            const parts = String(dobStr).split("/");
+            if (parts.length === 3) {
+              dob = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+            } else {
+              dob = String(dobStr);
+            }
+          }
+
+          let gender = null;
+          if (genderStr) {
+            const normalizedGender = String(genderStr).toLowerCase().trim();
+            if (normalizedGender === "nam" || normalizedGender === "true" || normalizedGender === "1") {
+              gender = true;
+            } else if (normalizedGender === "nữ" || normalizedGender === "female" || normalizedGender === "false" || normalizedGender === "0") {
+              gender = false;
+            }
+          }
+          
+          let gradeLevel: GradeLevel | null = null;
+          if (gradeLevelStr) {
+            const normalized = String(gradeLevelStr).trim();
+            if (Object.values(GradeLevel).includes(normalized as GradeLevel)) {
+                gradeLevel = normalized as GradeLevel;
+            }
+          }
+
+          dtos.push({
+            code: code ? String(code).trim() : "",
+            name: String(name).trim(),
+            email: String(email).trim(),
+            phone: phone ? String(phone).trim() : null,
+            dob,
+            gender,
+            address: address ? String(address).trim() : null,
+            gradeLevel,
+            description: description ? String(description).trim() : null,
+            status: statusStr ? Number(statusStr) : 1
+          });
+        }
+
+        if (dtos.length === 0) {
+          showToast("Không tìm thấy dòng dữ liệu hợp lệ (yêu cầu Họ Tên & Email)", "error");
+          return;
+        }
+
+        const res = await teacherApi.import(dtos);
+        if (res.success) {
+          showToast(`Nhập thành công ${res.data?.length || dtos.length} giáo viên!`);
+          setRefreshKey((key) => key + 1);
+        } else {
+          showToast(res.message || "Lỗi khi nhập danh sách giáo viên", "error");
+        }
+      } catch (err: any) {
+        console.error("Import Excel error", err);
+        showToast("Lỗi khi đọc file Excel: " + err.message, "error");
+      }
+    };
+    reader.readAsBinaryString(file);
+    e.target.value = "";
+  };
+
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = Math.min(startIndex + items.length, totalRecords);
   const columns: { key: SortKey; label: string }[] = [
@@ -193,10 +349,49 @@ export default function TeacherTable({
             />
           </div>
 
+          <button
+            onClick={handleExportExcel}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 h-11 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg"
+          >
+            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+            {t("teacher.exportExcel", { defaultValue: "Xuất Excel" })}
+          </button>
+          
+          <PermissionGuard requiredPermission="Teacher.Create">
+            <button
+              onClick={handleDownloadTemplate}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 h-11 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg"
+            >
+              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+              </svg>
+              {t("teacher.downloadTemplate", { defaultValue: "Tải file mẫu" })}
+            </button>
+          </PermissionGuard>
+          
+          <PermissionGuard requiredPermission="Teacher.Create">
+            <label
+              className="flex items-center justify-center gap-2 px-4 py-2.5 h-11 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg cursor-pointer"
+            >
+              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+              </svg>
+              {t("teacher.importExcel", { defaultValue: "Nhập Excel" })}
+              <input
+                type="file"
+                accept=".xlsx, .xls"
+                onChange={handleImportExcel}
+                className="hidden"
+              />
+            </label>
+          </PermissionGuard>
+
           <PermissionGuard requiredPermission="Teacher.Create">
             <button
               onClick={onAddClick}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 transition-colors shadow-theme-xs"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 h-11 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 transition-colors shadow-theme-xs"
             >
               <span className="text-lg leading-none">+</span>
               {t("teacher.addTeacher")}

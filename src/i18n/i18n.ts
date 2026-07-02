@@ -22,8 +22,8 @@ i18n
       escapeValue: false, // react already safes from xss
     },
     detection: {
-      // Check localStorage first, then fallback to navigator
-      order: ["localStorage", "navigator"],
+      // Check localStorage first, fallback to 'vi' if not set
+      order: ["localStorage"],
       caches: ["localStorage"],
     },
   });

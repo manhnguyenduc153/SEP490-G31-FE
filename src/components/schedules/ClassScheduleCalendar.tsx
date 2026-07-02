@@ -25,6 +25,8 @@ interface CalendarEvent {
     status: number;
     note: string | null;
     scheduleDate: string;
+    classCode?: string | null;
+    className?: string | null;
   };
 }
 
@@ -55,48 +57,77 @@ export default function ClassScheduleCalendar() {
     loadClasses();
   }, []);
 
-  // Fetch schedule of selected class
+  // Fetch schedule of selected class or all classes
   useEffect(() => {
-    const classId = selectedClassId;
-    if (!classId) {
-      setClassDetail(null);
-      setEvents([]);
-      return;
-    }
-
     async function loadClassSchedules() {
       setLoading(true);
       try {
-        const res = await classApi.getById(classId!);
-        if (res.success && res.data) {
-          const detail = res.data;
-          setClassDetail(detail);
+        if (selectedClassId === null) {
+          // Fetch schedules of all classes
+          const res = await classApi.getClassSchedules();
+          if (res.success && res.data) {
+            setClassDetail(null);
+            const mappedEvents = res.data.map((s: ClassScheduleItem) => {
+              const datePart = s.scheduleDate ? s.scheduleDate.split("T")[0] : "";
+              const startISO = `${datePart}T${s.startTime || "08:00"}:00`;
+              const endISO = `${datePart}T${s.endTime || "09:30"}:00`;
 
-          const mappedEvents = (detail.schedules || []).map((s: ClassScheduleItem) => {
-            const datePart = s.scheduleDate ? s.scheduleDate.split("T")[0] : "";
-            const startISO = `${datePart}T${s.startTime || "08:00"}:00`;
-            const endISO = `${datePart}T${s.endTime || "09:30"}:00`;
+              return {
+                id: String(s.id),
+                title: `${s.classCode || "N/A"} - Buổi ${s.lessonNo} - Phòng ${s.roomName || "N/A"}`,
+                start: startISO,
+                end: endISO,
+                extendedProps: {
+                  lessonNo: s.lessonNo || 0,
+                  roomName: s.roomName || "N/A",
+                  teacherName: s.teacherName || "Chưa phân công",
+                  teacherAvatar: s.teacherAvatar || null,
+                  startTime: s.startTime || "08:00",
+                  endTime: s.endTime || "09:30",
+                  status: s.status,
+                  note: s.note || "",
+                  scheduleDate: datePart,
+                  classCode: s.classCode || "N/A",
+                  className: s.className || "N/A",
+                },
+              };
+            });
+            setEvents(mappedEvents);
+          }
+        } else {
+          // Fetch schedule of a specific class
+          const res = await classApi.getById(selectedClassId);
+          if (res.success && res.data) {
+            const detail = res.data;
+            setClassDetail(detail);
 
-            return {
-              id: String(s.id),
-              title: `Buổi ${s.lessonNo} - Phòng ${s.roomName || "N/A"}`,
-              start: startISO,
-              end: endISO,
-              extendedProps: {
-                lessonNo: s.lessonNo || 0,
-                roomName: s.roomName || "N/A",
-                teacherName: s.teacherName || detail.teacherName || "Chưa phân công",
-                teacherAvatar: s.teacherAvatar || detail.teacherAvatar || null,
-                startTime: s.startTime || "08:00",
-                endTime: s.endTime || "09:30",
-                status: s.status,
-                note: s.note || "",
-                scheduleDate: datePart,
-              },
-            };
-          });
+            const mappedEvents = (detail.schedules || []).map((s: ClassScheduleItem) => {
+              const datePart = s.scheduleDate ? s.scheduleDate.split("T")[0] : "";
+              const startISO = `${datePart}T${s.startTime || "08:00"}:00`;
+              const endISO = `${datePart}T${s.endTime || "09:30"}:00`;
 
-          setEvents(mappedEvents);
+              return {
+                id: String(s.id),
+                title: `Buổi ${s.lessonNo} - Phòng ${s.roomName || "N/A"}`,
+                start: startISO,
+                end: endISO,
+                extendedProps: {
+                  lessonNo: s.lessonNo || 0,
+                  roomName: s.roomName || "N/A",
+                  teacherName: s.teacherName || detail.teacherName || "Chưa phân công",
+                  teacherAvatar: s.teacherAvatar || detail.teacherAvatar || null,
+                  startTime: s.startTime || "08:00",
+                  endTime: s.endTime || "09:30",
+                  status: s.status,
+                  note: s.note || "",
+                  scheduleDate: datePart,
+                  classCode: detail.code || "N/A",
+                  className: detail.name || "N/A",
+                },
+              };
+            });
+            setEvents(mappedEvents);
+          }
         }
       } catch (err) {
         console.error("Failed to load class schedules", err);
@@ -133,11 +164,16 @@ export default function ClassScheduleCalendar() {
   const renderClassEventContent = (eventInfo: EventContentArg) => {
     const props = eventInfo.event.extendedProps as CalendarEvent["extendedProps"];
     return (
-      <div className="flex flex-col p-1.5 bg-brand-50/80 dark:bg-brand-950/20 text-brand-900 dark:text-brand-300 rounded-lg border border-brand-100 dark:border-brand-900/50 w-full overflow-hidden text-[11px] shadow-2xs leading-tight">
+      <div className="flex flex-col p-1.5 bg-brand-50/80 dark:bg-brand-950/20 text-brand-900 dark:text-brand-300 rounded-lg border border-brand-100 dark:border-brand-900/50 w-full overflow-hidden text-[11px] shadow-2xs leading-tight transition-all duration-200 hover:bg-brand-100/90 dark:hover:bg-brand-900/30 hover:border-brand-300 dark:hover:border-brand-700 hover:shadow-lg hover:shadow-brand-500/15">
         <div className="flex items-center gap-1 font-bold">
           <span className="bg-brand-500 text-white rounded-md px-1 py-0.2 text-[9px]">B{props.lessonNo}</span>
           <span className="truncate">{props.startTime} - {props.endTime}</span>
         </div>
+        {selectedClassId === null && (
+          <div className="truncate mt-1 font-semibold text-brand-700 dark:text-brand-400">
+            Lớp: {props.classCode}
+          </div>
+        )}
         <div className="truncate mt-1 text-gray-700 dark:text-gray-200 font-medium">
           Phòng: {props.roomName}
         </div>
@@ -160,11 +196,11 @@ export default function ClassScheduleCalendar() {
             Lớp học:
           </label>
           <select
-            value={selectedClassId || ""}
-            onChange={(e) => setSelectedClassId(Number(e.target.value) || null)}
+            value={selectedClassId === null ? "all" : String(selectedClassId)}
+            onChange={(e) => setSelectedClassId(e.target.value === "all" ? null : Number(e.target.value))}
             className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
           >
-            <option value="">-- Chọn lớp học để xem lịch học --</option>
+            <option value="all">Tất cả các lớp</option>
             {classes.map((cls) => (
               <option key={cls.id} value={cls.id}>
                 {cls.code} - {cls.name} ({cls.scheduleDisplay || "Chưa cấu hình lịch"})
@@ -196,48 +232,38 @@ export default function ClassScheduleCalendar() {
       </div>
 
       {/* Main Calendar View */}
-      {selectedClassId ? (
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-500"></div>
-            </div>
-          ) : (
-            <div className="schedules-calendar-main">
-              <FullCalendar
-                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                initialView="dayGridMonth"
-                locale="vi"
-                slotMinTime="06:00:00"
-                slotMaxTime="24:00:00"
-                buttonText={{
-                  today: "Hôm nay",
-                  month: "Tháng",
-                  week: "Tuần",
-                }}
-                headerToolbar={{
-                  left: "prev,next today",
-                  center: "title",
-                  right: "dayGridMonth,timeGridWeek",
-                }}
-                events={events}
-                selectable={false}
-                eventClick={handleEventClick}
-                eventContent={renderClassEventContent}
-                height="auto"
-              />
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="rounded-2xl border border-dashed border-gray-200 bg-white py-16 dark:border-gray-800 dark:bg-white/[0.03] text-center">
-          <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-          <h3 className="mt-4 text-sm font-medium text-gray-900 dark:text-white">Chưa chọn lớp học</h3>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Vui lòng chọn một lớp học từ danh sách ở trên để hiển thị lịch học chi tiết.</p>
-        </div>
-      )}
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-500"></div>
+          </div>
+        ) : (
+          <div className="schedules-calendar-main">
+            <FullCalendar
+              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+              initialView="dayGridMonth"
+              locale="vi"
+              slotMinTime="06:00:00"
+              slotMaxTime="24:00:00"
+              buttonText={{
+                today: "Hôm nay",
+                month: "Tháng",
+                week: "Tuần",
+              }}
+              headerToolbar={{
+                left: "prev,next today",
+                center: "title",
+                right: "dayGridMonth,timeGridWeek",
+              }}
+              events={events}
+              selectable={false}
+              eventClick={handleEventClick}
+              eventContent={renderClassEventContent}
+              height="auto"
+            />
+          </div>
+        )}
+      </div>
 
       {/* Session Details Modal */}
       <Modal isOpen={isOpen} onClose={closeModal} showCloseButton={false} className="max-w-[500px] p-6 lg:p-8">
@@ -252,11 +278,9 @@ export default function ClassScheduleCalendar() {
                   {getStatusConfig(selectedEvent.status).text}
                 </span>
               </div>
-              {classDetail && (
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Lớp: <strong className="text-gray-700 dark:text-gray-200">{classDetail.code} - {classDetail.name}</strong>
-                </p>
-              )}
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Lớp: <strong className="text-gray-700 dark:text-gray-200">{selectedEvent.classCode} - {selectedEvent.className}</strong>
+              </p>
             </div>
 
             <div className="mt-6 space-y-4">

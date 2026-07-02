@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function page() {
   return (
     <div className="w-full">
-      <PageBreadcrumb pageTitle="Lịch Học" />
+      <PageBreadcrumb pageTitle="sidebar.schedules" />
       <ClassScheduleCalendar />
     </div>
   );
