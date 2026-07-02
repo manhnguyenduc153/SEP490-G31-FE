@@ -66,7 +66,7 @@ const schoolItems: NavItem[] = [
     name: "assessments",
     subItems: [
       { name: "exams", path: "/exams", permission: "ExamSchedule" },
-      { name: "assignments", path: "/assignments", permission: "Activity" },
+      { name: "homework", path: "/homework" },
       { name: "questionBank", path: "/question-bank", permission: "Question" },
       { name: "questionCategory", path: "/question-category", permission: "QuestionCategory" },
       { name: "scores", path: "/scores", permission: "StudentGrade" },

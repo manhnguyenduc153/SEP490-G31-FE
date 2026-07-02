@@ -2,13 +2,11 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 import { TeacherItem, TeacherSaveDto, teacherApi, GradeLevel } from "@/services/teacher.api";
-import { env } from "process";
 import { EyeIcon, CalenderIcon } from "@/icons";
 import { CodeHelper } from "@/helpers/CodeHelper";
 
-interface TeacherFormModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+interface TeacherFormProps {
+  onCancel: () => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   t: any;
   editingItem: TeacherItem | null;
@@ -17,15 +15,14 @@ interface TeacherFormModalProps {
   onSubmit: (dto: TeacherSaveDto) => void;
 }
 
-export function TeacherFormModal({
-  isOpen,
-  onClose,
+export function TeacherForm({
+  onCancel,
   t,
   editingItem,
   formError,
   isSubmitting,
   onSubmit,
-}: TeacherFormModalProps) {
+}: TeacherFormProps) {
   const [formData, setFormData] = useState<TeacherSaveDto>({
     code: "",
     name: "",
@@ -52,7 +49,7 @@ export function TeacherFormModal({
   const dobInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (editingItem && isOpen) {
+    if (editingItem) {
       setFormData({
         id: editingItem.id,
         code: editingItem.code || "",
@@ -68,7 +65,7 @@ export function TeacherFormModal({
         avatar: editingItem.avatar || null,
         certificate: editingItem.certificate || null,
       });
-    } else if (isOpen) {
+    } else {
       setFormData({
         code: CodeHelper.generate("GV"),
         name: "",
@@ -90,7 +87,7 @@ export function TeacherFormModal({
     setCertFile(null);
     setAvatarPreview(null);
     setCertPreview(null);
-  }, [editingItem, isOpen]);
+  }, [editingItem]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -203,8 +200,8 @@ export function TeacherFormModal({
 
   return (
     <>
-    <Modal isOpen={isOpen} onClose={onClose} className="max-w-[750px] p-4">
-      <div className="flex flex-col gap-3">
+    <div className="w-full bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs p-5 sm:p-6">
+      <div className="flex flex-col gap-5">
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             {editingItem ? t("teacher.editTitle") : t("teacher.createTitle")}
@@ -557,7 +554,7 @@ export function TeacherFormModal({
           <div className="flex justify-end gap-3 pt-4 mt-5 border-t border-gray-200 dark:border-gray-800">
             <button
               type="button"
-              onClick={onClose}
+              onClick={onCancel}
               className="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700 transition-colors"
             >
               {t("teacher.btnCancel")}
@@ -576,7 +573,7 @@ export function TeacherFormModal({
           </div>
         </form>
       </div>
-    </Modal>
+    </div>
 
     {/* Image Preview Modal */}
     {previewImage && (
