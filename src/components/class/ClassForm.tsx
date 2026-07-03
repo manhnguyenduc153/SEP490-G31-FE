@@ -40,9 +40,9 @@ const DAYS_OF_WEEK = [
 const FIXED_SLOTS = [
   { index: 0, label: "Ca 1 (07:30 - 09:30)", start: "07:30", end: "09:30" },
   { index: 1, label: "Ca 2 (10:00 - 12:00)", start: "10:00", end: "12:00" },
-  { index: 2, label: "Ca 3 (13:00 - 15:00)", start: "13:00", end: "15:00" },
+  { index: 2, label: "Ca 3 (13:30 - 15:30)", start: "13:30", end: "15:30" },
   { index: 3, label: "Ca 4 (16:00 - 18:00)", start: "16:00", end: "18:00" },
-  { index: 4, label: "Ca 5 (19:00 - 21:00)", start: "19:00", end: "21:00" },
+  { index: 4, label: "Ca 5 (18:30 - 20:30)", start: "18:30", end: "20:30" },
 ];
 
 export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToast }: ClassFormProps) {
@@ -91,9 +91,9 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
   const [rooms, setRooms] = useState<RoomItem[]>([]);
   
   // Weekly Schedules state
-  const DEFAULT_SLOT = FIXED_SLOTS[4]; // Ca 5 (19:00-21:00) as default
+  const DEFAULT_SLOT = FIXED_SLOTS[4]; // Ca 5 (18:30-20:30) as default
   const [dayConfigs, setDayConfigs] = useState<Record<number, DayConfig>>({
-    1: { selected: true,  startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+    1: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
     2: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
     3: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
     4: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
@@ -338,7 +338,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
       setFormNewTeacherName(null);
       setFormNewCourseName(null);
       setDayConfigs({
-        1: { selected: true,  startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
+        1: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
         2: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
         3: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
         4: { selected: false, startTime: DEFAULT_SLOT.start, endTime: DEFAULT_SLOT.end, roomId: null },
@@ -1189,7 +1189,9 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                       >
                         <option value="">-- Trống --</option>
                         {rooms.map((r) => (
-                          <option key={r.id} value={r.id}>{r.name}</option>
+                          <option key={r.id} value={r.id}>
+                            {r.name} - {r.capacity ? `${r.capacity} chỗ` : "Không giới hạn"}
+                          </option>
                         ))}
                       </select>
                     </div>
