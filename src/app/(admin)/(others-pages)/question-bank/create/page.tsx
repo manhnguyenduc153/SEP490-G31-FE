@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function CreateQuestionPage() {
   return (
     <div className="space-y-6">
-      <PageBreadcrumb pageTitle="Tạo câu hỏi mới" />
+      <PageBreadcrumb pageTitle="question.createTitle" />
       <QuestionForm />
     </div>
   );
