@@ -67,6 +67,34 @@ export default function QuestionTable() {
     setToastType(type);
   };
 
+  const getQuestionTypeLabel = (type: number) => {
+    switch (type) {
+      case 1:
+        return t("question.typeSingle", { defaultValue: "Chọn một" });
+      case 2:
+        return t("question.typeMultiple", { defaultValue: "Chọn nhiều" });
+      case 3:
+        return t("question.typeEssay", { defaultValue: "Nhập text" });
+      case 4:
+        return t("question.typeTrueFalse", { defaultValue: "Đúng / Sai" });
+      default:
+        return "";
+    }
+  };
+
+  const getDifficultyLabel = (difficulty: number) => {
+    switch (difficulty) {
+      case 1:
+        return t("question.difficultyEasy", { defaultValue: "Dễ" });
+      case 2:
+        return t("question.difficultyMedium", { defaultValue: "Trung bình" });
+      case 3:
+        return t("question.difficultyHard", { defaultValue: "Khó" });
+      default:
+        return "";
+    }
+  };
+
   // ── Search & Tag debounces ──
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -139,7 +167,7 @@ export default function QuestionTable() {
     try {
       const res = await questionApi.delete(deleteTarget.id);
       if (res.success) {
-        showToast("Xóa câu hỏi thành công!");
+        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : "Xóa câu hỏi thành công!");
         setIsDeleteModalOpen(false);
         setDeleteTarget(null);
         triggerRefresh();
@@ -445,8 +473,8 @@ export default function QuestionTable() {
       {/* Header section with Title and Add Button */}
       <div className="px-6 py-5 border-b border-gray-100 dark:border-white/[0.05] flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-gray-50/20">
         <div>
-          <h2 className="text-lg font-bold text-gray-950 dark:text-white">Ngân hàng câu hỏi</h2>
-          <p className="text-xs text-gray-500 mt-1">Danh sách câu hỏi dùng để khởi tạo đề kiểm tra, ôn tập.</p>
+          <h2 className="text-lg font-bold text-gray-950 dark:text-white">{t("question.title")}</h2>
+          <p className="text-xs text-gray-500 mt-1">{t("question.description")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
           <button
@@ -501,25 +529,25 @@ export default function QuestionTable() {
       <div className="p-6 border-b border-gray-100 dark:border-white/[0.05] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-gray-50/10">
         {/* Search */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Từ khóa</label>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("question.filterKeyword")}</label>
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Tìm theo tên/mã/nội dung..."
+            placeholder={t("question.filterKeywordPlaceholder")}
             className="w-full h-10 px-3.5 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-300 dark:focus:border-brand-800 focus:outline-hidden dark:text-white"
           />
         </div>
 
         {/* Category */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Danh mục</label>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("question.filterCategory")}</label>
           <select
             value={selectedCategory || ""}
             onChange={(e) => setSelectedCategory(e.target.value ? Number(e.target.value) : undefined)}
             className="w-full h-10 px-3.5 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-300 focus:outline-hidden dark:text-white"
           >
-            <option value="">Tất cả danh mục</option>
+            <option value="">{t("question.filterCategoryAll")}</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -530,32 +558,32 @@ export default function QuestionTable() {
 
         {/* Type */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Loại câu hỏi</label>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("question.filterType")}</label>
           <select
             value={selectedType || ""}
             onChange={(e) => setSelectedType(e.target.value ? Number(e.target.value) : undefined)}
             className="w-full h-10 px-3.5 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-300 focus:outline-hidden dark:text-white"
           >
-            <option value="">Tất cả loại</option>
-            <option value="1">Chọn một (Single Choice)</option>
-            <option value="2">Chọn nhiều (Multiple Choice)</option>
-            <option value="3">Nhập text (Essay)</option>
-            <option value="4">Đúng / Sai (True / False)</option>
+            <option value="">{t("question.filterTypeAll")}</option>
+            <option value="1">{t("question.typeSingle")} (Single Choice)</option>
+            <option value="2">{t("question.typeMultiple")} (Multiple Choice)</option>
+            <option value="3">{t("question.typeEssay")} (Essay)</option>
+            <option value="4">{t("question.typeTrueFalse")} (True / False)</option>
           </select>
         </div>
 
         {/* Difficulty */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Độ khó</label>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("question.filterDifficulty")}</label>
           <select
             value={selectedDifficulty || ""}
             onChange={(e) => setSelectedDifficulty(e.target.value ? Number(e.target.value) : undefined)}
             className="w-full h-10 px-3.5 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-300 focus:outline-hidden dark:text-white"
           >
-            <option value="">Tất cả độ khó</option>
-            <option value="1">Dễ</option>
-            <option value="2">Trung bình</option>
-            <option value="3">Khó</option>
+            <option value="">{t("question.filterDifficultyAll")}</option>
+            <option value="1">{t("question.difficultyEasy")}</option>
+            <option value="2">{t("question.difficultyMedium")}</option>
+            <option value="3">{t("question.difficultyHard")}</option>
           </select>
         </div>
       </div>
@@ -569,25 +597,25 @@ export default function QuestionTable() {
                 #
               </TableCell>
               <TableCell isHeader className="px-6 py-4 text-left font-semibold text-gray-800 dark:text-gray-200">
-                Câu hỏi
+                {t("question.colQuestion")}
               </TableCell>
               <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-32">
-                Loại
+                {t("question.colType")}
               </TableCell>
               <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-28">
-                Độ khó
+                {t("question.colDifficulty")}
               </TableCell>
               <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-24">
-                Điểm
+                {t("question.colPoint")}
               </TableCell>
               <TableCell isHeader className="px-6 py-4 text-left font-semibold text-gray-800 dark:text-gray-200 w-40">
-                Người tạo
+                {t("question.colCreatedBy")}
               </TableCell>
               <TableCell isHeader className="px-6 py-4 text-left font-semibold text-gray-800 dark:text-gray-200 w-32">
-                Ngày tạo
+                {t("question.colCreatedAt")}
               </TableCell>
               <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-32">
-                Thao tác
+                {t("question.colActions")}
               </TableCell>
             </TableRow>
           </TableHeader>
@@ -630,12 +658,12 @@ export default function QuestionTable() {
                   </TableCell>
                   <TableCell className="px-6 py-4 text-center whitespace-nowrap">
                     <span className={`inline-flex items-center px-2.5 py-1.5 text-xs font-semibold rounded-full ${getTypeBadgeColor(item.questionType)}`}>
-                      {item.questionTypeName}
+                      {getQuestionTypeLabel(item.questionType)}
                     </span>
                   </TableCell>
                   <TableCell className="px-6 py-4 text-center whitespace-nowrap">
                     <span className={`inline-flex items-center px-2.5 py-1.5 text-xs font-semibold rounded-full ${getDifficultyBadgeColor(item.difficultyLevel)}`}>
-                      {item.difficultyLevelName}
+                      {getDifficultyLabel(item.difficultyLevel)}
                     </span>
                   </TableCell>
                   <TableCell className="px-6 py-4 text-center whitespace-nowrap font-medium text-gray-900 dark:text-white">
@@ -650,7 +678,7 @@ export default function QuestionTable() {
                   <TableCell className="px-6 py-4 text-center whitespace-nowrap">
                     <div className="flex items-center justify-center gap-1.5">
                       <button
-                        title="Xem chi tiết"
+                        title={t("question.viewTooltip")}
                         onClick={() => openViewModal(item)}
                         className="p-1.5 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
                       >
@@ -658,7 +686,7 @@ export default function QuestionTable() {
                       </button>
                       <PermissionGuard requiredPermission="Question.Edit">
                         <button
-                          title="Chỉnh sửa"
+                          title={t("question.editTooltip")}
                           onClick={() => router.push(`/question-bank/edit/${item.id}`)}
                           className="p-1.5 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
                         >
@@ -667,7 +695,7 @@ export default function QuestionTable() {
                       </PermissionGuard>
                       <PermissionGuard requiredPermission="Question.Delete">
                         <button
-                          title="Xóa"
+                          title={t("question.deleteTooltip")}
                           onClick={() => openDeleteModal(item)}
                           className="p-1.5 text-gray-500 hover:text-rose-500 dark:text-gray-400 dark:hover:text-rose-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
                         >
@@ -681,7 +709,7 @@ export default function QuestionTable() {
             ) : (
               <TableRow>
                 <TableCell colSpan={8} className="px-6 py-12 text-center text-gray-500">
-                  Không tìm thấy câu hỏi nào thỏa mãn bộ lọc.
+                  {t("question.noResults")}
                 </TableCell>
               </TableRow>
             )}
@@ -693,11 +721,11 @@ export default function QuestionTable() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-6 py-5 bg-gray-50/50 dark:bg-white/[0.01] border-t border-gray-100 dark:border-white/[0.05]">
         <div className="pb-3 sm:pb-0">
           <p className="text-sm font-medium text-center text-gray-500 dark:text-gray-400 sm:text-left">
-            Hiển thị {totalRecords === 0 ? 0 : startIndex + 1} đến {endIndex} trong tổng số {totalRecords} câu hỏi
+            {t("question.showing", { start: totalRecords === 0 ? 0 : startIndex + 1, end: endIndex, total: totalRecords })}
           </p>
         </div>
         <div className="flex items-center justify-center gap-3">
-          <span className="text-sm text-gray-500">Số mục mỗi trang:</span>
+          <span className="text-sm text-gray-500">{t("question.entriesPerPage")}</span>
           <select
             value={itemsPerPage}
             onChange={(e) => {

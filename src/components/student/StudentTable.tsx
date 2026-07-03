@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/table";
 import { AngleDownIcon, AngleUpIcon, PencilIcon, TrashBinIcon } from "@/icons";
 import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
-import { StudentFormModal } from "./StudentFormModal";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
 import {
   studentApi,
@@ -28,10 +27,16 @@ import { Modal } from "@/components/ui/modal";
 type SortKey = "code" | "name" | "email" | "phone" | "status" | "gradeLevel";
 type SortOrder = "asc" | "desc";
 
+interface StudentTableProps {
+  refreshKey?: number;
+  showToast: (msg: string, type?: "success" | "error") => void;
+  onAddClick: () => void;
+  onEditClick: (item: StudentItem) => void;
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function StudentTable() {
+export default function StudentTable({ refreshKey = 0, showToast, onAddClick, onEditClick }: StudentTableProps) {
   const { t } = useTranslation();
 
   // ── Dynamic Metadata ──
@@ -63,19 +68,9 @@ export default function StudentTable() {
   const [filterGrade, setFilterGrade] = useState<number | null>(null);
   const [filterGender, setFilterGender] = useState<boolean | null>(null);
 
-  // Refresh trigger
-  const [refreshKey, setRefreshKey] = useState(0);
-  const triggerRefresh = () => setRefreshKey((k) => k + 1);
-
-  // ── Toast ──
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [toastType, setToastType] = useState<"success" | "error">("success");
-
-  // ── Create / Edit modal ──
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<StudentItem | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
+  // Internal refresh (for delete/deactivate)
+  const [internalRefreshKey, setInternalRefreshKey] = useState(0);
+  const triggerRefresh = () => setInternalRefreshKey((k) => k + 1);
 
   // ── Delete confirm modal ──
   const [deleteTarget, setDeleteTarget] = useState<StudentItem | null>(null);
@@ -86,18 +81,6 @@ export default function StudentTable() {
   const [deactivateTarget, setDeactivateTarget] = useState<StudentItem | null>(null);
   const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState(false);
   const [isDeactivating, setIsDeactivating] = useState(false);
-
-  // ── Toast auto-hide ──
-  useEffect(() => {
-    if (!toastMessage) return;
-    const timeout = setTimeout(() => setToastMessage(null), 3000);
-    return () => clearTimeout(timeout);
-  }, [toastMessage]);
-
-  const showToast = (msg: string, type: "success" | "error" = "success") => {
-    setToastMessage(msg);
-    setToastType(type);
-  };
 
   // ── Debounce search ──
   useEffect(() => {
@@ -144,7 +127,7 @@ export default function StudentTable() {
       mounted = false;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, itemsPerPage, debouncedSearchTerm, filterStatus, filterGrade, filterGender, refreshKey]);
+  }, [currentPage, itemsPerPage, debouncedSearchTerm, filterStatus, filterGrade, filterGender, refreshKey, internalRefreshKey]);
 
   // ── Sort ──
   const sortedData = useMemo(() => {
@@ -173,65 +156,7 @@ export default function StudentTable() {
     }
   };
 
-  // ── Open create modal ──
-  const openCreateModal = () => {
-    setEditingItem(null);
-    setFormError(null);
-    setIsModalOpen(true);
-  };
-
-  // ── Open edit modal ──
-  const openEditModal = (item: StudentItem) => {
-    setEditingItem(item);
-    setFormError(null);
-    setIsModalOpen(true);
-  };
-
-  // ── Submit create / edit ──
-  const handleSubmit = async (formData: StudentSaveDto) => {
-    if (!formData.code.trim()) {
-      setFormError(t("backendMessages.ERR_CODE_EMPTY"));
-      return;
-    }
-    if (!formData.name.trim()) {
-      setFormError(t("backendMessages.ERR_NAME_EMPTY"));
-      return;
-    }
-    setIsSubmitting(true);
-    setFormError(null);
-    try {
-      if (editingItem) {
-        // Edit
-        const res = await studentApi.update(editingItem.id, formData);
-        if (res.success && res.data) {
-          setItems((prev) =>
-            prev.map((i) => (i.id === editingItem.id ? res.data : i))
-          );
-          showToast(t("student.updateSuccess", { name: res.data.name }));
-          setIsModalOpen(false);
-        } else {
-          setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("student.updateError"));
-        }
-      } else {
-        // Create
-        const res = await studentApi.create(formData);
-        if (res.success && res.data) {
-          setCurrentPage(1);
-          setSearchTerm("");
-          setDebouncedSearchTerm("");
-          triggerRefresh();
-          showToast(t("student.createSuccess", { name: res.data.name }));
-          setIsModalOpen(false);
-        } else {
-          setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("student.createError"));
-        }
-      }
-    } catch {
-      setFormError(t("student.systemError"));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  // No modal handlers needed anymore as we route to dedicated pages
 
   // ── Open delete confirm ──
   const openDeleteModal = (item: StudentItem) => {
@@ -246,7 +171,7 @@ export default function StudentTable() {
     try {
       const res = await studentApi.delete(deleteTarget.id);
       if (res.success) {
-        showToast(t("student.deleteSuccess", { name: deleteTarget.name }));
+        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("student.deleteSuccess", { name: deleteTarget.name }));
         setIsDeleteModalOpen(false);
         setDeleteTarget(null);
         triggerRefresh();
@@ -273,7 +198,7 @@ export default function StudentTable() {
     try {
       const res = await studentApi.deactive(deactivateTarget.id);
       if (res.success) {
-        showToast(t("student.deactivateSuccess", { name: deactivateTarget.name }));
+        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("student.deactivateSuccess", { name: deactivateTarget.name }));
         setIsDeactivateModalOpen(false);
         setDeactivateTarget(null);
         triggerRefresh();
@@ -464,6 +389,21 @@ export default function StudentTable() {
     { key: "status", label: t("student.colStatus", { defaultValue: "Trạng thái" }) },
   ];
 
+  const getStatusLabel = (status: number) => {
+    switch (status) {
+      case 1:
+        return t("student.formStatusActive", { defaultValue: "Hoạt động" });
+      case 0:
+        return t("student.formStatusInactive", { defaultValue: "Ngưng hoạt động" });
+      case 2:
+        return t("student.formStatusSuspended", { defaultValue: "Bị đình chỉ" });
+      case 3:
+        return t("student.formStatusGraduated", { defaultValue: "Đã tốt nghiệp" });
+      default:
+        return t("student.formStatusInactive", { defaultValue: "Ngưng hoạt động" });
+    }
+  };
+
   // Render Status Badge
   const renderStatusBadge = (status: number, statusName: string) => {
     let color = "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
@@ -485,25 +425,7 @@ export default function StudentTable() {
 
   return (
     <div className="overflow-hidden bg-white dark:bg-white/[0.03] rounded-xl border border-gray-100 dark:border-white/[0.05]">
-      {/* Toast */}
-      {toastMessage && (
-        <div
-          className={`fixed top-5 right-5 z-[99999] flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg text-sm font-medium text-white transition-all duration-300 ${
-            toastType === "success" ? "bg-green-500" : "bg-red-500"
-          }`}
-        >
-          {toastType === "success" ? (
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          ) : (
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          )}
-          {toastMessage}
-        </div>
-      )}
+
 
       {/* Filter and Control panel */}
       <div className="p-6 border-b border-gray-100 dark:border-white/[0.05] space-y-4">
@@ -650,7 +572,7 @@ export default function StudentTable() {
             </PermissionGuard>
             <PermissionGuard requiredPermission="Student.Create">
               <button
-                onClick={openCreateModal}
+                onClick={onAddClick}
                 className="flex items-center justify-center gap-2 px-4 py-2.5 h-11 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 transition-colors shadow-theme-xs"
               >
                 <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -793,14 +715,14 @@ export default function StudentTable() {
                     {item.gradeLevel ? `${t("student.colGradeLevel")} ${item.gradeLevel}` : <span className="text-gray-300 dark:text-gray-700">-</span>}
                   </TableCell>
                   <TableCell className="px-6 py-4 whitespace-nowrap">
-                    {renderStatusBadge(item.status, item.statusName)}
+                    {renderStatusBadge(item.status, getStatusLabel(item.status))}
                   </TableCell>
                   <TableCell className="px-6 py-4 text-center whitespace-nowrap">
                     <div className="flex items-center justify-center gap-2">
                       <PermissionGuard requiredPermission="Student.Edit">
                         <button
                           title={t("student.editTooltip", { defaultValue: "Chỉnh sửa" })}
-                          onClick={() => openEditModal(item)}
+                          onClick={() => onEditClick(item)}
                           className="p-1.5 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
                         >
                           <PencilIcon className="w-4 h-4" />
@@ -861,15 +783,7 @@ export default function StudentTable() {
       </div>
 
       {/* ── Create / Edit Modal ── */}
-      <StudentFormModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        t={t}
-        editingItem={editingItem}
-        formError={formError}
-        isSubmitting={isSubmitting}
-        onSubmit={handleSubmit}
-      />
+      {/* StudentFormModal removed as we now route to standalone create and edit pages */}
 
       {/* ── Delete Confirm Modal ── */}
       <DeleteConfirmModal

@@ -113,4 +113,8 @@ export const teacherApi = {
     });
     return response.json();
   },
+
+  async import(dtos: TeacherSaveDto[]): Promise<ApiResponse<TeacherItem[]>> {
+    return api.post<TeacherItem[]>("/api/Teacher/import", dtos);
+  },
 };

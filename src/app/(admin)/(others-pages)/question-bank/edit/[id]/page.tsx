@@ -20,7 +20,7 @@ export default async function EditQuestionPage({ params }: EditQuestionPageProps
 
   return (
     <div className="space-y-6">
-      <PageBreadcrumb pageTitle="Chỉnh sửa câu hỏi" />
+      <PageBreadcrumb pageTitle="question.editTitle" />
       <QuestionForm id={questionId} />
     </div>
   );
