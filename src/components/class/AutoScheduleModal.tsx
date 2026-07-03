@@ -140,12 +140,12 @@ export default function AutoScheduleModal({
                 {
                   id: "afternoon",
                   title: t("class.afternoon", { defaultValue: "Buổi chiều" }),
-                  desc: "Ca 3 (13:00 - 15:00), Ca 4 (16:00 - 18:00)"
+                  desc: "Ca 3 (13:30 - 15:30), Ca 4 (16:00 - 18:00)"
                 },
                 {
                   id: "evening",
                   title: t("class.evening", { defaultValue: "Buổi tối" }),
-                  desc: "Ca 5 (19:00 - 21:00)"
+                  desc: "Ca 5 (18:30 - 20:30)"
                 }
               ].map((timeOption) => {
                 const isChecked = timePreferences.includes(timeOption.id);
