@@ -673,16 +673,17 @@ export default function StudentForm({
           className="fixed inset-0 z-[99999] bg-black/80 flex items-center justify-center p-4"
           onClick={() => setPreviewImage(null)}
         >
+          <button
+            type="button"
+            onClick={() => setPreviewImage(null)}
+            className="fixed right-5 top-5 z-[100000] p-2 text-white transition-colors hover:text-gray-200"
+            aria-label="Close image preview"
+          >
+            <X className="h-7 w-7 stroke-[3]" />
+          </button>
           <div className="relative max-w-4xl w-full" onClick={(e) => e.stopPropagation()}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={previewImage} alt="Preview" className="max-h-[85vh] object-contain rounded-lg mx-auto" />
-            <button
-              type="button"
-              onClick={() => setPreviewImage(null)}
-              className="absolute -top-4 -right-4 p-2 bg-black/60 text-white rounded-full hover:bg-black/80 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
           </div>
         </div>
       )}
