@@ -1,9 +1,10 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
-import { Modal } from "@/components/ui/modal";
 import { TeacherItem, TeacherSaveDto, teacherApi, GradeLevel } from "@/services/teacher.api";
 import { EyeIcon, CalenderIcon } from "@/icons";
 import { CodeHelper } from "@/helpers/CodeHelper";
+import { ENV } from "@/config/env";
+import { X } from "lucide-react";
 
 interface TeacherFormProps {
   onCancel: () => void;
@@ -65,6 +66,11 @@ export function TeacherForm({
         avatar: editingItem.avatar || null,
         certificate: editingItem.certificate || null,
       });
+      if (editingItem.avatar) {
+        setAvatarPreview(getImageUrl(editingItem.avatar));
+      } else {
+        setAvatarPreview(null);
+      }
     } else {
       setFormData({
         code: CodeHelper.generate("GV"),
@@ -80,12 +86,12 @@ export function TeacherForm({
         avatar: null,
         certificate: null,
       });
+      setAvatarPreview(null);
     }
 
     // Reset local files
     setAvatarFile(null);
     setCertFile(null);
-    setAvatarPreview(null);
     setCertPreview(null);
   }, [editingItem]);
 
@@ -188,8 +194,7 @@ export function TeacherForm({
   const getImageUrl = (path: string | null | undefined) => {
     if (!path) return null;
     if (path.startsWith("http")) return path;
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://localhost:54353";
-    return `${baseUrl}${path}`;
+    return `${ENV.API_BASE_URL}${path}`;
   };
 
   // Helper to check if file is an image
@@ -212,15 +217,15 @@ export function TeacherForm({
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 items-stretch gap-5 lg:grid-cols-3">
             
             {/* Left Column: Basic Info (takes 2/3 space on large screens) */}
-            <div className="lg:col-span-2 space-y-2">
+            <div className="flex h-full flex-col space-y-2 lg:col-span-2">
               <h4 className="font-medium text-gray-900 dark:text-white mb-2 border-b pb-1.5 dark:border-gray-800 text-sm">
                 Thông tin cơ bản
               </h4>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2.5">
+              <div className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2">
                 {/* Name */}
                 <div>
                   <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -369,7 +374,7 @@ export function TeacherForm({
               </div>
 
               {/* Address */}
-              <div className="pt-0.5">
+              <div className="pt-1">
                 <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
                   {t("teacher.formAddressLabel")}
                 </label>
@@ -384,7 +389,7 @@ export function TeacherForm({
               </div>
 
               {/* Description */}
-              <div className="pt-0.5">
+              <div className="flex flex-1 flex-col pt-1">
                 <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
                   {t("teacher.formDescLabel")}
                 </label>
@@ -393,23 +398,23 @@ export function TeacherForm({
                   value={formData.description || ""}
                   onChange={handleChange}
                   placeholder={t("teacher.formDescPlaceholder")}
-                  rows={2}
+                  rows={6}
                   maxLength={500}
-                  className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 resize-none"
+                  className="min-h-[180px] flex-1 resize-none rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                 />
               </div>
             </div>
 
             {/* Right Column: Avatar & Certificate */}
-            <div className="lg:col-span-1 flex flex-col gap-3 border-l border-gray-100 dark:border-gray-800 pl-0 lg:pl-5">
+            <div className="flex h-full flex-col gap-3 border-l border-gray-100 pl-0 dark:border-gray-800 lg:col-span-1 lg:pl-5">
               
               {/* Avatar */}
-              <div>
+              <div className="flex flex-col">
                 <h4 className="font-medium text-gray-900 dark:text-white mb-2 border-b pb-2 dark:border-gray-800 text-sm">
                   {t("teacher.avatarLabel")}
                 </h4>
                 <div 
-                  className="mt-1.5 flex flex-col items-center justify-center p-3 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer group h-28"
+                  className="group mt-1.5 flex h-[280px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-4 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800/50 dark:hover:bg-gray-800"
                   onClick={handleAvatarClick}
                 >
                   <input
@@ -425,18 +430,18 @@ export function TeacherForm({
                       <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
                       <span className="mt-2 text-xs text-gray-500">Đang lưu...</span>
                     </div>
-                  ) : avatarPreview || formData.avatar ? (
-                    <div className="relative w-full h-full overflow-hidden rounded-lg group">
+                  ) : avatarPreview ? (
+                    <div className="group relative h-full w-full overflow-hidden rounded-lg">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={avatarPreview || (getImageUrl(formData.avatar) as string)}
+                        src={avatarPreview}
                         alt="Avatar preview"
                         className="object-cover w-full h-full"
                       />
                       <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
                         <button 
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); setPreviewImage(avatarPreview || getImageUrl(formData.avatar)); }}
+                          onClick={(e) => { e.stopPropagation(); setPreviewImage(avatarPreview); }}
                           className="p-2 bg-white/20 hover:bg-white/40 rounded-full text-white transition-colors"
                           title="Xem ảnh phóng to"
                         >
@@ -463,12 +468,12 @@ export function TeacherForm({
               </div>
 
               {/* Certificate */}
-              <div>
+              <div className="flex flex-col">
                 <h4 className="font-medium text-gray-900 dark:text-white mb-2 border-b pb-2 dark:border-gray-800 text-sm">
                   {t("teacher.certificateLabel")}
                 </h4>
                 <div 
-                  className="mt-1.5 flex flex-col items-center justify-center p-3 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer group h-32"
+                  className="group mt-1.5 flex h-[280px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-4 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800/50 dark:hover:bg-gray-800"
                   onClick={handleCertClick}
                 >
                   <input
@@ -485,7 +490,7 @@ export function TeacherForm({
                       <span className="mt-2 text-xs text-gray-500">Đang lưu...</span>
                     </div>
                   ) : certPreview || formData.certificate ? (
-                    <div className="relative w-full h-full overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800 flex flex-col items-center justify-center group">
+                    <div className="group relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
                       {(certFile && certFile.type.startsWith('image/')) || (!certFile && isImage(formData.certificate)) ? (
                         <>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -575,23 +580,25 @@ export function TeacherForm({
       </div>
     </div>
 
-    {/* Image Preview Modal */}
+    {/* Image Preview overlay */}
     {previewImage && (
-      <Modal isOpen={!!previewImage} onClose={() => setPreviewImage(null)} className="max-w-4xl p-2 bg-transparent shadow-none">
-        <div className="relative flex justify-center items-center w-full h-full min-h-[300px]">
+      <div
+        className="fixed inset-0 z-[99999] bg-black/80 flex items-center justify-center p-4"
+        onClick={() => setPreviewImage(null)}
+      >
+        <button 
+          type="button"
+          onClick={() => setPreviewImage(null)}
+          className="fixed right-5 top-5 z-[100000] p-2 text-white transition-colors hover:text-gray-200"
+          aria-label="Close image preview"
+        >
+          <X className="h-7 w-7 stroke-[3]" />
+        </button>
+        <div className="relative max-w-4xl w-full" onClick={(e) => e.stopPropagation()}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={previewImage} alt="Preview" className="max-h-[85vh] object-contain rounded-lg" />
-          <button 
-            type="button"
-            onClick={() => setPreviewImage(null)}
-            className="absolute -top-4 -right-4 p-2 bg-black/60 text-white rounded-full hover:bg-black/80 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <img src={previewImage} alt="Preview" className="max-h-[85vh] object-contain rounded-lg mx-auto" />
         </div>
-      </Modal>
+      </div>
     )}
     </>
   );
