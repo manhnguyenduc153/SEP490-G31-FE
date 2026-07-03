@@ -77,5 +77,15 @@ export const ENDPOINTS = {
     DELETE: (id: number) => `/api/Class/${id}`,
     DEACTIVE: (id: number) => `/api/Class/${id}/deactive`,
   },
+  SEMESTER: {
+    GET_ALL: "/api/Semester",
+    GET_BY_ID: (id: number) => `/api/Semester/${id}`,
+    CREATE: "/api/Semester",
+    UPDATE: (id: number) => `/api/Semester/${id}`,
+    DELETE: (id: number) => `/api/Semester/${id}`,
+    SAVE_TEACHER_AVAILABILITY: "/api/Semester/availability",
+    IMPORT_STUDENTS: "/api/Semester/registrations/import",
+    AUTO_SCHEDULE_SEMESTER: "/api/Class/auto-schedule-semester",
+  },
 };
 

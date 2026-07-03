@@ -50,6 +50,7 @@ const schoolItems: NavItem[] = [
     icon: <DocsIcon />,
     name: "academicOperations",
     subItems: [
+      { name: "semesters", path: "/semesters", permission: "Class" },
       { name: "courses", path: "/courses", permission: "Course" },
       { name: "classes", path: "/classes", permission: "Class" },
       { name: "teachers", path: "/teachers", permission: "Teacher" },
