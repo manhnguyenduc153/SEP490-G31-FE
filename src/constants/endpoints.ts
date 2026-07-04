@@ -77,6 +77,13 @@ export const ENDPOINTS = {
     DELETE: (id: number) => `/api/Class/${id}`,
     DEACTIVE: (id: number) => `/api/Class/${id}/deactive`,
   },
+  PARENT_STUDENT: {
+    GET_ALL: "/api/parent-student",
+    GET_BY_ID: (id: number) => `/api/parent-student/${id}`,
+    CREATE: "/api/parent-student",
+    UPDATE: (id: number) => `/api/parent-student/${id}`,
+    DELETE: (id: number) => `/api/parent-student/${id}`,
+    DEACTIVE: (id: number) => `/api/parent-student/${id}/deactive`,
   LEARNING_MATERIAL: {
     GET_ALL: "/api/LearningMaterial",
     GET_BY_ID: (id: number) => `/api/LearningMaterial/${id}`,
