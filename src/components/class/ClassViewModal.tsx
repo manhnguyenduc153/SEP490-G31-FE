@@ -50,7 +50,7 @@ export function ClassViewModal({
   const getRoomName = (roomId: number | null) => {
     if (!roomId) return "";
     const r = rooms.find((room) => room.id === roomId);
-    return r ? r.name : `Phòng ${roomId}`;
+    return r ? r.name : t("class.roomWithNumber", { roomId });
   };
 
   const parsedSchedules = useMemo(() => {
@@ -108,7 +108,7 @@ export function ClassViewModal({
         ) : formError ? (
           <p className="text-sm text-error-500 dark:text-error-400 py-4 text-center">{formError}</p>
         ) : !itemDetail ? (
-          <p className="text-sm text-gray-400 py-4 text-center">Không tìm thấy thông tin chi tiết.</p>
+          <p className="text-sm text-gray-400 py-4 text-center">{t("class.noDetailsFound")}</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mt-2 items-start">
             {/* Left Column: General Info & Schedule (8 columns) */}
@@ -116,7 +116,7 @@ export function ClassViewModal({
               <div className="p-5 bg-gray-50/30 dark:bg-gray-950/40 rounded-2xl border border-gray-100 dark:border-gray-800/80 space-y-5">
                 <h4 className="text-sm font-semibold text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-800 pb-2 flex items-center gap-2">
                   <Info className="w-4 h-4 text-brand-500" />
-                  Thông tin chung
+                  {t("class.generalInfo")}
                 </h4>
                 
                 <div className="grid grid-cols-2 gap-y-4 gap-x-6">
@@ -183,6 +183,15 @@ export function ClassViewModal({
                     </span>
                   </div>
 
+                  <div>
+                    <span className="block text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+                      {t("class.colSemester")}
+                    </span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 block font-medium">
+                      {itemDetail.semesterName || "-"}
+                    </span>
+                  </div>
+
                   {itemDetail.description && (
                     <div className="col-span-2">
                       <span className="block text-[10px] uppercase font-bold text-gray-400 tracking-wider">
@@ -200,7 +209,7 @@ export function ClassViewModal({
               <div className="p-5 bg-gray-50/30 dark:bg-gray-950/40 rounded-2xl border border-gray-100 dark:border-gray-800/80 space-y-4">
                 <h4 className="text-sm font-semibold text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-800 pb-2 flex items-center gap-2">
                   <CalendarRange className="w-4 h-4 text-brand-500" />
-                  Lịch học hàng tuần
+                  {t("class.weeklyScheduleLabel")}
                 </h4>
                 <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
                   {DAYS_OF_WEEK.map((dayObj) => {
@@ -225,7 +234,13 @@ export function ClassViewModal({
                         }`}
                       >
                         <span className={`text-xs font-bold ${isActive ? "text-brand-600 dark:text-brand-400" : "text-gray-500"}`}>
-                          {dayObj.label}
+                          {dayObj.value === 1 ? t("common.mon") : 
+                           dayObj.value === 2 ? t("common.tue") : 
+                           dayObj.value === 3 ? t("common.wed") : 
+                           dayObj.value === 4 ? t("common.thu") : 
+                           dayObj.value === 5 ? t("common.fri") : 
+                           dayObj.value === 6 ? t("common.sat") : 
+                           t("common.sun")}
                         </span>
                         {isActive ? (
                           <div className="space-y-1 mt-2">
@@ -233,12 +248,12 @@ export function ClassViewModal({
                               {startTime} - {endTime}
                             </span>
                             <span className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mt-1">
-                              {roomName || "Trống"}
+                              {roomName || t("class.scheduleEmptySlot")}
                             </span>
                           </div>
                         ) : (
                           <span className="block text-xs text-gray-400 dark:text-gray-500 italic mt-3">
-                            Trống
+                            {t("class.scheduleEmptySlot")}
                           </span>
                         )}
                       </div>
@@ -260,7 +275,7 @@ export function ClassViewModal({
 
                 {!itemDetail.studentClasses || itemDetail.studentClasses.length === 0 ? (
                   <p className="text-xs text-gray-400 text-center py-8 italic border border-dashed border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900">
-                    Chưa có học sinh nào được gán vào lớp học này.
+                    {t("class.noStudentsAssigned")}
                   </p>
                 ) : (
                   <div className="grid grid-cols-1 gap-2 max-h-[500px] overflow-y-auto pr-1">
@@ -285,7 +300,7 @@ export function ClassViewModal({
                             </span>
                           </div>
                           <span className="block text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                            {sc.student?.email || "Không có email"}
+                            {sc.student?.email || t("class.noEmail")}
                           </span>
                         </div>
                       </div>
@@ -304,7 +319,7 @@ export function ClassViewModal({
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700 transition-colors"
           >
-            Đóng
+            {t("class.btnClose")}
           </button>
         </div>
       </div>

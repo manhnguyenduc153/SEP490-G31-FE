@@ -83,12 +83,10 @@ export default function AutoScheduleModal({
             </div>
             <div>
               <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                {t("class.autoScheduleConfig", { defaultValue: "Cấu hình xếp lịch tự động" })}
+                {t("class.autoScheduleConfig")}
               </h3>
               <p className="text-xs text-gray-500">
-                {t("class.scheduleTarget", {
-                  defaultValue: `Áp dụng cho ${toScheduleClasses.length} lớp chưa có lịch`
-                })}
+                {t("class.scheduleTarget", { count: toScheduleClasses.length })}
               </p>
             </div>
           </div>
@@ -105,7 +103,7 @@ export default function AutoScheduleModal({
           {/* Số buổi mỗi tuần */}
           <div className="space-y-2">
             <label className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-              {t("class.sessionsPerWeek", { defaultValue: "Số buổi học mỗi tuần" })}
+              {t("class.sessionsPerWeek")}
             </label>
             <div className="flex gap-2">
               {[1, 2, 3].map((num) => (
@@ -128,23 +126,23 @@ export default function AutoScheduleModal({
           {/* Khung giờ học */}
           <div className="space-y-3.5">
             <label className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 block">
-              {t("class.timePreferences", { defaultValue: "Khung giờ học (chọn ít nhất 1)" })}
+              {t("class.timePreferences")}
             </label>
             <div className="grid grid-cols-1 gap-2.5">
               {[
                 {
                   id: "morning",
-                  title: t("class.morning", { defaultValue: "Buổi sáng" }),
+                  title: t("class.morning"),
                   desc: "Ca 1 (07:30 - 09:30), Ca 2 (10:00 - 12:00)"
                 },
                 {
                   id: "afternoon",
-                  title: t("class.afternoon", { defaultValue: "Buổi chiều" }),
+                  title: t("class.afternoon"),
                   desc: "Ca 3 (13:30 - 15:30), Ca 4 (16:00 - 18:00)"
                 },
                 {
                   id: "evening",
-                  title: t("class.evening", { defaultValue: "Buổi tối" }),
+                  title: t("class.evening"),
                   desc: "Ca 5 (18:30 - 20:30)"
                 }
               ].map((timeOption) => {
@@ -181,7 +179,7 @@ export default function AutoScheduleModal({
           {/* Tùy chọn nâng cao */}
           <div className="space-y-3.5 pt-4 border-t border-gray-100 dark:border-gray-800">
             <label className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 block">
-              {t("class.advancedOptions", { defaultValue: "Tùy chọn bổ sung" })}
+              {t("class.advancedOptions")}
             </label>
             <div className="space-y-3">
               {/* Cho phép ngày liền kề */}
@@ -193,15 +191,11 @@ export default function AutoScheduleModal({
                   className="rounded text-brand-600 focus:ring-brand-500 w-4 h-4 cursor-pointer mt-0.5"
                 />
                 <div className="text-left">
-                  <span className="text-sm font-semibold text-gray-850 dark:text-gray-200 block">
-                    {t("class.allowConsecutiveDays", {
-                      defaultValue: "Cho phép 2 ngày học liền kề nhau"
-                    })}
+                  <span className="text-sm font-semibold text-gray-855 dark:text-gray-200 block">
+                    {t("class.allowConsecutiveDays")}
                   </span>
                   <span className="text-xs text-gray-400 dark:text-gray-500">
-                    {t("class.allowConsecutiveDaysHelp", {
-                      defaultValue: "Tắt: bắt buộc các buổi học phải giãn cách ít nhất 1 ngày (ví dụ T2-T4-T6)"
-                    })}
+                    {t("class.allowConsecutiveDaysHelp")}
                   </span>
                 </div>
               </label>
@@ -215,13 +209,11 @@ export default function AutoScheduleModal({
                   className="rounded text-brand-600 focus:ring-brand-500 w-4 h-4 cursor-pointer mt-0.5"
                 />
                 <div className="text-left">
-                  <span className="text-sm font-semibold text-gray-850 dark:text-gray-200 block">
-                    {t("class.allowWeekend", { defaultValue: "Cho phép học ngày cuối tuần (T7, CN)" })}
+                  <span className="text-sm font-semibold text-gray-855 dark:text-gray-200 block">
+                    {t("class.allowWeekend")}
                   </span>
                   <span className="text-xs text-gray-400 dark:text-gray-500">
-                    {t("class.allowWeekendHelp", {
-                      defaultValue: "Tắt: hệ thống chỉ xếp lịch vào các ngày trong tuần (T2 - T6)"
-                    })}
+                    {t("class.allowWeekendHelp")}
                   </span>
                 </div>
               </label>
@@ -234,9 +226,7 @@ export default function AutoScheduleModal({
               <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
               <div className="text-left text-xs text-amber-800 dark:text-amber-400 leading-relaxed">
                 <p className="font-bold">
-                  {t("class.skippedClassesWarning", {
-                    defaultValue: `${skippedClasses.length} lớp đã có lịch học sẽ được bỏ qua:`
-                  })}
+                  {t("class.skippedClassesWarning", { count: skippedClasses.length })}
                 </p>
                 <div className="flex flex-wrap gap-1 mt-1.5">
                   {skippedClasses.map((c) => (
@@ -261,7 +251,7 @@ export default function AutoScheduleModal({
             disabled={isSubmitting}
             className="px-4 py-2 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors disabled:opacity-50"
           >
-            {t("common.cancel", { defaultValue: "Hủy" })}
+            {t("common.btnCancel")}
           </button>
           <button
             type="button"
@@ -272,10 +262,10 @@ export default function AutoScheduleModal({
             {isSubmitting ? (
               <>
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                {t("class.scheduling", { defaultValue: "Đang xếp..." })}
+                {t("class.scheduling")}
               </>
             ) : (
-              t("class.startScheduling", { defaultValue: "Bắt đầu xếp lịch" })
+              t("class.startScheduling")
             )}
           </button>
         </div>
