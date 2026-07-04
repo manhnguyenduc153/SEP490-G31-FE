@@ -170,6 +170,8 @@ export function ExamForm({ id }: ExamFormProps) {
     try {
       const res = isEdit ? await examApi.update(id!, dto) : await examApi.create(dto);
       if (res.success) {
+        sessionStorage.setItem("examToastMessage", isEdit ? "Cập nhật bài kiểm tra thành công!" : "Tạo bài kiểm tra thành công!");
+        sessionStorage.setItem("examToastType", "success");
         router.push("/exams");
       } else {
         setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : "Lỗi khi lưu thông tin bài kiểm tra.");

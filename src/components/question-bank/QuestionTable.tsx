@@ -19,6 +19,7 @@ import { questionApi, QuestionItem, QuestionSaveDto } from "@/services/question.
 import { questionCategoryApi, QuestionCategoryItem } from "@/services/questionCategory.api";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { useTranslation } from "react-i18next";
+import { CheckCircle, XCircle } from "lucide-react";
 
 export default function QuestionTable() {
   const { t } = useTranslation();
@@ -66,6 +67,18 @@ export default function QuestionTable() {
     setToastMessage(msg);
     setToastType(type);
   };
+
+  // ── Read sessionStorage toast (after redirect from QuestionForm) ──
+  useEffect(() => {
+    const msg = sessionStorage.getItem("questionToastMessage");
+    const type = sessionStorage.getItem("questionToastType") as "success" | "error" | null;
+    if (msg) {
+      showToast(msg, type || "success");
+      sessionStorage.removeItem("questionToastMessage");
+      sessionStorage.removeItem("questionToastType");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const getQuestionTypeLabel = (type: number) => {
     switch (type) {
@@ -458,13 +471,9 @@ export default function QuestionTable() {
       {toastMessage && (
         <div className="fixed bottom-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
           {toastType === "success" ? (
-            <svg className="w-5 h-5 text-emerald-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+            <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" />
           ) : (
-            <svg className="w-5 h-5 text-rose-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+            <XCircle className="w-5 h-5 text-rose-500 shrink-0" />
           )}
           <span className="text-sm font-medium">{toastMessage}</span>
         </div>

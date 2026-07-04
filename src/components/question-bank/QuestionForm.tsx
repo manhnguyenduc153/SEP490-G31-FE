@@ -211,6 +211,8 @@ export function QuestionForm({ id }: QuestionFormProps) {
       }
 
       if (res.success) {
+        sessionStorage.setItem("questionToastMessage", isEdit ? "Cập nhật câu hỏi thành công!" : "Tạo câu hỏi thành công!");
+        sessionStorage.setItem("questionToastType", "success");
         router.push("/question-bank");
       } else {
         setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : "Lỗi khi lưu câu hỏi.");
