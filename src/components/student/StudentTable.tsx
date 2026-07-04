@@ -21,6 +21,8 @@ import { CodeHelper } from "@/helpers/CodeHelper";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { useTranslation } from "react-i18next";
 import { Modal } from "@/components/ui/modal";
+import { Eye } from "lucide-react";
+import { StudentViewModal } from "./StudentViewModal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -71,6 +73,15 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
   // Internal refresh (for delete/deactivate)
   const [internalRefreshKey, setInternalRefreshKey] = useState(0);
   const triggerRefresh = () => setInternalRefreshKey((k) => k + 1);
+
+  // ── View modal states ──
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [viewingStudentId, setViewingStudentId] = useState<number | null>(null);
+
+  const openViewModal = (id: number) => {
+    setViewingStudentId(id);
+    setIsViewModalOpen(true);
+  };
 
   // ── Bulk selection & provisioning ──
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -785,8 +796,12 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
                           {item.name.charAt(0).toUpperCase()}
                         </div>
                       )}
-                      <div>
-                        <p className="font-semibold text-gray-900 dark:text-white">{item.name}</p>
+                      <div 
+                        className="cursor-pointer group/name" 
+                        onClick={() => openViewModal(item.id)}
+                        title={t("student.viewTooltip", { defaultValue: "Xem chi tiết" })}
+                      >
+                        <p className="font-semibold text-gray-900 dark:text-white group-hover/name:text-brand-500 transition-colors">{item.name}</p>
                         {item.dob && (
                           <p className="text-xs text-gray-400 dark:text-gray-500">
                             {new Date(item.dob).toLocaleDateString()}
@@ -820,6 +835,13 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
                   </TableCell>
                   <TableCell className="px-6 py-4 text-center whitespace-nowrap">
                     <div className="flex items-center justify-center gap-2">
+                      <button
+                        title={t("student.viewTooltip", { defaultValue: "Xem chi tiết" })}
+                        onClick={() => openViewModal(item.id)}
+                        className="p-1.5 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
                       <PermissionGuard requiredPermission="Student.Edit">
                         <button
                           title={t("student.editTooltip", { defaultValue: "Chỉnh sửa" })}
@@ -925,6 +947,19 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
           </div>
         </div>
       </Modal>
+
+      {/* ── View Detail Modal ── */}
+      {isViewModalOpen && (
+        <StudentViewModal
+          isOpen={isViewModalOpen}
+          onClose={() => {
+            setIsViewModalOpen(false);
+            setViewingStudentId(null);
+          }}
+          t={t}
+          studentId={viewingStudentId}
+        />
+      )}
     </div>
   );
 }

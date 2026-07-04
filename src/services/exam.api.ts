@@ -103,4 +103,59 @@ export const examApi = {
   async copy(id: number): Promise<ApiResponse<ExamItem>> {
     return api.post<ExamItem>(`/api/Exam/${id}/copy`, {});
   },
+
+  async getStudentExams(): Promise<ApiResponse<ExamItem[]>> {
+    return api.get<ExamItem[]>("/api/Exam/student");
+  },
+
+  async getStudentExamDetail(examId: number): Promise<ApiResponse<ExamItem>> {
+    return api.get<ExamItem>(`/api/Exam/${examId}/student-detail`);
+  },
+
+  async getStudentAttempts(examId: number): Promise<ApiResponse<ExamAttemptDto[]>> {
+    return api.get<ExamAttemptDto[]>(`/api/Exam/${examId}/attempts`);
+  },
+
+  async startAttempt(examId: number): Promise<ApiResponse<ExamAttemptDto>> {
+    return api.post<ExamAttemptDto>(`/api/Exam/${examId}/start`, {});
+  },
+
+  async submitAttempt(examId: number, dto: ExamSubmitDto): Promise<ApiResponse<ExamAttemptDto>> {
+    return api.post<ExamAttemptDto>(`/api/Exam/${examId}/submit`, dto);
+  },
 };
+
+export interface ExamAnswerDto {
+  id: number;
+  questionId: number;
+  answerContent?: string | null;
+  attachmentUrl?: string | null;
+  score?: number | null;
+  teacherComment?: string | null;
+  isCorrect?: boolean | null;
+}
+
+export interface ExamAttemptDto {
+  id: number;
+  examId: number;
+  examTitle: string;
+  studentId: number;
+  studentName: string;
+  studentCode: string;
+  startTime: string;
+  submitTime?: string | null;
+  score?: number | null;
+  status: number; // 1 = In Progress, 2 = Submitted
+  duration?: number | null;
+  answers: ExamAnswerDto[];
+}
+
+export interface ExamSubmitAnswerDto {
+  questionId: number;
+  answerContent?: string | null;
+}
+
+export interface ExamSubmitDto {
+  attemptId: number;
+  answers: ExamSubmitAnswerDto[];
+}

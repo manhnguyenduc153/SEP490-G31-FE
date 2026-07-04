@@ -13,7 +13,7 @@ import PaginationWithIcon from "@/components/tables/DataTables/TableOne/Paginati
 import { CategoryFormModal } from "./CategoryFormModal";
 import { CategoryViewModal } from "./CategoryViewModal";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, CheckCircle, XCircle } from "lucide-react";
 import {
   questionCategoryApi,
   QuestionCategoryItem,
@@ -582,6 +582,18 @@ export default function QuestionCategoryTable() {
         isDeleting={isDeleting}
         onConfirm={handleDelete}
       />
+
+      {/* Toast Alert */}
+      {toastMessage && (
+        <div className="fixed bottom-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
+          {toastType === "success" ? (
+            <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" />
+          ) : (
+            <XCircle className="w-5 h-5 text-rose-500 shrink-0" />
+          )}
+          <span className="text-sm font-medium">{toastMessage}</span>
+        </div>
+      )}
     </div>
   );
 }
