@@ -28,6 +28,7 @@ export interface TeacherItem {
   gradeLevelName?: string | null;
   avatar?: string | null;
   certificate?: string | null;
+  hasAccount?: boolean;
 }
 
 export interface TeacherPagingResponse {
@@ -116,5 +117,9 @@ export const teacherApi = {
 
   async import(dtos: TeacherSaveDto[]): Promise<ApiResponse<TeacherItem[]>> {
     return api.post<TeacherItem[]>("/api/Teacher/import", dtos);
+  },
+
+  async provisionAccounts(teacherIds: number[]): Promise<ApiResponse<boolean>> {
+    return api.post<boolean>(ENDPOINTS.TEACHER.PROVISION_ACCOUNTS, teacherIds);
   },
 };

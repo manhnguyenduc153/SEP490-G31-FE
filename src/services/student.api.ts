@@ -22,6 +22,7 @@ export interface StudentItem {
   parentName?: string | null;
   parentPhone?: string | null;
   avatar?: string | null;
+  hasAccount?: boolean;
 }
 
 export interface StudentPagingResponse {
@@ -119,5 +120,9 @@ export const studentApi = {
 
   async import(dtos: StudentSaveDto[]): Promise<ApiResponse<StudentItem[]>> {
     return api.post<StudentItem[]>("/api/Student/import", dtos);
+  },
+
+  async provisionAccounts(studentIds: number[]): Promise<ApiResponse<boolean>> {
+    return api.post<boolean>(ENDPOINTS.STUDENT.PROVISION_ACCOUNTS, studentIds);
   },
 };

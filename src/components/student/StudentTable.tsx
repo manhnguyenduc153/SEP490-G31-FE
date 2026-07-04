@@ -24,7 +24,7 @@ import { Modal } from "@/components/ui/modal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SortKey = "code" | "name" | "email" | "phone" | "status" | "gradeLevel";
+type SortKey = "code" | "name" | "email" | "phone" | "status" | "gradeLevel" | "hasAccount";
 type SortOrder = "asc" | "desc";
 
 interface StudentTableProps {
@@ -71,6 +71,55 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
   // Internal refresh (for delete/deactivate)
   const [internalRefreshKey, setInternalRefreshKey] = useState(0);
   const triggerRefresh = () => setInternalRefreshKey((k) => k + 1);
+
+  // ── Bulk selection & provisioning ──
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [isProvisioning, setIsProvisioning] = useState(false);
+
+  const selectedUnprovisionedIds = useMemo(() => {
+    return items
+      .filter((item) => selectedIds.includes(item.id) && !item.hasAccount)
+      .map((item) => item.id);
+  }, [items, selectedIds]);
+
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [items]);
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(items.map((item) => item.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectItem = (id: number, checked: boolean) => {
+    if (checked) {
+      setSelectedIds((prev) => [...prev, id]);
+    } else {
+      setSelectedIds((prev) => prev.filter((item) => item !== id));
+    }
+  };
+
+  const handleProvisionAccounts = async () => {
+    if (selectedUnprovisionedIds.length === 0) return;
+    setIsProvisioning(true);
+    try {
+      const res = await studentApi.provisionAccounts(selectedUnprovisionedIds);
+      if (res.success) {
+        showToast(t("student.provisionSuccess", { count: selectedUnprovisionedIds.length, defaultValue: `Cấp tài khoản thành công cho ${selectedUnprovisionedIds.length} học sinh!` }));
+        setSelectedIds([]);
+        triggerRefresh();
+      } else {
+        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("student.provisionError", { defaultValue: "Có lỗi xảy ra khi cấp tài khoản học sinh." }), "error");
+      }
+    } catch {
+      showToast(t("student.systemError"), "error");
+    } finally {
+      setIsProvisioning(false);
+    }
+  };
 
   // ── Delete confirm modal ──
   const [deleteTarget, setDeleteTarget] = useState<StudentItem | null>(null);
@@ -129,7 +178,6 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, itemsPerPage, debouncedSearchTerm, filterStatus, filterGrade, filterGender, refreshKey, internalRefreshKey]);
 
-  // ── Sort ──
   const sortedData = useMemo(() => {
     return [...items].sort((a, b) => {
       let av = a[sortKey];
@@ -140,6 +188,9 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
 
       if (typeof av === "string" && typeof bv === "string") {
         return sortOrder === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+      if (typeof av === "boolean" && typeof bv === "boolean") {
+        return sortOrder === "asc" ? (av ? 1 : 0) - (bv ? 1 : 0) : (bv ? 1 : 0) - (av ? 1 : 0);
       }
       return sortOrder === "asc" 
         ? (av as number) - (bv as number) 
@@ -387,6 +438,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
     { key: "phone", label: t("student.colPhone", { defaultValue: "Số điện thoại" }) },
     { key: "gradeLevel", label: t("student.colGradeLevel", { defaultValue: "Khối lớp" }) },
     { key: "status", label: t("student.colStatus", { defaultValue: "Trạng thái" }) },
+    { key: "hasAccount", label: t("student.colAccount", { defaultValue: "Tài khoản" }) },
   ];
 
   const getStatusLabel = (status: number) => {
@@ -570,6 +622,24 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
                 />
               </label>
             </PermissionGuard>
+            {selectedUnprovisionedIds.length > 0 && (
+              <PermissionGuard requiredPermission="Student.Create">
+                <button
+                  onClick={handleProvisionAccounts}
+                  disabled={isProvisioning}
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 h-11 text-sm font-medium text-white bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 transition-colors shadow-theme-xs rounded-lg disabled:opacity-50"
+                >
+                  {isProvisioning ? (
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  ) : (
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" />
+                    </svg>
+                  )}
+                  {t("student.btnProvision", { defaultValue: "Cấp tài khoản" })} ({selectedUnprovisionedIds.length})
+                </button>
+              </PermissionGuard>
+            )}
             <PermissionGuard requiredPermission="Student.Create">
               <button
                 onClick={onAddClick}
@@ -590,6 +660,17 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
         <Table>
           <TableHeader className="border-b border-gray-100 dark:border-white/[0.05] bg-gray-50 dark:bg-white/[0.02]">
             <TableRow>
+              <TableCell
+                isHeader
+                className="px-6 py-4 border-r border-gray-100 dark:border-white/[0.05] text-center w-12"
+              >
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 text-brand-600 border-gray-300 rounded focus:ring-brand-500 cursor-pointer"
+                  checked={items.length > 0 && selectedIds.length === items.length}
+                  onChange={handleSelectAll}
+                />
+              </TableCell>
               <TableCell
                 isHeader
                 className="px-6 py-4 border-r border-gray-100 dark:border-white/[0.05] text-center w-12"
@@ -642,6 +723,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
               Array.from({ length: itemsPerPage }).map((_, idx) => (
                 <TableRow key={idx} className="animate-pulse">
                   <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-6" /></TableCell>
+                  <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-6" /></TableCell>
                   <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-16" /></TableCell>
                   <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-32" /></TableCell>
                   <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-40" /></TableCell>
@@ -659,7 +741,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
             ) : error ? (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={9}
                   className="px-6 py-10 text-center text-error-500 dark:text-error-400 font-medium"
                 >
                   {error}
@@ -671,6 +753,14 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
                   key={item.id}
                   className="hover:bg-gray-50/50 dark:hover:bg-white/[0.01] transition-colors"
                 >
+                  <TableCell className="px-6 py-4 border-r border-gray-100 dark:border-white/[0.05] text-center w-12">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 text-brand-600 border-gray-300 rounded focus:ring-brand-500 cursor-pointer"
+                      checked={selectedIds.includes(item.id)}
+                      onChange={(e) => handleSelectItem(item.id, e.target.checked)}
+                    />
+                  </TableCell>
                   <TableCell className="px-6 py-4 text-gray-500 dark:text-gray-400 whitespace-nowrap w-12 text-center">
                     {startIndex + index + 1}
                   </TableCell>
@@ -716,6 +806,17 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
                   </TableCell>
                   <TableCell className="px-6 py-4 whitespace-nowrap">
                     {renderStatusBadge(item.status, getStatusLabel(item.status))}
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                    {item.hasAccount ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-500">
+                        {t("parentStudent.accountLinked", { defaultValue: "Đã có tài khoản" })}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200">
+                        {t("parentStudent.accountNone", { defaultValue: "Chưa có" })}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="px-6 py-4 text-center whitespace-nowrap">
                     <div className="flex items-center justify-center gap-2">
