@@ -109,6 +109,7 @@ const schoolItems: NavItem[] = [
     icon: <GroupIcon />,
     name: "parentServices",
     subItems: [
+      { name: "parents", path: "/parent-student", permission: "ParentStudent" },
       { name: "childProfile", path: "/child-profile", permission: "ParentStudent" },
       { name: "childProgress", path: "/child-progress" },
       { name: "childSchedules", path: "/child-schedules" },
