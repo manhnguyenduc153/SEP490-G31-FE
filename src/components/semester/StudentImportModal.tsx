@@ -4,6 +4,8 @@ import { Modal } from "@/components/ui/modal";
 import * as XLSX from "xlsx";
 import { courseApi, CourseItem } from "@/services/course.api";
 import { semesterApi, StudentRegistrationSaveDto, StudentRegistrationDto } from "@/services/semester.api";
+import { CheckCircle2, AlertTriangle, XCircle, Search, Sun, Sunset, Moon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface StudentImportModalProps {
   isOpen: boolean;
@@ -35,6 +37,7 @@ export function StudentImportModal({
   showToast,
   onImportSuccess,
 }: StudentImportModalProps) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<"list" | "import">("list");
   const [courses, setCourses] = useState<CourseItem[]>([]);
   const [existingRegistrations, setExistingRegistrations] = useState<StudentRegistrationDto[]>([]);
@@ -48,9 +51,9 @@ export function StudentImportModal({
   const fetchRegistrations = async () => {
     setIsLoadingList(true);
     try {
-      const res = await semesterApi.getStudentRegistrations(semesterId);
+      const res = await semesterApi.getStudentRegistrations(semesterId, "", null, null, 1, 1000);
       if (res.success && res.data) {
-        setExistingRegistrations(res.data);
+        setExistingRegistrations(res.data.items || []);
       }
     } catch (err) {
       console.error("Lỗi khi tải danh sách học sinh: ", err);
@@ -141,7 +144,7 @@ export function StudentImportModal({
         const rows = XLSX.utils.sheet_to_json(ws);
 
         if (rows.length === 0) {
-          showToast("File Excel trống hoặc không đúng định dạng.", "error");
+          showToast(t("semester.importErrorExcelEmpty"), "error");
           setIsParsing(false);
           return;
         }
@@ -166,7 +169,7 @@ export function StudentImportModal({
               preferredSlots: [],
               hasError: true,
               isAlreadyRegistered: false,
-              errorMsg: "Thiếu Họ Tên hoặc Email học viên.",
+              errorMsg: t("semester.importErrorMissingInfo"),
             });
             return;
           }
@@ -208,7 +211,7 @@ export function StudentImportModal({
 
         setPreviewRows(parsed);
       } catch (err: any) {
-        showToast("Lỗi phân tích file Excel: " + err.message, "error");
+        showToast(t("semester.importErrorExcel") + err.message, "error");
       } finally {
         setIsParsing(false);
         e.target.value = "";
@@ -227,7 +230,7 @@ export function StudentImportModal({
 
   const handleImport = async () => {
     if (newImportRows.length === 0) {
-      showToast("Không có học viên mới nào cần nhập thêm.", "error");
+      showToast(t("semester.importNoNewStudents"), "error");
       return;
     }
 
@@ -245,20 +248,28 @@ export function StudentImportModal({
     try {
       const res = await semesterApi.importStudentRegistrations(dtos);
       if (res.success) {
-        showToast(
-          `Nhập thành công ${res.data?.length || dtos.length} học viên mới!${autoCreateRows.length > 0 ? ` (Đã tạo thêm ${autoCreateRows.length} khóa học mới)` : ""}`,
-          "success"
-        );
+        const addedCount = res.data?.length || dtos.length;
+        if (autoCreateRows.length > 0) {
+          showToast(
+            t("semester.importSuccessWithCourses", { count: addedCount, courseCount: autoCreateRows.length }),
+            "success"
+          );
+        } else {
+          showToast(
+            t("semester.importSuccess", { count: addedCount }),
+            "success"
+          );
+        }
         onImportSuccess();
         // Refresh local registration list and switch back to view list
         await fetchRegistrations();
         setActiveTab("list");
         setPreviewRows([]);
       } else {
-        showToast(res.message || "Lỗi khi nhập danh sách đăng ký học viên.", "error");
+        showToast(res.message ? t(`backendMessages.${res.message}`) : t("semester.importError"), "error");
       }
     } catch (err: any) {
-      showToast(err?.message || "Đã xảy ra lỗi kết nối.", "error");
+      showToast(err?.message || t("semester.importErrorNetwork"), "error");
     } finally {
       setIsImporting(false);
     }
@@ -276,16 +287,16 @@ export function StudentImportModal({
   });
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} className="max-w-[960px] p-6 sm:p-8">
+    <Modal isOpen={isOpen} onClose={onClose} showCloseButton={false} className="max-w-[960px] p-6 sm:p-8">
       <div className="flex flex-col gap-5">
         {/* Header */}
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between border-b border-gray-100 dark:border-gray-800 pb-4">
           <div>
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-              Đăng ký học viên kỳ học
+              {t("semester.importTitle")}
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Học kỳ: <span className="font-semibold text-gray-700 dark:text-gray-200">{semesterName}</span>
+              {t("sidebar.semesters", { defaultValue: "Học kỳ" })}: <span className="font-semibold text-gray-700 dark:text-gray-200">{semesterName}</span>
             </p>
           </div>
           
@@ -299,7 +310,7 @@ export function StudentImportModal({
                   : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
               }`}
             >
-              Học viên đã đăng ký ({existingRegistrations.length})
+              {t("semester.importTabRegistered", { count: existingRegistrations.length })}
             </button>
             <button
               onClick={() => setActiveTab("import")}
@@ -309,7 +320,7 @@ export function StudentImportModal({
                   : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
               }`}
             >
-              Nhập từ file Excel
+              {t("semester.importTabExcel")}
             </button>
           </div>
         </div>
@@ -320,13 +331,11 @@ export function StudentImportModal({
             <div className="flex items-center justify-between gap-4">
               <div className="relative flex-1 max-w-md">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
+                  <Search className="w-4 h-4 text-gray-400" />
                 </span>
                 <input
                   type="text"
-                  placeholder="Tìm kiếm học viên, email, số điện thoại hoặc khóa học..."
+                  placeholder={t("semester.importSearchPlaceholder")}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-4 py-2 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
@@ -337,7 +346,7 @@ export function StudentImportModal({
             {isLoadingList ? (
               <div className="flex justify-center items-center py-20">
                 <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mr-2"></div>
-                <span className="text-sm text-gray-500">Đang tải danh sách học viên...</span>
+                <span className="text-sm text-gray-500">{t("semester.importLoadingList")}</span>
               </div>
             ) : filteredRegistrations.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 border border-dashed border-gray-200 dark:border-gray-800 rounded-xl bg-gray-50/20 dark:bg-gray-900/10">
@@ -345,14 +354,14 @@ export function StudentImportModal({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
                 <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-                  {searchQuery ? "Không tìm thấy học viên nào khớp với tìm kiếm." : "Chưa có học viên nào được đăng ký cho học kỳ này."}
+                  {searchQuery ? t("semester.importNoResults") : t("semester.importNoRegistered")}
                   <br />
                   {!searchQuery && (
                     <button
                       onClick={() => setActiveTab("import")}
                       className="mt-2 text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
                     >
-                      Bấm vào đây để tải file đăng ký học viên
+                      {t("semester.importRegisteredClickImport")}
                     </button>
                   )}
                 </p>
@@ -362,11 +371,11 @@ export function StudentImportModal({
                 <table className="w-full border-collapse text-sm text-left">
                   <thead>
                     <tr className="bg-gray-50 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-10">
-                      <th className="py-3 px-4 font-semibold">Tên Học Viên</th>
-                      <th className="py-3 px-4 font-semibold">Email / SĐT</th>
-                      <th className="py-3 px-4 font-semibold">Khóa học</th>
-                      <th className="py-3 px-4 font-semibold">Ca học muốn</th>
-                      <th className="py-3 px-4 font-semibold text-right">Trạng thái</th>
+                      <th className="py-3 px-4 font-semibold">{t("semester.importColName")}</th>
+                      <th className="py-3 px-4 font-semibold">{t("semester.importColContact")}</th>
+                      <th className="py-3 px-4 font-semibold">{t("semester.importColCourse")}</th>
+                      <th className="py-3 px-4 font-semibold">{t("semester.importColPreferredSlots")}</th>
+                      <th className="py-3 px-4 font-semibold text-right">{t("semester.importColStatus")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -378,18 +387,18 @@ export function StudentImportModal({
                           <div className="text-xs text-gray-400">{reg.studentPhone || "—"}</div>
                         </td>
                         <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">
-                          {reg.courseName || `Khóa ID: ${reg.courseId}`}
+                          {reg.courseName || t("semester.courseIdText", { id: reg.courseId })}
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex flex-wrap gap-1">
                             {reg.preferredSlots && reg.preferredSlots.length > 0 ? (
                               reg.preferredSlots.map((slot) => (
                                 <span key={slot} className="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded">
-                                  {slot === "Morning" ? "☀ Sáng" : slot === "Afternoon" ? "🌤 Chiều" : "🌙 Tối"}
+                                  {slot === "Morning" ? t("semester.slotMorning") : slot === "Afternoon" ? t("semester.slotAfternoon") : t("semester.slotEvening")}
                                 </span>
                               ))
                             ) : (
-                              <span className="text-xs text-gray-400 italic">Mặc định</span>
+                              <span className="text-xs text-gray-400 italic">{t("semester.slotDefault")}</span>
                             )}
                           </div>
                         </td>
@@ -397,9 +406,9 @@ export function StudentImportModal({
                           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                             reg.status === 1 
                               ? "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900" 
-                              : "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900"
+                              : "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-amber-900"
                           }`}>
-                            {reg.status === 1 ? "Chờ xếp lớp" : "Đã xếp lớp"}
+                            {reg.status === 1 ? t("semester.statusWaiting") : t("semester.statusAssigned")}
                           </span>
                         </td>
                       </tr>
@@ -415,7 +424,7 @@ export function StudentImportModal({
                 onClick={onClose}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
               >
-                Đóng
+                {t("semester.btnCancel")}
               </button>
             </div>
           </div>
@@ -427,7 +436,7 @@ export function StudentImportModal({
             {/* Step controls */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl">
               <div className="flex flex-col gap-1">
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Bước 1 — Tải file mẫu</span>
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t("semester.importStep1")}</span>
                 <button
                   type="button"
                   onClick={handleDownloadTemplate}
@@ -436,17 +445,17 @@ export function StudentImportModal({
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  Tải file template (.xlsx)
+                  {t("semester.importDownloadTemplate")}
                 </button>
               </div>
 
               <div className="flex flex-col gap-1.5 w-full sm:w-auto">
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Bước 2 — Chọn file đã điền</span>
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t("semester.importStep2")}</span>
                 <label className="flex items-center justify-center px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg shadow-theme-xs cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-300">
                   <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
-                  Tải file Excel lên
+                  {t("semester.importUploadFile")}
                   <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload} className="hidden" />
                 </label>
               </div>
@@ -455,7 +464,7 @@ export function StudentImportModal({
             {isParsing && (
               <div className="flex justify-center items-center py-10">
                 <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mr-3"></div>
-                <span className="text-sm text-gray-500">Đang phân tích file Excel...</span>
+                <span className="text-sm text-gray-500">{t("semester.importParsingExcel")}</span>
               </div>
             )}
 
@@ -464,26 +473,29 @@ export function StudentImportModal({
                 {/* Summary chips */}
                 <div className="flex flex-wrap gap-2 items-center text-xs">
                   <span className="px-2.5 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full font-semibold">
-                    Tổng: {previewRows.length} dòng
+                    {t("semester.importPreviewSummary", { count: previewRows.length })}
                   </span>
-                  <span className="px-2.5 py-1 bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-900 rounded-full font-semibold">
-                    ✓ Sẽ thêm (Học viên mới/Khóa học mới): {newImportRows.length}
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-900 rounded-full font-semibold">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                    {t("semester.importPreviewAdd", { count: newImportRows.length })}
                   </span>
                   {alreadyRegisteredCount > 0 && (
-                    <span className="px-2.5 py-1 bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900 rounded-full font-semibold">
-                      ⚠ Đã đăng ký khóa này (Sẽ bỏ qua): {alreadyRegisteredCount}
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900 rounded-full font-semibold">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                      {t("semester.importPreviewSkip", { count: alreadyRegisteredCount })}
                     </span>
                   )}
                   {errorRows.length > 0 && (
-                    <span className="px-2.5 py-1 bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900 rounded-full font-semibold">
-                      ✕ Lỗi dòng (Bỏ qua): {errorRows.length}
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900 rounded-full font-semibold">
+                      <XCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                      {t("semester.importPreviewError", { count: errorRows.length })}
                     </span>
                   )}
                 </div>
 
                 {autoCreateRows.length > 0 && (
                   <div className="p-3 text-xs text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900 rounded-lg">
-                    <strong>Tạo mới khóa học:</strong> Khóa học sau chưa có trong hệ thống và sẽ được tự động tạo:{" "}
+                    <strong>{t("semester.importTagNewCourse")}:</strong> {t("semester.importPreviewCourseNote")}{" "}
                     {[...new Set(autoCreateRows.map((r) => `"${r.rawCourseName}"`))].join(", ")}.
                   </div>
                 )}
@@ -492,11 +504,11 @@ export function StudentImportModal({
                   <table className="w-full border-collapse text-sm text-left">
                     <thead>
                       <tr className="bg-gray-50 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-10">
-                        <th className="py-2.5 px-3 font-semibold">Tên Học Viên</th>
-                        <th className="py-2.5 px-3 font-semibold">Email</th>
-                        <th className="py-2.5 px-3 font-semibold">Khóa học</th>
-                        <th className="py-2.5 px-3 font-semibold">Ca học</th>
-                        <th className="py-2.5 px-3 font-semibold text-right">Trạng thái</th>
+                        <th className="py-2.5 px-3 font-semibold">{t("semester.importColName")}</th>
+                        <th className="py-2.5 px-3 font-semibold">{t("semester.importColContact")}</th>
+                        <th className="py-2.5 px-3 font-semibold">{t("semester.importColCourse")}</th>
+                        <th className="py-2.5 px-3 font-semibold">{t("semester.importColPreferredSlots")}</th>
+                        <th className="py-2.5 px-3 font-semibold text-right">{t("semester.importColStatus")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -522,11 +534,11 @@ export function StudentImportModal({
                               <div>
                                 <span>{r.rawCourseName}</span>
                                 <span className="ml-1.5 text-xs font-semibold px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded">
-                                  Khóa mới
+                                  {t("semester.importTagNewCourse")}
                                 </span>
                               </div>
                             ) : (
-                              <span className="text-rose-500 text-xs">Chưa có tên khóa</span>
+                              <span className="text-rose-500 text-xs">{t("semester.importMissingCourse")}</span>
                             )}
                           </td>
                           <td className="py-2 px-3">
@@ -536,7 +548,7 @@ export function StudentImportModal({
                                   key={slot}
                                   className="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-sm"
                                 >
-                                  {slot === "Morning" ? "☀ Sáng" : slot === "Afternoon" ? "🌤 Chiều" : "🌙 Tối"}
+                                  {slot === "Morning" ? t("semester.slotMorning") : slot === "Afternoon" ? t("semester.slotAfternoon") : t("semester.slotEvening")}
                                 </span>
                               ))}
                             </div>
@@ -547,18 +559,18 @@ export function StudentImportModal({
                                 title={r.errorMsg}
                                 className="text-xs font-semibold px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-full dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900 cursor-help"
                               >
-                                Bỏ qua (Lỗi)
+                                {t("semester.importBadgeSkipError")}
                               </span>
                             ) : r.isAlreadyRegistered ? (
                               <span
-                                title="Học viên này đã được đăng ký cho khóa học này trong học kỳ rồi"
+                                title={t("semester.importAlreadyRegisteredTooltip")}
                                 className="text-xs font-semibold px-2 py-0.5 bg-amber-50 text-amber-600 border border-amber-200 rounded-full dark:bg-amber-950/10 dark:text-amber-400 dark:border-amber-900 cursor-help"
                               >
-                                Đã đăng ký (Bỏ qua)
+                                {t("semester.importBadgeSkipRegistered")}
                               </span>
                             ) : (
                               <span className="text-xs font-semibold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900">
-                                Sẽ thêm mới
+                                {t("semester.importBadgeWillAdd")}
                               </span>
                             )}
                           </td>
@@ -577,7 +589,7 @@ export function StudentImportModal({
                     }}
                     className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
                   >
-                    Hủy
+                    {t("semester.btnCancel")}
                   </button>
                   <button
                     type="button"
@@ -585,7 +597,7 @@ export function StudentImportModal({
                     disabled={isImporting || newImportRows.length === 0}
                     className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 disabled:opacity-50"
                   >
-                    {isImporting ? "Đang xử lý..." : `Nhập ${newImportRows.length} học viên mới`}
+                    {isImporting ? t("semester.btnProcessing") : t("semester.btnImportCount", { count: newImportRows.length })}
                   </button>
                 </div>
               </div>
@@ -597,9 +609,9 @@ export function StudentImportModal({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-                  Tải file mẫu, điền dữ liệu học viên và tải lên.
+                  {t("semester.importInstructions")}
                   <br />
-                  <span className="text-xs text-blue-500 font-medium">Hệ thống sẽ đối chiếu và chỉ nhập những học viên mới chưa đăng ký trong kỳ học này.</span>
+                  <span className="text-xs text-blue-500 font-medium">{t("semester.importSubInstructions")}</span>
                 </p>
               </div>
             )}

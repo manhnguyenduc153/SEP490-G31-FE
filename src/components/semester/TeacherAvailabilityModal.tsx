@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/modal";
 import { teacherApi, TeacherItem } from "@/services/teacher.api";
 import { semesterApi, TeacherAvailabilitySlotDto } from "@/services/semester.api";
+import { useTranslation } from "react-i18next";
 
 interface TeacherAvailabilityModalProps {
   isOpen: boolean;
@@ -37,6 +38,7 @@ export function TeacherAvailabilityModal({
   semesterName,
   showToast,
 }: TeacherAvailabilityModalProps) {
+  const { t } = useTranslation();
   const [teachers, setTeachers] = useState<TeacherItem[]>([]);
   const [selectedTeacherId, setSelectedTeacherId] = useState<number | "">("");
   const [selectedSlots, setSelectedSlots] = useState<TeacherAvailabilitySlotDto[]>([]);
@@ -114,7 +116,7 @@ export function TeacherAvailabilityModal({
 
   const handleSave = async () => {
     if (!selectedTeacherId) {
-      showToast("Vui lòng chọn giáo viên.", "error");
+      showToast(t("semester.availabilitySelectTeacherError", { defaultValue: "Vui lòng chọn giáo viên." }), "error");
       return;
     }
 
@@ -127,13 +129,13 @@ export function TeacherAvailabilityModal({
       });
 
       if (res.success) {
-        showToast("Lưu lịch rảnh của giáo viên thành công!", "success");
+        showToast(res.message ? t(`backendMessages.${res.message}`) : t("semester.availabilitySaveSuccess", { defaultValue: "Lưu lịch rảnh của giáo viên thành công!" }), "success");
         onClose();
       } else {
-        showToast(res.message || "Không thể lưu lịch rảnh.", "error");
+        showToast(res.message ? t(`backendMessages.${res.message}`) : t("semester.availabilitySaveError", { defaultValue: "Không thể lưu lịch rảnh." }), "error");
       }
     } catch (err: any) {
-      showToast(err?.message || "Đã xảy ra lỗi khi gửi yêu cầu.", "error");
+      showToast(t("backendMessages.ERR_SYSTEM_ERROR"), "error");
     } finally {
       setIsSaving(false);
     }
@@ -144,17 +146,17 @@ export function TeacherAvailabilityModal({
       <div className="flex flex-col gap-4">
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Thiết lập lịch rảnh giảng viên
+            {t("semester.availabilityTitle")}
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Học kỳ: <span className="font-semibold text-gray-700 dark:text-gray-300">{semesterName}</span>
+            {t("sidebar.semesters", { defaultValue: "Học kỳ" })}: <span className="font-semibold text-gray-700 dark:text-gray-300">{semesterName}</span>
           </p>
         </div>
 
         {/* Teacher Selection */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap shrink-0">
-            Chọn giảng viên:
+            {t("semester.availabilitySelectTeacherLabel", { defaultValue: "Chọn giảng viên:" })}
           </label>
           <div className="relative w-full sm:w-[300px]">
             <select
@@ -163,7 +165,7 @@ export function TeacherAvailabilityModal({
               disabled={isLoadingTeachers}
               className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
             >
-              <option value="">-- Chọn giảng viên --</option>
+              <option value="">{t("semester.availabilitySelectTeacherPlaceholder", { defaultValue: "-- Chọn giáo viên --" })}</option>
               {teachers.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name} ({t.code})
@@ -171,7 +173,7 @@ export function TeacherAvailabilityModal({
               ))}
             </select>
           </div>
-          {isLoadingTeachers && <span className="text-xs text-gray-400 animate-pulse">Đang tải DS...</span>}
+          {isLoadingTeachers && <span className="text-xs text-gray-400 animate-pulse">{t("semester.availabilityLoadingTeachers", { defaultValue: "Đang tải DS..." })}</span>}
         </div>
 
         {selectedTeacherId === "" ? (
@@ -184,7 +186,7 @@ export function TeacherAvailabilityModal({
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
-            <p className="text-sm">Vui lòng chọn một giảng viên để xem và thiết lập lịch rảnh.</p>
+            <p className="text-sm">{t("semester.availabilitySelectPrompt", { defaultValue: "Vui lòng chọn một giảng viên để xem và thiết lập lịch rảnh." })}</p>
           </div>
         ) : isLoadingAvailability ? (
           <div className="flex justify-center items-center py-20">
@@ -193,7 +195,7 @@ export function TeacherAvailabilityModal({
         ) : (
           <div className="flex flex-col gap-3 mt-2">
             <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
-              <span>* Click chọn các ca giảng viên RẢNH (có thể dạy). Ca được chọn sẽ có màu xanh.</span>
+              <span>{t("semester.availabilityNote")}</span>
               <button
                 type="button"
                 onClick={() => setSelectedSlots(
@@ -201,7 +203,7 @@ export function TeacherAvailabilityModal({
                 )}
                 className="text-blue-500 hover:underline"
               >
-                Chọn tất cả các ca
+                {t("semester.availabilitySelectAll", { defaultValue: "Chọn tất cả các ca" })}
               </button>
             </div>
 
@@ -210,10 +212,10 @@ export function TeacherAvailabilityModal({
               <table className="w-full border-collapse text-sm text-center">
                 <thead>
                   <tr className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-800">
-                    <th className="py-3 px-4 font-semibold text-left w-[180px]">Ca học</th>
+                    <th className="py-3 px-4 font-semibold text-left w-[180px]">{t("semester.availabilitySlot", { defaultValue: "Ca học" })}</th>
                     {DAYS.map((d) => (
                       <th key={d.name} className="py-3 px-2 font-semibold">
-                        {d.name}
+                        {t(`semester.days.${d.value}`, { defaultValue: d.name })}
                       </th>
                     ))}
                   </tr>
@@ -225,7 +227,7 @@ export function TeacherAvailabilityModal({
                       className="border-b border-gray-100 dark:border-gray-800/80 hover:bg-gray-50/50 dark:hover:bg-gray-800/20"
                     >
                       <td className="py-3 px-4 text-left border-r border-gray-100 dark:border-gray-800 font-medium">
-                        <div className="font-semibold text-gray-800 dark:text-gray-200">{s.name}</div>
+                        <div className="font-semibold text-gray-800 dark:text-gray-200">{t(`semester.slots.${s.index}`, { defaultValue: s.name })}</div>
                         <div className="text-xs text-gray-400">{s.time}</div>
                       </td>
                       {DAYS.map((d) => {
@@ -241,7 +243,7 @@ export function TeacherAvailabilityModal({
                                   : "bg-white border-gray-200 text-gray-400 hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800 dark:hover:border-gray-700 dark:text-gray-500"
                               }`}
                             >
-                              {active ? "Rảnh" : "Bận"}
+                              {active ? t("semester.availabilityStatusAvailable", { defaultValue: "Rảnh" }) : t("semester.availabilityStatusBusy", { defaultValue: "Bận" })}
                             </button>
                           </td>
                         );
@@ -258,7 +260,7 @@ export function TeacherAvailabilityModal({
                 onClick={onClose}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
               >
-                Hủy
+                {t("semester.btnCancel")}
               </button>
               <button
                 type="button"
@@ -266,7 +268,7 @@ export function TeacherAvailabilityModal({
                 disabled={isSaving}
                 className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 disabled:opacity-50"
               >
-                {isSaving ? "Đang lưu..." : "Lưu lịch rảnh"}
+                {isSaving ? t("semester.btnSaving") : t("semester.availabilityActionSave", { defaultValue: "Lưu ca rảnh" })}
               </button>
             </div>
           </div>

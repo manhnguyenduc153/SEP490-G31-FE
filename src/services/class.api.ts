@@ -41,6 +41,8 @@ export interface ClassItem {
   expectedLessons?: number | null;
   weeklySchedulesJson?: string | null;
   schedules?: ClassScheduleItem[];
+  semesterId?: number | null;
+  semesterName?: string | null;
 }
 
 export interface ClassPagingResponse {
@@ -65,6 +67,7 @@ export interface ClassSaveDto {
   studentIds: number[];
   autoRefund?: boolean | null;
   expectedLessons?: number | null;
+  semesterId?: number | null;
   weeklySchedules?: {
     dayOfWeek: number;
     startTime: string;

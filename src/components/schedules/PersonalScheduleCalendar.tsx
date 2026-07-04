@@ -51,7 +51,12 @@ function addDays(date: Date, n: number): Date {
   d.setDate(d.getDate() + n);
   return d;
 }
-function toISO(date: Date) { return date.toISOString().split("T")[0]; }
+function toISO(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 function formatWeekLabel(start: Date): string {
   const end = addDays(start, 6);
   return `${start.getDate()}/${start.getMonth() + 1} – ${end.getDate()}/${end.getMonth() + 1}/${end.getFullYear()}`;

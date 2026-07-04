@@ -34,6 +34,7 @@ export interface TeacherAvailabilitySaveDto {
 export interface StudentRegistrationDto {
   id: number;
   semesterId: number;
+  studentCode?: string | null;
   studentName: string;
   studentEmail: string;
   studentPhone?: string | null;
@@ -46,6 +47,7 @@ export interface StudentRegistrationDto {
 
 export interface StudentRegistrationSaveDto {
   semesterId: number;
+  studentCode?: string | null;
   studentName: string;
   studentEmail: string;
   studentPhone?: string | null;
@@ -54,6 +56,15 @@ export interface StudentRegistrationSaveDto {
   /** Used when courseId = 0 to auto-find or create the course */
   courseName?: string | null;
   preferredSlots: string[];
+  status?: number;
+}
+
+export interface StudentRegistrationPagingResponse {
+  pageIndex: number;
+  pageSize: number;
+  totalRecords: number;
+  totalPages: number;
+  items: StudentRegistrationDto[];
 }
 
 export interface AutoScheduleSemesterRequestDto {
@@ -97,8 +108,26 @@ export const semesterApi = {
     return api.post<boolean>(ENDPOINTS.SEMESTER.SAVE_TEACHER_AVAILABILITY, dto);
   },
 
-  async getStudentRegistrations(semesterId: number): Promise<ApiResponse<StudentRegistrationDto[]>> {
-    return api.get<StudentRegistrationDto[]>(`/api/Semester/${semesterId}/registrations`);
+  async getStudentRegistrations(
+    semesterId: number,
+    keyword: string = "",
+    courseId?: number | null,
+    status?: number | null,
+    pageIndex: number = 1,
+    pageSize: number = 10
+  ): Promise<ApiResponse<StudentRegistrationPagingResponse>> {
+    const params: Record<string, string> = {
+      pageIndex: String(pageIndex),
+      pageSize: String(pageSize),
+    };
+    if (keyword) params.keyword = keyword;
+    if (courseId !== undefined && courseId !== null) params.courseId = String(courseId);
+    if (status !== undefined && status !== null) params.status = String(status);
+
+    const query = new URLSearchParams(params).toString();
+    return api.get<StudentRegistrationPagingResponse>(
+      `/api/Semester/${semesterId}/registrations?${query}`
+    );
   },
 
   async importStudentRegistrations(dtos: StudentRegistrationSaveDto[]): Promise<ApiResponse<StudentRegistrationDto[]>> {

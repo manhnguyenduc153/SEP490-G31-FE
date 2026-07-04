@@ -6,9 +6,10 @@ import { courseApi, CourseItem } from "@/services/course.api";
 import { teacherApi, TeacherItem } from "@/services/teacher.api";
 import { studentApi, StudentItem } from "@/services/student.api";
 import { roomApi, RoomItem } from "@/services/room.api";
+import { semesterApi, SemesterItem } from "@/services/semester.api";
 import { CodeHelper } from "@/helpers/CodeHelper";
 import * as XLSX from "xlsx";
-import { Calendar, FileSpreadsheet, Plus, Search, X, ArrowLeft, BookOpen, Info, UserPlus, BookPlus, CalendarDays, AlertCircle } from "lucide-react";
+import { Calendar, FileSpreadsheet, Plus, Search, X, ArrowLeft, BookOpen, Info, UserPlus, BookPlus, CalendarDays, AlertCircle, Download } from "lucide-react";
 
 interface ClassFormProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -51,15 +52,15 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
   const getFriendlyErrorMessage = (msg: string) => {
     if (msg.startsWith("ERR_TEACHER_CONFLICT_")) {
       const classCode = msg.replace("ERR_TEACHER_CONFLICT_", "");
-      return `Giáo viên bị trùng lịch dạy với lớp ${classCode}. Vui lòng kiểm tra lại!`;
+      return t("class.errTeacherConflict", { classCode });
     }
     if (msg.startsWith("ERR_ROOM_CONFLICT_")) {
       const classCode = msg.replace("ERR_ROOM_CONFLICT_", "");
-      return `Phòng học bị trùng lịch với lớp ${classCode}. Vui lòng kiểm tra lại!`;
+      return t("class.errRoomConflict", { classCode });
     }
     if (msg.startsWith("ERR_ROOM_CAPACITY_EXCEEDED_")) {
       const roomName = msg.replace("ERR_ROOM_CAPACITY_EXCEEDED_", "");
-      return `Số lượng học sinh vượt quá sức chứa của phòng ${roomName}!`;
+      return t("class.errRoomCapacityExceeded", { roomName });
     }
     if (msg.startsWith("ERR_STUDENT_CONFLICT_")) {
       const parts = msg.replace("ERR_STUDENT_CONFLICT_", "").split("__");
@@ -67,7 +68,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
       const emailsStr = parts[1] || "";
       const emailsList = emailsStr.split(",").filter(Boolean);
       setConflictingEmails(emailsList);
-      return `Có ${count} học sinh đã có lịch học trùng với lớp khác trong thời gian này. Vui lòng kiểm tra lại các học sinh được highlight viền đỏ!`;
+      return t("class.errStudentConflict", { count });
     }
     return t(`backendMessages.${msg}`, { defaultValue: msg });
   };
@@ -79,6 +80,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
   const [formEndDate, setFormEndDate] = useState("");
   const [formCourseId, setFormCourseId] = useState<number | null>(null);
   const [formTeacherId, setFormTeacherId] = useState<number | null>(null);
+  const [formSemesterId, setFormSemesterId] = useState<number | null>(null);
   const [formExpectedLessons, setFormExpectedLessons] = useState<number>(30);
   const [formDesc, setFormDesc] = useState("");
   const [formStudentIds, setFormStudentIds] = useState<number[]>([]);
@@ -89,6 +91,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
   const [courses, setCourses] = useState<CourseItem[]>([]);
   const [teachers, setTeachers] = useState<TeacherItem[]>([]);
   const [rooms, setRooms] = useState<RoomItem[]>([]);
+  const [semesters, setSemesters] = useState<SemesterItem[]>([]);
   
   // Weekly Schedules state
   const DEFAULT_SLOT = FIXED_SLOTS[4]; // Ca 5 (18:30-20:30) as default
@@ -132,14 +135,16 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
   useEffect(() => {
     async function loadOptions() {
       try {
-        const [cRes, tRes, rRes] = await Promise.all([
+        const [cRes, tRes, rRes, sRes] = await Promise.all([
           courseApi.getAll(1, 100, "", true),
           teacherApi.getAll(1, 100),
           roomApi.getAll(1, 100),
+          semesterApi.getAll(),
         ]);
         if (cRes.success && cRes.data) setCourses(cRes.data.items || []);
         if (tRes.success && tRes.data) setTeachers(tRes.data.items || []);
         if (rRes.success && rRes.data) setRooms(rRes.data.items || []);
+        if (sRes.success && sRes.data) setSemesters(sRes.data || []);
       } catch (err) {
         console.error("Failed to load options", err);
       }
@@ -243,6 +248,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
       setFormEndDate(editingItem.endDate ? editingItem.endDate.split("T")[0] : "");
       setFormCourseId(editingItem.courseId ?? null);
       setFormTeacherId(editingItem.teacherId ?? null);
+      setFormSemesterId(editingItem.semesterId ?? null);
       setFormDesc(editingItem.description ?? "");
       setFormStatus(editingItem.status);
       setFormAutoRefund(editingItem.autoRefund ?? false);
@@ -280,6 +286,9 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
             }
             if (detail.endDate) {
               setFormEndDate(detail.endDate.split("T")[0]);
+            }
+            if (detail.semesterId !== undefined && detail.semesterId !== null) {
+              setFormSemesterId(detail.semesterId);
             }
 
             // Load weekly schedule config from JSON if exists
@@ -327,6 +336,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
       setFormEndDate("");
       setFormCourseId(null);
       setFormTeacherId(null);
+      setFormSemesterId(null);
       setFormDesc("");
       setFormStatus(0);
       setFormAutoRefund(false);
@@ -582,7 +592,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
         }
       } catch (err) {
         console.error("Parse Excel file error", err);
-        const errMsg = "Không thể đọc file Excel. Vui lòng kiểm tra định dạng.";
+        const errMsg = t("class.errExcelParse");
         setFormError(errMsg);
         showToast(errMsg, "error");
       }
@@ -595,21 +605,21 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim()) {
-      const errMsg = "Tên lớp học không được để trống";
+      const errMsg = t("class.errNameEmpty");
       setFormError(errMsg);
       showToast(errMsg, "error");
       return;
     }
 
-    if (!formStartDate) {
-      const errMsg = "Ngày bắt đầu không được để trống";
+    if (!formStartDate && !formSemesterId) {
+      const errMsg = t("class.errStartDateEmpty");
       setFormError(errMsg);
       showToast(errMsg, "error");
       return;
     }
 
-    if (!formExpectedLessons || formExpectedLessons <= 0) {
-      const errMsg = "Số buổi dự kiến phải lớn hơn 0";
+    if (!formSemesterId && (!formExpectedLessons || formExpectedLessons <= 0)) {
+      const errMsg = t("class.errExpectedLessonsInvalid");
       setFormError(errMsg);
       showToast(errMsg, "error");
       return;
@@ -621,7 +631,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
     const finalCode = formCode.trim();
 
     if (!finalCode) {
-      const errMsg = "Mã lớp học không được để trống";
+      const errMsg = t("class.errCodeEmpty");
       setFormError(errMsg);
       showToast(errMsg, "error");
       return;
@@ -639,9 +649,10 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
         endDate: formEndDate || null,
         courseId: formCourseId,
         teacherId: formTeacherId,
+        semesterId: formSemesterId,
         status: formStatus,
         autoRefund: formAutoRefund,
-        expectedLessons: formExpectedLessons,
+        expectedLessons: formSemesterId ? null : formExpectedLessons,
         studentIds: formStudentIds,
         newStudents: formNewStudents,
         newTeacherEmail: formNewTeacherEmail,
@@ -685,7 +696,6 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
     }
   };
 
-
   return (
     <div className="space-y-6 w-full pb-10">
       {/* Top Header Card */}
@@ -693,10 +703,10 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
         <div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-brand-500" />
-            {editingItem ? "Chỉnh Sửa Lớp Học" : "Tạo Lớp Học Mới"}
+            {editingItem ? t("class.editTitle") : t("class.createTitle")}
           </h2>
           <p className="text-xs text-gray-500 mt-1">
-            Trang Chủ - Quản Lý Lớp Học - {editingItem ? "Chỉnh Sửa" : "Tạo Mới"}
+            {t("class.breadcrumbPath")}{editingItem ? t("class.editBreadcrumb") : t("class.createBreadcrumb")}
           </p>
         </div>
 
@@ -707,14 +717,15 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
             className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950/20 dark:border-emerald-900/30 dark:hover:bg-emerald-950/40 transition-colors"
           >
             <FileSpreadsheet className="w-4.5 h-4.5" />
-            Import Excel
+            {t("class.importExcel")}
           </button>
           <a
             href="/class_import_template.xlsx"
             download
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 transition-colors"
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-850 dark:border-gray-700 dark:hover:bg-gray-800 transition-colors"
           >
-            Tải file mẫu (.xlsx)
+            <Download className="w-4 h-4 text-gray-500 dark:text-gray-400 shrink-0" />
+            {t("class.downloadTemplate")}
           </a>
           <input
             type="file"
@@ -729,7 +740,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
             className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-850 dark:border-gray-700 dark:hover:bg-gray-800 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Quay lại
+            {t("class.btnBack")}
           </button>
           <button
             onClick={handleSubmitForm}
@@ -737,50 +748,75 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
             className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-theme-xs transition-colors disabled:opacity-60"
           >
             <Plus className="w-4 h-4" />
-            {editingItem ? "Lưu thay đổi" : "Tạo lớp học"}
+            {editingItem ? t("class.btnSave") : t("class.btnCreateClass")}
           </button>
         </div>
       </div>
 
-
-
       {/* Main Form Content */}
       <div className="space-y-6 w-full">
-          
           {/* Card: Thông tin cơ bản */}
           <div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs space-y-5">
             <h3 className="text-md font-bold text-gray-900 dark:text-white flex items-center gap-2 border-b border-gray-50 dark:border-gray-800/80 pb-3">
               <Info className="w-4.5 h-4.5 text-brand-500" />
-              Thông tin cơ bản
+              {t("class.basicInfo")}
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">              <div className="space-y-1.5 col-span-1 sm:col-span-2">
+                <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                  {t("class.colSemester")}
+                </label>
+                <select
+                  value={formSemesterId || ""}
+                  onChange={(e) => {
+                    const id = e.target.value ? Number(e.target.value) : null;
+                    setFormSemesterId(id);
+                    const matchedSem = semesters.find((s) => s.id === id);
+                    if (matchedSem) {
+                      setFormStartDate(matchedSem.startDate ? matchedSem.startDate.split("T")[0] : "");
+                      setFormEndDate(matchedSem.endDate ? matchedSem.endDate.split("T")[0] : "");
+                    } else {
+                      setFormStartDate("");
+                      setFormEndDate("");
+                    }
+                  }}
+                  className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-805 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                >
+                  <option value="">{t("class.selectSemesterPlaceholder")}</option>
+                  {semesters.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* Tên lớp học */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                  Tên lớp học <span className="text-rose-500">*</span>
+                  {t("class.formNameLabel")} <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
-                  placeholder="Nhập tên lớp học"
-                  className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                  placeholder={t("class.formNamePlaceholder")}
+                  className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-805 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                 />
               </div>
 
               {/* Mã lớp học */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                  Mã lớp học <span className="text-rose-500">*</span>
+                  {t("class.formCodeLabel")} <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={formCode}
                   onChange={(e) => setFormCode(e.target.value)}
-                  placeholder="Mã lớp học"
-                  className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-850 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                  placeholder={t("class.formCodePlaceholder")}
+                  className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-855 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                 />
               </div>
 
@@ -789,7 +825,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                 {/* Ngày bắt đầu */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    Ngày bắt đầu <span className="text-rose-500">*</span>
+                    {t("class.formStartDateLabel")} <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
                     <input
@@ -797,60 +833,68 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                       required
                       ref={startDateInputRef}
                       value={formStartDate}
+                      disabled={!!formSemesterId}
                       onChange={(e) => setFormStartDate(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-transparent pl-3 pr-10 py-2 text-sm text-gray-850 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                      className="w-full rounded-lg border border-gray-200 bg-transparent disabled:bg-gray-50/60 dark:disabled:bg-gray-950/40 pl-3 pr-10 py-2 text-sm text-gray-855 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                     />
-                    <button
-                      type="button"
-                      onClick={() => startDateInputRef.current?.showPicker()}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-brand-500 transition-colors"
-                    >
-                      <Calendar className="w-4 h-4 text-gray-400" />
-                    </button>
+                    {!formSemesterId && (
+                      <button
+                        type="button"
+                        onClick={() => startDateInputRef.current?.showPicker()}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-brand-500 transition-colors"
+                      >
+                        <Calendar className="w-4 h-4 text-gray-400" />
+                      </button>
+                    )}
                   </div>
+                  {formSemesterId && (
+                    <span className="text-[10px] text-gray-400 flex items-center gap-1 mt-1">
+                      <Info className="w-3 h-3 text-gray-400 shrink-0" />
+                      <span>{t("class.startDateHelpSemester")}</span>
+                    </span>
+                  )}
                 </div>
 
                 {/* Ngày kết thúc */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    Ngày kết thúc (dự kiến)
+                    {t("class.formEndDateLabel")}{formSemesterId ? "" : t("class.formEndDateExpectedSuffix")}
                   </label>
                   <input
                     type="date"
                     disabled
                     value={formEndDate}
-                    className="w-full rounded-lg border border-gray-200 bg-gray-50 dark:bg-gray-950 disabled:bg-gray-50 dark:disabled:bg-gray-950/40 disabled:text-gray-400 dark:disabled:text-gray-600 px-3 py-2 text-sm text-gray-800 dark:border-gray-800"
+                    className="w-full rounded-lg border border-gray-200 bg-gray-50 dark:bg-gray-955 disabled:bg-gray-50 dark:disabled:bg-gray-955/40 disabled:text-gray-400 dark:disabled:text-gray-650 px-3 py-2 text-sm text-gray-855 dark:border-gray-800"
                   />
                   <span className="text-[10px] text-gray-400 flex items-center gap-1 mt-1">
                     <Info className="w-3 h-3 text-gray-400 shrink-0" />
-                    <span>Tự tính dựa trên lịch &amp; số buổi</span>
+                    <span>{formSemesterId ? t("class.endDateHelpSemester") : t("class.endDateHelpCalc")}</span>
                   </span>
                 </div>
 
                 {/* Số buổi dự kiến */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    Số buổi dự kiến <span className="text-rose-500">*</span>
+                    {t("class.formExpectedLessonsLabel")} {!formSemesterId && <span className="text-rose-500">*</span>}
                   </label>
                   <input
                     type="number"
                     min={1}
                     max={200}
-                    value={formExpectedLessons}
+                    disabled={!!formSemesterId}
+                    value={formSemesterId ? "" : formExpectedLessons}
                     onChange={(e) => setFormExpectedLessons(Number(e.target.value))}
-                    placeholder="VD: 30"
-                    className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-850 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                    placeholder={formSemesterId ? t("class.expectedLessonsPlaceholderSemester") : t("class.expectedLessonsPlaceholder")}
+                    className="w-full rounded-lg border border-gray-200 bg-transparent disabled:bg-gray-50/60 dark:disabled:bg-gray-955/40 px-3 py-2 text-sm text-gray-855 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-955 dark:text-white"
                   />
-                  <span className="text-[10px] text-gray-400 block">
-                    Tổng số buổi học dự kiến
+                  <span className="text-[10px] text-gray-400 block mt-1">
+                    {formSemesterId ? t("class.expectedLessonsHelpSemester") : t("class.expectedLessonsHelpManual")}
                   </span>
                 </div>
               </div>
-
-              {/* Giáo viên chính */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                  Giáo viên chính
+                  {t("class.formTeacherLabel")}
                 </label>
                 <select
                   value={formTeacherId || ""}
@@ -859,9 +903,9 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                     setFormNewTeacherEmail(null);
                     setFormNewTeacherName(null);
                   }}
-                  className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-850 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                  className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-855 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                 >
-                  <option value="">Chọn giáo viên</option>
+                  <option value="">{t("class.formTeacherPlaceholder")}</option>
                   {teachers.map((teacher) => (
                     <option key={teacher.id} value={teacher.id}>
                       {teacher.name}
@@ -872,7 +916,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                   <div className="mt-1.5 p-2 bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-150 dark:border-emerald-900/30 rounded-lg flex items-center justify-between gap-2">
                     <span className="text-[11px] text-emerald-800 dark:text-emerald-450 font-medium flex items-center gap-1.5">
                       <UserPlus className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-450 shrink-0" />
-                      <span>Giáo viên mới: <strong>{formNewTeacherName}</strong> ({formNewTeacherEmail}) - Sẽ tự động tạo tài khoản.</span>
+                      <span>{t("class.newTeacherDetected")}<strong>{formNewTeacherName}</strong> ({formNewTeacherEmail}){t("class.newTeacherAutoCreate")}</span>
                     </span>
                     <button
                       type="button"
@@ -881,7 +925,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                         setFormNewTeacherName(null);
                       }}
                       className="text-gray-400 hover:text-rose-500 transition-colors shrink-0"
-                      title="Hủy giáo viên mới"
+                      title={t("class.cancelNewTeacher")}
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -892,7 +936,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
               {/* Khóa học */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                  Khóa học
+                  {t("class.formCourseLabel")}
                 </label>
                 <select
                   value={formCourseId || ""}
@@ -900,9 +944,9 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                     setFormCourseId(e.target.value ? Number(e.target.value) : null);
                     setFormNewCourseName(null);
                   }}
-                  className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-850 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                  className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-855 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                 >
-                  <option value="">Chọn khóa học</option>
+                  <option value="">{t("class.formCoursePlaceholder")}</option>
                   {courses.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
@@ -911,7 +955,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                   <div className="mt-1.5 p-2 bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-150 dark:border-emerald-900/30 rounded-lg flex items-center justify-between gap-2">
                     <span className="text-[11px] text-emerald-800 dark:text-emerald-450 font-medium flex items-center gap-1.5">
                       <BookPlus className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-450 shrink-0" />
-                      <span>Khóa học mới: <strong>{formNewCourseName}</strong> - Sẽ tự động tạo khóa học mới khi lưu.</span>
+                      <span>{t("class.newCourseDetected")}<strong>{formNewCourseName}</strong>{t("class.newCourseAutoCreate")}</span>
                     </span>
                     <button
                       type="button"
@@ -919,7 +963,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                         setFormNewCourseName(null);
                       }}
                       className="text-gray-400 hover:text-rose-500 transition-colors shrink-0"
-                      title="Hủy khóa học mới"
+                      title={t("class.cancelNewCourse")}
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -931,7 +975,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
               {/* Chọn học sinh */}
               <div className="col-span-1 sm:col-span-2 space-y-2">
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                  Chọn học sinh (Có thể thêm sau)
+                  {t("class.formStudentsSelectLabel")}
                 </label>
                 
                 {/* Search Combobox Container */}
@@ -939,7 +983,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                   <div className="relative">
                     <input
                       type="text"
-                      placeholder="Tìm kiếm và chọn học sinh theo mã hoặc tên..."
+                      placeholder={t("class.searchStudentsPlaceholder")}
                       value={studentSearchText}
                       onFocus={() => setShowDropdown(true)}
                       onChange={(e) => setStudentSearchText(e.target.value)}
@@ -951,15 +995,15 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                   </div>
 
                   {showDropdown && (
-                    <div className="absolute z-50 left-0 right-0 mt-1.5 max-h-60 overflow-y-auto bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg shadow-lg animate-fadeIn pr-1">
+                    <div className="absolute z-50 left-0 right-0 mt-1.5 max-h-60 overflow-y-auto bg-white dark:bg-gray-955 border border-gray-200 dark:border-gray-800 rounded-lg shadow-lg animate-fadeIn pr-1">
                       {isSearching ? (
                         <div className="flex items-center justify-center py-4 text-xs text-gray-500 dark:text-gray-400">
                           <div className="inline-block animate-spin rounded-full h-4.5 w-4.5 border-2 border-brand-500 border-t-transparent mr-2"></div>
-                          Đang tìm kiếm...
+                          {t("class.searchingStudents")}
                         </div>
                       ) : searchResults.length === 0 ? (
                         <div className="py-3 px-4 text-xs text-gray-400 italic">
-                          Không tìm thấy học sinh nào
+                          {t("class.noStudentsFound")}
                         </div>
                       ) : (
                         <div className="py-1">
@@ -982,7 +1026,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                                 </span>
                                 {isAlreadySelected && (
                                   <span className="text-[10px] bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400 px-1.5 py-0.5 rounded font-bold">
-                                    Đã chọn
+                                    {t("class.studentAlreadySelectedBadge")}
                                   </span>
                                 )}
                               </button>
@@ -996,102 +1040,102 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
 
                 {/* Selected Students Cards Region */}
                 {selectedStudents.length > 0 && (
-                  <div className="mt-3 space-y-2">
-                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 block">
-                      Đã chọn {selectedStudents.length} học sinh:
-                    </span>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-64 overflow-y-auto pr-1 py-1">
-                      {selectedStudents.map((student) => (
-                        <div
-                          key={student.id}
-                          className={`relative p-2.5 border rounded-xl flex items-center gap-2.5 shadow-theme-xs transition-colors duration-300 animate-fadeIn ${
-                            conflictingEmails.includes(student.email || "")
-                              ? "bg-white dark:bg-gray-900 border-red-300 dark:border-red-500/50"
-                              : "bg-white dark:bg-gray-900 border-gray-150 dark:border-gray-800 hover:border-rose-300 dark:hover:border-rose-500/40"
-                          }`}
-                        >
-                          {/* Avatar Circle */}
-                          <div className="w-7 h-7 rounded-full bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center font-bold text-xs shrink-0">
-                            {student.name ? student.name.charAt(0).toUpperCase() : "?"}
-                          </div>
-                          
-                          {/* Student Details */}
-                          <div className="min-w-0 flex-1 pr-6">
-                            <div className="flex items-center justify-between gap-1">
-                              <span className="text-xs font-semibold text-gray-900 dark:text-white truncate">
-                                {student.name}
-                              </span>
-                              <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 shrink-0">
-                                {student.code}
-                              </span>
-                            </div>
-                            <span className="block text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                              {student.email || "Không có email"}
-                            </span>
-                          </div>
+                   <div className="mt-3 space-y-2">
+                     <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 block">
+                       {t("class.selectedCountStudents", { count: selectedStudents.length })}
+                     </span>
+                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-64 overflow-y-auto pr-1 py-1">
+                       {selectedStudents.map((student) => (
+                         <div
+                           key={student.id}
+                           className={`relative p-2.5 border rounded-xl flex items-center gap-2.5 shadow-theme-xs transition-colors duration-300 animate-fadeIn ${
+                             conflictingEmails.includes(student.email || "")
+                               ? "bg-white dark:bg-gray-900 border-red-300 dark:border-red-500/50"
+                               : "bg-white dark:bg-gray-900 border-gray-150 dark:border-gray-800 hover:border-rose-300 dark:hover:border-rose-500/40"
+                           }`}
+                         >
+                           {/* Avatar Circle */}
+                           <div className="w-7 h-7 rounded-full bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center font-bold text-xs shrink-0">
+                             {student.name ? student.name.charAt(0).toUpperCase() : "?"}
+                           </div>
+                           
+                           {/* Student Details */}
+                           <div className="min-w-0 flex-1 pr-6">
+                             <div className="flex items-center justify-between gap-1">
+                               <span className="text-xs font-semibold text-gray-900 dark:text-white truncate">
+                                 {student.name}
+                               </span>
+                               <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 shrink-0">
+                                 {student.code}
+                               </span>
+                             </div>
+                             <span className="block text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                               {student.email || t("class.noEmail")}
+                             </span>
+                           </div>
 
-                          {/* Remove Button */}
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveStudent(student.id)}
-                            className="absolute right-1.5 top-1.5 text-gray-400 hover:text-rose-500 dark:text-gray-500 dark:hover:text-rose-450 transition-colors p-1"
-                            title="Xóa học sinh"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                           {/* Remove Button */}
+                           <button
+                             type="button"
+                             onClick={() => handleRemoveStudent(student.id)}
+                             className="absolute right-1.5 top-1.5 text-gray-400 hover:text-rose-500 dark:text-gray-500 dark:hover:text-rose-450 transition-colors p-1"
+                             title={t("class.removeStudentTooltip")}
+                           >
+                             <X className="w-3 h-3" />
+                           </button>
+                         </div>
+                       ))}
+                     </div>
+                   </div>
                 )}
 
                 {/* New Students Imported Cards Region */}
                 {formNewStudents.length > 0 && (
-                  <div className="mt-3 space-y-2 animate-fadeIn">
-                    <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-450 block flex items-center gap-1">
-                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-                      Học sinh mới phát hiện trong Excel ({formNewStudents.length} học sinh) - sẽ tự động tạo tài khoản:
-                    </span>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-64 overflow-y-auto pr-1 py-1">
-                      {formNewStudents.map((student) => (
-                        <div
-                          key={student.email}
-                          className={`relative p-2.5 border rounded-xl flex items-center gap-2.5 shadow-theme-xs transition-colors duration-300 ${
-                            conflictingEmails.includes(student.email)
-                              ? "bg-emerald-50/20 dark:bg-emerald-950/10 border-red-300 dark:border-red-500/50"
-                              : "bg-emerald-50/20 dark:bg-emerald-950/10 border-emerald-150 dark:border-emerald-900/30 hover:border-rose-300 dark:hover:border-rose-500/40"
-                          }`}
-                        >
-                          <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0">
-                            {student.name ? student.name.charAt(0).toUpperCase() : "?"}
-                          </div>
-                          
-                          <div className="min-w-0 flex-1 pr-6">
-                            <div className="flex items-center justify-between gap-1">
-                              <span className="text-xs font-semibold text-gray-900 dark:text-white truncate">
-                                {student.name}
-                              </span>
-                              <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-450 shrink-0">
-                                [Mới]
-                              </span>
-                            </div>
-                            <span className="block text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                              {student.email}
-                            </span>
-                          </div>
+                   <div className="mt-3 space-y-2 animate-fadeIn">
+                     <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-450 block flex items-center gap-1">
+                       <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                       {t("class.newStudentsExcelDetected", { count: formNewStudents.length })}
+                     </span>
+                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-64 overflow-y-auto pr-1 py-1">
+                       {formNewStudents.map((student) => (
+                         <div
+                           key={student.email}
+                           className={`relative p-2.5 border rounded-xl flex items-center gap-2.5 shadow-theme-xs transition-colors duration-300 ${
+                             conflictingEmails.includes(student.email)
+                               ? "bg-emerald-50/20 dark:bg-emerald-950/10 border-red-300 dark:border-red-500/50"
+                               : "bg-emerald-50/20 dark:bg-emerald-950/10 border-emerald-150 dark:border-emerald-900/30 hover:border-rose-300 dark:hover:border-rose-500/40"
+                           }`}
+                         >
+                           <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-450 flex items-center justify-center font-bold text-xs shrink-0">
+                             {student.name ? student.name.charAt(0).toUpperCase() : "?"}
+                           </div>
+                           
+                           <div className="min-w-0 flex-1 pr-6">
+                             <div className="flex items-center justify-between gap-1">
+                               <span className="text-xs font-semibold text-gray-900 dark:text-white truncate">
+                                 {student.name}
+                               </span>
+                               <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-450 shrink-0">
+                                 {t("class.badgeNew")}
+                               </span>
+                             </div>
+                             <span className="block text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                               {student.email}
+                             </span>
+                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveNewStudent(student.email)}
-                            className="absolute right-1.5 top-1.5 text-gray-400 hover:text-rose-500 dark:text-gray-500 dark:hover:text-rose-450 transition-colors p-1"
-                            title="Xóa học sinh"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                           <button
+                             type="button"
+                             onClick={() => handleRemoveNewStudent(student.email)}
+                             className="absolute right-1.5 top-1.5 text-gray-400 hover:text-rose-500 dark:text-gray-500 dark:hover:text-rose-450 transition-colors p-1"
+                             title={t("class.removeStudentTooltip")}
+                           >
+                             <X className="w-3 h-3" />
+                           </button>
+                         </div>
+                       ))}
+                     </div>
+                   </div>
                 )}
               </div>
             </div>
@@ -1099,12 +1143,12 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
             {/* Mô tả lớp học */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                Mô tả lớp học
+                {t("class.formDescLabel")}
               </label>
               <textarea
                 value={formDesc}
                 onChange={(e) => setFormDesc(e.target.value)}
-                placeholder="Mô tả chi tiết về lớp học..."
+                placeholder={t("class.formDescPlaceholder")}
                 rows={3}
                 className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white resize-none"
               />
@@ -1116,10 +1160,10 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
             <div>
               <h3 className="text-md font-bold text-gray-900 dark:text-white flex items-center gap-2 pb-1">
                 <CalendarDays className="w-4.5 h-4.5 text-brand-500" />
-                Lịch học hàng tuần
+                {t("class.weeklyScheduleLabel")}
               </h3>
               <p className="text-xs text-gray-500">
-                Chọn các ngày trong tuần học và cấu hình thời gian, phòng học tương ứng.
+                {t("class.weeklyScheduleHelp")}
               </p>
             </div>
 
@@ -1149,14 +1193,20 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                       <span className={`text-sm font-bold ${
                         isSelected ? "text-brand-700 dark:text-brand-400" : "text-gray-600 dark:text-gray-400"
                       }`}>
-                        {dayObj.label}
+                        {dayObj.value === 1 ? t("common.mon") : 
+                         dayObj.value === 2 ? t("common.tue") : 
+                         dayObj.value === 3 ? t("common.wed") : 
+                         dayObj.value === 4 ? t("common.thu") : 
+                         dayObj.value === 5 ? t("common.fri") : 
+                         dayObj.value === 6 ? t("common.sat") : 
+                         t("common.sun")}
                       </span>
                     </label>
 
                     {/* Time Slot (fixed dropdown) */}
                     <div className="space-y-1">
                       <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                        Ca học
+                        {t("class.formSlotLabel")}
                       </span>
                       <select
                         disabled={!isSelected}
@@ -1179,18 +1229,18 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                     {/* Room */}
                     <div className="space-y-1">
                       <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                        Phòng học
+                        {t("class.formRoomLabel")}
                       </span>
                       <select
                         disabled={!isSelected}
                         value={config?.roomId || ""}
                         onChange={(e) => updateDayConfig(day, "roomId", e.target.value ? Number(e.target.value) : null)}
-                        className="w-full px-2 py-1 text-xs border border-gray-205 dark:border-gray-800 rounded-md bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 disabled:bg-gray-50 dark:disabled:bg-gray-950/60 disabled:text-gray-400"
+                        className="w-full px-2 py-1 text-xs border border-gray-205 dark:border-gray-800 rounded-md bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 disabled:bg-gray-50 dark:disabled:bg-gray-955/60 disabled:text-gray-400"
                       >
-                        <option value="">-- Trống --</option>
+                        <option value="">{t("class.selectRoomEmpty")}</option>
                         {rooms.map((r) => (
                           <option key={r.id} value={r.id}>
-                            {r.name} - {r.capacity ? `${r.capacity} chỗ` : "Không giới hạn"}
+                            {r.name} - {r.capacity ? t("class.seats", { count: r.capacity }) : t("class.unlimitedSeats")}
                           </option>
                         ))}
                       </select>
@@ -1208,22 +1258,34 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
         <div className="mx-6 mt-4 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-xl space-y-2 animate-fadeIn">
           <div className="flex items-center gap-2 text-amber-800 dark:text-amber-400 font-semibold text-xs">
             <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
-            <span>Phát hiện trùng lịch học!</span>
+            <span>{t("class.conflictsDetectedAlert")}</span>
           </div>
           <ul className="list-disc pl-5 space-y-1 text-[11px] text-amber-700 dark:text-amber-450">
             {conflicts.map((c, index) => {
               const formattedDate = c.date ? new Date(c.date).toLocaleDateString("vi-VN") : "";
               if (c.type === "Teacher") {
                 return (
-                  <li key={index}>
-                    Giáo viên <strong>{c.teacherName}</strong> bận dạy lớp <strong>{c.conflictClassCode}</strong> vào ngày <strong>{formattedDate}</strong> ({c.startTime} - {c.endTime}).
-                  </li>
+                  <li key={index} dangerouslySetInnerHTML={{
+                    __html: t("class.conflictTeacherMsg", {
+                      teacherName: `<strong>${c.teacherName}</strong>`,
+                      conflictClassCode: `<strong>${c.conflictClassCode}</strong>`,
+                      date: `<strong>${formattedDate}</strong>`,
+                      startTime: c.startTime,
+                      endTime: c.endTime
+                    })
+                  }} />
                 );
               } else {
                 return (
-                  <li key={index}>
-                    Phòng học <strong>{c.roomName}</strong> bận cho lớp <strong>{c.conflictClassCode}</strong> vào ngày <strong>{formattedDate}</strong> ({c.startTime} - {c.endTime}).
-                  </li>
+                  <li key={index} dangerouslySetInnerHTML={{
+                    __html: t("class.conflictRoomMsg", {
+                      roomName: `<strong>${c.roomName}</strong>`,
+                      conflictClassCode: `<strong>${c.conflictClassCode}</strong>`,
+                      date: `<strong>${formattedDate}</strong>`,
+                      startTime: c.startTime,
+                      endTime: c.endTime
+                    })
+                  }} />
                 );
               }
             })}
@@ -1243,7 +1305,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
             type="button"
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-250 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-800 transition-colors"
           >
-            Hủy bỏ
+            {t("class.btnCancelDiscard")}
           </button>
           <button
             onClick={handleSubmitForm}
@@ -1251,7 +1313,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
             disabled={isSubmitting}
             className="px-4 py-2 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 shadow-theme-xs disabled:opacity-60 transition-colors"
           >
-            {isSubmitting ? "Đang lưu..." : editingItem ? "Lưu thay đổi" : "Tạo lớp học"}
+            {isSubmitting ? t("class.btnSaving") : editingItem ? t("class.btnSave") : t("class.btnCreateClass")}
           </button>
         </div>
       </div>

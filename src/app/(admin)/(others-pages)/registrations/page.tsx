@@ -1,17 +1,17 @@
 "use client";
 
 import React from "react";
-import SemesterTable from "@/components/semester/SemesterTable";
+import StudentRegistrationTable from "@/components/registration/StudentRegistrationTable";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { useTranslation } from "react-i18next";
 
-export default function SemestersPage() {
+export default function RegistrationsPage() {
   const { t } = useTranslation();
   return (
     <div>
-      <PageBreadcrumb pageTitle={t("sidebar.semesters")} />
+      <PageBreadcrumb pageTitle={t("registration.title")} />
       <div className="space-y-6">
-        <SemesterTable />
+        <StudentRegistrationTable />
       </div>
     </div>
   );
