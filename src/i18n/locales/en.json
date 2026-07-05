@@ -850,6 +850,7 @@
     "formTeacherPlaceholder": "Select teacher...",
     "formCourseLabel": "Associated Course",
     "formCoursePlaceholder": "Select course...",
+    "formSemesterLabel": "Semester",
     "formScheduleLabel": "General Schedule",
     "formSchedulePlaceholder": "e.g. Sunday 17:30-19:00...",
     "formStudentsLabel": "Student Enrollment",

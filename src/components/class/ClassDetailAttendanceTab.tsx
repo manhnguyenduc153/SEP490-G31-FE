@@ -363,29 +363,29 @@ export default function ClassDetailAttendanceTab({
             </div>
 
             {activeSchedule && (
-              <div className="md:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-50/50 dark:bg-gray-955/30 p-3 rounded-xl border border-gray-150/80 dark:border-gray-800/80">
-                <div>
-                  <span className="block text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">{t("class.status", { defaultValue: "Trạng thái" })}</span>
-                  <span className={`inline-flex items-center px-2 py-0.5 mt-0.5 rounded text-[10px] font-bold ${getScheduleStatusBadge(activeSchedule.status)}`}>
+              <div className="md:col-span-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-gray-50/50 dark:bg-gray-955/30 p-3 rounded-xl border border-gray-150/80 dark:border-gray-800/80">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="font-bold text-gray-450 dark:text-gray-500">{t("class.status", { defaultValue: "Trạng thái" })}:</span>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${getScheduleStatusBadge(activeSchedule.status)}`}>
                     {getScheduleStatusText(activeSchedule.status)}
                   </span>
                 </div>
-                <div>
-                  <span className="block text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">{t("class.room", { defaultValue: "Phòng học" })}</span>
-                  <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 mt-1 block truncate" title={activeSchedule.roomName || ""}>
-                    🚪 {activeSchedule.roomName || "-"}
+                <div className="flex items-center gap-2 text-xs min-w-0">
+                  <span className="font-bold text-gray-455 dark:text-gray-500 shrink-0">{t("class.room", { defaultValue: "Phòng học" })}:</span>
+                  <span className="font-semibold text-gray-800 dark:text-gray-200 truncate" title={activeSchedule.roomName || ""}>
+                    {activeSchedule.roomName || "-"}
                   </span>
                 </div>
-                <div>
-                  <span className="block text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">{t("class.slot", { defaultValue: "Ca học / Giờ" })}</span>
-                  <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 mt-1 block truncate" title={activeSchedule.startTime || ""}>
-                    ⏰ {activeSchedule.startTime} - {activeSchedule.endTime}
+                <div className="flex items-center gap-2 text-xs min-w-0">
+                  <span className="font-bold text-gray-455 dark:text-gray-500 shrink-0">{t("class.slot", { defaultValue: "Ca học / Giờ" })}:</span>
+                  <span className="font-semibold text-gray-800 dark:text-gray-200 truncate" title={activeSchedule.startTime || ""}>
+                    {activeSchedule.startTime} - {activeSchedule.endTime}
                   </span>
                 </div>
-                <div>
-                  <span className="block text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">{t("class.teacher", { defaultValue: "Giáo viên" })}</span>
-                  <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 mt-1 block truncate" title={activeSchedule.teacherName || ""}>
-                    👤 {activeSchedule.teacherName || "-"}
+                <div className="flex items-center gap-2 text-xs min-w-0">
+                  <span className="font-bold text-gray-455 dark:text-gray-500 shrink-0">{t("class.teacher", { defaultValue: "Giáo viên" })}:</span>
+                  <span className="font-semibold text-gray-800 dark:text-gray-200 truncate" title={activeSchedule.teacherName || ""}>
+                    {activeSchedule.teacherName || "-"}
                   </span>
                 </div>
               </div>

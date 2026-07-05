@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { FileText, Download, Clock, AlertTriangle } from "lucide-react";
+import { FileText, Download, Clock, AlertTriangle, Trophy, Target } from "lucide-react";
 import { homeworkApi, HomeworkDto } from "@/services/homework.api";
 import { ENV } from "@/config/env";
 
@@ -115,16 +115,19 @@ export default function ClassDetailHomeworkTab({
                 <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-gray-50 dark:border-gray-850 text-xs text-gray-500">
                   <div className="flex flex-wrap gap-x-4 gap-y-2">
                     {hw.dueDate && (
-                      <span>
-                        ⏰ {t("class.dueDate", { defaultValue: "Hạn nộp" })}: <strong className="text-gray-700 dark:text-gray-300">{new Date(hw.dueDate).toLocaleString(t("locale", { defaultValue: "vi-VN" }))}</strong>
+                      <span className="inline-flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
+                        <span>{t("class.dueDate", { defaultValue: "Hạn nộp" })}: <strong className="text-gray-700 dark:text-gray-300">{new Date(hw.dueDate).toLocaleString(t("locale", { defaultValue: "vi-VN" }))}</strong></span>
                       </span>
                     )}
-                    <span>
-                      💯 {t("class.totalScore", { defaultValue: "Điểm tối đa" })}: <strong className="text-gray-700 dark:text-gray-300">{hw.totalScore}</strong>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Trophy className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
+                      <span>{t("class.totalScore", { defaultValue: "Điểm tối đa" })}: <strong className="text-gray-700 dark:text-gray-300">{hw.totalScore}</strong></span>
                     </span>
                     {hw.skill && (
-                      <span>
-                        🎯 {t("class.skill", { defaultValue: "Kỹ năng" })}: <strong className="text-gray-755 dark:text-gray-350 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">{hw.skill}</strong>
+                      <span className="inline-flex items-center gap-1.5">
+                        <Target className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
+                        <span>{t("class.skill", { defaultValue: "Kỹ năng" })}: <strong className="text-gray-755 dark:text-gray-350 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">{hw.skill}</strong></span>
                       </span>
                     )}
                   </div>

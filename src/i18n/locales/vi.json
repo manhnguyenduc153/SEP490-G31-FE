@@ -799,6 +799,7 @@
     "formTeacherPlaceholder": "Chọn giáo viên...",
     "formCourseLabel": "Khóa học liên kết",
     "formCoursePlaceholder": "Chọn khóa học...",
+    "formSemesterLabel": "Học kỳ",
     "formScheduleLabel": "Lịch học tổng quát",
     "formSchedulePlaceholder": "VD: CN 17:30-19:00...",
     "formStudentsLabel": "Danh sách học sinh",
