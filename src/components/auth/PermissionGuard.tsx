@@ -29,6 +29,11 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       return;
     }
 
+    if (role === "student" && (requiredPermission === "Exam" || requiredPermission === "ExamSchedule")) {
+      setHasPermission(true);
+      return;
+    }
+
     const userPermissions = authApi.getPermissions();
     setHasPermission(userPermissions.includes(requiredPermission));
   }, [requiredPermission]);

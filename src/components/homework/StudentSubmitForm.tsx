@@ -3,9 +3,10 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { homeworkApi, HomeworkDto, HomeworkSubmissionDto, HomeworkSubmissionSaveDto } from "@/services/homework.api";
 import { useDropzone } from "react-dropzone";
-import { UploadCloud, File, FileAudio, FileText, X } from "lucide-react";
+import { UploadCloud, File, FileAudio, FileText, FileVideo, X } from "lucide-react";
 import { teacherApi } from "@/services/teacher.api"; // Use for upload API
 import { ENV } from "@/config/env";
+import AttachmentPreview from "./AttachmentPreview";
 
 interface StudentSubmitFormProps {
   homework: HomeworkDto;
@@ -105,6 +106,7 @@ export default function StudentSubmitForm({ homework, onBack, showToast }: Stude
 
   const getFileIcon = (url: string) => {
     if (url.match(/\.(mp3|wav|ogg)$/i)) return <FileAudio className="w-5 h-5 text-blue-500" />;
+    if (url.match(/\.(mp4|mov|m4v|webm|avi|mkv)$/i)) return <FileVideo className="w-5 h-5 text-purple-500" />;
     if (url.match(/\.(pdf|docx|doc)$/i)) return <FileText className="w-5 h-5 text-red-500" />;
     return <File className="w-5 h-5 text-gray-500" />;
   };
@@ -155,6 +157,8 @@ export default function StudentSubmitForm({ homework, onBack, showToast }: Stude
           Trở lại
         </button>
       </div>
+
+      <AttachmentPreview urls={homework.attachmentUrls} title="Đề bài (Tệp đính kèm)" />
 
       <div className="border-t pt-6 mt-6">
         <h3 className="text-lg font-bold mb-4">Nộp bài của bạn</h3>

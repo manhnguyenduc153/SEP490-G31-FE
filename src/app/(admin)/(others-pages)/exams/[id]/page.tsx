@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { examApi, ExamItem } from "@/services/exam.api";
+import { StudentExamTaker } from "@/components/exam/StudentExamTaker";
 
 export default function ExamDetailPage() {
   const params = useParams();
@@ -11,11 +12,33 @@ export default function ExamDetailPage() {
   const [exam, setExam] = useState<ExamItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null); // null = not loaded yet
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<"success" | "error">("success");
+
+  // Read role first
+  useEffect(() => {
+    setUserRole(localStorage.getItem("role") || "");
+  }, []);
+
+  const showToast = (msg: string, type: "success" | "error" = "success") => {
+    setToastMessage(msg);
+    setToastType(type);
+  };
+
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timeout = setTimeout(() => setToastMessage(null), 3000);
+    return () => clearTimeout(timeout);
+  }, [toastMessage]);
 
   // Tabs state matching the mockup: Bảng điểm, Tổng quan, Thông số câu, Đề bài (Active), Lời giải
   const [activeTab, setActiveTab] = useState<"questions" | "explanation" | "grades" | "overview" | "stats">("questions");
 
+  // Only load exam via teacher API when user is NOT a student
   useEffect(() => {
+    if (userRole === null) return; // wait until role is determined
+    if (userRole === "Student") { setLoading(false); return; } // students don't use this path
     if (!id) return;
     async function loadExam() {
       setLoading(true);
@@ -34,7 +57,54 @@ export default function ExamDetailPage() {
       }
     }
     loadExam();
-  }, [id]);
+  }, [id, userRole]);
+
+  // ─── Role not yet determined — render nothing to avoid flash ───
+  if (userRole === null) return null;
+
+  // ─── STUDENT VIEW ───────────────────────────────────────────────
+  if (userRole === "Student") {
+    return (
+      <div className="space-y-6">
+        {toastMessage && (
+          <div className="fixed bottom-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
+            <span className="text-sm font-medium">{toastMessage}</span>
+          </div>
+        )}
+        <StudentExamTaker
+          examId={id!}
+          onBack={() => router.push("/exams")}
+          showToast={showToast}
+        />
+      </div>
+    );
+  }
+
+  // ─── TEACHER / ADMIN LOADING ────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px] text-gray-500">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500"></div>
+        <span className="ml-3 text-sm">Đang tải thông tin đề bài...</span>
+      </div>
+    );
+  }
+
+  if (error || !exam) {
+    return (
+      <div className="p-6 text-center text-error-500 font-semibold bg-white dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.05] rounded-2xl">
+        {error || "Không tìm thấy thông tin bài kiểm tra"}
+        <div className="mt-4">
+          <button
+            onClick={() => router.push("/exams")}
+            className="px-4 py-2 text-sm text-white bg-brand-500 rounded-lg hover:bg-brand-600 transition-colors"
+          >
+            Quay lại danh sách
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleDownload = () => {
     if (!exam || !exam.questions) return;
@@ -72,30 +142,6 @@ export default function ExamDetailPage() {
     document.body.removeChild(element);
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px] text-gray-500">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500"></div>
-        <span className="ml-3 text-sm">Đang tải thông tin đề bài...</span>
-      </div>
-    );
-  }
-
-  if (error || !exam) {
-    return (
-      <div className="p-6 text-center text-error-500 font-semibold bg-white dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.05] rounded-2xl">
-        {error || "Không tìm thấy thông tin bài kiểm tra"}
-        <div className="mt-4">
-          <button
-            onClick={() => router.push("/exams")}
-            className="px-4 py-2 text-sm text-white bg-brand-500 rounded-lg hover:bg-brand-600 transition-colors"
-          >
-            Quay lại danh sách
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">

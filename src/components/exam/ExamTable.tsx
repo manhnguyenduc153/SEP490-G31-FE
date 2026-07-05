@@ -17,6 +17,7 @@ import { examApi, ExamItem, ExamSaveDto } from "@/services/exam.api";
 import { classApi, ClassItem } from "@/services/class.api";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { Modal } from "@/components/ui/modal";
+import { CheckCircle, XCircle } from "lucide-react";
 
 export function ExamTable() {
   const { t } = useTranslation();
@@ -71,6 +72,18 @@ export function ExamTable() {
     const timeout = setTimeout(() => setToastMessage(null), 3000);
     return () => clearTimeout(timeout);
   }, [toastMessage]);
+
+  // ─── Read sessionStorage toast (after redirect from ExamForm) ───────────────
+  useEffect(() => {
+    const msg = sessionStorage.getItem("examToastMessage");
+    const type = sessionStorage.getItem("examToastType") as "success" | "error" | null;
+    if (msg) {
+      showToast(msg, type || "success");
+      sessionStorage.removeItem("examToastMessage");
+      sessionStorage.removeItem("examToastType");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ─── Debounce Search ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -193,13 +206,9 @@ export function ExamTable() {
       {toastMessage && (
         <div className="fixed bottom-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
           {toastType === "success" ? (
-            <svg className="w-5 h-5 text-emerald-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+            <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" />
           ) : (
-            <svg className="w-5 h-5 text-rose-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+            <XCircle className="w-5 h-5 text-rose-500 shrink-0" />
           )}
           <span className="text-sm font-medium">{toastMessage}</span>
         </div>
@@ -435,7 +444,10 @@ export function ExamTable() {
                   {/* Title & Timeago */}
                   <TableCell className="px-6 py-4 font-medium text-gray-900 dark:text-white">
                     <div className="space-y-1">
-                      <p className="font-semibold text-gray-950 dark:text-white hover:text-brand-500 transition-colors">
+                      <p 
+                        onClick={() => router.push(`/exams/${item.id}`)}
+                        className="font-semibold text-gray-950 dark:text-white hover:text-brand-500 transition-colors cursor-pointer"
+                      >
                         {item.title}
                       </p>
                       <p className="text-xs text-gray-400 font-medium">
