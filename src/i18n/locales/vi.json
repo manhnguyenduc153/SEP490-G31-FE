@@ -617,6 +617,20 @@
     "deleteTooltip": "Xóa",
     "viewTooltip": "Xem chi tiết"
   },
+  "homework": {
+    "colStatus": "Trạng thái",
+    "formStatusLabel": "Trạng thái",
+    "statusActive": "Hoạt động",
+    "statusInactive": "Ngưng hoạt động",
+    "submissionGraded": "Đã chấm bài",
+    "submissionUngraded": "Chưa chấm",
+    "loadListError": "Lỗi khi tải danh sách bài tập",
+    "loadClassError": "Lỗi khi tải danh sách lớp",
+    "selectClassLabel": "Chọn lớp học",
+    "noClasses": "Không có lớp học nào",
+    "classCount": "{{count}} lớp",
+    "listTitle": "Danh sách bài tập"
+  },
   "teacher": {
     "title": "Quản lý Giáo viên",
     "description": "Quản lý danh sách giáo viên trong trường.",
