@@ -9,7 +9,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Eye, Pencil, Plus } from "lucide-react";
-import { homeworkApi, HomeworkDto } from "@/services/homework.api";
+import { homeworkApi, HomeworkDto, HomeworkSubmissionDto } from "@/services/homework.api";
+import { useTranslation } from "react-i18next";
 
 interface HomeworkListProps {
   classId: number;
@@ -30,7 +31,9 @@ export default function HomeworkList({
   refreshKey,
   userRole
 }: HomeworkListProps) {
+  const { t } = useTranslation();
   const [items, setItems] = useState<HomeworkDto[]>([]);
+  const [studentSubmissions, setStudentSubmissions] = useState<Record<number, HomeworkSubmissionDto | null>>({});
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -41,17 +44,49 @@ export default function HomeworkList({
         const res = await homeworkApi.getHomeworkByClass(classId);
         if (mounted && res.success) {
           setItems(res.data);
+
+          if (userRole === "Student") {
+            const submissionEntries = await Promise.all(
+              res.data.map(async (homework) => {
+                try {
+                  const submissionRes = await homeworkApi.getMySubmission(homework.id);
+                  return [homework.id, submissionRes.success ? submissionRes.data ?? null : null] as const;
+                } catch (error) {
+                  console.error("Error loading homework submission status", error);
+                  return [homework.id, null] as const;
+                }
+              })
+            );
+
+            if (mounted) {
+              setStudentSubmissions(Object.fromEntries(submissionEntries));
+            }
+          } else {
+            setStudentSubmissions({});
+          }
         }
       } catch (err) {
         console.error(err);
-        if (mounted) showToast("Lỗi khi tải danh sách bài tập", "error");
+        if (mounted) showToast(t("homework.loadListError", { defaultValue: "Lỗi khi tải danh sách bài tập" }), "error");
       } finally {
         if (mounted) setIsLoading(false);
       }
     }
     fetchHomeworks();
     return () => { mounted = false; };
-  }, [classId, refreshKey, showToast]);
+  }, [classId, refreshKey, showToast, userRole, t]);
+
+  const getStudentGradingStatus = (homeworkId: number) => {
+    const submission = studentSubmissions[homeworkId];
+    const isGraded = submission?.status === 2 || (submission?.score !== null && submission?.score !== undefined);
+
+    return {
+      label: isGraded
+        ? t("homework.submissionGraded", { defaultValue: "Đã chấm bài" })
+        : t("homework.submissionUngraded", { defaultValue: "Chưa chấm" }),
+      className: isGraded ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-700",
+    };
+  };
 
   return (
     <div className="w-full bg-white dark:bg-gray-900 rounded-2xl shadow-xs overflow-hidden">
@@ -73,7 +108,7 @@ export default function HomeworkList({
               <TableCell className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">Tiêu đề</TableCell>
               <TableCell className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">Kỹ năng</TableCell>
               <TableCell className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">Hạn nộp</TableCell>
-              <TableCell className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">Trạng thái</TableCell>
+              <TableCell className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("homework.colStatus", { defaultValue: "Trạng thái" })}</TableCell>
               <TableCell className="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">Thao tác</TableCell>
             </TableRow>
           </TableHeader>
@@ -99,8 +134,18 @@ export default function HomeworkList({
                     {item.dueDate ? new Date(item.dueDate).toLocaleDateString("vi-VN") : "Không có"}
                   </TableCell>
                   <TableCell className="px-5 py-4">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${item.status === 1 ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-800'}`}>
-                      {item.status === 1 ? "Hiển thị" : "Bản nháp"}
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                      userRole === "Student"
+                        ? getStudentGradingStatus(item.id).className
+                        : item.status === 1
+                          ? t("homework.statusActive", { defaultValue: "Hoạt động" })
+                          : t("homework.statusInactive", { defaultValue: "Ngưng hoạt động" })}
+                    }`}>
+                      {userRole === "Student"
+                        ? getStudentGradingStatus(item.id).label
+                        : item.status === 1
+                          ? t("homework.statusActive", { defaultValue: "Hoạt động" })
+                          : t("homework.statusInactive", { defaultValue: "Ngưng hoạt động" })}
                     </span>
                   </TableCell>
                   <TableCell className="px-5 py-4 text-right">

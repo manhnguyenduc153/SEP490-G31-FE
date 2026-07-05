@@ -5,8 +5,9 @@ import { homeworkApi, HomeworkDto, HomeworkSaveDto } from "@/services/homework.a
 import { teacherApi } from "@/services/teacher.api";
 import { parseJwt } from "@/services/api";
 import { useDropzone } from "react-dropzone";
-import { X, UploadCloud, File, FileAudio, FileText } from "lucide-react";
+import { X, UploadCloud, File, FileAudio, FileText, FileVideo } from "lucide-react";
 import { ENV } from "@/config/env";
+import { useTranslation } from "react-i18next";
 
 interface HomeworkFormProps {
   classId: number;
@@ -18,6 +19,7 @@ interface HomeworkFormProps {
 }
 
 export default function HomeworkForm({ classId, classTeacherId, editingItem, onCancel, onSuccess, showToast }: HomeworkFormProps) {
+  const { t } = useTranslation();
   
   const [formData, setFormData] = useState<HomeworkSaveDto>({
     classId: classId,
@@ -33,6 +35,7 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (editingItem) {
@@ -52,10 +55,65 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    setFieldErrors(prev => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
     setFormData(prev => ({
       ...prev,
       [name]: name === "totalScore" || name === "status" ? Number(value) : value
     }));
+  };
+
+  const RequiredMark = () => <span className="text-red-500">*</span>;
+
+  const inputClassName = (fieldName: string) =>
+    `w-full px-4 py-2 border rounded-lg focus:ring focus:ring-brand-500/20 ${
+      fieldErrors[fieldName] ? "border-red-500 focus:border-red-500" : ""
+    }`;
+
+  const renderError = (fieldName: string) =>
+    fieldErrors[fieldName] ? (
+      <p className="mt-1 text-xs font-medium text-red-500">{fieldErrors[fieldName]}</p>
+    ) : null;
+
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+    const title = formData.title.trim();
+
+    if (!classId || classId <= 0) {
+      errors.classId = "Khong xac dinh duoc lop hoc.";
+    }
+
+    if (!formData.teacherId || formData.teacherId <= 0) {
+      errors.teacherId = "Khong xac dinh duoc giao vien.";
+    }
+
+    if (!title) {
+      errors.title = "Tiêu đề không được để trống.";
+    } else if (title.length > 500) {
+      errors.title = "Tiêu đề không được vượt quá 500 ký tự.";
+    }
+
+    if (!Number.isFinite(formData.totalScore)) {
+      errors.totalScore = "Tổng điểm là bắt buộc.";
+    } else if (formData.totalScore < 0 || formData.totalScore > 1000) {
+      errors.totalScore = "Tổng điểm phải nằm trong khoảng 0 đến 1000.";
+    }
+
+    if (![0, 1].includes(formData.status)) {
+      errors.status = "Vui lòng chọn trạng thái hợp lệ.";
+    }
+
+    setFieldErrors(errors);
+
+    if (errors.classId || errors.teacherId) {
+      showToast(errors.classId || errors.teacherId, "error");
+    }
+
+    return Object.keys(errors).length === 0;
   };
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -92,6 +150,9 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateForm()) {
+      return;
+    }
     if (!formData.title.trim()) {
       showToast("Tiêu đề không được để trống", "error");
       return;
@@ -126,6 +187,7 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
 
   const getFileIcon = (url: string) => {
     if (url.match(/\.(mp3|wav|ogg)$/i)) return <FileAudio className="w-5 h-5 text-blue-500" />;
+    if (url.match(/\.(mp4|mov|m4v|webm|avi|mkv)$/i)) return <FileVideo className="w-5 h-5 text-purple-500" />;
     if (url.match(/\.(pdf|docx|doc)$/i)) return <FileText className="w-5 h-5 text-red-500" />;
     return <File className="w-5 h-5 text-gray-500" />;
   };
@@ -145,15 +207,18 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="md:col-span-2">
-          <label className="block mb-2 text-sm font-medium">Tiêu đề *</label>
+          <label className="block mb-2 text-sm font-medium">Tiêu đề <RequiredMark /></label>
           <input
             type="text"
             name="title"
             value={formData.title}
             onChange={handleChange}
-            className="w-full px-4 py-2 border rounded-lg focus:ring focus:ring-brand-500/20"
+            className={inputClassName("title")}
             required
+            maxLength={500}
+            aria-invalid={Boolean(fieldErrors.title)}
           />
+          {renderError("title")}
         </div>
 
         <div>
@@ -184,28 +249,35 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
         </div>
 
         <div>
-          <label className="block mb-2 text-sm font-medium">Tổng điểm</label>
+          <label className="block mb-2 text-sm font-medium">Tổng điểm <RequiredMark /></label>
           <input
             type="number"
             name="totalScore"
             value={formData.totalScore}
             onChange={handleChange}
             min="0"
-            className="w-full px-4 py-2 border rounded-lg focus:ring focus:ring-brand-500/20"
+            max="1000"
+            className={inputClassName("totalScore")}
+            required
+            aria-invalid={Boolean(fieldErrors.totalScore)}
           />
+          {renderError("totalScore")}
         </div>
 
         <div>
-          <label className="block mb-2 text-sm font-medium">Trạng thái</label>
+          <label className="block mb-2 text-sm font-medium">{t("homework.formStatusLabel", { defaultValue: "Trạng thái" })} <RequiredMark /></label>
           <select
             name="status"
             value={formData.status}
             onChange={handleChange}
-            className="w-full px-4 py-2 border rounded-lg focus:ring focus:ring-brand-500/20"
+            className={inputClassName("status")}
+            required
+            aria-invalid={Boolean(fieldErrors.status)}
           >
-            <option value={1}>Hiển thị</option>
-            <option value={0}>Bản nháp</option>
+            <option value={1}>{t("homework.statusActive", { defaultValue: "Hoạt động" })}</option>
+            <option value={0}>{t("homework.statusInactive", { defaultValue: "Ngưng hoạt động" })}</option>
           </select>
+          {renderError("status")}
         </div>
 
         <div className="md:col-span-2">

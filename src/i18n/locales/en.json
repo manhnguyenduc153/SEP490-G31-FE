@@ -260,6 +260,20 @@
     "deleteTooltip": "Delete",
     "viewTooltip": "View Details"
   },
+  "homework": {
+    "colStatus": "Status",
+    "formStatusLabel": "Status",
+    "statusActive": "Active",
+    "statusInactive": "Inactive",
+    "submissionGraded": "Graded",
+    "submissionUngraded": "Not graded",
+    "loadListError": "Error loading homework list",
+    "loadClassError": "Error loading class list",
+    "selectClassLabel": "Select class",
+    "noClasses": "No classes available",
+    "classCount": "{{count}} classes",
+    "listTitle": "Homework list"
+  },
   "teacher": {
     "title": "Teacher Management",
     "description": "Manage the list of teachers in the school.",
