@@ -42,6 +42,7 @@ export const ENDPOINTS = {
     UPDATE: (id: number) => `/api/Student/${id}`,
     DELETE: (id: number) => `/api/Student/${id}`,
     DEACTIVE: (id: number) => `/api/Student/${id}/deactive`,
+    PROVISION_ACCOUNTS: "/api/Student/provision-accounts",
   },
   TEACHER: {
     GET_ALL: "/api/Teacher",
@@ -50,6 +51,7 @@ export const ENDPOINTS = {
     UPDATE: (id: number) => `/api/Teacher/${id}`,
     DELETE: (id: number) => `/api/Teacher/${id}`,
     DEACTIVE: (id: number) => `/api/Teacher/${id}/deactive`,
+    PROVISION_ACCOUNTS: "/api/Teacher/provision-accounts",
   },
   COURSE: {
     GET_ALL: "/api/Course",
@@ -77,5 +79,31 @@ export const ENDPOINTS = {
     DELETE: (id: number) => `/api/Class/${id}`,
     DEACTIVE: (id: number) => `/api/Class/${id}/deactive`,
   },
+  SEMESTER: {
+    GET_ALL: "/api/Semester",
+    GET_BY_ID: (id: number) => `/api/Semester/${id}`,
+    CREATE: "/api/Semester",
+    UPDATE: (id: number) => `/api/Semester/${id}`,
+    DELETE: (id: number) => `/api/Semester/${id}`,
+    SAVE_TEACHER_AVAILABILITY: "/api/Semester/availability",
+    IMPORT_STUDENTS: "/api/Semester/registrations/import",
+    AUTO_SCHEDULE_SEMESTER: "/api/Class/auto-schedule-semester",
+  },
+  PARENT_STUDENT: {
+    GET_ALL: "/api/parent-student",
+    GET_BY_ID: (id: number) => `/api/parent-student/${id}`,
+    CREATE: "/api/parent-student",
+    UPDATE: (id: number) => `/api/parent-student/${id}`,
+    DELETE: (id: number) => `/api/parent-student/${id}`,
+    DEACTIVE: (id: number) => `/api/parent-student/${id}/deactive`,
+  },
+  LEARNING_MATERIAL: {
+    GET_ALL: "/api/LearningMaterial",
+    GET_BY_ID: (id: number) => `/api/LearningMaterial/${id}`,
+    CREATE: "/api/LearningMaterial",
+    UPDATE: (id: number) => `/api/LearningMaterial/${id}`,
+    DELETE: (id: number) => `/api/LearningMaterial/${id}`,
+    DEACTIVE: (id: number) => `/api/LearningMaterial/${id}/deactive`,
+  }
 };
 

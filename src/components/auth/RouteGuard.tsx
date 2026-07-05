@@ -41,7 +41,12 @@ export const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }
 
     // 2. Kiểm tra xem user có permission đó không
     const userPermissions = authApi.getPermissions();
-    if (userPermissions.includes(requiredPermission)) {
+    const userRole = authApi.getRole().toLowerCase();
+
+    if (
+      userPermissions.includes(requiredPermission) ||
+      (userRole === "student" && (requiredPermission === "Exam" || requiredPermission === "ExamSchedule"))
+    ) {
       setIsAuthorized(true);
     } else {
       setIsAuthorized(false);

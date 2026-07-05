@@ -1,4 +1,4 @@
-import { ExamTable } from "@/components/exam/ExamTable";
+import { ExamsClient } from "@/components/exam/ExamsClient";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { Metadata } from "next";
 import React from "react";
@@ -13,7 +13,7 @@ export default function ExamsPage() {
     <div>
       <PageBreadcrumb pageTitle="sidebar.exams" />
       <div className="space-y-6">
-        <ExamTable />
+        <ExamsClient />
       </div>
     </div>
   );

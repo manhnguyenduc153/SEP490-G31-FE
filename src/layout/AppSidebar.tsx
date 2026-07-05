@@ -50,7 +50,9 @@ const schoolItems: NavItem[] = [
     icon: <DocsIcon />,
     name: "academicOperations",
     subItems: [
+      { name: "semesters", path: "/semesters", permission: "Class" },
       { name: "courses", path: "/courses", permission: "Course" },
+      { name: "registrations", path: "/registrations", permission: "Class" },
       { name: "classes", path: "/classes", permission: "Class" },
       { name: "teachers", path: "/teachers", permission: "Teacher" },
       { name: "students", path: "/students", permission: "Student" },
@@ -107,6 +109,7 @@ const schoolItems: NavItem[] = [
     icon: <GroupIcon />,
     name: "parentServices",
     subItems: [
+      { name: "parents", path: "/parent-student", permission: "ParentStudent" },
       { name: "childProfile", path: "/child-profile", permission: "ParentStudent" },
       { name: "childProgress", path: "/child-progress" },
       { name: "childSchedules", path: "/child-schedules" },
@@ -615,6 +618,7 @@ const AppSidebar: React.FC = () => {
             {/* ── School Management section (top) ── */}
             <div>
               <h2
+                suppressHydrationWarning
                 className={`mb-4 text-xs uppercase flex leading-5 text-gray-400 ${!isExpanded && !isHovered
                   ? "xl:justify-center"
                   : "justify-start"
