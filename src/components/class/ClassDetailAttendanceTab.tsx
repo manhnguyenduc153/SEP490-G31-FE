@@ -13,14 +13,8 @@ interface ClassDetailAttendanceTabProps {
   showToast: (msg: string, type?: "success" | "error") => void;
 }
 
-const ATTENDANCE_STATUSES = [
-  { value: 1, label: "Có mặt" },
-  { value: 0, label: "Vắng" },
-];
-
 export default function ClassDetailAttendanceTab({
   itemDetail,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   t,
   showToast,
 }: ClassDetailAttendanceTabProps) {
@@ -36,6 +30,11 @@ export default function ClassDetailAttendanceTab({
   const [reportData, setReportData] = useState<AttendanceReportDto | null>(null);
   const [isLoadingReport, setIsLoadingReport] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  const ATTENDANCE_STATUSES = useMemo(() => [
+    { value: 1, label: t("class.present", { defaultValue: "Có mặt" }) },
+    { value: 0, label: t("class.absent", { defaultValue: "Vắng" }) },
+  ], [t]);
 
   useEffect(() => {
     setMounted(true);
@@ -76,7 +75,7 @@ export default function ClassDetailAttendanceTab({
           res.data.forEach((item) => {
             if (item.studentId) {
               scheduleMap[item.studentId] = {
-                status: item.status,
+                status: item.id === 0 ? -1 : item.status,
                 note: item.description || "",
               };
             }
@@ -86,12 +85,13 @@ export default function ClassDetailAttendanceTab({
             [scheduleId!]: scheduleMap,
           }));
         } else if (active) {
-          showToast(res.message || "Không thể tải danh sách điểm danh", "error");
+          const errorMsg = res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("class.loadError", { defaultValue: "Không thể tải danh sách điểm danh" });
+          showToast(errorMsg, "error");
         }
       } catch (err) {
         console.error("Failed to load attendance", err);
         if (active) {
-          showToast("Không thể kết nối tới máy chủ để tải điểm danh", "error");
+          showToast(t("class.connectionError", { defaultValue: "Không thể kết nối tới máy chủ để tải điểm danh" }), "error");
         }
       } finally {
         if (active) {
@@ -104,7 +104,7 @@ export default function ClassDetailAttendanceTab({
     return () => {
       active = false;
     };
-  }, [selectedScheduleId, showToast]);
+  }, [selectedScheduleId, showToast, t]);
 
   // Load attendance report dynamically when modal opens
   useEffect(() => {
@@ -118,12 +118,13 @@ export default function ClassDetailAttendanceTab({
         if (active && res.success && res.data) {
           setReportData(res.data);
         } else if (active) {
-          showToast(res.message || "Không thể tải báo cáo điểm danh", "error");
+          const errorMsg = res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("class.loadError", { defaultValue: "Không thể tải báo cáo điểm danh" });
+          showToast(errorMsg, "error");
         }
       } catch (err) {
         console.error("Failed to load report", err);
         if (active) {
-          showToast("Không thể kết nối tới máy chủ để tải báo cáo", "error");
+          showToast(t("class.connectionError", { defaultValue: "Không thể kết nối tới máy chủ để tải báo cáo" }), "error");
         }
       } finally {
         if (active) {
@@ -136,7 +137,7 @@ export default function ClassDetailAttendanceTab({
     return () => {
       active = false;
     };
-  }, [isReportOpen, itemDetail?.id, showToast]);
+  }, [isReportOpen, itemDetail?.id, showToast, t]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const activeSchedule = itemDetail?.schedules?.find((s: any) => s.id === selectedScheduleId);
@@ -219,7 +220,7 @@ export default function ClassDetailAttendanceTab({
     });
 
     if (hasUnselected) {
-      showToast("Vui lòng điểm danh đầy đủ cho tất cả học sinh trước khi lưu!", "error");
+      showToast(t("class.validateAll", { defaultValue: "Vui lòng điểm danh đầy đủ cho tất cả học sinh trước khi lưu!" }), "error");
       return;
     }
 
@@ -246,13 +247,13 @@ export default function ClassDetailAttendanceTab({
       });
 
       if (res.success) {
-        showToast("Lưu thông tin điểm danh thành công!", "success");
+        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("class.saveSuccess", { defaultValue: "Lưu thông tin điểm danh thành công!" }), "success");
       } else {
-        showToast(res.message || "Lưu điểm danh thất bại", "error");
+        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("class.saveError", { defaultValue: "Lưu điểm danh thất bại" }), "error");
       }
     } catch (err) {
       console.error("Failed to save attendance", err);
-      showToast("Không thể kết nối tới máy chủ để lưu điểm danh", "error");
+      showToast(t("class.connectionError", { defaultValue: "Không thể kết nối tới máy chủ để lưu điểm danh" }), "error");
     } finally {
       setIsSaving(false);
     }
@@ -275,10 +276,10 @@ export default function ClassDetailAttendanceTab({
 
   const getScheduleStatusText = (status: number) => {
     switch (status) {
-      case 0: return "Lịch học";
-      case 1: return "Đang diễn ra";
-      case 2: return "Hoàn thành";
-      case 3: return "Đã hủy";
+      case 0: return t("class.schedule", { defaultValue: "Lịch học" });
+      case 1: return t("class.statusActive", { defaultValue: "Đang diễn ra" });
+      case 2: return t("class.statusCompleted", { defaultValue: "Hoàn thành" });
+      case 3: return t("class.statusCancelled", { defaultValue: "Đã hủy" });
       default: return "";
     }
   };
@@ -288,25 +289,25 @@ export default function ClassDetailAttendanceTab({
       case 1:
         return (
           <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-655 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30">
-            Có mặt
+            {t("class.present", { defaultValue: "Có mặt" })}
           </span>
         );
       case 0:
         return (
           <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-655 dark:bg-rose-500/10 dark:text-rose-455 border border-rose-100 dark:border-rose-900/30">
-            Vắng
+            {t("class.absent", { defaultValue: "Vắng" })}
           </span>
         );
       case 2:
         return (
           <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-655 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-100 dark:border-amber-900/30">
-            Muộn
+            {t("class.late", { defaultValue: "Muộn" })}
           </span>
         );
       case 3:
         return (
           <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-655 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30">
-            Có phép
+            {t("class.excused", { defaultValue: "Có phép" })}
           </span>
         );
       default:
@@ -325,7 +326,7 @@ export default function ClassDetailAttendanceTab({
         <div className="flex items-center justify-between border-b border-gray-50 dark:border-gray-800 pb-3">
           <h3 className="text-md font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <ClipboardCheck className="w-5 h-5 text-brand-500" />
-            <span>Điểm danh buổi học</span>
+            <span>{t("class.attendanceTitle", { defaultValue: "Điểm danh buổi học" })}</span>
           </h3>
           <button
             type="button"
@@ -333,19 +334,19 @@ export default function ClassDetailAttendanceTab({
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-500/10 hover:bg-brand-100 dark:hover:bg-brand-500/20 border border-brand-200 dark:border-brand-500/30 rounded-lg transition-colors cursor-pointer"
           >
             <FileText className="w-4 h-4" />
-            Attendance Report
+            {t("class.attendanceReportTitle", { defaultValue: "Attendance Report" })}
           </button>
         </div>
 
         {!itemDetail?.schedules || itemDetail.schedules.length === 0 ? (
           <p className="text-xs text-gray-450 text-center py-6 italic border border-dashed border-gray-200 dark:border-gray-800 rounded-xl">
-            Không tìm thấy lịch học để thực hiện điểm danh.
+            {t("class.noSchedules", { defaultValue: "Không tìm thấy lịch học để thực hiện điểm danh." })}
           </p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-end">
             <div className="md:col-span-4 space-y-1.5">
               <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400">
-                Chọn buổi học cần điểm danh
+                {t("class.selectSchedule", { defaultValue: "Chọn buổi học cần điểm danh" })}
               </label>
               <select
                 value={selectedScheduleId || ""}
@@ -355,7 +356,7 @@ export default function ClassDetailAttendanceTab({
                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 {itemDetail.schedules.map((s: any) => (
                   <option key={s.id} value={s.id} className="dark:bg-gray-900">
-                    Buổi {s.lessonNo} ({s.scheduleDate ? new Date(s.scheduleDate).toLocaleDateString("vi-VN") : "-"})
+                    {t("class.lesson", { defaultValue: "Buổi" })} {s.lessonNo} ({s.scheduleDate ? new Date(s.scheduleDate).toLocaleDateString(t("locale", { defaultValue: "vi-VN" })) : "-"})
                   </option>
                 ))}
               </select>
@@ -364,25 +365,25 @@ export default function ClassDetailAttendanceTab({
             {activeSchedule && (
               <div className="md:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-50/50 dark:bg-gray-955/30 p-3 rounded-xl border border-gray-150/80 dark:border-gray-800/80">
                 <div>
-                  <span className="block text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">Trạng thái</span>
+                  <span className="block text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">{t("class.status", { defaultValue: "Trạng thái" })}</span>
                   <span className={`inline-flex items-center px-2 py-0.5 mt-0.5 rounded text-[10px] font-bold ${getScheduleStatusBadge(activeSchedule.status)}`}>
                     {getScheduleStatusText(activeSchedule.status)}
                   </span>
                 </div>
                 <div>
-                  <span className="block text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">Phòng học</span>
+                  <span className="block text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">{t("class.room", { defaultValue: "Phòng học" })}</span>
                   <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 mt-1 block truncate" title={activeSchedule.roomName || ""}>
                     🚪 {activeSchedule.roomName || "-"}
                   </span>
                 </div>
                 <div>
-                  <span className="block text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">Ca học / Giờ</span>
+                  <span className="block text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">{t("class.slot", { defaultValue: "Ca học / Giờ" })}</span>
                   <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 mt-1 block truncate" title={activeSchedule.startTime || ""}>
                     ⏰ {activeSchedule.startTime} - {activeSchedule.endTime}
                   </span>
                 </div>
                 <div>
-                  <span className="block text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">Giáo viên</span>
+                  <span className="block text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">{t("class.teacher", { defaultValue: "Giáo viên" })}</span>
                   <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 mt-1 block truncate" title={activeSchedule.teacherName || ""}>
                     👤 {activeSchedule.teacherName || "-"}
                   </span>
@@ -398,14 +399,14 @@ export default function ClassDetailAttendanceTab({
           {/* Summary Roster Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-gray-50 dark:border-gray-850 pb-4">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-105 dark:bg-gray-800 text-gray-650 dark:text-gray-300 rounded-lg text-xs font-semibold">
-                Sĩ số: {stats.total}
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-105 dark:bg-gray-800 text-gray-655 dark:text-gray-300 rounded-lg text-xs font-semibold">
+                {t("class.totalStudents", { defaultValue: "Sĩ số" })}: {stats.total}
               </span>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 rounded-lg text-xs font-semibold">
-                Có mặt: {stats.present}
+                {t("class.present", { defaultValue: "Có mặt" })}: {stats.present}
               </span>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-rose-50 dark:bg-rose-955/20 text-rose-600 dark:text-rose-455 rounded-lg text-xs font-semibold">
-                Vắng: {stats.absent}
+                {t("class.absent", { defaultValue: "Vắng" })}: {stats.absent}
               </span>
             </div>
 
@@ -413,16 +414,16 @@ export default function ClassDetailAttendanceTab({
               <button
                 type="button"
                 onClick={() => handleMarkAll(1)}
-                className="px-3 py-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 dark:bg-emerald-950/20 dark:text-emerald-400 hover:bg-emerald-100/50 dark:hover:bg-emerald-950/40 rounded-lg transition-colors border border-emerald-100 dark:border-emerald-900/30"
+                className="px-3 py-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 dark:bg-emerald-955/20 dark:text-emerald-400 hover:bg-emerald-100/50 dark:hover:bg-emerald-955/40 rounded-lg transition-colors border border-emerald-100 dark:border-emerald-900/30 cursor-pointer"
               >
-                Tất cả Có mặt
+                {t("class.allPresent", { defaultValue: "Tất cả Có mặt" })}
               </button>
               <button
                 type="button"
                 onClick={() => handleMarkAll(0)}
-                className="px-3 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-955/20 dark:text-rose-400 hover:bg-rose-100/50 dark:hover:bg-rose-955/40 rounded-lg transition-colors border border-rose-100 dark:border-rose-900/30"
+                className="px-3 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-955/20 dark:text-rose-400 hover:bg-rose-100/50 dark:hover:bg-rose-955/40 rounded-lg transition-colors border border-rose-100 dark:border-rose-900/30 cursor-pointer"
               >
-                Tất cả Vắng
+                {t("class.allAbsent", { defaultValue: "Tất cả Vắng" })}
               </button>
             </div>
           </div>
@@ -431,11 +432,11 @@ export default function ClassDetailAttendanceTab({
           {isLoadingAttendance ? (
             <div className="flex flex-col items-center justify-center py-10 text-gray-500 text-sm">
               <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin mb-2"></div>
-              Đang tải danh sách điểm danh...
+              {t("class.loadingAttendance", { defaultValue: "Đang tải danh sách điểm danh..." })}
             </div>
           ) : !itemDetail.studentClasses || itemDetail.studentClasses.length === 0 ? (
             <p className="text-xs text-gray-450 text-center py-10 italic border border-dashed border-gray-250 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-955/20">
-              Không có học sinh trong danh sách lớp.
+              {t("class.noStudents", { defaultValue: "Không có học sinh trong danh sách lớp." })}
             </p>
           ) : (
             <>
@@ -444,16 +445,16 @@ export default function ClassDetailAttendanceTab({
                   <thead>
                     <tr className="border-b border-gray-200 dark:border-gray-800 text-gray-455 dark:text-gray-400 font-semibold bg-gray-50/50 dark:bg-gray-800/40">
                       <th className="px-4 py-3 w-[8%] text-xs font-bold uppercase tracking-wider">#</th>
-                      <th className="px-4 py-3 w-[22%] text-xs font-bold uppercase tracking-wider">Mã học sinh</th>
-                      <th className="px-4 py-3 w-[35%] text-xs font-bold uppercase tracking-wider">Học sinh</th>
-                      <th className="px-4 py-3 w-[35%] text-center text-xs font-bold uppercase tracking-wider">Điểm danh</th>
+                      <th className="px-4 py-3 w-[22%] text-xs font-bold uppercase tracking-wider">{t("class.studentCode", { defaultValue: "Mã học sinh" })}</th>
+                      <th className="px-4 py-3 w-[35%] text-xs font-bold uppercase tracking-wider">{t("class.studentName", { defaultValue: "Học sinh" })}</th>
+                      <th className="px-4 py-3 w-[35%] text-center text-xs font-bold uppercase tracking-wider">{t("class.attendance", { defaultValue: "Điểm danh" })}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-105 dark:divide-gray-800">
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     {itemDetail.studentClasses.map((sc: any, idx: number) => {
                       const studentId = sc.student?.id;
-                      const attendance = currentScheduleAttendance[studentId] || { status: 1, note: "" };
+                      const attendance = currentScheduleAttendance[studentId] || { status: -1, note: "" };
 
                       return (
                         <tr key={sc.id || sc.studentId} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
@@ -512,7 +513,7 @@ export default function ClassDetailAttendanceTab({
                   ) : (
                     <CheckCircle className="w-4 h-4" />
                   )}
-                  Lưu điểm danh
+                  {t("class.btnSave", { defaultValue: "Lưu điểm danh" })}
                 </button>
               </div>
             </>
@@ -529,7 +530,7 @@ export default function ClassDetailAttendanceTab({
             <div className="p-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/50">
               <h4 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <ClipboardCheck className="w-5 h-5 text-brand-500" />
-                <span>Bảng tổng hợp điểm danh - {itemDetail?.name || ""}</span>
+                <span>{t("class.attendanceReportTitle", { defaultValue: "Bảng tổng hợp điểm danh" })} - {itemDetail?.name || ""}</span>
               </h4>
               <button
                 type="button"
@@ -545,11 +546,11 @@ export default function ClassDetailAttendanceTab({
               {isLoadingReport ? (
                 <div className="flex flex-col items-center justify-center py-20 text-gray-500 text-sm">
                   <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin mb-3"></div>
-                  Đang tải báo cáo điểm danh...
+                  {t("class.loadingReport", { defaultValue: "Đang tải báo cáo điểm danh..." })}
                 </div>
               ) : !reportData || reportData.sessions.length === 0 ? (
                 <p className="text-xs text-gray-450 text-center py-10 italic">
-                  Không tìm thấy dữ liệu điểm danh nào của lớp học này.
+                  {t("class.noReportData", { defaultValue: "Không tìm thấy dữ liệu điểm danh nào của lớp học này." })}
                 </p>
               ) : (
                 <div className="overflow-x-auto border border-gray-150 dark:border-gray-800 rounded-xl bg-gray-50/20">
@@ -557,14 +558,14 @@ export default function ClassDetailAttendanceTab({
                     <thead>
                       <tr className="border-b border-gray-205 dark:border-gray-800 text-gray-455 dark:text-gray-400 font-semibold bg-gray-50/50 dark:bg-gray-800/40 sticky top-0 z-10">
                         <th className="px-3 py-3.5 w-10 text-center uppercase tracking-wider">#</th>
-                        <th className="px-3 py-3.5 w-24 uppercase tracking-wider">Mã học sinh</th>
-                        <th className="px-3 py-3.5 w-44 uppercase tracking-wider">Học sinh</th>
+                        <th className="px-3 py-3.5 w-24 uppercase tracking-wider">{t("class.studentCode", { defaultValue: "Mã học sinh" })}</th>
+                        <th className="px-3 py-3.5 w-44 uppercase tracking-wider">{t("class.studentName", { defaultValue: "Học sinh" })}</th>
                         {reportData.sessions.map((s) => (
                           <th key={s.scheduleId} className="px-2 py-3.5 text-center min-w-[85px] uppercase tracking-wider" title={s.date ? new Date(s.date).toLocaleDateString("vi-VN") : ""}>
-                            B. {s.lessonNo}
+                            {t("class.lessonShort", { defaultValue: "B." })} {s.lessonNo}
                             {s.date && (
                               <span className="block text-[8px] font-normal text-gray-400 dark:text-gray-500 mt-0.5">
-                                {new Date(s.date).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}
+                                {new Date(s.date).toLocaleDateString(t("locale", { defaultValue: "vi-VN" }), { day: "2-digit", month: "2-digit" })}
                               </span>
                             )}
                           </th>
@@ -601,7 +602,7 @@ export default function ClassDetailAttendanceTab({
                 onClick={() => setIsReportOpen(false)}
                 className="px-4 py-2 text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-750 transition-colors cursor-pointer"
               >
-                Đóng
+                {t("class.btnClose", { defaultValue: "Đóng" })}
               </button>
             </div>
             

@@ -26,10 +26,10 @@ export default function ClassPage() {
     return () => clearTimeout(timer);
   }, [toastMessage]);
 
-  const showToast = (msg: string, type: "success" | "error" = "success") => {
+  const showToast = React.useCallback((msg: string, type: "success" | "error" = "success") => {
     setToastMessage(msg);
     setToastType(type);
-  };
+  }, []);
 
   const handleSuccess = (msg: string) => {
     setActiveTab("list");

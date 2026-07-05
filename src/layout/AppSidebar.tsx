@@ -618,6 +618,7 @@ const AppSidebar: React.FC = () => {
             {/* ── School Management section (top) ── */}
             <div>
               <h2
+                suppressHydrationWarning
                 className={`mb-4 text-xs uppercase flex leading-5 text-gray-400 ${!isExpanded && !isHovered
                   ? "xl:justify-center"
                   : "justify-start"

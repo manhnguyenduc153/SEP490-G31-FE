@@ -199,7 +199,7 @@ export default function ClassDetail({
               }`}
             >
               <BookOpen className="w-4 h-4" />
-              {t("class.tabSyllabus", { defaultValue: "Giáo án" })}
+              {t("class.tabSyllabus", { defaultValue: "Tài liệu" })}
             </button>
             <button
               onClick={() => setActiveDetailTab("homework")}
@@ -254,16 +254,18 @@ export default function ClassDetail({
               />
             )}
 
-            {/* TAB 4: GIÁO ÁN (MOCKED) */}
+            {/* TAB 4: TÀI LIỆU (REAL DATA FROM COURSE) */}
             {activeDetailTab === "syllabus" && (
               <ClassDetailSyllabusTab
+                itemDetail={itemDetail}
                 t={t}
               />
             )}
 
-            {/* TAB 5: BÀI TẬP (MOCKED) */}
+            {/* TAB 5: BÀI TẬP (REAL DATA FROM CLASS) */}
             {activeDetailTab === "homework" && (
               <ClassDetailHomeworkTab
+                itemDetail={itemDetail}
                 t={t}
               />
             )}
