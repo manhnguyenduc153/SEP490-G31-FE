@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import ClassTable from "@/components/class/ClassTable";
 import ClassForm from "@/components/class/ClassForm";
+import ClassDetail from "@/components/class/ClassDetail";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { useTranslation } from "react-i18next";
 import { ClassItem } from "@/services/class.api";
@@ -10,8 +11,9 @@ import { CheckCircle, XCircle } from "lucide-react";
 
 export default function ClassPage() {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<"list" | "form">("list");
+  const [activeTab, setActiveTab] = useState<"list" | "form" | "detail">("list");
   const [editingItem, setEditingItem] = useState<ClassItem | null>(null);
+  const [viewingItemId, setViewingItemId] = useState<number | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   // ── Toast ──
@@ -64,8 +66,12 @@ export default function ClassPage() {
               setEditingItem(item);
               setActiveTab("form");
             }}
+            onViewClick={(item) => {
+              setViewingItemId(item.id);
+              setActiveTab("detail");
+            }}
           />
-        ) : (
+        ) : activeTab === "form" ? (
           <ClassForm
             t={t}
             editingItem={editingItem}
@@ -75,6 +81,16 @@ export default function ClassPage() {
               setActiveTab("list");
             }}
             onSuccess={handleSuccess}
+          />
+        ) : (
+          <ClassDetail
+            t={t}
+            itemId={viewingItemId!}
+            onBack={() => {
+              setViewingItemId(null);
+              setActiveTab("list");
+            }}
+            showToast={showToast}
           />
         )}
       </div>
