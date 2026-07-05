@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -8,10 +8,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, SlidersHorizontal, List, LayoutGrid, Eye, Pencil, Trash2, CalendarDays } from "lucide-react";
+import { Search, Eye, Pencil, Trash2, CalendarDays } from "lucide-react";
 import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
 import { classApi, ClassItem } from "@/services/class.api";
-import { ClassViewModal } from "./ClassViewModal";
 import AutoScheduleModal from "./AutoScheduleModal";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
 import { teacherApi, TeacherItem } from "@/services/teacher.api";
@@ -26,10 +25,11 @@ interface ClassTableProps {
   refreshKey?: number;
   onAddClick: () => void;
   onEditClick: (item: ClassItem) => void;
+  onViewClick: (item: ClassItem) => void;
   showToast: (msg: string, type?: "success" | "error") => void;
 }
 
-export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick, onEditClick, showToast }: ClassTableProps) {
+export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick, onEditClick, onViewClick, showToast }: ClassTableProps) {
   const { t } = useTranslation();
 
   // ── Dynamic Metadata ──
@@ -73,20 +73,12 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
 
 
 
-  // ── Form error (retained for view detail modal) ──
-  const [formError, setFormError] = useState<string | null>(null);
-
   // Trigger refresh when external refresh key changes
   useEffect(() => {
     if (externalRefreshKey !== undefined) {
       triggerRefresh();
     }
   }, [externalRefreshKey]);
-
-  // ── View modal ──
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [viewingItemDetail, setViewingItemDetail] = useState<any>(null);
-  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
   // ── Delete confirm modal ──
   const [deleteTarget, setDeleteTarget] = useState<ClassItem | null>(null);
@@ -98,6 +90,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
   const [isScheduling, setIsScheduling] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleToggleSelectAll = () => {
     if (items.length === 0) return;
     if (selectedIds.length === items.length) {
@@ -107,6 +100,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleToggleSelectRow = (id: number) => {
     setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
@@ -129,6 +123,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
     return t(`backendMessages.${msg}`, { defaultValue: msg });
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleAutoSchedule = async (constraints: any) => {
     if (selectedIds.length === 0) return;
     setIsScheduling(true);
@@ -198,7 +193,6 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
         if (mainRes.success && mainRes.data) {
           // Filtering logic by tab at frontend to ensure counts and lists align easily
           // Status: Planning = 0, Active = 1, Completed = 2, Cancelled = 3
-          let allFiltered = mainRes.data.items || [];
           
           // Let's fetch all items to calculate counts correctly
           const allItemsRes = await classApi.getAll(1, 1000, debouncedSearchTerm, selectedCourse, selectedTeacher);
@@ -262,29 +256,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
     onEditClick(item);
   };
 
-  // ── Open view modal ──
-  const openViewModal = async (item: ClassItem) => {
-    setViewingItemDetail(null);
-    setFormError(null);
-    setIsLoadingDetail(true);
-    setIsViewModalOpen(true);
 
-    try {
-      const res = await classApi.getById(item.id);
-      if (res.success && res.data) {
-        setViewingItemDetail(res.data);
-      } else {
-        const errMsg = res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("class.systemError");
-        setFormError(errMsg);
-        showToast(errMsg, "error");
-      }
-    } catch {
-      setFormError(t("class.systemError"));
-      showToast(t("class.systemError"), "error");
-    } finally {
-      setIsLoadingDetail(false);
-    }
-  };
 
   // ── Delete Class ──
   const handleDeleteConfirm = async () => {
@@ -584,7 +556,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
                   {/* Name, Urgency & Date Range */}
                   <TableCell className="px-5 sm:px-6 py-4">
                     <div className="flex flex-col gap-1 items-start">
-                      <span className="text-sm font-semibold text-gray-900 dark:text-white hover:text-brand-500 dark:hover:text-brand-400 cursor-pointer" onClick={() => openViewModal(item)}>
+                      <span className="text-sm font-semibold text-gray-900 dark:text-white hover:text-brand-500 dark:hover:text-brand-400 cursor-pointer" onClick={() => onViewClick(item)}>
                         {item.name}
                       </span>
                       <div className="flex flex-wrap gap-1.5 items-center mt-1">
@@ -647,7 +619,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
                   <TableCell className="px-5 sm:px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button
-                        onClick={() => openViewModal(item)}
+                        onClick={() => onViewClick(item)}
                         title={t("class.viewTooltip", { defaultValue: "Xem chi tiết" })}
                         className="p-1 text-gray-400 hover:text-brand-500 transition-colors"
                       >
@@ -719,17 +691,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
 
 
 
-      {/* View Detail Modal */}
-      {isViewModalOpen && (
-        <ClassViewModal
-          isOpen={isViewModalOpen}
-          onClose={() => setIsViewModalOpen(false)}
-          t={t}
-          itemDetail={viewingItemDetail}
-          isLoading={isLoadingDetail}
-          formError={formError}
-        />
-      )}
+
 
       {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && deleteTarget && (
