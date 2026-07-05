@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { homeworkApi, HomeworkDto, HomeworkSaveDto } from "@/services/homework.api";
 import { teacherApi } from "@/services/teacher.api";
-import { parseJwt } from "@/services/api";
 import { useDropzone } from "react-dropzone";
 import { X, UploadCloud, File, FileAudio, FileText, FileVideo } from "lucide-react";
 import { ENV } from "@/config/env";
@@ -20,9 +19,8 @@ interface HomeworkFormProps {
 
 export default function HomeworkForm({ classId, classTeacherId, editingItem, onCancel, onSuccess, showToast }: HomeworkFormProps) {
   const { t } = useTranslation();
-  
   const [formData, setFormData] = useState<HomeworkSaveDto>({
-    classId: classId,
+    classId,
     teacherId: classTeacherId || 0,
     title: "",
     description: "",
@@ -30,9 +28,8 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
     skill: "General",
     dueDate: "",
     totalScore: 10,
-    status: 1
+    status: 1,
   });
-
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -48,10 +45,16 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
         skill: editingItem.skill || "General",
         dueDate: editingItem.dueDate ? editingItem.dueDate.substring(0, 16) : "",
         totalScore: editingItem.totalScore,
-        status: editingItem.status
+        status: editingItem.status,
       });
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        classId,
+        teacherId: classTeacherId || 0,
+      }));
     }
-  }, [editingItem]);
+  }, [classId, classTeacherId, editingItem]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -63,7 +66,7 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
     });
     setFormData(prev => ({
       ...prev,
-      [name]: name === "totalScore" || name === "status" ? Number(value) : value
+      [name]: name === "totalScore" || name === "status" ? Number(value) : value,
     }));
   };
 
@@ -84,27 +87,27 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
     const title = formData.title.trim();
 
     if (!classId || classId <= 0) {
-      errors.classId = "Khong xac dinh duoc lop hoc.";
+      errors.classId = t("homework.validationClassRequired");
     }
 
     if (!formData.teacherId || formData.teacherId <= 0) {
-      errors.teacherId = "Khong xac dinh duoc giao vien.";
+      errors.teacherId = t("homework.validationTeacherRequired");
     }
 
     if (!title) {
-      errors.title = "Tiêu đề không được để trống.";
+      errors.title = t("homework.validationTitleRequired");
     } else if (title.length > 500) {
-      errors.title = "Tiêu đề không được vượt quá 500 ký tự.";
+      errors.title = t("homework.validationTitleMax");
     }
 
     if (!Number.isFinite(formData.totalScore)) {
-      errors.totalScore = "Tổng điểm là bắt buộc.";
+      errors.totalScore = t("homework.validationTotalScoreRequired");
     } else if (formData.totalScore < 0 || formData.totalScore > 1000) {
-      errors.totalScore = "Tổng điểm phải nằm trong khoảng 0 đến 1000.";
+      errors.totalScore = t("homework.validationTotalScoreRange");
     }
 
     if (![0, 1].includes(formData.status)) {
-      errors.status = "Vui lòng chọn trạng thái hợp lệ.";
+      errors.status = t("homework.validationStatusRequired");
     }
 
     setFieldErrors(errors);
@@ -121,22 +124,21 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
     try {
       const newUrls: string[] = [];
       for (const file of acceptedFiles) {
-        // Upload each file
         const res = await teacherApi.uploadDocument(file);
         if (res.success && res.data) {
           newUrls.push(res.data);
         } else {
-          showToast(`Lỗi upload file ${file.name}`, "error");
+          showToast(t("homework.uploadFileError", { name: file.name }), "error");
         }
       }
       setFormData(prev => ({ ...prev, attachmentUrls: [...(prev.attachmentUrls || []), ...newUrls] }));
     } catch (err) {
       console.error(err);
-      showToast("Lỗi khi upload file", "error");
+      showToast(t("homework.uploadError"), "error");
     } finally {
       setUploadingFiles(false);
     }
-  }, [showToast]);
+  }, [showToast, t]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
 
@@ -150,36 +152,30 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) {
-      return;
-    }
-    if (!formData.title.trim()) {
-      showToast("Tiêu đề không được để trống", "error");
-      return;
-    }
+    if (!validateForm()) return;
 
     setIsSubmitting(true);
     try {
       if (editingItem) {
         const res = await homeworkApi.updateHomework(editingItem.id, formData);
         if (res.success) {
-          showToast("Cập nhật bài tập thành công", "success");
+          showToast(t("homework.updateSuccess"), "success");
           onSuccess();
         } else {
-          showToast(res.message || "Lỗi cập nhật", "error");
+          showToast(res.message || t("homework.updateError"), "error");
         }
       } else {
         const res = await homeworkApi.createHomework(formData);
         if (res.success) {
-          showToast("Tạo bài tập thành công", "success");
+          showToast(t("homework.createSuccess"), "success");
           onSuccess();
         } else {
-          showToast(res.message || "Lỗi tạo bài tập", "error");
+          showToast(res.message || t("homework.createError"), "error");
         }
       }
     } catch (err) {
       console.error(err);
-      showToast("Lỗi hệ thống", "error");
+      showToast(t("homework.systemError"), "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -202,12 +198,14 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold">{editingItem ? "Sửa bài tập" : "Tạo bài tập mới"}</h2>
+        <h2 className="text-xl font-bold">
+          {editingItem ? t("homework.editTitle") : t("homework.createTitle")}
+        </h2>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="md:col-span-2">
-          <label className="block mb-2 text-sm font-medium">Tiêu đề <RequiredMark /></label>
+          <label className="block mb-2 text-sm font-medium">{t("homework.formTitleLabel")} <RequiredMark /></label>
           <input
             type="text"
             name="title"
@@ -222,7 +220,7 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
         </div>
 
         <div>
-          <label className="block mb-2 text-sm font-medium">Kỹ năng (IELTS)</label>
+          <label className="block mb-2 text-sm font-medium">{t("homework.formSkillLabel")}</label>
           <select
             name="skill"
             value={formData.skill}
@@ -238,7 +236,7 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
         </div>
 
         <div>
-          <label className="block mb-2 text-sm font-medium">Hạn nộp</label>
+          <label className="block mb-2 text-sm font-medium">{t("homework.colDueDate")}</label>
           <input
             type="datetime-local"
             name="dueDate"
@@ -249,7 +247,7 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
         </div>
 
         <div>
-          <label className="block mb-2 text-sm font-medium">Tổng điểm <RequiredMark /></label>
+          <label className="block mb-2 text-sm font-medium">{t("homework.totalScore")} <RequiredMark /></label>
           <input
             type="number"
             name="totalScore"
@@ -265,7 +263,7 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
         </div>
 
         <div>
-          <label className="block mb-2 text-sm font-medium">{t("homework.formStatusLabel", { defaultValue: "Trạng thái" })} <RequiredMark /></label>
+          <label className="block mb-2 text-sm font-medium">{t("homework.formStatusLabel")} <RequiredMark /></label>
           <select
             name="status"
             value={formData.status}
@@ -274,25 +272,25 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
             required
             aria-invalid={Boolean(fieldErrors.status)}
           >
-            <option value={1}>{t("homework.statusActive", { defaultValue: "Hoạt động" })}</option>
-            <option value={0}>{t("homework.statusInactive", { defaultValue: "Ngưng hoạt động" })}</option>
+            <option value={1}>{t("homework.statusActive")}</option>
+            <option value={0}>{t("homework.statusInactive")}</option>
           </select>
           {renderError("status")}
         </div>
 
         <div className="md:col-span-2">
-          <label className="block mb-2 text-sm font-medium">Mô tả</label>
+          <label className="block mb-2 text-sm font-medium">{t("homework.descriptionTitle")}</label>
           <textarea
             name="description"
             value={formData.description}
             onChange={handleChange}
             rows={4}
             className="w-full px-4 py-2 border rounded-lg focus:ring focus:ring-brand-500/20"
-          ></textarea>
+          />
         </div>
 
         <div className="md:col-span-2">
-          <label className="block mb-2 text-sm font-medium">Tệp đính kèm (Audio, PDF, Word, v.v...)</label>
+          <label className="block mb-2 text-sm font-medium">{t("homework.attachmentsLabel")}</label>
           <div
             {...getRootProps()}
             className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
@@ -302,10 +300,10 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
             <input {...getInputProps()} />
             <UploadCloud className="w-10 h-10 mx-auto text-gray-400 mb-2" />
             <p className="text-sm text-gray-600">
-              {uploadingFiles ? "Đang upload..." : "Kéo thả file vào đây, hoặc click để chọn file"}
+              {uploadingFiles ? t("homework.uploading") : t("homework.dropzoneText")}
             </p>
           </div>
-          
+
           {formData.attachmentUrls && formData.attachmentUrls.length > 0 && (
             <div className="mt-4 flex flex-col gap-2">
               {formData.attachmentUrls.map((url, idx) => (
@@ -313,7 +311,7 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
                   <div className="flex items-center gap-3 truncate">
                     {getFileIcon(url)}
                     <a href={formatUrl(url)} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline truncate">
-                      {url.split('/').pop()}
+                      {url.split("/").pop()}
                     </a>
                   </div>
                   <button
@@ -336,14 +334,14 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
           onClick={onCancel}
           className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
         >
-          Hủy
+          {t("homework.cancel")}
         </button>
         <button
           type="submit"
           disabled={isSubmitting || uploadingFiles}
           className="px-5 py-2.5 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600 disabled:opacity-50"
         >
-          {isSubmitting ? "Đang lưu..." : "Lưu bài tập"}
+          {isSubmitting ? t("homework.saving") : t("homework.save")}
         </button>
       </div>
     </form>

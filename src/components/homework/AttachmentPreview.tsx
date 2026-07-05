@@ -68,7 +68,7 @@ function AttachmentBody({ url, kind, fileName, compact }: { url: string; kind: A
     return (
       <video controls preload="metadata" className="mt-3 max-h-[720px] w-full rounded-lg border border-gray-200 bg-black dark:border-gray-700">
         <source src={url} />
-        Trinh duyet cua ban khong ho tro xem video truc tiep.
+        Trình duyệt của bạn không hỗ trợ xem video trực tiếp.
       </video>
     );
   }
