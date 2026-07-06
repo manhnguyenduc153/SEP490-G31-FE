@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
@@ -13,11 +13,10 @@ import {
 import { PencilIcon, TrashBinIcon, EyeIcon } from "@/icons";
 import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
-import { examApi, ExamItem, ExamSaveDto } from "@/services/exam.api";
+import { examApi, ExamItem } from "@/services/exam.api";
 import { classApi, ClassItem } from "@/services/class.api";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
-import { Modal } from "@/components/ui/modal";
-import { CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, XCircle, Search } from "lucide-react";
 
 export function ExamTable() {
   const { t } = useTranslation();
@@ -43,7 +42,6 @@ export function ExamTable() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [filterClass, setFilterClass] = useState<number | null>(null);
   const [filterStatus, setFilterStatus] = useState<number | null>(null);
-  const [filterTarget, setFilterTarget] = useState<string>(""); // Lớp / Khóa học
 
   // Refresh trigger
   const [refreshKey, setRefreshKey] = useState(0);
@@ -52,10 +50,6 @@ export function ExamTable() {
   // Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<"success" | "error">("success");
-
-
-
-
 
   // Delete Confirm Modal
   const [deleteTarget, setDeleteTarget] = useState<ExamItem | null>(null);
@@ -90,7 +84,7 @@ export function ExamTable() {
     const handler = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
       setCurrentPage(1);
-    }, 4000);
+    }, 500);
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
@@ -133,18 +127,11 @@ export function ExamTable() {
     loadExams();
   }, [currentPage, itemsPerPage, debouncedSearchTerm, filterClass, filterStatus, activeTab, refreshKey]);
 
-  // ─── Filters Handlers ───────────────────────────────────────────────────────
-  const handleApplyFilters = () => {
-    setCurrentPage(1);
-    triggerRefresh();
-  };
-
   const handleClearFilters = () => {
     setSearchTerm("");
     setDebouncedSearchTerm("");
     setFilterClass(null);
     setFilterStatus(null);
-    setFilterTarget("");
     setCurrentPage(1);
     triggerRefresh();
   };
@@ -183,8 +170,6 @@ export function ExamTable() {
     }
   };
 
-
-
   // Format creation datetime
   const formatTimeAgo = (dateStr: string) => {
     if (!dateStr) return "";
@@ -201,7 +186,7 @@ export function ExamTable() {
   };
 
   return (
-    <div className="overflow-hidden bg-white dark:bg-white/[0.03] rounded-xl border border-gray-100 dark:border-white/[0.05]">
+    <div className="w-full bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs overflow-hidden">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
@@ -214,22 +199,22 @@ export function ExamTable() {
         </div>
       )}
 
-      {/* Header section with Title and Create Button */}
-      <div className="px-6 py-5 border-b border-gray-100 dark:border-white/[0.05] flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-gray-50/20">
+      {/* Header with Title & Add Button */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 sm:p-6 border-b border-gray-100 dark:border-gray-800">
         <div>
-          <h2 className="text-lg font-bold text-gray-950 dark:text-white">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
             {t("exam.pageTitle", { defaultValue: "Quản lý bài kiểm tra" })}
           </h2>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             {t("exam.pageSubtitle", { defaultValue: "Xem danh sách bài kiểm tra đang dùng hoặc quản lý thư viện bài mẫu." })}
           </p>
         </div>
-        <div className="flex items-center gap-3 self-start sm:self-auto">
+        <div className="flex flex-wrap items-center gap-3">
           <Link
             href="/question-bank"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-750 bg-white border border-gray-300 dark:text-gray-355 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg cursor-pointer h-11"
           >
-            <svg className="w-4.5 h-4.5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
             </svg>
             {t("exam.questionBank")}
@@ -238,9 +223,9 @@ export function ExamTable() {
           <PermissionGuard requiredPermission="Exam.Create">
             <button
               onClick={() => router.push("/exams/create")}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 transition-colors shadow-theme-xs"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-theme-xs transition-colors h-11"
             >
-              <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
               {t("exam.addExam")}
@@ -249,16 +234,16 @@ export function ExamTable() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-gray-100 dark:border-white/[0.05] px-6 bg-gray-50/10">
+      {/* Tab Filter */}
+      <div className="flex flex-wrap items-center gap-2 px-5 sm:px-6 pt-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
         <button
           onClick={() => {
             setActiveTab("in-use");
             setCurrentPage(1);
           }}
-          className={`py-3.5 px-4 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 ${
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-all flex items-center gap-2 ${
             activeTab === "in-use"
-              ? "border-brand-500 text-brand-500"
+              ? "border-brand-500 text-brand-500 dark:border-brand-400 dark:text-brand-400"
               : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           }`}
         >
@@ -272,9 +257,9 @@ export function ExamTable() {
             setActiveTab("library");
             setCurrentPage(1);
           }}
-          className={`py-3.5 px-4 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 ${
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-all flex items-center gap-2 ${
             activeTab === "library"
-              ? "border-brand-500 text-brand-500"
+              ? "border-brand-500 text-brand-500 dark:border-brand-400 dark:text-brand-400"
               : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           }`}
         >
@@ -285,84 +270,81 @@ export function ExamTable() {
         </button>
       </div>
 
-      <div className="p-6 border-b border-gray-100 dark:border-white/[0.05] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-gray-50/10">
-        {/* Search */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("exam.filterKeyword")}</label>
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={t("exam.filterKeywordPlaceholder")}
-            className="w-full h-10 px-3.5 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-300 dark:focus:border-brand-800 focus:outline-hidden dark:text-white"
-          />
-        </div>
+      {/* Search and Filters */}
+      <div className="p-4 sm:p-5 border-b border-gray-150 dark:border-gray-800">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-4 w-full items-end">
+          {/* Text Search */}
+          <div className={`relative ${activeTab === "in-use" ? "md:col-span-4" : "md:col-span-7"}`}>
+            <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+              {t("exam.filterKeyword", { defaultValue: "Tìm kiếm" })}
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder={t("exam.filterKeywordPlaceholder", { defaultValue: "Tìm kiếm bài kiểm tra..." })}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all placeholder:text-gray-400 h-11"
+              />
+              <span className="absolute left-3 top-3.5 text-gray-400">
+                <Search className="w-4 h-4" />
+              </span>
+            </div>
+          </div>
 
-        {/* Class Filter (only shown in in-use tab) */}
-        {activeTab === "in-use" && (
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("exam.filterClass")}</label>
+          {/* Class Filter (only shown in in-use tab) */}
+          {activeTab === "in-use" && (
+            <div className="md:col-span-3">
+              <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+                {t("exam.filterClass", { defaultValue: "Lớp học" })}
+              </label>
+              <select
+                value={filterClass || ""}
+                onChange={(e) => {
+                  setFilterClass(e.target.value ? Number(e.target.value) : null);
+                  setCurrentPage(1);
+                }}
+                className="w-full px-3 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all h-11 cursor-pointer"
+              >
+                <option value="" className="dark:bg-gray-900">{t("exam.filterClassAll", { defaultValue: "Tất cả lớp học" })}</option>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id} className="dark:bg-gray-900">
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Status Filter */}
+          <div className="md:col-span-3">
+            <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+              {t("exam.filterStatus", { defaultValue: "Trạng thái" })}
+            </label>
             <select
-              value={filterClass || ""}
-              onChange={(e) => setFilterClass(e.target.value ? Number(e.target.value) : null)}
-              className="w-full h-10 px-3.5 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-300 focus:outline-hidden dark:text-white"
+              value={filterStatus || ""}
+              onChange={(e) => {
+                setFilterStatus(e.target.value ? Number(e.target.value) : null);
+                setCurrentPage(1);
+              }}
+              className="w-full px-3 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all h-11 cursor-pointer"
             >
-              <option value="">{t("exam.filterClassAll")}</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
+              <option value="" className="dark:bg-gray-900">{t("exam.filterStatusAll", { defaultValue: "Tất cả trạng thái" })}</option>
+              <option value="1" className="dark:bg-gray-900">{t("exam.filterStatusPublished", { defaultValue: "Đã xuất bản" })}</option>
+              <option value="2" className="dark:bg-gray-900">{t("exam.filterStatusDraft", { defaultValue: "Bản nháp" })}</option>
             </select>
           </div>
-        )}
 
-        {/* Target Assign Filter (Mục tiêu giao: Lớp/Khóa học) */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("exam.filterTarget")}</label>
-          <select
-            value={filterTarget}
-            onChange={(e) => setFilterTarget(e.target.value)}
-            className="w-full h-10 px-3.5 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-300 focus:outline-hidden dark:text-white"
-          >
-            <option value="">{t("exam.filterTargetAll")}</option>
-            <option value="class">{t("exam.filterTargetClass")}</option>
-            <option value="course">{t("exam.filterTargetCourse")}</option>
-          </select>
-        </div>
-
-        {/* Status Filter */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("exam.filterStatus")}</label>
-          <select
-            value={filterStatus || ""}
-            onChange={(e) => setFilterStatus(e.target.value ? Number(e.target.value) : null)}
-            className="w-full h-10 px-3.5 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-300 focus:outline-hidden dark:text-white"
-          >
-            <option value="">{t("exam.filterStatusAll")}</option>
-            <option value="1">{t("exam.filterStatusPublished")}</option>
-            <option value="2">{t("exam.filterStatusDraft")}</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-white/[0.05] bg-gray-50/10">
-        <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-          {t("exam.examListCount", { count: totalRecords })}
-        </span>
-        <div className="flex gap-2.5">
-          <button
-            onClick={handleApplyFilters}
-            className="px-4 py-2 text-sm font-semibold text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-theme-xs transition-colors"
-          >
-            {t("exam.btnFilter")}
-          </button>
-          <button
-            onClick={handleClearFilters}
-            className="px-4 py-2 text-sm font-semibold text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 dark:hover:bg-gray-700 transition-colors"
-          >
-            {t("exam.btnClear")}
-          </button>
+          {/* Clear Filters Button */}
+          <div className="flex items-center justify-end h-11 md:col-span-2">
+            <button
+              type="button"
+              onClick={handleClearFilters}
+              className="inline-flex items-center justify-center px-4 h-11 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors cursor-pointer w-full md:w-auto shadow-theme-xs"
+            >
+              {t("exam.btnClear", { defaultValue: "Xóa bộ lọc" })}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -539,7 +521,6 @@ export function ExamTable() {
                           title={t("exam.copyTooltip")}
                           className="p-2 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 transition-colors rounded-lg bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700"
                         >
-                          {/* Copy/Duplicate Icon */}
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376A8.965 8.965 0 0 0 12 12.75a8.965 8.965 0 0 0-3.75 3.375m7.5 1.125H18a2.25 2.25 0 0 0 2.25-2.25V5.25A2.25 2.25 0 0 0 18 3H12a2.25 2.25 0 0 0-2.25 2.25v.75m0 3.75H6.75m0 0a2.25 2.25 0 0 0-2.25 2.25v7.5a2.25 2.25 0 0 0 2.25 2.25h10.5a2.25 2.25 0 0 0 2.25-2.25V12" />
                           </svg>
@@ -565,23 +546,43 @@ export function ExamTable() {
         </Table>
       </div>
 
-      {/* Pagination component */}
-      {totalPages > 1 && (
-        <div className="border-t border-gray-100 dark:border-white/[0.05] p-5 flex items-center justify-between">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t("student.showing", { start: Math.min(totalRecords, (currentPage - 1) * itemsPerPage + 1), end: Math.min(totalRecords, currentPage * itemsPerPage), total: totalRecords })}
+      {/* Pagination Footer */}
+      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between px-6 py-5 bg-gray-50/50 dark:bg-white/[0.01] border-t border-gray-100 dark:border-gray-800/40">
+        <div className="flex flex-wrap items-center gap-4 pb-3 xl:pb-0 justify-center xl:justify-start">
+          <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+            <span>{t("exam.show", { defaultValue: "Hiển thị" })}</span>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="h-8 rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-2 text-sm text-gray-700 dark:text-gray-355 focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all cursor-pointer font-medium"
+            >
+              <option value="5" className="dark:bg-gray-900">5</option>
+              <option value="10" className="dark:bg-gray-900">10</option>
+              <option value="20" className="dark:bg-gray-900">20</option>
+              <option value="50" className="dark:bg-gray-900">50</option>
+            </select>
+            <span>{t("exam.entriesPerPage", { defaultValue: "mục mỗi trang" })}</span>
+          </div>
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+            {t("student.showing", {
+              start: totalRecords === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1,
+              end: Math.min(currentPage * itemsPerPage, totalRecords),
+              total: totalRecords,
+              defaultValue: `Hiển thị ${totalRecords === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} đến ${Math.min(currentPage * itemsPerPage, totalRecords)} trong tổng số ${totalRecords} mục`
+            })}
           </p>
-          <PaginationWithIcon
-            initialPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={(page) => setCurrentPage(page)}
-          />
         </div>
-      )}
-
-
-
-
+        {totalPages > 1 && (
+          <PaginationWithIcon
+            totalPages={totalPages}
+            initialPage={currentPage}
+            onPageChange={(p) => setCurrentPage(p)}
+          />
+        )}
+      </div>
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmModal
