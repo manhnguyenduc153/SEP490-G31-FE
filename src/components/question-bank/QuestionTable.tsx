@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -19,7 +19,9 @@ import { questionApi, QuestionItem, QuestionSaveDto } from "@/services/question.
 import { questionCategoryApi, QuestionCategoryItem } from "@/services/questionCategory.api";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { useTranslation } from "react-i18next";
-import { CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, XCircle, Search } from "lucide-react";
+
+type TabType = "all" | "easy" | "medium" | "hard";
 
 export default function QuestionTable() {
   const { t } = useTranslation();
@@ -40,7 +42,13 @@ export default function QuestionTable() {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>(undefined);
   const [selectedType, setSelectedType] = useState<number | undefined>(undefined);
-  const [selectedDifficulty, setSelectedDifficulty] = useState<number | undefined>(undefined);
+
+  // Tab Filter States (Difficulty Level as Tabs)
+  const [activeTab, setActiveTab] = useState<TabType>("all");
+  const [countAll, setCountAll] = useState(0);
+  const [countEasy, setCountEasy] = useState(0);
+  const [countMedium, setCountMedium] = useState(0);
+  const [countHard, setCountHard] = useState(0);
 
   const [refreshKey, setRefreshKey] = useState(0);
   const triggerRefresh = () => setRefreshKey((k) => k + 1);
@@ -139,21 +147,37 @@ export default function QuestionTable() {
       setIsLoading(true);
       setError(null);
       try {
-        const res = await questionApi.getAll(currentPage, itemsPerPage, {
+        // Fetch all matching questions under category/type filters to count difficulty tabs
+        const allItemsRes = await questionApi.getAll(1, 10000, {
           keyword: debouncedSearchTerm,
           categoryId: selectedCategory,
           questionType: selectedType,
-          difficultyLevel: selectedDifficulty,
         });
 
         if (!mounted) return;
 
-        if (res.success && res.data) {
-          setItems(res.data.items || []);
-          setTotalRecords(res.data.totalRecords || 0);
-          setTotalPages(res.data.totalPages || 0);
+        if (allItemsRes.success && allItemsRes.data) {
+          const allList = allItemsRes.data.items || [];
+          setCountAll(allList.length);
+          setCountEasy(allList.filter(q => q.difficultyLevel === 1).length);
+          setCountMedium(allList.filter(q => q.difficultyLevel === 2).length);
+          setCountHard(allList.filter(q => q.difficultyLevel === 3).length);
+
+          // Filter by activeTab
+          let displayList = allList;
+          if (activeTab === "easy") displayList = allList.filter(q => q.difficultyLevel === 1);
+          else if (activeTab === "medium") displayList = allList.filter(q => q.difficultyLevel === 2);
+          else if (activeTab === "hard") displayList = allList.filter(q => q.difficultyLevel === 3);
+
+          const total = displayList.length;
+          setTotalRecords(total);
+          setTotalPages(Math.ceil(total / itemsPerPage));
+
+          // Slice for the current page
+          const startIndex = (currentPage - 1) * itemsPerPage;
+          setItems(displayList.slice(startIndex, startIndex + itemsPerPage));
         } else {
-          setError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : "Lỗi hệ thống khi tải câu hỏi.");
+          setError(allItemsRes.message ? t(`backendMessages.${allItemsRes.message}`, { defaultValue: allItemsRes.message }) : "Lỗi hệ thống khi tải câu hỏi.");
         }
       } catch (err) {
         if (mounted) setError("Không thể kết nối đến máy chủ.");
@@ -166,7 +190,8 @@ export default function QuestionTable() {
     return () => {
       mounted = false;
     };
-  }, [currentPage, itemsPerPage, debouncedSearchTerm, selectedCategory, selectedType, selectedDifficulty, refreshKey, t]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, itemsPerPage, debouncedSearchTerm, selectedCategory, selectedType, activeTab, refreshKey, t]);
 
   // ── Delete handler ──
   const openDeleteModal = (item: QuestionItem) => {
@@ -198,20 +223,20 @@ export default function QuestionTable() {
     const templateData = [
       {
         "Mã câu hỏi": "Q001",
-        "Tiêu đề": "Câu hỏi trắc nghiệm một đáp án",
-        "Nội dung": "Thủ đô của Việt Nam là gì?",
+        "Tiêu đề": "Câu hỏi mẫu 1",
+        "Nội dung": "Chọn câu trả lời đúng cho phép toán 1 + 1",
         "Loại": "Chọn một",
         "Độ khó": "Dễ",
         "Điểm": 1,
-        "Giải thích": "Hà Nội là thủ đô của Việt Nam từ năm 1976.",
-        "Danh mục": "Địa lý",
-        "Đáp án 1": "Hà Nội",
+        "Giải thích": "Phép toán cơ bản",
+        "Danh mục": "Toán học",
+        "Đáp án 1": "2",
         "Đúng 1": "x",
-        "Đáp án 2": "TP. Hồ Chí Minh",
+        "Đáp án 2": "3",
         "Đúng 2": "",
-        "Đáp án 3": "Đà Nẵng",
+        "Đáp án 3": "4",
         "Đúng 3": "",
-        "Đáp án 4": "Huế",
+        "Đáp án 4": "",
         "Đúng 4": "",
         "Đáp án 5": "",
         "Đúng 5": "",
@@ -255,7 +280,6 @@ export default function QuestionTable() {
         keyword: debouncedSearchTerm,
         categoryId: selectedCategory,
         questionType: selectedType,
-        difficultyLevel: selectedDifficulty,
       });
       if (res.success && res.data) {
         const exportItems = res.data.items || [];
@@ -350,61 +374,54 @@ export default function QuestionTable() {
             const dNorm = String(difficultyStr).toLowerCase().trim();
             if (dNorm.includes("dễ") || dNorm.includes("easy") || dNorm === "1") {
               difficultyLevel = 1;
-            } else if (dNorm.includes("trung bình") || dNorm.includes("normal") || dNorm.includes("medium") || dNorm === "2") {
+            } else if (dNorm.includes("trung bình") || dNorm.includes("medium") || dNorm.includes("normal") || dNorm === "2") {
               difficultyLevel = 2;
             } else if (dNorm.includes("khó") || dNorm.includes("hard") || dNorm === "3") {
               difficultyLevel = 3;
             }
           }
 
-          let categoryId = null;
-          if (categoryName && categories.length > 0) {
-            const matchedCat = categories.find(
-              (c) => c.name.toLowerCase().trim() === String(categoryName).toLowerCase().trim()
-            );
-            if (matchedCat) {
-              categoryId = matchedCat.id;
-            }
-          }
-
           let point = 1;
           if (pointStr) {
-            const parsedPoint = parseFloat(String(pointStr));
-            if (!isNaN(parsedPoint)) {
-              point = parsedPoint;
+            const parsed = parseFloat(String(pointStr));
+            if (!isNaN(parsed)) {
+              point = parsed;
             }
           }
 
-          const questionAnswers: any[] = [];
+          const answerList: { content: string; isCorrect: boolean }[] = [];
           for (let i = 1; i <= 6; i++) {
             const ansContent = row[`Đáp án ${i}`] || row[`Answer ${i}`];
-            const ansCorrectStr = row[`Đúng ${i}`] || row[`Correct ${i}`];
-            
+            const isCorrectMark = row[`Đúng ${i}`] || row[`Correct ${i}`];
             if (ansContent) {
-              const contentVal = String(ansContent).trim();
-              const correctVal = ansCorrectStr && 
-                (String(ansCorrectStr).toLowerCase().trim() === "x" || 
-                 String(ansCorrectStr).toLowerCase().trim() === "true" || 
-                 String(ansCorrectStr).toLowerCase().trim() === "đúng" || 
-                 String(ansCorrectStr).toLowerCase().trim() === "1");
-
-              questionAnswers.push({
-                content: contentVal,
-                isCorrect: !!correctVal
+              answerList.push({
+                content: String(ansContent).trim(),
+                isCorrect: String(isCorrectMark).toLowerCase().trim() === "x" || String(isCorrectMark).toLowerCase().trim() === "true" || String(isCorrectMark) === "1"
               });
             }
           }
 
+          // Find matching category ID
+          let categoryId: number | undefined = undefined;
+          if (categoryName && categories.length > 0) {
+            const found = categories.find(
+              (c) => c.name.toLowerCase().trim() === String(categoryName).toLowerCase().trim()
+            );
+            if (found) {
+              categoryId = found.id;
+            }
+          }
+
           dtos.push({
-            code: code ? String(code).trim() : "",
+            code: code ? String(code).trim() : undefined,
             name: String(name).trim(),
             content: String(content).trim(),
             questionType,
             difficultyLevel,
+            point,
             explanation: explanation ? String(explanation).trim() : null,
             categoryId,
-            point,
-            questionAnswers
+            questionAnswers: answerList,
           });
         }
 
@@ -465,8 +482,17 @@ export default function QuestionTable() {
     }
   };
 
+  const handleClearFilters = () => {
+    setSearchTerm("");
+    setDebouncedSearchTerm("");
+    setSelectedCategory(undefined);
+    setSelectedType(undefined);
+    setCurrentPage(1);
+    triggerRefresh();
+  };
+
   return (
-    <div className="overflow-hidden bg-white dark:bg-white/[0.03] rounded-xl border border-gray-100 dark:border-white/[0.05]">
+    <div className="w-full bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs overflow-hidden">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
@@ -479,16 +505,20 @@ export default function QuestionTable() {
         </div>
       )}
 
-      {/* Header section with Title and Add Button */}
-      <div className="px-6 py-5 border-b border-gray-100 dark:border-white/[0.05] flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-gray-50/20">
+      {/* Header with Title & Action Buttons */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 sm:p-6 border-b border-gray-100 dark:border-gray-800">
         <div>
-          <h2 className="text-lg font-bold text-gray-950 dark:text-white">{t("question.title")}</h2>
-          <p className="text-xs text-gray-500 mt-1">{t("question.description")}</p>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+            {t("question.title", { defaultValue: "Ngân hàng câu hỏi" })}
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {t("question.description", { defaultValue: "Quản lý thư viện câu hỏi, nhập xuất dữ liệu và tạo câu hỏi mới." })}
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={handleExportExcel}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg cursor-pointer h-11"
           >
             <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -498,7 +528,7 @@ export default function QuestionTable() {
           <PermissionGuard requiredPermission="Question.Create">
             <button
               onClick={handleDownloadTemplate}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg cursor-pointer h-11"
             >
               <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
@@ -508,7 +538,7 @@ export default function QuestionTable() {
           </PermissionGuard>
           <PermissionGuard requiredPermission="Question.Create">
             <label
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg cursor-pointer h-11"
             >
               <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
@@ -525,75 +555,134 @@ export default function QuestionTable() {
           <PermissionGuard requiredPermission="Question.Create">
             <Link
               href="/question-bank/create"
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 transition-colors shadow-theme-xs"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-theme-xs transition-colors h-11"
             >
-              <PlusIcon className="w-4 h-4" />
+              <PlusIcon className="w-4.5 h-4.5" />
               {t("question.addQuestion", { defaultValue: "Thêm câu hỏi" })}
             </Link>
           </PermissionGuard>
         </div>
       </div>
 
-      {/* Filter panel */}
-      <div className="p-6 border-b border-gray-100 dark:border-white/[0.05] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-gray-50/10">
-        {/* Search */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("question.filterKeyword")}</label>
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={t("question.filterKeywordPlaceholder")}
-            className="w-full h-10 px-3.5 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-300 dark:focus:border-brand-800 focus:outline-hidden dark:text-white"
-          />
-        </div>
+      {/* Tab Filter (Difficulty Level as Tabs) */}
+      <div className="flex flex-wrap items-center gap-2 px-5 sm:px-6 pt-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
+        <button
+          onClick={() => { setActiveTab("all"); setCurrentPage(1); }}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${
+            activeTab === "all"
+              ? "border-brand-500 text-brand-500 dark:border-brand-400 dark:text-brand-400"
+              : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          }`}
+        >
+          {t("question.tabAll", { defaultValue: "Tất cả" })} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countAll}</span>
+        </button>
+        <button
+          onClick={() => { setActiveTab("easy"); setCurrentPage(1); }}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${
+            activeTab === "easy"
+              ? "border-brand-500 text-brand-500 dark:border-brand-400 dark:text-brand-400"
+              : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          }`}
+        >
+          {t("question.difficultyEasy", { defaultValue: "Dễ" })} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countEasy}</span>
+        </button>
+        <button
+          onClick={() => { setActiveTab("medium"); setCurrentPage(1); }}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${
+            activeTab === "medium"
+              ? "border-brand-500 text-brand-500 dark:border-brand-400 dark:text-brand-400"
+              : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          }`}
+        >
+          {t("question.difficultyMedium", { defaultValue: "Trung bình" })} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countMedium}</span>
+        </button>
+        <button
+          onClick={() => { setActiveTab("hard"); setCurrentPage(1); }}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${
+            activeTab === "hard"
+              ? "border-brand-500 text-brand-500 dark:border-brand-400 dark:text-brand-400"
+              : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          }`}
+        >
+          {t("question.difficultyHard", { defaultValue: "Khó" })} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countHard}</span>
+        </button>
+      </div>
 
-        {/* Category */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("question.filterCategory")}</label>
-          <select
-            value={selectedCategory || ""}
-            onChange={(e) => setSelectedCategory(e.target.value ? Number(e.target.value) : undefined)}
-            className="w-full h-10 px-3.5 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-300 focus:outline-hidden dark:text-white"
-          >
-            <option value="">{t("question.filterCategoryAll")}</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
+      {/* Search and Filters */}
+      <div className="p-4 sm:p-5 border-b border-gray-150 dark:border-gray-800">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-4 w-full items-end">
+          {/* Text Search */}
+          <div className="relative md:col-span-4">
+            <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+              {t("question.filterKeyword", { defaultValue: "Tìm kiếm" })}
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder={t("question.filterKeywordPlaceholder", { defaultValue: "Tìm kiếm câu hỏi..." })}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all placeholder:text-gray-400 h-11"
+              />
+              <span className="absolute left-3 top-3.5 text-gray-400">
+                <Search className="w-4 h-4" />
+              </span>
+            </div>
+          </div>
 
-        {/* Type */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("question.filterType")}</label>
-          <select
-            value={selectedType || ""}
-            onChange={(e) => setSelectedType(e.target.value ? Number(e.target.value) : undefined)}
-            className="w-full h-10 px-3.5 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-300 focus:outline-hidden dark:text-white"
-          >
-            <option value="">{t("question.filterTypeAll")}</option>
-            <option value="1">{t("question.typeSingle")} (Single Choice)</option>
-            <option value="2">{t("question.typeMultiple")} (Multiple Choice)</option>
-            <option value="3">{t("question.typeEssay")} (Essay)</option>
-            <option value="4">{t("question.typeTrueFalse")} (True / False)</option>
-          </select>
-        </div>
+          {/* Category Filter */}
+          <div className="md:col-span-3">
+            <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+              {t("question.filterCategory", { defaultValue: "Danh mục" })}
+            </label>
+            <select
+              value={selectedCategory || ""}
+              onChange={(e) => {
+                setSelectedCategory(e.target.value ? Number(e.target.value) : undefined);
+                setCurrentPage(1);
+              }}
+              className="w-full px-3 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all h-11 cursor-pointer"
+            >
+              <option value="" className="dark:bg-gray-900">{t("question.filterCategoryAll", { defaultValue: "Tất cả danh mục" })}</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id} className="dark:bg-gray-900">
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        {/* Difficulty */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("question.filterDifficulty")}</label>
-          <select
-            value={selectedDifficulty || ""}
-            onChange={(e) => setSelectedDifficulty(e.target.value ? Number(e.target.value) : undefined)}
-            className="w-full h-10 px-3.5 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-300 focus:outline-hidden dark:text-white"
-          >
-            <option value="">{t("question.filterDifficultyAll")}</option>
-            <option value="1">{t("question.difficultyEasy")}</option>
-            <option value="2">{t("question.difficultyMedium")}</option>
-            <option value="3">{t("question.difficultyHard")}</option>
-          </select>
+          {/* Type Filter */}
+          <div className="md:col-span-3">
+            <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+              {t("question.filterType", { defaultValue: "Loại câu hỏi" })}
+            </label>
+            <select
+              value={selectedType || ""}
+              onChange={(e) => {
+                setSelectedType(e.target.value ? Number(e.target.value) : undefined);
+                setCurrentPage(1);
+              }}
+              className="w-full px-3 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all h-11 cursor-pointer"
+            >
+              <option value="" className="dark:bg-gray-900">{t("question.filterTypeAll", { defaultValue: "Tất cả loại câu hỏi" })}</option>
+              <option value="1" className="dark:bg-gray-900">{t("question.typeSingle")} (Single Choice)</option>
+              <option value="2" className="dark:bg-gray-900">{t("question.typeMultiple")} (Multiple Choice)</option>
+              <option value="3" className="dark:bg-gray-900">{t("question.typeEssay")} (Essay)</option>
+              <option value="4" className="dark:bg-gray-900">{t("question.typeTrueFalse")} (True / False)</option>
+            </select>
+          </div>
+
+          {/* Clear Filters Button */}
+          <div className="flex items-center justify-end h-11 md:col-span-2">
+            <button
+              type="button"
+              onClick={handleClearFilters}
+              className="inline-flex items-center justify-center px-4 h-11 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors cursor-pointer w-full md:w-auto shadow-theme-xs"
+            >
+              {t("question.btnClear", { defaultValue: "Xóa bộ lọc" })}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -726,37 +815,42 @@ export default function QuestionTable() {
         </Table>
       </div>
 
-      {/* Pagination panel */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-6 py-5 bg-gray-50/50 dark:bg-white/[0.01] border-t border-gray-100 dark:border-white/[0.05]">
-        <div className="pb-3 sm:pb-0">
-          <p className="text-sm font-medium text-center text-gray-500 dark:text-gray-400 sm:text-left">
-            {t("question.showing", { start: totalRecords === 0 ? 0 : startIndex + 1, end: endIndex, total: totalRecords })}
+      {/* Pagination Footer */}
+      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between px-6 py-5 bg-gray-50/50 dark:bg-white/[0.01] border-t border-gray-100 dark:border-gray-800/40">
+        <div className="flex flex-wrap items-center gap-4 pb-3 xl:pb-0 justify-center xl:justify-start">
+          <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+            <span>{t("question.show", { defaultValue: "Hiển thị" })}</span>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="h-8 rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-2 text-sm text-gray-750 dark:text-gray-350 focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all cursor-pointer font-medium"
+            >
+              <option value="5" className="dark:bg-gray-900">5</option>
+              <option value="10" className="dark:bg-gray-900">10</option>
+              <option value="20" className="dark:bg-gray-900">20</option>
+              <option value="50" className="dark:bg-gray-900">50</option>
+            </select>
+            <span>{t("question.entriesPerPage", { defaultValue: "mục mỗi trang" })}</span>
+          </div>
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+            {t("question.showing", {
+              start: totalRecords === 0 ? 0 : startIndex + 1,
+              end: endIndex,
+              total: totalRecords,
+              defaultValue: `Hiển thị ${totalRecords === 0 ? 0 : startIndex + 1} đến ${endIndex} trong tổng số ${totalRecords} mục`
+            })}
           </p>
         </div>
-        <div className="flex items-center justify-center gap-3">
-          <span className="text-sm text-gray-500">{t("question.entriesPerPage")}</span>
-          <select
-            value={itemsPerPage}
-            onChange={(e) => {
-              setItemsPerPage(Number(e.target.value));
-              setCurrentPage(1);
-            }}
-            className="py-1 px-2.5 text-sm bg-transparent border border-gray-300 dark:border-gray-700 rounded focus:outline-hidden dark:text-white"
-          >
-            {[5, 10, 20, 50].map((v) => (
-              <option key={v} value={v} className="dark:bg-gray-900 text-gray-800 dark:text-white">
-                {v}
-              </option>
-            ))}
-          </select>
-          {totalPages > 1 && (
-            <PaginationWithIcon
-              totalPages={totalPages}
-              initialPage={currentPage}
-              onPageChange={(p) => setCurrentPage(p)}
-            />
-          )}
-        </div>
+        {totalPages > 1 && (
+          <PaginationWithIcon
+            totalPages={totalPages}
+            initialPage={currentPage}
+            onPageChange={(p) => setCurrentPage(p)}
+          />
+        )}
       </div>
 
       {/* View Detail Modal */}
