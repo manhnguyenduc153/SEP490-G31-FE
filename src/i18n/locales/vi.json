@@ -26,6 +26,8 @@
     "questionBank": "Ngân hàng câu hỏi",
     "questionCategory": "Danh mục câu hỏi",
     "scores": "Điểm số",
+    "scoreSettings": "Cấu hình điểm",
+    "myScores": "Điểm",
     "learning": "Học tập",
     "learningMaterials": "Tài liệu học tập",
     "attendance": "Điểm danh",
@@ -37,11 +39,20 @@
     "reportsMenu": "Báo cáo & Thống kê",
     "reports": "Báo cáo",
     "statistics": "Thống kê",
+    "parentServices": "Dịch vụ phụ huynh",
     "childProfile": "Hồ sơ học sinh",
     "childProgress": "Tiến độ học tập",
     "childSchedules": "Lịch học của con",
     "parents": "Danh sách phụ huynh",
     "schoolManagement": "Quản lý trung tâm IELTS"
+  },
+  "studentScores": {
+    "title": "Điểm của tôi",
+    "subtitle": "Nhấp vào lớp để xem điểm thành phần và điểm trung bình cuối cùng.",
+    "loading": "Đang tải điểm...",
+    "empty": "Bạn chưa có điểm lớp học nào.",
+    "rawScore": "Điểm hệ thống",
+    "finalScore": "Điểm cuối cùng"
   },
   "questionCategory": {
     "title": "Danh mục câu hỏi",
