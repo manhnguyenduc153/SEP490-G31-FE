@@ -33,6 +33,7 @@ export interface TeacherAvailabilitySaveDto {
 
 export interface StudentRegistrationDto {
   id: number;
+  studentId: number;
   semesterId: number;
   studentCode?: string | null;
   studentName: string;
@@ -132,6 +133,18 @@ export const semesterApi = {
 
   async importStudentRegistrations(dtos: StudentRegistrationSaveDto[]): Promise<ApiResponse<StudentRegistrationDto[]>> {
     return api.post<StudentRegistrationDto[]>(ENDPOINTS.SEMESTER.IMPORT_STUDENTS, dtos);
+  },
+
+  async createStudentRegistration(dto: StudentRegistrationSaveDto): Promise<ApiResponse<StudentRegistrationDto>> {
+    return api.post<StudentRegistrationDto>(ENDPOINTS.SEMESTER.CREATE_REGISTRATION, dto);
+  },
+
+  async updateStudentRegistration(id: number, dto: StudentRegistrationSaveDto): Promise<ApiResponse<StudentRegistrationDto>> {
+    return api.put<StudentRegistrationDto>(ENDPOINTS.SEMESTER.UPDATE_REGISTRATION(id), dto);
+  },
+
+  async deleteStudentRegistration(id: number): Promise<ApiResponse<boolean>> {
+    return api.delete<boolean>(ENDPOINTS.SEMESTER.DELETE_REGISTRATION(id));
   },
 
   async autoScheduleSemester(dto: AutoScheduleSemesterRequestDto): Promise<ApiResponse<any>> {

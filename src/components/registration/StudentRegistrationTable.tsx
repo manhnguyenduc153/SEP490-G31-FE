@@ -8,7 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Plus, Calendar, BookOpen, CheckSquare } from "lucide-react";
+import { Search, Plus, Calendar, BookOpen, CheckSquare, Edit, Trash2 } from "lucide-react";
 import { semesterApi, SemesterItem, StudentRegistrationDto } from "@/services/semester.api";
 import { courseApi, CourseItem } from "@/services/course.api";
 import { StudentRegistrationModal } from "./StudentRegistrationModal";
@@ -46,6 +46,7 @@ export default function StudentRegistrationTable() {
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [registrationToEdit, setRegistrationToEdit] = useState<StudentRegistrationDto | null>(null);
 
   // Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -63,6 +64,22 @@ export default function StudentRegistrationTable() {
   };
 
   const triggerRefresh = () => setRefreshKey((k) => k + 1);
+
+  const handleDelete = async (id: number) => {
+    if (window.confirm(t("registration.confirmDelete", { defaultValue: "Bạn có chắc chắn muốn xóa đăng ký này không?" }))) {
+      try {
+        const res = await semesterApi.deleteStudentRegistration(id);
+        if (res.success) {
+          showToast(t("registration.toastDeleteSuccess", { defaultValue: "Xóa đăng ký thành công!" }));
+          triggerRefresh();
+        } else {
+          showToast(res.message ? t(`backendMessages.${res.message}`) : t("registration.toastDeleteError", { defaultValue: "Lỗi khi xóa đăng ký." }), "error");
+        }
+      } catch (err: any) {
+         showToast(err.message || t("registration.toastSystemError"), "error");
+      }
+    }
+  };
 
   // Debounce search input
   useEffect(() => {
@@ -336,12 +353,13 @@ export default function StudentRegistrationTable() {
             <TableHeader className="bg-gray-50/70 dark:bg-gray-800/40">
               <TableRow>
                 <TableCell className="w-[5%] px-5 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("registration.colId")}</TableCell>
-                <TableCell className="w-[15%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("registration.colStudentCode")}</TableCell>
+                <TableCell className="w-[10%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("registration.colStudentCode")}</TableCell>
                 <TableCell className="w-[20%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("registration.colStudent")}</TableCell>
-                <TableCell className="w-[20%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("registration.colContact")}</TableCell>
+                <TableCell className="w-[15%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("registration.colContact")}</TableCell>
                 <TableCell className="w-[15%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("registration.colCourse")}</TableCell>
                 <TableCell className="w-[13%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("registration.colPreferredSlots")}</TableCell>
-                <TableCell className="w-[12%] px-5 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("registration.colStatus")}</TableCell>
+                <TableCell className="w-[10%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("registration.colStatus")}</TableCell>
+                <TableCell className="w-[12%] px-5 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("registration.colActions", { defaultValue: "Thao tác" })}</TableCell>
               </TableRow>
             </TableHeader>
             <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -376,10 +394,33 @@ export default function StudentRegistrationTable() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="px-5 sm:px-6 py-4 text-right">
+                  <TableCell className="px-5 sm:px-6 py-4">
                     <span className={`inline-flex items-center text-xs font-semibold px-2.5 py-0.5 rounded-full ${getStatusBadgeClass(item.status)}`}>
                       {getStatusText(item.status)}
                     </span>
+                  </TableCell>
+                  <TableCell className="px-5 sm:px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        disabled={item.status === 1}
+                        onClick={() => {
+                          setRegistrationToEdit(item);
+                          setIsModalOpen(true);
+                        }}
+                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-brand-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-brand-450 dark:hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-500 dark:disabled:hover:text-gray-400"
+                        title={item.status === 1 ? t("registration.cannotEditScheduled", { defaultValue: "Không thể sửa đăng ký đã xếp lớp" }) : t("common.edit", { defaultValue: "Sửa" })}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        disabled={item.status === 1}
+                        onClick={() => handleDelete(item.id)}
+                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-rose-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-rose-450 dark:hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-500 dark:disabled:hover:text-gray-400"
+                        title={item.status === 1 ? t("registration.cannotDeleteScheduled", { defaultValue: "Không thể xóa đăng ký đã xếp lớp" }) : t("common.delete", { defaultValue: "Xóa" })}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -430,10 +471,14 @@ export default function StudentRegistrationTable() {
       {/* Modal */}
       <StudentRegistrationModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setRegistrationToEdit(null);
+        }}
         defaultSemesterId={selectedSemesterId}
         showToast={showToast}
         onSuccess={() => triggerRefresh()}
+        registrationToEdit={registrationToEdit}
       />
     </div>
   );

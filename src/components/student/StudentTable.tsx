@@ -17,17 +17,17 @@ import {
   StudentItem,
   StudentSaveDto,
 } from "@/services/student.api";
-import { CodeHelper } from "@/helpers/CodeHelper";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { useTranslation } from "react-i18next";
 import { Modal } from "@/components/ui/modal";
-import { Eye } from "lucide-react";
+import { Eye, Search } from "lucide-react";
 import { StudentViewModal } from "./StudentViewModal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type SortKey = "code" | "name" | "email" | "phone" | "status" | "gradeLevel" | "hasAccount";
 type SortOrder = "asc" | "desc";
+type TabType = "all" | "active" | "inactive" | "suspended" | "graduated";
 
 interface StudentTableProps {
   refreshKey?: number;
@@ -66,9 +66,16 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   
   // Custom filter states
-  const [filterStatus, setFilterStatus] = useState<number | null>(null);
   const [filterGrade, setFilterGrade] = useState<number | null>(null);
   const [filterGender, setFilterGender] = useState<boolean | null>(null);
+
+  // Tab stats
+  const [activeTab, setActiveTab] = useState<TabType>("all");
+  const [countAll, setCountAll] = useState(0);
+  const [countActive, setCountActive] = useState(0);
+  const [countInactive, setCountInactive] = useState(0);
+  const [countSuspended, setCountSuspended] = useState(0);
+  const [countGraduated, setCountGraduated] = useState(0);
 
   // Internal refresh (for delete/deactivate)
   const [internalRefreshKey, setInternalRefreshKey] = useState(0);
@@ -159,21 +166,61 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
       setIsLoading(true);
       setError(null);
       try {
-        const res = await studentApi.getAll(
-          currentPage,
-          itemsPerPage,
+        // Fetch all filtered items to count tab statistics
+        const allItemsRes = await studentApi.getAll(
+          1,
+          10000,
           debouncedSearchTerm,
-          filterStatus,
+          null, // don't filter by status to calculate counts correctly!
           filterGrade,
           filterGender
         );
+
         if (!mounted) return;
-        if (res.success && res.data) {
-          setItems(res.data.items || []);
-          setTotalRecords(res.data.totalRecords || 0);
-          setTotalPages(res.data.totalPages || 0);
+
+        if (allItemsRes.success && allItemsRes.data) {
+          const allList = allItemsRes.data.items || [];
+          setCountAll(allList.length);
+          setCountActive(allList.filter(s => s.status === 1).length);
+          setCountInactive(allList.filter(s => s.status === 0).length);
+          setCountSuspended(allList.filter(s => s.status === 2).length);
+          setCountGraduated(allList.filter(s => s.status === 3).length);
+
+          // Filter main list items by activeTab
+          let displayList = allList;
+          if (activeTab === "active") displayList = allList.filter(s => s.status === 1);
+          else if (activeTab === "inactive") displayList = allList.filter(s => s.status === 0);
+          else if (activeTab === "suspended") displayList = allList.filter(s => s.status === 2);
+          else if (activeTab === "graduated") displayList = allList.filter(s => s.status === 3);
+
+          // Apply client-side sorting on displayList first
+          const sortedList = [...displayList].sort((a, b) => {
+            let av = a[sortKey];
+            let bv = b[sortKey];
+            
+            if (av === null || av === undefined) av = "";
+            if (bv === null || bv === undefined) bv = "";
+
+            if (typeof av === "string" && typeof bv === "string") {
+              return sortOrder === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+            }
+            if (typeof av === "boolean" && typeof bv === "boolean") {
+              return sortOrder === "asc" ? (av ? 1 : 0) - (bv ? 1 : 0) : (bv ? 1 : 0) - (av ? 1 : 0);
+            }
+            return sortOrder === "asc" 
+              ? (av as number) - (bv as number) 
+              : (bv as number) - (av as number);
+          });
+
+          const total = sortedList.length;
+          setTotalRecords(total);
+          setTotalPages(Math.ceil(total / itemsPerPage));
+
+          // Apply manual paging on the sorted array
+          const startIndex = (currentPage - 1) * itemsPerPage;
+          setItems(sortedList.slice(startIndex, startIndex + itemsPerPage));
         } else {
-          setError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("student.systemError"));
+          setError(allItemsRes.message ? t(`backendMessages.${allItemsRes.message}`, { defaultValue: allItemsRes.message }) : t("student.systemError"));
         }
       } catch {
         if (mounted) setError(t("student.systemError"));
@@ -187,27 +234,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
       mounted = false;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, itemsPerPage, debouncedSearchTerm, filterStatus, filterGrade, filterGender, refreshKey, internalRefreshKey]);
-
-  const sortedData = useMemo(() => {
-    return [...items].sort((a, b) => {
-      let av = a[sortKey];
-      let bv = b[sortKey];
-      
-      if (av === null || av === undefined) av = "";
-      if (bv === null || bv === undefined) bv = "";
-
-      if (typeof av === "string" && typeof bv === "string") {
-        return sortOrder === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
-      }
-      if (typeof av === "boolean" && typeof bv === "boolean") {
-        return sortOrder === "asc" ? (av ? 1 : 0) - (bv ? 1 : 0) : (bv ? 1 : 0) - (av ? 1 : 0);
-      }
-      return sortOrder === "asc" 
-        ? (av as number) - (bv as number) 
-        : (bv as number) - (av as number);
-    });
-  }, [items, sortKey, sortOrder]);
+  }, [currentPage, itemsPerPage, debouncedSearchTerm, filterGrade, filterGender, activeTab, sortKey, sortOrder, refreshKey, internalRefreshKey]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -217,8 +244,6 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
       setSortOrder("asc");
     }
   };
-
-  // No modal handlers needed anymore as we route to dedicated pages
 
   // ── Open delete confirm ──
   const openDeleteModal = (item: StudentItem) => {
@@ -247,7 +272,6 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
     }
   };
 
-  // ── Open deactivate confirm ──
   const openDeactivateModal = (item: StudentItem) => {
     setDeactivateTarget(item);
     setIsDeactivateModalOpen(true);
@@ -301,7 +325,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
 
   const handleExportExcel = async () => {
     try {
-      const res = await studentApi.getAll(1, 10000, searchTerm, filterStatus, filterGrade, filterGender);
+      const res = await studentApi.getAll(1, 10000, searchTerm, null, filterGrade, filterGender);
       if (res.success && res.data) {
         const exportItems = res.data.items || [];
         
@@ -487,45 +511,156 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
   };
 
   return (
-    <div className="overflow-hidden bg-white dark:bg-white/[0.03] rounded-xl border border-gray-100 dark:border-white/[0.05]">
+    <div className="w-full bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs overflow-hidden">
 
-
-      {/* Filter and Control panel */}
-      <div className="p-6 border-b border-gray-100 dark:border-white/[0.05] space-y-4">
-        <div className="flex flex-wrap items-center gap-4">
-          {/* Status filter */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">{t("student.filterStatus", { defaultValue: "Trạng thái" })}</span>
-            <select
-              className="py-1.5 pl-3 pr-8 text-sm text-gray-800 bg-transparent border border-gray-300 rounded-lg appearance-none dark:bg-dark-900 h-9 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              value={filterStatus === null ? "" : filterStatus}
-              onChange={(e) => {
-                const val = e.target.value;
-                setFilterStatus(val === "" ? null : Number(val));
-                setCurrentPage(1);
-              }}
+      {/* Header with Title & Action Buttons */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 sm:p-6 border-b border-gray-100 dark:border-gray-800">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+            {t("student.title", { defaultValue: "Quản lý Học sinh" })}
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {t("student.description", { defaultValue: "Quản lý danh sách học sinh, thông tin phụ huynh và cấp tài khoản." })}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleExportExcel}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg cursor-pointer h-11"
+          >
+            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+            {t("student.exportExcel", { defaultValue: "Xuất Excel" })}
+          </button>
+          <PermissionGuard requiredPermission="Student.Create">
+            <button
+              onClick={handleDownloadTemplate}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg cursor-pointer h-11"
             >
-              <option value="" className="dark:bg-gray-900">{t("student.filterAll", { defaultValue: "Tất cả" })}</option>
-              <option value={1} className="dark:bg-gray-900">{t("student.formStatusActive", { defaultValue: "Hoạt động" })}</option>
-              <option value={0} className="dark:bg-gray-900">{t("student.formStatusInactive", { defaultValue: "Ngưng hoạt động" })}</option>
-              <option value={2} className="dark:bg-gray-900">{t("student.formStatusSuspended", { defaultValue: "Bị đình chỉ" })}</option>
-              <option value={3} className="dark:bg-gray-900">{t("student.formStatusGraduated", { defaultValue: "Đã tốt nghiệp" })}</option>
-            </select>
+              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+              </svg>
+              {t("student.downloadTemplate", { defaultValue: "Tải file mẫu" })}
+            </button>
+          </PermissionGuard>
+          <PermissionGuard requiredPermission="Student.Create">
+            <label
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg cursor-pointer h-11"
+            >
+              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+              </svg>
+              {t("student.importExcel", { defaultValue: "Nhập Excel" })}
+              <input
+                type="file"
+                accept=".xlsx, .xls"
+                onChange={handleImportExcel}
+                className="hidden"
+              />
+            </label>
+          </PermissionGuard>
+          <PermissionGuard requiredPermission="Student.Create">
+            <button
+              onClick={onAddClick}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-theme-xs transition-colors h-11"
+            >
+              <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M8.00016 3.33331V12.6666M3.3335 7.99998H12.6668" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {t("student.addStudent", { defaultValue: "Thêm học sinh" })}
+            </button>
+          </PermissionGuard>
+        </div>
+      </div>
+
+      {/* Tab Filter */}
+      <div className="flex flex-wrap items-center gap-2 px-5 sm:px-6 pt-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
+        <button
+          onClick={() => { setActiveTab("all"); setCurrentPage(1); }}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${
+            activeTab === "all"
+              ? "border-brand-500 text-brand-500 dark:border-brand-400 dark:text-brand-400"
+              : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          }`}
+        >
+          {t("student.tabAll", { defaultValue: "Tất cả" })} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countAll}</span>
+        </button>
+        <button
+          onClick={() => { setActiveTab("active"); setCurrentPage(1); }}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${
+            activeTab === "active"
+              ? "border-brand-500 text-brand-500 dark:border-brand-400 dark:text-brand-400"
+              : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          }`}
+        >
+          {t("student.tabActive", { defaultValue: "Hoạt động" })} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countActive}</span>
+        </button>
+        <button
+          onClick={() => { setActiveTab("inactive"); setCurrentPage(1); }}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${
+            activeTab === "inactive"
+              ? "border-brand-500 text-brand-500 dark:border-brand-400 dark:text-brand-400"
+              : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          }`}
+        >
+          {t("student.tabInactive", { defaultValue: "Ngưng hoạt động" })} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countInactive}</span>
+        </button>
+        <button
+          onClick={() => { setActiveTab("suspended"); setCurrentPage(1); }}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${
+            activeTab === "suspended"
+              ? "border-brand-500 text-brand-500 dark:border-brand-400 dark:text-brand-400"
+              : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          }`}
+        >
+          {t("student.tabSuspended", { defaultValue: "Bị đình chỉ" })} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countSuspended}</span>
+        </button>
+        <button
+          onClick={() => { setActiveTab("graduated"); setCurrentPage(1); }}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${
+            activeTab === "graduated"
+              ? "border-brand-500 text-brand-500 dark:border-brand-400 dark:text-brand-400"
+              : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          }`}
+        >
+          {t("student.tabGraduated", { defaultValue: "Đã tốt nghiệp" })} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countGraduated}</span>
+        </button>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="p-4 sm:p-5 border-b border-gray-150 dark:border-gray-800">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-4 w-full items-end">
+          {/* Text Search */}
+          <div className="relative md:col-span-4">
+            <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+              {t("student.searchLabel", { defaultValue: "Tìm kiếm" })}
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder={t("student.searchPlaceholder", { defaultValue: "Tìm kiếm học sinh..." })}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all placeholder:text-gray-400 h-11"
+              />
+              <span className="absolute left-3 top-3.5 text-gray-400">
+                <Search className="w-4 h-4" />
+              </span>
+            </div>
           </div>
 
-          {/* Grade Level filter */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">{t("student.filterGrade", { defaultValue: "Khối lớp" })}</span>
+          {/* Grade Level Selector */}
+          <div className="md:col-span-3">
+            <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+              {t("student.filterGrade", { defaultValue: "Khối lớp" })}
+            </label>
             <select
-              className="py-1.5 pl-3 pr-8 text-sm text-gray-800 bg-transparent border border-gray-300 rounded-lg appearance-none dark:bg-dark-900 h-9 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
               value={filterGrade === null ? "" : filterGrade}
-              onChange={(e) => {
-                const val = e.target.value;
-                setFilterGrade(val === "" ? null : Number(val));
-                setCurrentPage(1);
-              }}
+              onChange={(e) => { setFilterGrade(e.target.value ? Number(e.target.value) : null); setCurrentPage(1); }}
+              className="w-full px-3 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all h-11 cursor-pointer"
             >
-              <option value="" className="dark:bg-gray-900">{t("student.filterAll", { defaultValue: "Tất cả" })}</option>
+              <option value="" className="dark:bg-gray-900">{t("student.filterAll", { defaultValue: "Tất cả khối lớp" })}</option>
               {Array.from({ length: 12 }, (_, i) => i + 1).map((g) => (
                 <option key={g} value={g} className="dark:bg-gray-900">
                   {t("student.colGradeLevel")} {g}
@@ -534,134 +669,40 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
             </select>
           </div>
 
-          {/* Gender filter */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">{t("student.filterGender", { defaultValue: "Giới tính" })}</span>
+          {/* Gender Selector */}
+          <div className="md:col-span-3">
+            <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+              {t("student.filterGender", { defaultValue: "Giới tính" })}
+            </label>
             <select
-              className="py-1.5 pl-3 pr-8 text-sm text-gray-800 bg-transparent border border-gray-300 rounded-lg appearance-none dark:bg-dark-900 h-9 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
               value={filterGender === null ? "" : String(filterGender)}
               onChange={(e) => {
                 const val = e.target.value;
                 setFilterGender(val === "" ? null : val === "true");
                 setCurrentPage(1);
               }}
+              className="w-full px-3 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all h-11 cursor-pointer"
             >
-              <option value="" className="dark:bg-gray-900">{t("student.filterAll", { defaultValue: "Tất cả" })}</option>
+              <option value="" className="dark:bg-gray-900">{t("student.filterAll", { defaultValue: "Tất cả giới tính" })}</option>
               <option value="true" className="dark:bg-gray-900">{t("student.formGenderMale", { defaultValue: "Nam" })}</option>
               <option value="false" className="dark:bg-gray-900">{t("student.formGenderFemale", { defaultValue: "Nữ" })}</option>
             </select>
           </div>
-        </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-2">
-          {/* Show N entries */}
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-500 dark:text-gray-400">{t("student.show", { defaultValue: "Hiển thị" })}</span>
-            <div className="relative z-20 bg-transparent">
-              <select
-                className="py-1.5 pl-3 pr-8 text-sm text-gray-800 bg-transparent border border-gray-300 rounded-lg appearance-none dark:bg-dark-900 h-9 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-                value={itemsPerPage}
-                onChange={(e) => {
-                  setItemsPerPage(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-              >
-                {[5, 10, 15, 20].map((v) => (
-                  <option key={v} value={v} className="text-gray-500 dark:bg-gray-900 dark:text-gray-400">
-                    {v}
-                  </option>
-                ))}
-              </select>
-              <span className="absolute z-30 text-gray-500 -translate-y-1/2 right-2 top-1/2 dark:text-gray-400 pointer-events-none">
-                <svg className="stroke-current" width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M3.8335 5.9165L8.00016 10.0832L12.1668 5.9165" stroke="" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </span>
-            </div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">{t("student.entries", { defaultValue: "mục" })}</span>
-          </div>
-
-          {/* Search + Add Button */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative">
-              <button className="absolute text-gray-500 -translate-y-1/2 left-4 top-1/2 dark:text-gray-400">
-                <svg className="fill-current" width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path fillRule="evenodd" clipRule="evenodd" d="M3.04199 9.37363C3.04199 5.87693 5.87735 3.04199 9.37533 3.04199C12.8733 3.04199 15.7087 5.87693 15.7087 9.37363C15.7087 12.8703 12.8733 15.7053 9.37533 15.7053C5.87735 15.7053 3.04199 12.8703 3.04199 9.37363ZM9.37533 1.54199C5.04926 1.54199 1.54199 5.04817 1.54199 9.37363C1.54199 13.6991 5.04926 17.2053 9.37533 17.2053C11.2676 17.2053 13.0032 16.5344 14.3572 15.4176L17.1773 18.238C17.4702 18.5309 17.945 18.5309 18.2379 18.238C18.5308 17.9451 18.5309 17.4703 18.238 17.1773L15.4182 14.3573C16.5367 13.0033 17.2087 11.2669 17.2087 9.37363C17.2087 5.04817 13.7014 1.54199 9.37533 1.54199Z" />
-                </svg>
-              </button>
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder={t("student.searchPlaceholder", { defaultValue: "Tìm kiếm học sinh..." })}
-                className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent py-2.5 pl-11 pr-4 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[250px]"
-              />
-            </div>
+          {/* Clear Filters Button */}
+          <div className="flex items-center justify-end h-11 md:col-span-2">
             <button
-              onClick={handleExportExcel}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 h-11 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg"
+              type="button"
+              onClick={() => {
+                setSearchTerm("");
+                setFilterGrade(null);
+                setFilterGender(null);
+                setCurrentPage(1);
+              }}
+              className="inline-flex items-center justify-center px-4 h-11 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors cursor-pointer w-full md:w-auto shadow-theme-xs"
             >
-              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-              </svg>
-              {t("student.exportExcel", { defaultValue: "Xuất Excel" })}
+              {t("student.clearFiltersBtn", { defaultValue: "Xóa bộ lọc" })}
             </button>
-            <PermissionGuard requiredPermission="Student.Create">
-              <button
-                onClick={handleDownloadTemplate}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 h-11 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg"
-              >
-                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                </svg>
-                {t("student.downloadTemplate", { defaultValue: "Tải file mẫu" })}
-              </button>
-            </PermissionGuard>
-            <PermissionGuard requiredPermission="Student.Create">
-              <label
-                className="flex items-center justify-center gap-2 px-4 py-2.5 h-11 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg cursor-pointer"
-              >
-                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
-                </svg>
-                {t("student.importExcel", { defaultValue: "Nhập Excel" })}
-                <input
-                  type="file"
-                  accept=".xlsx, .xls"
-                  onChange={handleImportExcel}
-                  className="hidden"
-                />
-              </label>
-            </PermissionGuard>
-            {selectedUnprovisionedIds.length > 0 && (
-              <PermissionGuard requiredPermission="Student.Create">
-                <button
-                  onClick={handleProvisionAccounts}
-                  disabled={isProvisioning}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 h-11 text-sm font-medium text-white bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 transition-colors shadow-theme-xs rounded-lg disabled:opacity-50"
-                >
-                  {isProvisioning ? (
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                  ) : (
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" />
-                    </svg>
-                  )}
-                  {t("student.btnProvision", { defaultValue: "Cấp tài khoản" })} ({selectedUnprovisionedIds.length})
-                </button>
-              </PermissionGuard>
-            )}
-            <PermissionGuard requiredPermission="Student.Create">
-              <button
-                onClick={onAddClick}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 h-11 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 transition-colors shadow-theme-xs"
-              >
-                <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M8.00016 3.33331V12.6666M3.3335 7.99998H12.6668" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                {t("student.addStudent", { defaultValue: "Thêm học sinh" })}
-              </button>
-            </PermissionGuard>
           </div>
         </div>
       </div>
@@ -758,8 +799,8 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
                   {error}
                 </TableCell>
               </TableRow>
-            ) : sortedData.length > 0 ? (
-              sortedData.map((item, index) => (
+            ) : items.length > 0 ? (
+              items.map((item, index) => (
                 <TableRow
                   key={item.id}
                   className="hover:bg-gray-50/50 dark:hover:bg-white/[0.01] transition-colors"
@@ -781,13 +822,12 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
                   <TableCell className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">
                     <div className="flex items-center gap-3">
                       {item.avatar ? (
-                        // eslint-disable-next-line @next/next/no-img-element
+                        // eslint-disable-next-line @img/next/no-img-element
                         <img
                           src={item.avatar}
                           alt={item.name}
                           className="w-8 h-8 rounded-full object-cover shrink-0"
                           onError={(e) => {
-                            // Fallback
                             e.currentTarget.src = "/images/user/user-01.png";
                           }}
                         />
@@ -878,7 +918,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={9}
                   className="px-6 py-10 text-center text-gray-500 dark:text-gray-400"
                 >
                   {t("student.noResults", { defaultValue: "Không tìm thấy học sinh nào." })}
@@ -889,11 +929,33 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
         </Table>
       </div>
 
-      {/* Pagination */}
-      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between px-6 py-5 bg-gray-50/50 dark:bg-white/[0.01] border-t border-gray-100 dark:border-white/[0.05]">
-        <div className="pb-3 xl:pb-0">
-          <p className="text-sm font-medium text-center text-gray-500 dark:text-gray-400 xl:text-left">
-            {t("student.showing", { start: totalRecords === 0 ? 0 : startIndex + 1, end: endIndex, total: totalRecords, defaultValue: `Hiển thị ${totalRecords === 0 ? 0 : startIndex + 1} đến ${endIndex} trong tổng số ${totalRecords} mục` })}
+      {/* Pagination Footer */}
+      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between px-6 py-5 bg-gray-50/50 dark:bg-white/[0.01] border-t border-gray-100 dark:border-gray-800/40">
+        <div className="flex flex-wrap items-center gap-4 pb-3 xl:pb-0 justify-center xl:justify-start">
+          <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+            <span>{t("student.show", { defaultValue: "Hiển thị" })}</span>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="h-8 rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-2 text-sm text-gray-700 dark:text-gray-350 focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all cursor-pointer font-medium"
+            >
+              <option value="5" className="dark:bg-gray-900">5</option>
+              <option value="10" className="dark:bg-gray-900">10</option>
+              <option value="15" className="dark:bg-gray-900">15</option>
+              <option value="20" className="dark:bg-gray-900">20</option>
+            </select>
+            <span>{t("student.entriesPerPage", { defaultValue: "mục mỗi trang" })}</span>
+          </div>
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+            {t("student.showing", {
+              start: totalRecords === 0 ? 0 : startIndex + 1,
+              end: endIndex,
+              total: totalRecords,
+              defaultValue: `Hiển thị ${totalRecords === 0 ? 0 : startIndex + 1} đến ${endIndex} trong tổng số ${totalRecords} mục`
+            })}
           </p>
         </div>
         {totalPages > 1 && (
@@ -904,9 +966,6 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
           />
         )}
       </div>
-
-      {/* ── Create / Edit Modal ── */}
-      {/* StudentFormModal removed as we now route to standalone create and edit pages */}
 
       {/* ── Delete Confirm Modal ── */}
       <DeleteConfirmModal
@@ -960,6 +1019,47 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
           studentId={viewingStudentId}
         />
       )}
+
+      {/* Batch Action Bar */}
+      {selectedUnprovisionedIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center justify-between gap-4 px-6 py-3 bg-gray-900 text-white rounded-xl shadow-2xl border border-gray-800 animate-slideUp">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium">
+              {t("student.selectedCount", { count: selectedIds.length, defaultValue: `Đã chọn ${selectedIds.length} học sinh` })}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectedIds([])}
+              className="px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-white transition-colors"
+            >
+              {t("student.deselectBtn", { defaultValue: "Bỏ chọn" })}
+            </button>
+            <PermissionGuard requiredPermission="Student.Create">
+              <button
+                onClick={handleProvisionAccounts}
+                disabled={isProvisioning}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {isProvisioning ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent"></div>
+                    {t("student.provisioningBtn", { defaultValue: "Đang cấp..." })}
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" />
+                    </svg>
+                    {t("student.btnProvision", { defaultValue: "Cấp tài khoản" })} ({selectedUnprovisionedIds.length})
+                  </>
+                )}
+              </button>
+            </PermissionGuard>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
