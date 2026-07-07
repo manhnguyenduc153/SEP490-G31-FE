@@ -116,6 +116,10 @@ export const examApi = {
     return api.get<ExamAttemptDto[]>(`/api/Exam/${examId}/attempts`);
   },
 
+  async getAttemptsByExam(examId: number): Promise<ApiResponse<ExamAttemptDto[]>> {
+    return api.get<ExamAttemptDto[]>(`/api/Exam/${examId}/all-attempts`);
+  },
+
   async startAttempt(examId: number): Promise<ApiResponse<ExamAttemptDto>> {
     return api.post<ExamAttemptDto>(`/api/Exam/${examId}/start`, {});
   },
