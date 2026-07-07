@@ -23,7 +23,7 @@ export function StudentExamList({ t }: StudentExamListProps) {
   const [exams, setExams] = useState<ExamItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Search and Filter states
   const [keyword, setKeyword] = useState("");
   const [selectedClass, setSelectedClass] = useState("all");
@@ -54,11 +54,7 @@ export function StudentExamList({ t }: StudentExamListProps) {
 
   // Filter logic
   const uniqueClasses = Array.from(
-<<<<<<< HEAD
-    new Set(exams.map((e) => e.className).filter((className): className is string => Boolean(className)))
-=======
     new Set(exams.map((e) => e.className).filter((c): c is string => !!c))
->>>>>>> dd208398adff910b36257eb8a7a5b86bd97c5256
   );
 
   const filteredExams = exams.filter((exam) => {
@@ -159,18 +155,16 @@ export function StudentExamList({ t }: StudentExamListProps) {
                 <div
                   key={exam.id}
                   onClick={() => setSelectedExam(exam)}
-                  className={`p-4 bg-white dark:bg-gray-900 border rounded-2xl flex items-center justify-between gap-4 cursor-pointer transition-all duration-200 shadow-theme-xs ${
-                    isSelected
+                  className={`p-4 bg-white dark:bg-gray-900 border rounded-2xl flex items-center justify-between gap-4 cursor-pointer transition-all duration-200 shadow-theme-xs ${isSelected
                       ? "border-brand-500 ring-2 ring-brand-500/10 dark:border-brand-500"
                       : "border-gray-150 dark:border-gray-850 hover:border-brand-300"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-4 min-w-0">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                      isSelected
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-colors ${isSelected
                         ? "bg-brand-500 text-white"
                         : "bg-brand-50 text-brand-500 dark:bg-brand-950/20"
-                    }`}>
+                      }`}>
                       <FileText className="w-6 h-6" />
                     </div>
 
