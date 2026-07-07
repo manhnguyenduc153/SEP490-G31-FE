@@ -119,7 +119,6 @@ export default function MyScoresPage() {
                             <tr>
                               <th className="px-4 py-3 text-left">{t("class.gradeComponentName", { defaultValue: "Component" })}</th>
                               <th className="px-4 py-3 text-center">{t("class.gradeWeight", { defaultValue: "Weight (%)" })}</th>
-                              <th className="px-4 py-3 text-center">{t("studentScores.rawScore", { defaultValue: "System score" })}</th>
                               <th className="px-4 py-3 text-center">{t("studentScores.finalScore", { defaultValue: "Final score" })}</th>
                             </tr>
                           </thead>
@@ -128,7 +127,6 @@ export default function MyScoresPage() {
                               <tr key={component.gradeComponentId}>
                                 <td className="px-4 py-3 font-medium text-gray-800 dark:text-gray-100">{component.componentName}</td>
                                 <td className="px-4 py-3 text-center text-gray-500">{component.weight}%</td>
-                                <td className="px-4 py-3 text-center text-gray-500">{Number(component.rawScore).toFixed(1)}</td>
                                 <td className="px-4 py-3 text-center">
                                   <span className={`inline-flex min-w-14 items-center justify-center rounded border px-2.5 py-1 text-xs font-bold ${scoreTone(component.score)}`}>
                                     {Number(component.score).toFixed(1)}
@@ -136,6 +134,15 @@ export default function MyScoresPage() {
                                 </td>
                               </tr>
                             ))}
+                            <tr className="bg-gray-50/80 font-bold dark:bg-gray-800/40">
+                              <td className="px-4 py-3 text-gray-900 dark:text-white">{t("studentScores.totalAverage", { defaultValue: "Total average" })}</td>
+                              <td className="px-4 py-3 text-center text-gray-500">100%</td>
+                              <td className="px-4 py-3 text-center">
+                                <span className={`inline-flex min-w-14 items-center justify-center rounded border px-2.5 py-1 text-xs font-bold ${scoreTone(item.averageScore)}`}>
+                                  {Number(item.averageScore).toFixed(1)}
+                                </span>
+                              </td>
+                            </tr>
                           </tbody>
                         </table>
                       </div>

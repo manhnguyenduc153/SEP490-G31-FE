@@ -25,12 +25,6 @@ const componentToRule = (component: GradeComponentDto): ScoreRule => ({
   isSystem: component.isSystem,
 });
 
-const defaultRules = (): ScoreRule[] => [
-  { id: "attendance", name: "Attendance", weight: 30, sortOrder: 1, isSystem: true },
-  { id: "homework", name: "Homework", weight: 30, sortOrder: 2, isSystem: true },
-  { id: "exam", name: "Exam", weight: 40, sortOrder: 3, isSystem: true },
-];
-
 export default function ScoresPage() {
   const { t } = useTranslation();
   const [courses, setCourses] = useState<CourseItem[]>([]);
@@ -88,11 +82,11 @@ export default function ScoresPage() {
     try {
       const res = await studentGradeApi.getCourseComponents(courseId);
       if (!res.success || !res.data) {
-        throw new Error(res.message || t("class.gradeLoadError", { defaultValue: "Could not load score settings" }));
+        throw new Error(res.message || t("class.gradeSettingsLoadError", { defaultValue: "Could not load score settings" }));
       }
       setRules(res.data.map(componentToRule));
     } catch (err) {
-      showToast(err instanceof Error ? err.message : t("class.gradeLoadError", { defaultValue: "Could not load score settings" }), "error");
+      showToast(err instanceof Error ? err.message : t("class.gradeSettingsLoadError", { defaultValue: "Could not load score settings" }), "error");
       setRules([]);
     } finally {
       setIsLoadingRules(false);
@@ -108,7 +102,15 @@ export default function ScoresPage() {
   }, [loadRules, selectedCourseId]);
 
   const updateRule = (id: string, patch: Partial<ScoreRule>) => {
-    setRules((current) => current.map((rule) => rule.id === id ? { ...rule, ...patch } : rule));
+    setRules((current) => {
+      const next = current.map((rule) => rule.id === id ? { ...rule, ...patch } : rule);
+      const nextTotal = next.reduce((sum, rule) => sum + Math.max(0, Number(rule.weight) || 0), 0);
+      if (patch.weight !== undefined && nextTotal > 100) {
+        showToast(t("class.gradeTotalWeightExceeded", { defaultValue: "Total weight cannot exceed 100%" }), "error");
+        return current;
+      }
+      return next;
+    });
   };
 
   const addRule = () => {
@@ -132,6 +134,10 @@ export default function ScoresPage() {
     if (!selectedCourseId) return;
     if (!rules.length) {
       showToast(t("class.gradeComponentEmpty", { defaultValue: "Please add at least one score component" }), "error");
+      return;
+    }
+    if (totalWeight > 100) {
+      showToast(t("class.gradeTotalWeightExceeded", { defaultValue: "Total weight cannot exceed 100%" }), "error");
       return;
     }
 
@@ -173,7 +179,7 @@ export default function ScoresPage() {
         </div>
       )}
 
-      <PageBreadcrumb pageTitle="sidebar.scores" />
+      <PageBreadcrumb pageTitle="sidebar.scoreSettings" />
 
       <div className="space-y-6">
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-xs dark:border-gray-800 dark:bg-gray-900">
@@ -227,19 +233,20 @@ export default function ScoresPage() {
                 </button>
                 <button onClick={saveRules} disabled={isSaving || isLoadingRules} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-60">
                   <Save className="h-3.5 w-3.5" />
-                  {t("class.gradeSave", { defaultValue: "Save" })}
+                  {t("class.gradeSettingsSave", { defaultValue: "Save settings" })}
                 </button>
               </div>
             </div>
 
             <div className="mb-4 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300">
-              {t("class.gradeTotalWeight", { defaultValue: "Total weight" })}: <span className="font-bold text-gray-900 dark:text-white">{totalWeight}%</span>
+              {t("class.gradeTotalWeight", { defaultValue: "Total weight" })}: <span className={`font-bold ${totalWeight > 100 ? "text-rose-600 dark:text-rose-400" : "text-gray-900 dark:text-white"}`}>{totalWeight}%</span>
+              <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">{t("class.gradeTotalWeightLimit", { defaultValue: "Maximum 100%" })}</span>
             </div>
 
             {isLoadingRules ? (
               <div className="flex items-center justify-center py-16 text-sm text-gray-500">
                 <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                {t("class.gradeLoading", { defaultValue: "Loading score settings..." })}
+                {t("class.gradeSettingsLoading", { defaultValue: "Loading score settings..." })}
               </div>
             ) : (
               <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-800">
