@@ -25,6 +25,8 @@
     "questionBank": "Question Bank",
     "questionCategory": "Question Category",
     "scores": "Scores",
+    "scoreSettings": "Score settings",
+    "myScores": "Scores",
     "learning": "Learning",
     "learningMaterials": "Learning Materials",
     "attendance": "Attendance",
@@ -36,11 +38,20 @@
     "reportsMenu": "Reports",
     "reports": "Reports",
     "statistics": "Statistics",
+    "parentServices": "Parent Services",
     "parents": "Parents List",
     "childProfile": "Child Profile",
     "childProgress": "Child Progress",
     "childSchedules": "Child Schedules",
     "schoolManagement": "IELTS Center Management"
+  },
+  "studentScores": {
+    "title": "My scores",
+    "subtitle": "Click a class to view your component scores and final average.",
+    "loading": "Loading scores...",
+    "empty": "You do not have any class scores yet.",
+    "rawScore": "System score",
+    "finalScore": "Final score"
   },
   "questionCategory": {
     "title": "Question Categories",
