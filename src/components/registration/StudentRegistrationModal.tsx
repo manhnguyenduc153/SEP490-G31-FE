@@ -15,6 +15,7 @@ interface StudentRegistrationModalProps {
   defaultSemesterId: number | null;
   showToast: (msg: string, type?: "success" | "error") => void;
   onSuccess: () => void;
+  registrationToEdit?: StudentRegistrationDto | null;
 }
 
 interface PreviewRow {
@@ -36,6 +37,7 @@ export function StudentRegistrationModal({
   defaultSemesterId,
   showToast,
   onSuccess,
+  registrationToEdit,
 }: StudentRegistrationModalProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<"excel" | "manual">("excel");
@@ -55,6 +57,7 @@ export function StudentRegistrationModal({
     Afternoon: false,
     Evening: false,
   });
+  const [formStatus, setFormStatus] = useState<number>(0);
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
 
   // Excel Import States
@@ -96,12 +99,27 @@ export function StudentRegistrationModal({
 
     loadOptions();
     setPreviewRows([]);
-    setFormStudentId("");
-    setFormCourseId("");
-    setFormSlots({ Morning: false, Afternoon: false, Evening: false });
-    setActiveTab("excel");
-    setModalSemesterId(defaultSemesterId || "");
-  }, [isOpen, defaultSemesterId]);
+
+    if (registrationToEdit) {
+      setFormStudentId(registrationToEdit.studentId);
+      setFormCourseId(registrationToEdit.courseId);
+      setFormSlots({
+        Morning: registrationToEdit.preferredSlots?.includes("Morning") || false,
+        Afternoon: registrationToEdit.preferredSlots?.includes("Afternoon") || false,
+        Evening: registrationToEdit.preferredSlots?.includes("Evening") || false,
+      });
+      setFormStatus(registrationToEdit.status ?? 0);
+      setActiveTab("manual");
+      setModalSemesterId(registrationToEdit.semesterId);
+    } else {
+      setFormStudentId("");
+      setFormCourseId("");
+      setFormSlots({ Morning: false, Afternoon: false, Evening: false });
+      setFormStatus(0);
+      setActiveTab("excel");
+      setModalSemesterId(defaultSemesterId || "");
+    }
+  }, [isOpen, defaultSemesterId, registrationToEdit]);
 
   // Load existing registrations whenever selected semester changes to check duplicates
   useEffect(() => {
@@ -296,7 +314,7 @@ export function StudentRegistrationModal({
     }
 
     const selectedStudent = students.find((s) => s.id === formStudentId);
-    if (!selectedStudent) return;
+    if (!selectedStudent && !registrationToEdit) return;
 
     const slots = Object.entries(formSlots)
       .filter(([_, isChecked]) => isChecked)
@@ -307,28 +325,58 @@ export function StudentRegistrationModal({
       return;
     }
 
+    // Check duplicate registration
+    const emailToCheck = registrationToEdit ? registrationToEdit.studentEmail : selectedStudent?.email;
+    const courseIdToCheck = Number(formCourseId);
+    const isDuplicate = existingRegistrations.some(
+      (r) =>
+        r.studentEmail.toLowerCase() === emailToCheck?.toLowerCase() &&
+        r.courseId === courseIdToCheck &&
+        (!registrationToEdit || r.id !== registrationToEdit.id)
+    );
+
+    if (isDuplicate) {
+      showToast(t("registration.toastDuplicateError", { defaultValue: "Học viên này đã được đăng ký cho khóa học này trong học kỳ hiện tại!" }), "error");
+      return;
+    }
+
     setIsSubmittingManual(true);
     try {
-      const payload: StudentRegistrationSaveDto[] = [
-        {
-          semesterId: Number(modalSemesterId),
-          studentCode: selectedStudent.code,
-          studentName: selectedStudent.name,
-          studentEmail: selectedStudent.email || "",
-          studentPhone: selectedStudent.phone,
-          courseId: Number(formCourseId),
-          preferredSlots: slots,
-          status: 0,
-        },
-      ];
+      const payload: StudentRegistrationSaveDto = {
+        semesterId: Number(modalSemesterId),
+        studentCode: registrationToEdit ? registrationToEdit.studentCode : selectedStudent?.code,
+        studentName: registrationToEdit ? registrationToEdit.studentName : selectedStudent?.name || "",
+        studentEmail: registrationToEdit ? registrationToEdit.studentEmail : selectedStudent?.email || "",
+        studentPhone: registrationToEdit ? registrationToEdit.studentPhone : selectedStudent?.phone,
+        courseId: Number(formCourseId),
+        preferredSlots: slots,
+        status: Number(formStatus),
+      };
 
-      const res = await semesterApi.importStudentRegistrations(payload);
+      let res;
+      if (registrationToEdit) {
+        res = await semesterApi.updateStudentRegistration(registrationToEdit.id, payload);
+      } else {
+        res = await semesterApi.createStudentRegistration(payload);
+      }
+
       if (res.success) {
-        showToast(t("registration.toastRegisterSuccess", { name: selectedStudent.name }));
+        showToast(
+          registrationToEdit
+            ? t("registration.toastUpdateSuccess", { defaultValue: "Cập nhật đăng ký thành công!" })
+            : t("registration.toastRegisterSuccess", { name: payload.studentName })
+        );
         onSuccess();
         onClose();
       } else {
-        showToast(res.message ? t(`backendMessages.${res.message}`) : t("registration.toastRegisterError"), "error");
+        showToast(
+          res.message
+            ? t(`backendMessages.${res.message}`, { defaultValue: "Học viên này đã được đăng ký cho khóa học trong học kỳ này!" })
+            : registrationToEdit
+            ? t("registration.toastUpdateError", { defaultValue: "Lỗi cập nhật đăng ký." })
+            : t("registration.toastRegisterError"),
+          "error"
+        );
       }
     } catch (err: any) {
       showToast(err.message || t("registration.toastSystemError"), "error");
@@ -348,18 +396,21 @@ export function StudentRegistrationModal({
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between border-b border-gray-100 dark:border-gray-800 pb-4">
           <div className="flex-1">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-              {t("registration.modalCreateTitle")}
+              {registrationToEdit
+                ? t("registration.modalEditTitle", { defaultValue: "Cập nhật đăng ký" })
+                : t("registration.modalCreateTitle")}
             </h3>
             <div className="flex items-center gap-2 mt-2 w-full max-w-xs">
               <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 shrink-0">{t("registration.modalSemesterLabel")}</span>
               <select
                 required
+                disabled={!!registrationToEdit}
                 value={modalSemesterId}
                 onChange={(e) => {
                   setModalSemesterId(e.target.value ? Number(e.target.value) : "");
                   setPreviewRows([]);
                 }}
-                className="w-full rounded-md border border-gray-250 bg-transparent px-2.5 py-1 text-xs text-gray-855 font-semibold focus:border-brand-500 focus:outline-hidden dark:border-gray-855 dark:bg-gray-955 dark:text-white cursor-pointer"
+                className="w-full rounded-md border border-gray-250 bg-transparent px-2.5 py-1 text-xs text-gray-855 font-semibold focus:border-brand-500 focus:outline-hidden dark:border-gray-855 dark:bg-gray-955 dark:text-white cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
               >
                 <option value="">{t("registration.modalSemesterSelect")}</option>
                 {semesters.map((s) => (
@@ -372,30 +423,32 @@ export function StudentRegistrationModal({
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg self-start md:self-auto">
-            <button
-              onClick={() => setActiveTab("excel")}
-              className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                activeTab === "excel"
-                  ? "bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-400 shadow-sm"
-                  : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-              }`}
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              {t("registration.modalTabExcel")}
-            </button>
-            <button
-              onClick={() => setActiveTab("manual")}
-              className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                activeTab === "manual"
-                  ? "bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-400 shadow-sm"
-                  : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-              }`}
-            >
-              <PlusCircle className="w-3.5 h-3.5" />
-              {t("registration.modalTabManual")}
-            </button>
-          </div>
+          {!registrationToEdit && (
+            <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg self-start md:self-auto">
+              <button
+                onClick={() => setActiveTab("excel")}
+                className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                  activeTab === "excel"
+                    ? "bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-400 shadow-sm"
+                    : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                }`}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                {t("registration.modalTabExcel")}
+              </button>
+              <button
+                onClick={() => setActiveTab("manual")}
+                className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                  activeTab === "manual"
+                    ? "bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-400 shadow-sm"
+                    : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                }`}
+              >
+                <PlusCircle className="w-3.5 h-3.5" />
+                {t("registration.modalTabManual")}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Tab 1: EXCEL IMPORT VIEW */}
@@ -557,19 +610,25 @@ export function StudentRegistrationModal({
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                     {t("registration.modalManualSelectStudent")} <span className="text-rose-500">*</span>
                   </label>
-                  <select
-                    required
-                    value={formStudentId}
-                    onChange={(e) => setFormStudentId(e.target.value ? Number(e.target.value) : "")}
-                    className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-855 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-955 dark:text-white"
-                  >
-                    <option value="">{t("registration.modalManualSelectStudentPlaceholder")}</option>
-                    {students.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.code} - {s.email || "No email"})
-                      </option>
-                    ))}
-                  </select>
+                  {registrationToEdit ? (
+                    <div className="w-full rounded-lg border border-gray-250 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 px-3 py-2.5 text-sm text-gray-855 dark:text-white font-semibold">
+                      {registrationToEdit.studentName} ({registrationToEdit.studentCode || "—"} - {registrationToEdit.studentEmail})
+                    </div>
+                  ) : (
+                    <select
+                      required
+                      value={formStudentId}
+                      onChange={(e) => setFormStudentId(e.target.value ? Number(e.target.value) : "")}
+                      className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-855 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-955 dark:text-white"
+                    >
+                      <option value="">{t("registration.modalManualSelectStudentPlaceholder")}</option>
+                      {students.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} ({s.code} - {s.email || "No email"})
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 {/* Select Course */}
@@ -629,6 +688,25 @@ export function StudentRegistrationModal({
                     </label>
                   </div>
                 </div>
+
+                {/* Select Status (Only in Edit Mode) */}
+                {registrationToEdit && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                      {t("registration.modalManualSelectStatus", { defaultValue: "Trạng thái đăng ký" })} <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      required
+                      value={formStatus}
+                      onChange={(e) => setFormStatus(Number(e.target.value))}
+                      className="w-full rounded-lg border border-gray-250 bg-transparent px-3 py-2.5 text-sm text-gray-855 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-955 dark:text-white cursor-pointer"
+                    >
+                      <option value="0">{t("registration.statusPending")}</option>
+                      <option value="1">{t("registration.statusScheduled")}</option>
+                      <option value="2">{t("registration.statusCancelled")}</option>
+                    </select>
+                  </div>
+                )}
               </div>
             )}
 
@@ -648,7 +726,9 @@ export function StudentRegistrationModal({
                 {isSubmittingManual && (
                   <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent"></div>
                 )}
-                {t("registration.modalManualBtnSubmit")}
+                {registrationToEdit 
+                  ? t("registration.modalManualBtnUpdate", { defaultValue: "Cập nhật" })
+                  : t("registration.modalManualBtnSubmit")}
               </button>
             </div>
           </form>

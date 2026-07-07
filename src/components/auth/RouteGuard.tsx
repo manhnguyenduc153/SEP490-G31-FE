@@ -18,6 +18,7 @@ const routePermissions: Record<string, string> = {
   "/scores": "StudentGrade",
   "/learning-materials": "LearningMaterial",
   "/attendance": "Attendance",
+  "/homework": "Homework",
   "/users": "User",
   "/roles": "Role",
   "/child-profile": "ParentStudent",

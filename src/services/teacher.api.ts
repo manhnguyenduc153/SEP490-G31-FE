@@ -61,12 +61,18 @@ export const teacherApi = {
   async getAll(
     pageIndex: number,
     pageSize: number,
-    keyword: string = ""
+    keyword: string = "",
+    teacherStatus: number | null = null,
+    gradeLevel: GradeLevel | null = null,
+    gender: boolean | null = null
   ): Promise<ApiResponse<TeacherPagingResponse>> {
     const query = new URLSearchParams({
       pageIndex: String(pageIndex),
       pageSize: String(pageSize),
       ...(keyword ? { keyword } : {}),
+      ...(teacherStatus !== null ? { teacherStatus: String(teacherStatus) } : {}),
+      ...(gradeLevel ? { gradeLevel } : {}),
+      ...(gender !== null ? { gender: String(gender) } : {}),
     }).toString();
     return api.get<TeacherPagingResponse>(
       `${ENDPOINTS.TEACHER.GET_ALL}?${query}`

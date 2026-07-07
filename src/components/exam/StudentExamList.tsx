@@ -54,7 +54,11 @@ export function StudentExamList({ t }: StudentExamListProps) {
 
   // Filter logic
   const uniqueClasses = Array.from(
-    new Set(exams.map((e) => e.className).filter(Boolean))
+<<<<<<< HEAD
+    new Set(exams.map((e) => e.className).filter((className): className is string => Boolean(className)))
+=======
+    new Set(exams.map((e) => e.className).filter((c): c is string => !!c))
+>>>>>>> dd208398adff910b36257eb8a7a5b86bd97c5256
   );
 
   const filteredExams = exams.filter((exam) => {
