@@ -29,6 +29,7 @@ import {
 } from "../icons/index";
 
 import { useTranslation } from "react-i18next";
+import { authApi } from "@/services/auth.api";
 
 type NavItem = {
   name: string;
@@ -36,7 +37,8 @@ type NavItem = {
   path?: string;
   new?: boolean;
   permission?: string;
-  subItems?: { name: string; path: string; pro?: boolean; new?: boolean; permission?: string }[];
+  roles?: string[];
+  subItems?: { name: string; path: string; pro?: boolean; new?: boolean; permission?: string; roles?: string[] }[];
 };
 
 // ── NEW: School Management menu (rendered at top) ────────────────────────────
@@ -76,7 +78,8 @@ const schoolItems: NavItem[] = [
       { name: "homework", path: "/homework" },
       { name: "questionBank", path: "/question-bank", permission: "Question" },
       { name: "questionCategory", path: "/question-category", permission: "QuestionCategory" },
-      { name: "scores", path: "/scores", permission: "StudentGrade" },
+      { name: "scoreSettings", path: "/scores", permission: "StudentGrade", roles: ["admin", "teacher"] },
+      { name: "myScores", path: "/my-scores", roles: ["student"] },
     ],
   },
   {
@@ -314,13 +317,19 @@ const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
   const { t } = useTranslation();
+  const [role, setRole] = useState("");
+  const canShowForRole = (roles?: string[]) => !roles?.length || roles.includes(role);
+
+  useEffect(() => {
+    setRole(authApi.getRole().toLowerCase());
+  }, []);
 
   const renderMenuItems = (
     navItems: NavItem[],
     menuType: "school" | "main" | "support" | "others"
   ) => (
     <ul className="flex flex-col gap-1">
-      {navItems.map((nav, index) => {
+      {navItems.filter((nav) => canShowForRole(nav.roles)).map((nav, index) => {
         const renderItemContent = () => (
           <li key={nav.name}>
             {nav.subItems ? (
@@ -415,7 +424,7 @@ const AppSidebar: React.FC = () => {
                 }}
               >
                 <ul className="mt-2 space-y-1 ml-9">
-                  {nav.subItems.map((subItem) => {
+                  {nav.subItems.filter((subItem) => canShowForRole(subItem.roles)).map((subItem) => {
                     const renderSubItemContent = () => (
                       <li key={subItem.name}>
                         <Link

@@ -275,6 +275,7 @@ export default function ClassDetail({
               <ClassDetailGradesTab
                 itemDetail={itemDetail}
                 t={t}
+                showToast={showToast}
               />
             )}
           </div>
