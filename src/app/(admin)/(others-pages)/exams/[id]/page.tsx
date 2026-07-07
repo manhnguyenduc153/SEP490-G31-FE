@@ -32,7 +32,7 @@ export default function ExamDetailPage() {
     return () => clearTimeout(timeout);
   }, [toastMessage]);
 
-  // Tabs state matching the mockup: Bảng điểm, Tổng quan, Thông số câu, Đề bài (Active), Lời giải
+  // Tabs state matching the mockup: Tổng quan, Bảng điểm, Thông số câu, Đề bài (Active), Lời giải
   const [activeTab, setActiveTab] = useState<"questions" | "explanation" | "grades" | "overview" | "stats">("questions");
 
   // Only load exam via teacher API when user is NOT a student
@@ -171,16 +171,6 @@ export default function ExamDetailPage() {
         {/* Tab Items on the right matching mockup */}
         <div className="flex items-center bg-gray-100/70 dark:bg-gray-800/40 p-1.5 rounded-xl border border-gray-200/50 dark:border-gray-800/50 self-start sm:self-auto overflow-x-auto max-w-full custom-scrollbar">
           <button
-            onClick={() => setActiveTab("grades")}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
-              activeTab === "grades"
-                ? "bg-white text-gray-900 shadow-sm dark:bg-gray-900 dark:text-white"
-                : "text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
-            }`}
-          >
-            Bảng điểm
-          </button>
-          <button
             onClick={() => setActiveTab("overview")}
             className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
               activeTab === "overview"
@@ -189,6 +179,16 @@ export default function ExamDetailPage() {
             }`}
           >
             Tổng quan
+          </button>
+          <button
+            onClick={() => setActiveTab("grades")}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
+              activeTab === "grades"
+                ? "bg-white text-gray-900 shadow-sm dark:bg-gray-900 dark:text-white"
+                : "text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
+            }`}
+          >
+            Bảng điểm
           </button>
           <button
             onClick={() => setActiveTab("stats")}
