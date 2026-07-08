@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Award, Download, RefreshCw, Save, Upload } from "lucide-react";
+import React, { useCallback, useEffect, useState } from "react";
+import { Award, Download, FileDown, RefreshCw, Save, Upload } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
   buildClassScoreRows,
@@ -69,7 +69,6 @@ export default function ClassDetailGradesTab({
   const [rows, setRows] = useState<ScoreRow[]>([]);
   const [overrides, setOverrides] = useState<ScoreOverrideMap>({});
   const [rules, setRules] = useState<ScoreRule[]>([]);
-  const [keyword, setKeyword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -131,22 +130,6 @@ export default function ClassDetailGradesTab({
   useEffect(() => {
     loadScores();
   }, [loadScores]);
-
-  const filteredRows = useMemo(() => {
-    let list = rows;
-    if (role === "student") {
-      list = rows.filter((row) => row.studentCode === currentUsername);
-    } else {
-      const normalizedKeyword = keyword.trim().toLowerCase();
-      if (normalizedKeyword) {
-        list = rows.filter((row) =>
-          row.studentName?.toLowerCase().includes(normalizedKeyword) ||
-          row.studentCode?.toLowerCase().includes(normalizedKeyword)
-        );
-      }
-    }
-    return list;
-  }, [keyword, rows, role, currentUsername]);
 
   const updateScore = (studentId: number, component: ScoreComponent, value: string) => {
     const numericValue = value === "" ? undefined : clampScore(Number(value));
@@ -212,22 +195,36 @@ export default function ClassDetailGradesTab({
     }
   };
 
-  const exportExcel = () => {
-    const data = filteredRows.map((row, index) => {
-      const result: Record<string, string | number> = {
-        STT: index + 1,
-        [t("class.studentCode", { defaultValue: "Student Code" })]: row.studentCode || "",
-        [t("class.studentName", { defaultValue: "Student Name" })]: row.studentName || "",
-      };
+  const buildExcelRows = (sourceRows: ScoreRow[], includeScores: boolean) => sourceRows.map((row, index) => {
+    const result: Record<string, string | number> = {
+      STT: index + 1,
+      studentCode: row.studentCode || "",
+      studentName: row.studentName || "",
+      [t("class.studentCode", { defaultValue: "Student Code" })]: row.studentCode || "",
+      [t("class.studentName", { defaultValue: "Student Name" })]: row.studentName || "",
+    };
 
-      rules.forEach((rule) => {
-        result[rule.name] = row.componentScores[rule.id] ?? 0;
-      });
-      result[t("class.gradeAverage", { defaultValue: "Average" })] = row.averageScore;
-      return result;
+    rules.forEach((rule) => {
+      result[rule.id] = includeScores ? row.componentScores[rule.id] ?? 0 : "";
+      result[rule.name] = includeScores ? row.componentScores[rule.id] ?? 0 : "";
     });
 
-    const worksheet = XLSX.utils.json_to_sheet(data);
+    if (includeScores) {
+      result[t("class.gradeAverage", { defaultValue: "Average" })] = row.averageScore;
+    }
+
+    return result;
+  });
+
+  const downloadTemplate = () => {
+    const worksheet = XLSX.utils.json_to_sheet(buildExcelRows(rows, false));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, t("class.gradeTemplateSheetName", { defaultValue: "Grade template" }));
+    XLSX.writeFile(workbook, `${t("class.gradeTemplateFileName", { defaultValue: "Grade_Template" })}_${itemDetail?.code || classId}.xlsx`);
+  };
+
+  const exportExcel = () => {
+    const worksheet = XLSX.utils.json_to_sheet(buildExcelRows(rows, true));
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, t("class.gradeSheetName", { defaultValue: "Gradebook" }));
     XLSX.writeFile(workbook, `${t("class.gradeFileName", { defaultValue: "Gradebook" })}_${itemDetail?.code || classId}.xlsx`);
@@ -248,8 +245,21 @@ export default function ClassDetailGradesTab({
         let updatedCount = 0;
 
         importedRows.forEach((item) => {
-          const studentCode = String(item["Mã học sinh"] ?? item["Student Code"] ?? item["studentCode"] ?? "").trim();
-          const studentName = String(item["Họ và tên"] ?? item["Học sinh"] ?? item["Student Name"] ?? item["studentName"] ?? "").trim();
+          const studentCode = String(
+            item.studentCode ??
+            item[t("class.studentCode", { defaultValue: "Student Code" })] ??
+            item["Student Code"] ??
+            item["Mã học sinh"] ??
+            ""
+          ).trim();
+          const studentName = String(
+            item.studentName ??
+            item[t("class.studentName", { defaultValue: "Student Name" })] ??
+            item["Student Name"] ??
+            item["Họ và tên"] ??
+            item["Học sinh"] ??
+            ""
+          ).trim();
           const matchedRow = rows.find((row) =>
             (studentCode && row.studentCode === studentCode) ||
             (!studentCode && studentName && row.studentName?.trim().toLowerCase() === studentName.toLowerCase())
@@ -317,16 +327,16 @@ export default function ClassDetailGradesTab({
         </h3>
 
         <div className="flex flex-wrap items-center gap-2">
-          {hasPermission("StudentGrade.SaveGrade") && (
-            <>
-              <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={importExcel} />
-              <button onClick={() => fileInputRef.current?.click()} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
-                <Upload className="h-3.5 w-3.5" />
-                {t("class.gradeImportExcel", { defaultValue: "Import Excel" })}
-              </button>
-            </>
-          )}
-          <button onClick={exportExcel} disabled={!filteredRows.length} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+          <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={importExcel} />
+          <button onClick={downloadTemplate} disabled={!rows.length} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+            <FileDown className="h-3.5 w-3.5" />
+            {t("class.gradeDownloadTemplate", { defaultValue: "Download template" })}
+          </button>
+          <button onClick={() => fileInputRef.current?.click()} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+            <Upload className="h-3.5 w-3.5" />
+            {t("class.gradeImportExcel", { defaultValue: "Import Excel" })}
+          </button>
+          <button onClick={exportExcel} disabled={!rows.length} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
             <Download className="h-3.5 w-3.5" />
             {t("class.gradeExportExcel", { defaultValue: "Export Excel" })}
           </button>
@@ -339,19 +349,9 @@ export default function ClassDetailGradesTab({
         </div>
       </div>
 
-      {role !== "student" && (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t("class.gradeCourseWeightHelp", { defaultValue: "Score components and weights are configured by course in the Scores screen." })}
-          </p>
-          <input
-            value={keyword}
-            onChange={(event) => setKeyword(event.target.value)}
-            placeholder={t("class.gradeSearchStudent", { defaultValue: "Search students..." })}
-            className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 sm:w-72"
-          />
-        </div>
-      )}
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        {t("class.gradeCourseWeightHelp", { defaultValue: "Score components and weights are configured by course in the score settings screen." })}
+      </p>
 
       {!hasStudents ? (
         <p className="text-xs text-gray-450 text-center py-10 italic border border-dashed border-gray-200 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-955/20">
@@ -379,7 +379,7 @@ export default function ClassDetailGradesTab({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {filteredRows.map((row, idx) => (
+              {rows.map((row, idx) => (
                 <tr key={row.studentClassId || row.studentId} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
                   <td className="px-4 py-3.5 text-center font-medium text-gray-500">{idx + 1}</td>
                   <td className="px-4 py-3.5 text-gray-500">{row.studentCode || `ID ${row.studentId}`}</td>
@@ -388,13 +388,12 @@ export default function ClassDetailGradesTab({
                     <td key={rule.id} className="px-3 py-3.5 text-center align-middle">{renderScoreInput(row, rule)}</td>
                   ))}
                   <td className="px-4 py-3.5 text-center align-middle">
-                    <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded text-xs font-bold ${
-                      row.averageScore >= 7
+                    <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded text-xs font-bold ${row.averageScore >= 7
                         ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-500 border border-emerald-200/50"
                         : row.averageScore >= 5
                           ? "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-500 border border-blue-200/50"
                           : "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-500 border border-amber-200/50"
-                    }`}>
+                      }`}>
                       {row.averageScore.toFixed(1)}
                     </span>
                   </td>
@@ -402,8 +401,8 @@ export default function ClassDetailGradesTab({
               ))}
             </tbody>
           </table>
-          {!filteredRows.length && (
-            <div className="py-10 text-center text-sm text-gray-500">{t("class.gradeNoStudentsMatched", { defaultValue: "No matching students found." })}</div>
+          {!rows.length && (
+            <div className="py-10 text-center text-sm text-gray-500">{t("class.gradeNoStudents", { defaultValue: "No students found." })}</div>
           )}
         </div>
       )}
