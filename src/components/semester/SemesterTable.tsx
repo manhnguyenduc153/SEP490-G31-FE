@@ -18,6 +18,7 @@ import { semesterApi, SemesterItem } from "@/services/semester.api";
 import DatePicker from "@/components/form/date-picker";
 import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
 import { useTranslation } from "react-i18next";
+import { authApi } from "@/services/auth.api";
 
 export default function SemesterTable() {
   const { t, i18n } = useTranslation();
@@ -25,6 +26,19 @@ export default function SemesterTable() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const role = authApi.getRole().toLowerCase();
+    setIsAdmin(role === "admin");
+    setPermissions(authApi.getPermissions());
+  }, []);
+
+  const hasPermission = (perm: string) => {
+    return isAdmin || permissions.includes(perm);
+  };
 
   // Search & Filter States
   const [searchTerm, setSearchTerm] = useState("");
@@ -219,16 +233,18 @@ export default function SemesterTable() {
             {t("semester.subtitle")}
           </p>
         </div>
-        <button
-          onClick={() => {
-            setEditingItem(null);
-            setIsFormOpen(true);
-          }}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-theme-xs transition-colors self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          {t("semester.btnAddSemester")}
-        </button>
+        {hasPermission("Semester.Create") && (
+          <button
+            onClick={() => {
+              setEditingItem(null);
+              setIsFormOpen(true);
+            }}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-theme-xs transition-colors self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            {t("semester.btnAddSemester")}
+          </button>
+        )}
       </div>
 
       {/* Search & Filter Bar */}
@@ -374,74 +390,86 @@ export default function SemesterTable() {
                   <TableCell className="px-5 sm:px-6 py-4 text-right">
                     <div className="flex justify-end items-center gap-1.5">
                       {/* Teacher Availability Setup */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveSemester(item);
-                          setIsAvailabilityOpen(true);
-                        }}
-                        title={t("semester.actionAvailability")}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 border border-gray-150 dark:border-gray-800 transition-colors"
-                      >
-                        <UserCheck className="w-3.5 h-3.5" />
-                      </button>
+                      {hasPermission("Semester.Edit") && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveSemester(item);
+                            setIsAvailabilityOpen(true);
+                          }}
+                          title={t("semester.actionAvailability")}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 border border-gray-150 dark:border-gray-800 transition-colors"
+                        >
+                          <UserCheck className="w-3.5 h-3.5" />
+                        </button>
+                      )}
 
                       {/* View Student Registrations */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveSemester(item);
-                          setIsRegistrationsOpen(true);
-                        }}
-                        title={t("semester.actionViewStudents")}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-brand-50 dark:hover:bg-brand-955/30 text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 border border-gray-150 dark:border-gray-800 transition-colors"
-                      >
-                        <Users className="w-3.5 h-3.5" />
-                      </button>
+                      {hasPermission("StudentRegistration.View") && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveSemester(item);
+                            setIsRegistrationsOpen(true);
+                          }}
+                          title={t("semester.actionViewStudents")}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-brand-50 dark:hover:bg-brand-955/30 text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 border border-gray-150 dark:border-gray-800 transition-colors"
+                        >
+                          <Users className="w-3.5 h-3.5" />
+                        </button>
+                      )}
 
                       {/* Auto Schedule Solver */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveSemester(item);
-                          setIsAutoScheduleOpen(true);
-                        }}
-                        disabled={item.status === 2 || item.status === 3}
-                        title={t("semester.actionAutoSchedule")}
-                        className="inline-flex h-8 px-2.5 items-center justify-center gap-1 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs shadow-theme-xs transition-colors disabled:opacity-50"
-                      >
-                        <Cpu className="w-3.5 h-3.5" />
-                        {t("semester.actionAutoSchedule")}
-                      </button>
+                      {hasPermission("Class.Edit") && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveSemester(item);
+                            setIsAutoScheduleOpen(true);
+                          }}
+                          disabled={item.status === 2 || item.status === 3}
+                          title={t("semester.actionAutoSchedule")}
+                          className="inline-flex h-8 px-2.5 items-center justify-center gap-1 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs shadow-theme-xs transition-colors disabled:opacity-50"
+                        >
+                          <Cpu className="w-3.5 h-3.5" />
+                          {t("semester.actionAutoSchedule")}
+                        </button>
+                      )}
 
                       {/* Divider */}
-                      <div className="w-px h-5 bg-gray-200 dark:bg-gray-800 mx-1" />
+                      {(hasPermission("Semester.Edit") || hasPermission("Semester.Delete")) && (
+                        <div className="w-px h-5 bg-gray-200 dark:bg-gray-800 mx-1" />
+                      )}
 
                       {/* Edit */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingItem(item);
-                          setIsFormOpen(true);
-                        }}
-                        className="p-1.5 text-gray-400 hover:text-amber-500 transition-colors"
-                        title={t("semester.actionEdit")}
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
+                      {hasPermission("Semester.Edit") && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingItem(item);
+                            setIsFormOpen(true);
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-amber-500 transition-colors"
+                          title={t("semester.actionEdit")}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      )}
 
                       {/* Delete */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDeletingItem(item);
-                          setIsDeleteOpen(true);
-                        }}
-                        className="p-1.5 text-gray-400 hover:text-rose-500 transition-colors"
-                        title={t("semester.actionDelete")}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {hasPermission("Semester.Delete") && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeletingItem(item);
+                            setIsDeleteOpen(true);
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-rose-500 transition-colors"
+                          title={t("semester.actionDelete")}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

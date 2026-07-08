@@ -111,6 +111,40 @@ export const classApi = {
     return api.get<ClassPagingResponse>(`${ENDPOINTS.CLASS.GET_ALL}?${query}`);
   },
 
+  async getTeacherClasses(
+    pageIndex: number,
+    pageSize: number,
+    keyword: string = "",
+    courseId?: number | null
+  ): Promise<ApiResponse<ClassPagingResponse>> {
+    const params: Record<string, string> = {
+      pageIndex: String(pageIndex),
+      pageSize: String(pageSize),
+    };
+    if (keyword) params.keyword = keyword;
+    if (courseId) params.courseId = String(courseId);
+
+    const query = new URLSearchParams(params).toString();
+    return api.get<ClassPagingResponse>(`/api/Class/teaching-classes?${query}`);
+  },
+
+  async getStudentClasses(
+    pageIndex: number,
+    pageSize: number,
+    keyword: string = "",
+    courseId?: number | null
+  ): Promise<ApiResponse<ClassPagingResponse>> {
+    const params: Record<string, string> = {
+      pageIndex: String(pageIndex),
+      pageSize: String(pageSize),
+    };
+    if (keyword) params.keyword = keyword;
+    if (courseId) params.courseId = String(courseId);
+
+    const query = new URLSearchParams(params).toString();
+    return api.get<ClassPagingResponse>(`/api/Class/my-classes?${query}`);
+  },
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async getById(id: number): Promise<ApiResponse<any>> {
     return api.get<any>(ENDPOINTS.CLASS.GET_BY_ID(id));

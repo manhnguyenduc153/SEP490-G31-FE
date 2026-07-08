@@ -10,6 +10,7 @@ import ClassDetailAttendanceTab from "./ClassDetailAttendanceTab";
 import ClassDetailSyllabusTab from "./ClassDetailSyllabusTab";
 import ClassDetailHomeworkTab from "./ClassDetailHomeworkTab";
 import ClassDetailGradesTab from "./ClassDetailGradesTab";
+import { authApi } from "@/services/auth.api";
 
 interface ClassDetailProps {
   itemId: number;
@@ -35,6 +36,20 @@ export default function ClassDetail({
   const [formError, setFormError] = useState<string | null>(null);
 
   const [activeDetailTab, setActiveDetailTab] = useState<DetailTabType>("detail");
+  const [role, setRole] = useState("");
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const userRole = authApi.getRole().toLowerCase();
+    setRole(userRole);
+    setIsAdmin(userRole === "admin");
+    setPermissions(authApi.getPermissions());
+  }, []);
+
+  const hasPermission = (perm: string) => {
+    return isAdmin || permissions.includes(perm);
+  };
 
   // Load rooms
   useEffect(() => {
@@ -168,61 +183,71 @@ export default function ClassDetail({
               <Info className="w-4 h-4" />
               {t("class.tabDetail", { defaultValue: "Chi tiết" })}
             </button>
-            <button
-              onClick={() => setActiveDetailTab("students")}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all ${
-                activeDetailTab === "students"
-                  ? "bg-brand-500 text-white shadow-theme-xs"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-250 dark:hover:bg-gray-800"
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              {t("class.tabStudentList", { defaultValue: "Danh sách học sinh" })}
-            </button>
-            <button
-              onClick={() => setActiveDetailTab("attendance")}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all ${
-                activeDetailTab === "attendance"
-                  ? "bg-brand-500 text-white shadow-theme-xs"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-250 dark:hover:bg-gray-800"
-              }`}
-            >
-              <ClipboardCheck className="w-4 h-4" />
-              {t("class.tabAttendance", { defaultValue: "Điểm danh" })}
-            </button>
-            <button
-              onClick={() => setActiveDetailTab("syllabus")}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all ${
-                activeDetailTab === "syllabus"
-                  ? "bg-brand-500 text-white shadow-theme-xs"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-250 dark:hover:bg-gray-800"
-              }`}
-            >
-              <BookOpen className="w-4 h-4" />
-              {t("class.tabSyllabus", { defaultValue: "Tài liệu" })}
-            </button>
-            <button
-              onClick={() => setActiveDetailTab("homework")}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all ${
-                activeDetailTab === "homework"
-                  ? "bg-brand-500 text-white shadow-theme-xs"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-250 dark:hover:bg-gray-800"
-              }`}
-            >
-              <FileText className="w-4 h-4" />
-              {t("class.tabHomework", { defaultValue: "Bài tập" })}
-            </button>
-            <button
-              onClick={() => setActiveDetailTab("grades")}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all ${
-                activeDetailTab === "grades"
-                  ? "bg-brand-500 text-white shadow-theme-xs"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-250 dark:hover:bg-gray-800"
-              }`}
-            >
-              <Award className="w-4 h-4" />
-              {t("class.tabGrades", { defaultValue: "Bảng điểm" })}
-            </button>
+            {hasPermission("Class.View") && (
+              <button
+                onClick={() => setActiveDetailTab("students")}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all ${
+                  activeDetailTab === "students"
+                    ? "bg-brand-500 text-white shadow-theme-xs"
+                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-250 dark:hover:bg-gray-800"
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                {t("class.tabStudentList", { defaultValue: "Danh sách học sinh" })}
+              </button>
+            )}
+            {hasPermission("Attendance.View") && (
+              <button
+                onClick={() => setActiveDetailTab("attendance")}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all ${
+                  activeDetailTab === "attendance"
+                    ? "bg-brand-500 text-white shadow-theme-xs"
+                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-250 dark:hover:bg-gray-800"
+                }`}
+              >
+                <ClipboardCheck className="w-4 h-4" />
+                {t("class.tabAttendance", { defaultValue: "Điểm danh" })}
+              </button>
+            )}
+            {hasPermission("LearningMaterial.View") && (
+              <button
+                onClick={() => setActiveDetailTab("syllabus")}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all ${
+                  activeDetailTab === "syllabus"
+                    ? "bg-brand-500 text-white shadow-theme-xs"
+                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-250 dark:hover:bg-gray-800"
+                }`}
+              >
+                <BookOpen className="w-4 h-4" />
+                {t("class.tabSyllabus", { defaultValue: "Tài liệu" })}
+              </button>
+            )}
+            {hasPermission("Homework.View") && (
+              <button
+                onClick={() => setActiveDetailTab("homework")}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all ${
+                  activeDetailTab === "homework"
+                    ? "bg-brand-500 text-white shadow-theme-xs"
+                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-250 dark:hover:bg-gray-800"
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                {t("class.tabHomework", { defaultValue: "Bài tập" })}
+              </button>
+            )}
+            {hasPermission("StudentGrade.View") && (
+              <button
+                onClick={() => setActiveDetailTab("grades")}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all ${
+                  activeDetailTab === "grades"
+                    ? "bg-brand-500 text-white shadow-theme-xs"
+                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-250 dark:hover:bg-gray-800"
+                }`}
+              >
+                <Award className="w-4 h-4" />
+                {t("class.tabGrades", { defaultValue: "Bảng điểm" })}
+              </button>
+            )}
           </div>
 
           {/* Active Tab Content */}
@@ -238,7 +263,7 @@ export default function ClassDetail({
             )}
 
             {/* TAB 2: DANH SÁCH HỌC SINH */}
-            {activeDetailTab === "students" && (
+            {activeDetailTab === "students" && hasPermission("Class.View") && (
               <ClassDetailStudentsTab
                 itemDetail={itemDetail}
                 t={t}
@@ -246,7 +271,7 @@ export default function ClassDetail({
             )}
 
             {/* TAB 3: ĐIỂM DANH */}
-            {activeDetailTab === "attendance" && (
+            {activeDetailTab === "attendance" && hasPermission("Attendance.View") && (
               <ClassDetailAttendanceTab
                 itemDetail={itemDetail}
                 t={t}
@@ -255,7 +280,7 @@ export default function ClassDetail({
             )}
 
             {/* TAB 4: TÀI LIỆU (REAL DATA FROM COURSE) */}
-            {activeDetailTab === "syllabus" && (
+            {activeDetailTab === "syllabus" && hasPermission("LearningMaterial.View") && (
               <ClassDetailSyllabusTab
                 itemDetail={itemDetail}
                 t={t}
@@ -263,7 +288,7 @@ export default function ClassDetail({
             )}
 
             {/* TAB 5: BÀI TẬP (REAL DATA FROM CLASS) */}
-            {activeDetailTab === "homework" && (
+            {activeDetailTab === "homework" && hasPermission("Homework.View") && (
               <ClassDetailHomeworkTab
                 itemDetail={itemDetail}
                 t={t}
@@ -271,7 +296,7 @@ export default function ClassDetail({
             )}
 
             {/* TAB 6: BÀI TẬP (MOCKED WITH REAL STUDENTS) */}
-            {activeDetailTab === "grades" && (
+            {activeDetailTab === "grades" && hasPermission("StudentGrade.View") && (
               <ClassDetailGradesTab
                 itemDetail={itemDetail}
                 t={t}

@@ -11,6 +11,7 @@ import {
   ScoreRow,
   studentGradeApi,
 } from "@/services/score.api";
+import { authApi } from "@/services/auth.api";
 
 interface ClassDetailGradesTabProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -71,6 +72,23 @@ export default function ClassDetailGradesTab({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const [role, setRole] = useState("");
+  const [currentUsername, setCurrentUsername] = useState("");
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const r = authApi.getRole().toLowerCase();
+    setRole(r);
+    setIsAdmin(r === "admin");
+    setCurrentUsername(localStorage.getItem("username") || "");
+    setPermissions(authApi.getPermissions());
+  }, []);
+
+  const hasPermission = (perm: string) => {
+    return isAdmin || permissions.includes(perm);
+  };
 
   const hasStudents = Boolean(itemDetail?.studentClasses?.length);
 
@@ -281,18 +299,24 @@ export default function ClassDetailGradesTab({
     reader.readAsArrayBuffer(file);
   };
 
-  const renderScoreInput = (row: ScoreRow, rule: ScoreRule) => (
-    <input
-      type="number"
-      inputMode="decimal"
-      min={0}
-      max={10}
-      step={0.1}
-      value={row.componentScores[rule.id] ?? 0}
-      onChange={(event) => updateScore(row.studentId, rule.id, event.target.value)}
-      className="mx-auto h-9 w-20 rounded-lg border border-gray-200 bg-white px-2 text-center text-sm font-semibold text-gray-800 outline-none [appearance:textfield] focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-    />
-  );
+  const renderScoreInput = (row: ScoreRow, rule: ScoreRule) => {
+    if (!hasPermission("StudentGrade.SaveGrade")) {
+      const scoreVal = row.componentScores[rule.id];
+      return <span className="font-semibold text-gray-800 dark:text-gray-250">{scoreVal !== undefined && scoreVal !== null ? scoreVal.toFixed(1) : "-"}</span>;
+    }
+    return (
+      <input
+        type="number"
+        inputMode="decimal"
+        min={0}
+        max={10}
+        step={0.1}
+        value={row.componentScores[rule.id] ?? 0}
+        onChange={(event) => updateScore(row.studentId, rule.id, event.target.value)}
+        className="mx-auto h-9 w-20 rounded-lg border border-gray-200 bg-white px-2 text-center text-sm font-semibold text-gray-800 outline-none [appearance:textfield] focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+      />
+    );
+  };
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs p-6 space-y-4 animate-fadeIn">
@@ -316,10 +340,12 @@ export default function ClassDetailGradesTab({
             <Download className="h-3.5 w-3.5" />
             {t("class.gradeExportExcel", { defaultValue: "Export Excel" })}
           </button>
-          <button onClick={saveOverrides} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white hover:bg-brand-600">
-            <Save className="h-3.5 w-3.5" />
-            {t("class.gradeSave", { defaultValue: "Save gradebook" })}
-          </button>
+          {hasPermission("StudentGrade.SaveGrade") && (
+            <button onClick={saveOverrides} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white hover:bg-brand-600">
+              <Save className="h-3.5 w-3.5" />
+              {t("class.gradeSave", { defaultValue: "Save gradebook" })}
+            </button>
+          )}
         </div>
       </div>
 
@@ -362,13 +388,12 @@ export default function ClassDetailGradesTab({
                     <td key={rule.id} className="px-3 py-3.5 text-center align-middle">{renderScoreInput(row, rule)}</td>
                   ))}
                   <td className="px-4 py-3.5 text-center align-middle">
-                    <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded text-xs font-bold ${
-                      row.averageScore >= 7
+                    <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded text-xs font-bold ${row.averageScore >= 7
                         ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-500 border border-emerald-200/50"
                         : row.averageScore >= 5
                           ? "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-500 border border-blue-200/50"
                           : "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-500 border border-amber-200/50"
-                    }`}>
+                      }`}>
                       {row.averageScore.toFixed(1)}
                     </span>
                   </td>
