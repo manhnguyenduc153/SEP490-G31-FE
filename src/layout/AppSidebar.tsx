@@ -52,9 +52,9 @@ const schoolItems: NavItem[] = [
     icon: <DocsIcon />,
     name: "academicOperations",
     subItems: [
-      { name: "semesters", path: "/semesters", permission: "Class" },
+      { name: "semesters", path: "/semesters", permission: "Semester.View" },
       { name: "courses", path: "/courses", permission: "Course" },
-      { name: "registrations", path: "/registrations", permission: "Class" },
+      { name: "registrations", path: "/registrations", permission: "StudentRegistration.View" },
       { name: "classes", path: "/classes", permission: "Class", roles: ["admin"] },
       { name: "teachingClasses", path: "/teaching-classes", roles: ["teacher"] },
       { name: "myClasses", path: "/my-classes", roles: ["student"] },
