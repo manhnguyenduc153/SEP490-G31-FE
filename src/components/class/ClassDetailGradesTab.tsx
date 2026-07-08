@@ -11,6 +11,7 @@ import {
   ScoreRow,
   studentGradeApi,
 } from "@/services/score.api";
+import { authApi } from "@/services/auth.api";
 
 interface ClassDetailGradesTabProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -73,6 +74,23 @@ export default function ClassDetailGradesTab({
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
+  const [role, setRole] = useState("");
+  const [currentUsername, setCurrentUsername] = useState("");
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const r = authApi.getRole().toLowerCase();
+    setRole(r);
+    setIsAdmin(r === "admin");
+    setCurrentUsername(localStorage.getItem("username") || "");
+    setPermissions(authApi.getPermissions());
+  }, []);
+
+  const hasPermission = (perm: string) => {
+    return isAdmin || permissions.includes(perm);
+  };
+
   const hasStudents = Boolean(itemDetail?.studentClasses?.length);
 
   const withAverages = useCallback((scoreRows: ScoreRow[], activeRules: ScoreRule[]) =>
@@ -115,13 +133,20 @@ export default function ClassDetailGradesTab({
   }, [loadScores]);
 
   const filteredRows = useMemo(() => {
-    const normalizedKeyword = keyword.trim().toLowerCase();
-    if (!normalizedKeyword) return rows;
-    return rows.filter((row) =>
-      row.studentName?.toLowerCase().includes(normalizedKeyword) ||
-      row.studentCode?.toLowerCase().includes(normalizedKeyword)
-    );
-  }, [keyword, rows]);
+    let list = rows;
+    if (role === "student") {
+      list = rows.filter((row) => row.studentCode === currentUsername);
+    } else {
+      const normalizedKeyword = keyword.trim().toLowerCase();
+      if (normalizedKeyword) {
+        list = rows.filter((row) =>
+          row.studentName?.toLowerCase().includes(normalizedKeyword) ||
+          row.studentCode?.toLowerCase().includes(normalizedKeyword)
+        );
+      }
+    }
+    return list;
+  }, [keyword, rows, role, currentUsername]);
 
   const updateScore = (studentId: number, component: ScoreComponent, value: string) => {
     const numericValue = value === "" ? undefined : clampScore(Number(value));
@@ -264,18 +289,24 @@ export default function ClassDetailGradesTab({
     reader.readAsArrayBuffer(file);
   };
 
-  const renderScoreInput = (row: ScoreRow, rule: ScoreRule) => (
-    <input
-      type="number"
-      inputMode="decimal"
-      min={0}
-      max={10}
-      step={0.1}
-      value={row.componentScores[rule.id] ?? 0}
-      onChange={(event) => updateScore(row.studentId, rule.id, event.target.value)}
-      className="mx-auto h-9 w-20 rounded-lg border border-gray-200 bg-white px-2 text-center text-sm font-semibold text-gray-800 outline-none [appearance:textfield] focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-    />
-  );
+  const renderScoreInput = (row: ScoreRow, rule: ScoreRule) => {
+    if (!hasPermission("StudentGrade.SaveGrade")) {
+      const scoreVal = row.componentScores[rule.id];
+      return <span className="font-semibold text-gray-800 dark:text-gray-250">{scoreVal !== undefined && scoreVal !== null ? scoreVal.toFixed(1) : "-"}</span>;
+    }
+    return (
+      <input
+        type="number"
+        inputMode="decimal"
+        min={0}
+        max={10}
+        step={0.1}
+        value={row.componentScores[rule.id] ?? 0}
+        onChange={(event) => updateScore(row.studentId, rule.id, event.target.value)}
+        className="mx-auto h-9 w-20 rounded-lg border border-gray-200 bg-white px-2 text-center text-sm font-semibold text-gray-800 outline-none [appearance:textfield] focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+      />
+    );
+  };
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs p-6 space-y-4 animate-fadeIn">
@@ -286,33 +317,41 @@ export default function ClassDetailGradesTab({
         </h3>
 
         <div className="flex flex-wrap items-center gap-2">
-          <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={importExcel} />
-          <button onClick={() => fileInputRef.current?.click()} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
-            <Upload className="h-3.5 w-3.5" />
-            {t("class.gradeImportExcel", { defaultValue: "Import Excel" })}
-          </button>
+          {hasPermission("StudentGrade.SaveGrade") && (
+            <>
+              <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={importExcel} />
+              <button onClick={() => fileInputRef.current?.click()} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+                <Upload className="h-3.5 w-3.5" />
+                {t("class.gradeImportExcel", { defaultValue: "Import Excel" })}
+              </button>
+            </>
+          )}
           <button onClick={exportExcel} disabled={!filteredRows.length} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
             <Download className="h-3.5 w-3.5" />
             {t("class.gradeExportExcel", { defaultValue: "Export Excel" })}
           </button>
-          <button onClick={saveOverrides} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white hover:bg-brand-600">
-            <Save className="h-3.5 w-3.5" />
-            {t("class.gradeSave", { defaultValue: "Save gradebook" })}
-          </button>
+          {hasPermission("StudentGrade.SaveGrade") && (
+            <button onClick={saveOverrides} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white hover:bg-brand-600">
+              <Save className="h-3.5 w-3.5" />
+              {t("class.gradeSave", { defaultValue: "Save gradebook" })}
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          {t("class.gradeCourseWeightHelp", { defaultValue: "Score components and weights are configured by course in the Scores screen." })}
-        </p>
-        <input
-          value={keyword}
-          onChange={(event) => setKeyword(event.target.value)}
-          placeholder={t("class.gradeSearchStudent", { defaultValue: "Search students..." })}
-          className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 sm:w-72"
-        />
-      </div>
+      {role !== "student" && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {t("class.gradeCourseWeightHelp", { defaultValue: "Score components and weights are configured by course in the Scores screen." })}
+          </p>
+          <input
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+            placeholder={t("class.gradeSearchStudent", { defaultValue: "Search students..." })}
+            className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 sm:w-72"
+          />
+        </div>
+      )}
 
       {!hasStudents ? (
         <p className="text-xs text-gray-450 text-center py-10 italic border border-dashed border-gray-200 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-955/20">
