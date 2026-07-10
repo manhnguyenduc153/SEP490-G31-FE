@@ -107,6 +107,9 @@ export const ENDPOINTS = {
     UPDATE: (id: number) => `/api/LearningMaterial/${id}`,
     DELETE: (id: number) => `/api/LearningMaterial/${id}`,
     DEACTIVE: (id: number) => `/api/LearningMaterial/${id}/deactive`,
-  }
+  },
+  DASHBOARD: {
+    GET_DATA: "/api/Dashboard",
+  },
 };
 
