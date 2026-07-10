@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { ClipboardCheck, CheckCircle, FileText, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { attendanceApi, AttendanceReportDto } from "@/services/attendance.api";
+import { authApi } from "@/services/auth.api";
 
 interface ClassDetailAttendanceTabProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -30,6 +31,33 @@ export default function ClassDetailAttendanceTab({
   const [reportData, setReportData] = useState<AttendanceReportDto | null>(null);
   const [isLoadingReport, setIsLoadingReport] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  const [role, setRole] = useState("");
+  const [currentUsername, setCurrentUsername] = useState("");
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const r = authApi.getRole().toLowerCase();
+    setRole(r);
+    setIsAdmin(r === "admin");
+    setCurrentUsername(localStorage.getItem("username") || "");
+    setPermissions(authApi.getPermissions());
+  }, []);
+
+  const hasPermission = (perm: string) => {
+    return isAdmin || permissions.includes(perm);
+  };
+
+  const isStudent = role === "student";
+
+  const displayStudentClasses = useMemo(() => {
+    const list = itemDetail?.studentClasses || [];
+    if (isStudent) {
+      return list.filter((sc: any) => sc.student?.code === currentUsername);
+    }
+    return list;
+  }, [itemDetail?.studentClasses, isStudent, currentUsername]);
 
   const ATTENDANCE_STATUSES = useMemo(() => [
     { value: 1, label: t("class.present", { defaultValue: "Có mặt" }) },
@@ -410,22 +438,24 @@ export default function ClassDetailAttendanceTab({
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => handleMarkAll(1)}
-                className="px-3 py-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 dark:bg-emerald-955/20 dark:text-emerald-400 hover:bg-emerald-100/50 dark:hover:bg-emerald-955/40 rounded-lg transition-colors border border-emerald-100 dark:border-emerald-900/30 cursor-pointer"
-              >
-                {t("class.allPresent", { defaultValue: "Tất cả Có mặt" })}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleMarkAll(0)}
-                className="px-3 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-955/20 dark:text-rose-400 hover:bg-rose-100/50 dark:hover:bg-rose-955/40 rounded-lg transition-colors border border-rose-100 dark:border-rose-900/30 cursor-pointer"
-              >
-                {t("class.allAbsent", { defaultValue: "Tất cả Vắng" })}
-              </button>
-            </div>
+            {hasPermission("Attendance.SaveAttendance") && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleMarkAll(1)}
+                  className="px-3 py-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 dark:bg-emerald-955/20 dark:text-emerald-400 hover:bg-emerald-100/50 dark:hover:bg-emerald-955/40 rounded-lg transition-colors border border-emerald-100 dark:border-emerald-900/30 cursor-pointer"
+                >
+                  {t("class.allPresent", { defaultValue: "Tất cả Có mặt" })}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleMarkAll(0)}
+                  className="px-3 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-955/20 dark:text-rose-400 hover:bg-rose-100/50 dark:hover:bg-rose-955/40 rounded-lg transition-colors border border-rose-100 dark:border-rose-900/30 cursor-pointer"
+                >
+                  {t("class.allAbsent", { defaultValue: "Tất cả Vắng" })}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Roster Table */}
@@ -434,7 +464,7 @@ export default function ClassDetailAttendanceTab({
               <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin mb-2"></div>
               {t("class.loadingAttendance", { defaultValue: "Đang tải danh sách điểm danh..." })}
             </div>
-          ) : !itemDetail.studentClasses || itemDetail.studentClasses.length === 0 ? (
+          ) : !displayStudentClasses || displayStudentClasses.length === 0 ? (
             <p className="text-xs text-gray-450 text-center py-10 italic border border-dashed border-gray-250 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-955/20">
               {t("class.noStudents", { defaultValue: "Không có học sinh trong danh sách lớp." })}
             </p>
@@ -452,7 +482,7 @@ export default function ClassDetailAttendanceTab({
                   </thead>
                   <tbody className="divide-y divide-gray-105 dark:divide-gray-800">
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    {itemDetail.studentClasses.map((sc: any, idx: number) => {
+                    {displayStudentClasses.map((sc: any, idx: number) => {
                       const studentId = sc.student?.id;
                       const attendance = currentScheduleAttendance[studentId] || { status: -1, note: "" };
 
@@ -472,25 +502,41 @@ export default function ClassDetailAttendanceTab({
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-center gap-1.5">
-                              {ATTENDANCE_STATUSES.map((statusOpt) => {
-                                const isChecked = attendance.status === statusOpt.value;
-                                return (
-                                  <button
-                                    key={statusOpt.value}
-                                    type="button"
-                                    onClick={() => handleStatusChange(studentId, statusOpt.value)}
-                                    className={`px-3 py-1.5 text-[11px] font-bold rounded-lg border transition-all select-none cursor-pointer ${
-                                      isChecked
-                                        ? statusOpt.value === 1
-                                          ? "bg-emerald-500 text-white border-emerald-500 shadow-xs"
-                                          : "bg-rose-500 text-white border-rose-500 shadow-xs"
-                                        : "bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-750 hover:bg-gray-50 dark:hover:bg-gray-800"
-                                    }`}
-                                  >
-                                    {statusOpt.label}
-                                  </button>
-                                );
-                              })}
+                              {!hasPermission("Attendance.SaveAttendance") ? (
+                                attendance.status === 1 ? (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-450 border border-emerald-200/50">
+                                    {t("class.present", { defaultValue: "Có mặt" })}
+                                  </span>
+                                ) : attendance.status === 0 ? (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-450 border border-rose-200/50">
+                                    {t("class.absent", { defaultValue: "Vắng" })}
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold bg-gray-55 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
+                                    {t("class.unmarked", { defaultValue: "Chưa điểm danh" })}
+                                  </span>
+                                )
+                              ) : (
+                                ATTENDANCE_STATUSES.map((statusOpt) => {
+                                  const isChecked = attendance.status === statusOpt.value;
+                                  return (
+                                    <button
+                                      key={statusOpt.value}
+                                      type="button"
+                                      onClick={() => handleStatusChange(studentId, statusOpt.value)}
+                                      className={`px-3 py-1.5 text-[11px] font-bold rounded-lg border transition-all select-none cursor-pointer ${
+                                        isChecked
+                                          ? statusOpt.value === 1
+                                            ? "bg-emerald-500 text-white border-emerald-500 shadow-xs"
+                                            : "bg-rose-500 text-white border-rose-500 shadow-xs"
+                                          : "bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-750 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                      }`}
+                                    >
+                                      {statusOpt.label}
+                                    </button>
+                                  );
+                                })
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -501,21 +547,23 @@ export default function ClassDetailAttendanceTab({
               </div>
 
               {/* Submit panel */}
-              <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-800">
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-theme-xs transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  {isSaving ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <CheckCircle className="w-4 h-4" />
-                  )}
-                  {t("class.btnSave", { defaultValue: "Lưu điểm danh" })}
-                </button>
-              </div>
+              {hasPermission("Attendance.SaveAttendance") && (
+                <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-800">
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-theme-xs transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {isSaving ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <CheckCircle className="w-4 h-4" />
+                    )}
+                    {t("class.btnSave", { defaultValue: "Lưu điểm danh" })}
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>

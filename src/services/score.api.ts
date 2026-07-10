@@ -70,6 +70,27 @@ export interface StudentGradeOverrideSaveDto {
   score?: number | null;
 }
 
+export interface MyGradeComponentScoreDto {
+  gradeComponentId: number;
+  componentCode: string;
+  componentName: string;
+  weight: number;
+  score: number;
+  rawScore: number;
+  isOverride: boolean;
+}
+
+export interface MyGradeClassDto {
+  classId: number;
+  classCode?: string | null;
+  className?: string | null;
+  courseId?: number | null;
+  courseCode?: string | null;
+  courseName?: string | null;
+  averageScore: number;
+  components: MyGradeComponentScoreDto[];
+}
+
 const round1 = (value: number) => Math.round(value * 10) / 10;
 
 const normalizeScore = (score?: number | null, total?: number | null) => {
@@ -80,6 +101,10 @@ const normalizeScore = (score?: number | null, total?: number | null) => {
 export const studentGradeApi = {
   getSettings(classId: number): Promise<ApiResponse<ClassGradeSettingsDto>> {
     return api.get<ClassGradeSettingsDto>(`/api/StudentGrade/class/${classId}/settings`);
+  },
+
+  getMyGrades(): Promise<ApiResponse<MyGradeClassDto[]>> {
+    return api.get<MyGradeClassDto[]>("/api/StudentGrade/my");
   },
 
   getCourseComponents(courseId: number): Promise<ApiResponse<GradeComponentDto[]>> {

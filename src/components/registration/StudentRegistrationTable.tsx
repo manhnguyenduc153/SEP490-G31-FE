@@ -14,6 +14,7 @@ import { courseApi, CourseItem } from "@/services/course.api";
 import { StudentRegistrationModal } from "./StudentRegistrationModal";
 import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
 import { useTranslation } from "react-i18next";
+import { authApi } from "@/services/auth.api";
 
 export default function StudentRegistrationTable() {
   const { t } = useTranslation();
@@ -23,6 +24,19 @@ export default function StudentRegistrationTable() {
   const [courses, setCourses] = useState<CourseItem[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<number | null>(null);
+
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const role = authApi.getRole().toLowerCase();
+    setIsAdmin(role === "admin");
+    setPermissions(authApi.getPermissions());
+  }, []);
+
+  const hasPermission = (perm: string) => {
+    return isAdmin || permissions.includes(perm);
+  };
 
   const [registrations, setRegistrations] = useState<StudentRegistrationDto[]>([]);
   
@@ -232,21 +246,23 @@ export default function StudentRegistrationTable() {
           </p>
         </div>
         
-        <div className="flex flex-wrap items-center gap-3 self-start md:self-auto">
-          <button
-            onClick={() => {
-              if (selectedSemesterId === null) {
-                showToast(t("registration.toastSelectSemester"), "error");
-                return;
-              }
-              setIsModalOpen(true);
-            }}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-theme-xs transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            {t("registration.addRegistration")}
-          </button>
-        </div>
+        {hasPermission("StudentRegistration.Create") && (
+          <div className="flex flex-wrap items-center gap-3 self-start md:self-auto">
+            <button
+              onClick={() => {
+                if (selectedSemesterId === null) {
+                  showToast(t("registration.toastSelectSemester"), "error");
+                  return;
+                }
+                setIsModalOpen(true);
+              }}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-theme-xs transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              {t("registration.addRegistration")}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Filter / Search Bar */}
@@ -401,25 +417,29 @@ export default function StudentRegistrationTable() {
                   </TableCell>
                   <TableCell className="px-5 sm:px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button
-                        disabled={item.status === 1}
-                        onClick={() => {
-                          setRegistrationToEdit(item);
-                          setIsModalOpen(true);
-                        }}
-                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-brand-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-brand-450 dark:hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-500 dark:disabled:hover:text-gray-400"
-                        title={item.status === 1 ? t("registration.cannotEditScheduled", { defaultValue: "Không thể sửa đăng ký đã xếp lớp" }) : t("common.edit", { defaultValue: "Sửa" })}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        disabled={item.status === 1}
-                        onClick={() => handleDelete(item.id)}
-                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-rose-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-rose-450 dark:hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-500 dark:disabled:hover:text-gray-400"
-                        title={item.status === 1 ? t("registration.cannotDeleteScheduled", { defaultValue: "Không thể xóa đăng ký đã xếp lớp" }) : t("common.delete", { defaultValue: "Xóa" })}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {hasPermission("StudentRegistration.Edit") && (
+                        <button
+                          disabled={item.status === 1}
+                          onClick={() => {
+                            setRegistrationToEdit(item);
+                            setIsModalOpen(true);
+                          }}
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-brand-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-brand-450 dark:hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-500 dark:disabled:hover:text-gray-400"
+                          title={item.status === 1 ? t("registration.cannotEditScheduled", { defaultValue: "Không thể sửa đăng ký đã xếp lớp" }) : t("common.edit", { defaultValue: "Sửa" })}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                      )}
+                      {hasPermission("StudentRegistration.Delete") && (
+                        <button
+                          disabled={item.status === 1}
+                          onClick={() => handleDelete(item.id)}
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-rose-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-rose-450 dark:hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-500 dark:disabled:hover:text-gray-400"
+                          title={item.status === 1 ? t("registration.cannotDeleteScheduled", { defaultValue: "Không thể xóa đăng ký đã xếp lớp" }) : t("common.delete", { defaultValue: "Xóa" })}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
