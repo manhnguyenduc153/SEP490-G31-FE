@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { examApi, ExamItem, ExamAttemptDto, ExamAnswerDto } from "@/services/exam.api";
 import {
   Rocket,
@@ -35,6 +36,7 @@ type ConfirmModalState = {
 };
 
 export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTakerProps) {
+  const { t } = useTranslation();
   const [exam, setExam] = useState<ExamItem | null>(null);
   const [attempts, setAttempts] = useState<ExamAttemptDto[]>([]);
   const [currentAttempt, setCurrentAttempt] = useState<ExamAttemptDto | null>(null);
@@ -97,7 +99,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
       }
     } catch (err) {
       console.error(err);
-      showToast("Lỗi khi tải thông tin bài kiểm tra", "error");
+      showToast(t("exams.toastLoadingError"), "error");
     } finally {
       setIsLoading(false);
     }
@@ -153,16 +155,67 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
         setChosenAnswers({});
         setViewState("taking");
         startTimer(res.data.startTime, exam.duration);
-        showToast("Bắt đầu làm bài kiểm tra!", "success");
+        showToast(t("exams.startExam"), "success");
       } else {
-        showToast(res.message || "Không thể bắt đầu làm bài", "error");
+        showToast(res.message || t("exams.toastStartAttemptError"), "error");
       }
     } catch {
-      showToast("Lỗi hệ thống", "error");
+      showToast(t("exams.toastSystemError"), "error");
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Tab exit tracking hook
+  useEffect(() => {
+    if (viewState !== "taking" || !currentAttempt) return;
+
+    const attemptId = currentAttempt.id;
+    const logKey = `examLogs_${attemptId}`;
+    const exitsKey = `tabExits_${attemptId}`;
+
+    if (!localStorage.getItem(exitsKey)) {
+      localStorage.setItem(exitsKey, "0");
+    }
+
+    let logs: Array<{ type: string; time: string }> = [];
+    try {
+      const existing = localStorage.getItem(logKey);
+      if (existing) {
+        logs = JSON.parse(existing);
+      } else {
+        logs = [{ type: "start", time: new Date().toISOString() }];
+        localStorage.setItem(logKey, JSON.stringify(logs));
+      }
+    } catch {
+      logs = [{ type: "start", time: new Date().toISOString() }];
+      localStorage.setItem(logKey, JSON.stringify(logs));
+    }
+
+    const handleVisibilityChange = () => {
+      const currentLogs = JSON.parse(localStorage.getItem(logKey) || "[]");
+      const currentExits = Number(localStorage.getItem(exitsKey) || "0");
+
+      if (document.visibilityState === "hidden") {
+        const newExits = currentExits + 1;
+        localStorage.setItem(exitsKey, String(newExits));
+        
+        currentLogs.push({ type: "exit", time: new Date().toISOString() });
+        localStorage.setItem(logKey, JSON.stringify(currentLogs));
+        console.log("Tab focus lost! Exit count:", newExits);
+      } else {
+        currentLogs.push({ type: "enter", time: new Date().toISOString() });
+        localStorage.setItem(logKey, JSON.stringify(currentLogs));
+        console.log("Tab focus restored!");
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [viewState, currentAttempt]);
+
 
   // Selection Handler for choices
   const handleSelectChoice = (questionId: number, choiceContent: string, isMultiple: boolean) => {
@@ -194,7 +247,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
   };
 
   const handleAutoSubmit = () => {
-    showToast("Hết thời gian làm bài! Đang tự động nộp bài...", "error");
+    showToast(t("exams.timesUpAlert"), "error");
     submitTest(true);
   };
 
@@ -216,19 +269,28 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
 
       const res = await examApi.submitAttempt(exam.id, payload);
       if (res.success && res.data) {
+        // Log submit event in localStorage
+        const logKey = `examLogs_${currentAttempt.id}`;
+        let logs = [];
+        try {
+          logs = JSON.parse(localStorage.getItem(logKey) || "[]");
+        } catch {}
+        logs.push({ type: "submit", time: new Date().toISOString() });
+        localStorage.setItem(logKey, JSON.stringify(logs));
+
         setSelectedPastAttempt(res.data);
         setViewState("result");
-        if (!isAuto) showToast("Nộp bài thi thành công!", "success");
+        if (!isAuto) showToast(t("exams.submitSuccess"), "success");
         // Reload history list
         examApi.getStudentAttempts(exam.id).then(r => {
           if (r.success && r.data) setAttempts(r.data);
         });
       } else {
-        showToast(res.message || "Lỗi khi nộp bài", "error");
+        showToast(res.message || t("exams.toastSubmitError"), "error");
       }
     } catch (err) {
       console.error(err);
-      showToast("Lỗi hệ thống khi nộp bài", "error");
+      showToast(t("exams.toastSubmitError"), "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -238,15 +300,15 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
     if (!exam) return;
     const unansweredCount = exam.questions ? exam.questions.filter(q => !chosenAnswers[q.id]).length : 0;
     const msg = unansweredCount > 0
-      ? `Bạn còn ${unansweredCount} câu hỏi chưa trả lời. Bạn vẫn muốn nộp bài?`
-      : "Bạn có chắc chắn muốn nộp bài?";
+      ? t("exams.confirmSubmitUnanswered", { count: unansweredCount })
+      : t("exams.confirmSubmitPrompt");
 
     setConfirmModal({
       open: true,
-      title: "Xác nhận nộp bài",
+      title: t("exams.confirmSubmit"),
       message: msg,
-      confirmLabel: "Nộp bài",
-      cancelLabel: "Tiếp tục làm",
+      confirmLabel: t("exams.btnSubmit"),
+      cancelLabel: t("exams.btnBackToExam"),
       onConfirm: () => { closeConfirm(); submitTest(); }
     });
   };
@@ -254,10 +316,10 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
   const handleLeaveClick = () => {
     setConfirmModal({
       open: true,
-      title: "Rời khỏi phòng thi",
-      message: "Tiến độ bài làm của bạn sẽ được lưu lại. Bạn có chắc chắn muốn rời khỏi phòng thi?",
-      confirmLabel: "Rời khỏi",
-      cancelLabel: "Ở lại",
+      title: t("exams.leaveExamRoom"),
+      message: t("exams.leaveExamRoomConfirm"),
+      confirmLabel: t("exams.btnLeave"),
+      cancelLabel: t("exams.btnBackToExam"),
       onConfirm: () => {
         closeConfirm();
         if (timerRef.current) clearInterval(timerRef.current);
@@ -304,7 +366,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
     return (
       <div className="flex flex-col items-center justify-center py-20 text-gray-500 text-sm">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-brand-500 border-t-transparent mb-3"></div>
-        Đang tải đề thi...
+        {t("exams.loadingDetails")}
       </div>
     );
   }
@@ -312,7 +374,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
   if (!exam) {
     return (
       <div className="p-8 text-center bg-white rounded-2xl border border-gray-150 text-gray-500">
-        Bài kiểm tra không khả dụng.
+        {t("exams.examNotAvailable")}
       </div>
     );
   }
@@ -333,7 +395,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
             className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-gray-600 hover:text-brand-500 hover:bg-gray-50 rounded-lg transition-all"
           >
             <ArrowLeft className="w-4 h-4" />
-            Quay lại danh sách
+            {t("exams.btnBack")}
           </button>
         </div>
 
@@ -348,27 +410,27 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
               {exam.title}
             </h2>
             <p className="text-xs text-gray-550 dark:text-gray-400 mt-2 max-w-md">
-              {exam.description || "Không có mô tả cho bài kiểm tra này. Vui lòng xem kỹ thời gian làm bài và các câu hỏi trước khi bắt đầu."}
+              {exam.description || t("exams.noDescription")}
             </p>
 
             {/* Timings */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-lg mt-8 border-t border-gray-100 dark:border-gray-800 pt-6 text-left">
               <div className="space-y-1 bg-gray-50/50 dark:bg-gray-950/20 p-3 rounded-xl border border-gray-100 dark:border-gray-800">
-                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Bắt đầu</span>
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">{t("exams.attemptStart")}</span>
                 <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">
-                  {exam.startTime ? new Date(exam.startTime).toLocaleString("vi-VN") : "Bất kỳ lúc nào"}
+                  {exam.startTime ? new Date(exam.startTime).toLocaleString("vi-VN") : t("exams.anyTime")}
                 </span>
               </div>
               <div className="space-y-1 bg-gray-50/50 dark:bg-gray-950/20 p-3 rounded-xl border border-gray-100 dark:border-gray-800">
-                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Hạn chót</span>
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">{t("exams.deadline")}</span>
                 <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">
-                  {exam.endTime ? new Date(exam.endTime).toLocaleString("vi-VN") : "Không có"}
+                  {exam.endTime ? new Date(exam.endTime).toLocaleString("vi-VN") : t("exams.noDeadline")}
                 </span>
               </div>
               <div className="space-y-1 bg-gray-50/50 dark:bg-gray-950/20 p-3 rounded-xl border border-gray-100 dark:border-gray-800">
-                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Thời gian</span>
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">{t("exams.duration")}</span>
                 <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">
-                  {exam.duration ? `${exam.duration} phút` : "Tự do"}
+                  {exam.duration ? t("exams.minutesPlural", { count: exam.duration }) : t("exams.unlimited")}
                 </span>
               </div>
             </div>
@@ -377,14 +439,14 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
             <div className="mt-8 w-full max-w-md">
               {reachedLimit ? (
                 <div className="p-4 bg-amber-50 border border-amber-250 text-amber-800 text-sm font-semibold rounded-xl text-center">
-                  Bạn đã làm đủ tối đa {exam.maxAttempts} lượt làm bài cho phép.
+                  {t("exams.attemptsLimitHit", { count: exam.maxAttempts })}
                 </div>
               ) : (
                 <button
                   onClick={handleStartTest}
                   className="w-full flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-bold text-white bg-brand-500 hover:bg-brand-600 rounded-xl shadow-md shadow-brand-500/20 transition-all active:scale-[0.98]"
                 >
-                  Bắt đầu làm bài
+                  {t("exams.startExam")}
                   <ChevronRight className="w-4 h-4" />
                 </button>
               )}
@@ -395,13 +457,13 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
           <div className="p-5 bg-white dark:bg-gray-900 border border-gray-150 dark:border-gray-800 rounded-2xl space-y-4 shadow-theme-xs">
             <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2 border-b border-gray-50 dark:border-gray-800/80 pb-3">
               <History className="w-4 h-4 text-brand-500" />
-              Lịch sử làm bài ({attempts.filter(a => a.status === 2).length})
+              {t("exams.attemptHistory")} ({attempts.filter(a => a.status === 2).length})
             </h3>
 
             {attempts.filter(a => a.status === 2).length === 0 ? (
               <div className="text-center py-10 border border-dashed border-gray-200 rounded-xl bg-gray-50/50">
                 <Award className="w-8 h-8 text-gray-350 mx-auto mb-2" />
-                <p className="text-xs text-gray-400 font-medium">Bạn chưa thực hiện lượt làm bài nào.</p>
+                <p className="text-xs text-gray-400 font-medium">{t("exams.noExamsFound")}</p>
               </div>
             ) : (
               <div className="space-y-3.5 max-h-[350px] overflow-y-auto pr-1">
@@ -416,7 +478,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                   >
                     <div>
                       <p className="text-xs font-bold text-gray-800 dark:text-white group-hover:text-brand-500 transition-colors">
-                        Lượt làm bài #{idx + 1}
+                        {t("exams.attemptHistory")} #{idx + 1}
                       </p>
                       <span className="text-[10px] text-gray-400 mt-1 block">
                         {att.submitTime ? new Date(att.submitTime).toLocaleString("vi-VN") : ""}
@@ -426,7 +488,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                       <span className="text-sm font-black text-brand-650 dark:text-brand-400">
                         {att.score || 0}/{exam.totalScore || 10}
                       </span>
-                      <span className="block text-[8px] text-gray-400 uppercase font-black tracking-wider">Điểm</span>
+                      <span className="block text-[8px] text-gray-400 uppercase font-black tracking-wider">{t("exams.gradeScore")}</span>
                     </div>
                   </div>
                 ))}
@@ -449,7 +511,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
     return (
       <>
         {/* ── Full-screen exam overlay ─────────────────────────────────── */}
-        <div className="fixed inset-0 z-[9999] bg-[#f0f2f5] dark:bg-gray-950 flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-[999999] bg-[#f0f2f5] dark:bg-gray-950 flex flex-col overflow-hidden">
 
           {/* Top bar */}
           <div className="flex items-center justify-between px-5 py-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shrink-0 shadow-sm">
@@ -458,7 +520,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                 <FileText className="w-4 h-4 text-white" />
               </div>
               <div>
-                <p className="text-xs text-gray-400 font-semibold leading-none">{exam.className || "Bài kiểm tra"}</p>
+                <p className="text-xs text-gray-400 font-semibold leading-none">{exam.className || t("exams.breadcrumbHomework")}</p>
                 <h2 className="text-sm font-extrabold text-gray-900 dark:text-white leading-tight">{exam.title}</h2>
               </div>
             </div>
@@ -487,29 +549,29 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                   >
                     <div className="flex items-start justify-between gap-3 border-b border-gray-100 dark:border-gray-800 pb-3">
                       <h4 className="text-sm font-bold text-brand-600 dark:text-brand-400 flex items-center gap-2">
-                        Câu {idx + 1}
+                        {t("exams.question")} {idx + 1}
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 dark:bg-brand-950/20 text-brand-600 font-black border border-brand-100 dark:border-brand-900/30">
-                          {q.point || 1} điểm
+                          {q.point || 1} {t("exams.points")}
                         </span>
                       </h4>
                       {isMultiple && (
                         <span className="text-[9px] px-2 py-0.5 rounded bg-purple-50 text-purple-600 font-bold border border-purple-100">
-                          Chọn nhiều đáp án
+                          {t("exams.multipleSelectLabel")}
                         </span>
                       )}
                     </div>
 
-                    <p className="text-sm font-semibold text-gray-850 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
+                    <p className="text-sm font-semibold text-gray-855 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
                       {q.content}
                     </p>
 
                     {q.questionType === 3 ? (
                       <div className="space-y-1.5 mt-3">
-                        <label className="text-xs text-gray-400 font-bold uppercase tracking-wider block">Câu trả lời của bạn</label>
+                        <label className="text-xs text-gray-400 font-bold uppercase tracking-wider block">{t("exams.studentSelectYourAnswer")}</label>
                         <textarea
                           value={chosenValue}
                           onChange={(e) => handleTextAnswerChange(q.id, e.target.value)}
-                          placeholder="Nhập câu trả lời của bạn vào đây..."
+                          placeholder={t("exams.studentAnswerPlaceholder")}
                           rows={4}
                           className="w-full rounded-xl border border-gray-200 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                         />
@@ -556,7 +618,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
               {/* Phiếu trả lời */}
               <div className="p-5 space-y-4 flex-1">
                 <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
-                  <h3 className="text-sm font-bold text-gray-900 dark:text-white">Phiếu trả lời</h3>
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white">{t("exams.answerSheet")}</h3>
                   <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-brand-50 dark:bg-brand-950/20 text-brand-600 dark:text-brand-400 border border-brand-100 dark:border-brand-900/30">
                     {answeredCount} / {questions.length}
                   </span>
@@ -569,7 +631,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                       <button
                         key={q.id}
                         onClick={() => scrollToQuestion(q.id)}
-                        title={`Câu ${idx + 1}`}
+                        title={`${t("exams.question")} ${idx + 1}`}
                         className={`h-9 w-full rounded-xl font-black text-xs border transition-all ${
                           isAnswered
                             ? "bg-brand-500 border-brand-500 text-white shadow-sm"
@@ -586,7 +648,9 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                 {answeredCount < questions.length && (
                   <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 rounded-xl text-xs">
                     <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                    <span className="text-amber-700 dark:text-amber-400 font-semibold">{questions.length - answeredCount} câu chưa trả lời</span>
+                    <span className="text-amber-700 dark:text-amber-400 font-semibold">
+                      {t("exams.confirmSubmitUnanswered", { count: questions.length - answeredCount })}
+                    </span>
                   </div>
                 )}
               </div>
@@ -596,9 +660,9 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                 <button
                   type="button"
                   onClick={handleLeaveClick}
-                  className="py-3 text-xs font-bold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  className="py-3 text-xs font-bold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-880 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
-                  Rời khỏi
+                  {t("exams.btnLeave")}
                 </button>
                 <button
                   type="button"
@@ -606,16 +670,15 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                   disabled={isSubmitting}
                   className="py-3 text-xs font-bold text-white bg-brand-500 hover:bg-brand-600 rounded-xl shadow-sm shadow-brand-500/20 disabled:opacity-50 transition-colors"
                 >
-                  {isSubmitting ? "Đang nộp..." : "Nộp bài"}
+                  {isSubmitting ? t("exams.submitting") : t("exams.btnSubmit")}
                 </button>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Custom Confirm Modal */}
         {confirmModal.open && (
-          <div className="fixed inset-0 z-[10000] flex items-center justify-center">
+          <div className="fixed inset-0 z-[9999999] flex items-center justify-center">
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={closeConfirm} />
             <div className="relative z-10 w-full max-w-sm mx-4 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
               {/* Modal header */}
@@ -629,13 +692,13 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                   onClick={closeConfirm}
                   className="flex-1 py-2.5 text-sm font-bold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
                 >
-                  {confirmModal.cancelLabel || "Hủy"}
+                  {confirmModal.cancelLabel || t("questionCategory.btnCancel")}
                 </button>
                 <button
                   onClick={confirmModal.onConfirm}
                   className="flex-1 py-2.5 text-sm font-bold text-white bg-brand-500 hover:bg-brand-600 rounded-xl shadow-sm shadow-brand-500/20 transition-colors"
                 >
-                  {confirmModal.confirmLabel || "Xác nhận"}
+                  {confirmModal.confirmLabel || t("exams.btnClose")}
                 </button>
               </div>
             </div>
@@ -668,7 +731,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
             className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-gray-600 hover:text-brand-500 hover:bg-gray-50 rounded-lg transition-all"
           >
             <ArrowLeft className="w-4 h-4" />
-            Lịch sử làm bài
+            {t("exams.attemptHistory")}
           </button>
         </div>
 
@@ -696,32 +759,32 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                   {/* Status header */}
                   <div className="flex items-center justify-between gap-3 border-b border-gray-50 pb-3">
                     <h4 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                      Câu {idx + 1}
+                      {t("exams.question")} {idx + 1}
                       <span className="text-[10px] px-2 py-0.5 rounded bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-black">
-                        {questionPoints} điểm
+                        {questionPoints} {t("exams.points")}
                       </span>
                     </h4>
 
                     {/* Correctness label */}
                     {!studentAnswer ? (
                       <span className="text-[9px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-bold uppercase">
-                        Chưa trả lời
+                        {t("exams.attemptUnanswered")}
                       </span>
                     ) : isCorrect ? (
                       <span className="inline-flex items-center gap-1 text-[9px] px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-bold uppercase">
                         <CheckCircle className="w-3 h-3" />
-                        Đúng
+                        {t("exams.statsCorrect")}
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-[9px] px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-600 font-bold uppercase">
                         <XCircle className="w-3 h-3" />
-                        Sai
+                        {t("exams.statsIncorrect")}
                       </span>
                     )}
                   </div>
 
                   {/* Question Content */}
-                  <p className="text-sm font-bold text-gray-850 dark:text-gray-250 leading-relaxed whitespace-pre-wrap">
+                  <p className="text-sm font-bold text-gray-855 dark:text-gray-250 leading-relaxed whitespace-pre-wrap">
                     {q.content}
                   </p>
 
@@ -729,9 +792,9 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                   {q.questionType === 3 ? (
                     // Written response text
                     <div className="space-y-1 mt-3">
-                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Bài làm của bạn</span>
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">{t("exams.studentSelectYourAnswer")}</span>
                       <p className="text-sm bg-gray-50 dark:bg-gray-950 p-3 rounded-xl border border-gray-150 dark:border-gray-850 font-semibold whitespace-pre-line text-gray-800 dark:text-gray-200">
-                        {studentAnswer || <span className="italic text-gray-400">Không có câu trả lời</span>}
+                        {studentAnswer || <span className="italic text-gray-400">{t("exams.attemptUnanswered")}</span>}
                       </p>
                     </div>
                   ) : (
@@ -746,7 +809,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                         const isCorrectOption = option.isCorrect;
 
                         // Styling logic
-                        let borderStyle = "border-gray-200 dark:border-gray-850 hover:bg-gray-50/50";
+                        let borderStyle = "border-gray-200 dark:border-gray-855 hover:bg-gray-50/50";
                         let pillStyle = "bg-gray-50 border-gray-200 text-gray-600";
                         
                         if (isStudentSelect) {
@@ -771,7 +834,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                             <div className={`w-7 h-7 rounded-lg font-bold text-xs flex items-center justify-center shrink-0 border ${pillStyle}`}>
                               {optLabel}
                             </div>
-                            <span className="text-sm font-semibold text-gray-850 dark:text-gray-200">
+                            <span className="text-sm font-semibold text-gray-855 dark:text-gray-200">
                               {option.content}
                             </span>
                           </div>
@@ -783,8 +846,8 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                   {/* Explanation if correct answers are visible and explanation is set */}
                   {canShowAnswers && q.explanation && (
                     <div className="p-3 bg-blue-50/20 dark:bg-blue-950/10 border border-blue-100 dark:border-blue-900/30 rounded-xl mt-4">
-                      <span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider block mb-1">Lời giải thích</span>
-                      <p className="text-xs text-gray-650 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+                      <span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider block mb-1">{t("exams.explanationTitle")}</span>
+                      <p className="text-xs text-gray-655 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
                         {q.explanation}
                       </p>
                     </div>
@@ -799,12 +862,12 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
             
             {/* score card */}
             <div className="p-5 bg-brand-500 text-white rounded-2xl shadow-theme-xs text-center space-y-1">
-              <span className="text-[10px] uppercase font-black tracking-widest block opacity-70">Điểm số</span>
+              <span className="text-[10px] uppercase font-black tracking-widest block opacity-70">{t("exams.gradeScore")}</span>
               <span className="text-4xl font-black tracking-tight mt-1 block">
                 {attempt.score || 0}/{exam.totalScore || 10}
               </span>
               <span className="text-[10px] font-bold block pt-2 opacity-80 border-t border-white/20 mt-3">
-                {attempt.score !== null && attempt.score !== undefined && attempt.score >= (exam.passingScore || 5) ? "ĐÃ ĐẠT" : "CHƯA ĐẠT"}
+                {attempt.score !== null && attempt.score !== undefined && attempt.score >= (exam.passingScore || 5) ? t("exams.attemptPassed") : t("exams.attemptFailed")}
               </span>
             </div>
 
@@ -821,7 +884,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                       : "border-transparent text-gray-400 hover:text-gray-500"
                   }`}
                 >
-                  Kết quả
+                  {t("exams.tabResult")}
                 </button>
                 <button
                   onClick={() => setResultTab("history")}
@@ -831,7 +894,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                       : "border-transparent text-gray-400 hover:text-gray-500"
                   }`}
                 >
-                  Lịch sử
+                  {t("exams.tabHistory")}
                 </button>
               </div>
 
@@ -843,7 +906,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                     <div className="flex justify-between items-center text-xs font-semibold">
                       <span className="text-gray-500 flex items-center gap-1.5">
                         <Clock className="w-3.5 h-3.5" />
-                        Nộp lúc
+                        {t("exams.gradeSubmitTime")}
                       </span>
                       <span className="text-gray-800 dark:text-gray-200">
                         {attempt.submitTime ? new Date(attempt.submitTime).toLocaleString("vi-VN") : ""}
@@ -853,30 +916,30 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                     <div className="flex justify-between items-center text-xs font-semibold">
                       <span className="text-gray-500 flex items-center gap-1.5">
                         <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-                        Số câu đúng
+                        {t("exams.attemptCorrectCount")}
                       </span>
                       <span className="text-emerald-600 font-bold">
-                        {stats.correctCount} câu
+                        {stats.correctCount} {t("exams.question").toLowerCase()}
                       </span>
                     </div>
 
                     <div className="flex justify-between items-center text-xs font-semibold">
                       <span className="text-gray-500 flex items-center gap-1.5">
                         <XCircle className="w-3.5 h-3.5 text-rose-500" />
-                        Số câu sai
+                        {t("exams.attemptIncorrectCount")}
                       </span>
                       <span className="text-rose-600 font-bold">
-                        {stats.incorrectCount} câu
+                        {stats.incorrectCount} {t("exams.question").toLowerCase()}
                       </span>
                     </div>
 
                     <div className="flex justify-between items-center text-xs font-semibold">
                       <span className="text-gray-500 flex items-center gap-1.5">
                         <HelpCircle className="w-3.5 h-3.5 text-gray-400" />
-                        Chưa làm
+                        {t("exams.attemptUnanswered")}
                       </span>
-                      <span className="text-gray-650 dark:text-gray-300 font-bold">
-                        {stats.unattemptedCount} câu
+                      <span className="text-gray-655 dark:text-gray-300 font-bold">
+                        {stats.unattemptedCount} {t("exams.question").toLowerCase()}
                       </span>
                     </div>
                   </div>
@@ -886,7 +949,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                     <div className="flex gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 rounded-xl mt-3 text-left">
                       <AlertTriangle className="w-4.5 h-4.5 text-amber-500 shrink-0 mt-0.5" />
                       <p className="text-[10px] text-amber-850 dark:text-amber-450 leading-relaxed font-semibold">
-                        Giáo viên đã tắt tính năng xem đáp án đúng/sai cho bài kiểm tra này.
+                        {t("exams.answersHiddenWarning")}
                       </p>
                     </div>
                   )}
@@ -900,7 +963,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                         <span className="h-2 w-2 rounded-full bg-emerald-500" />
                       </span>
                       <span className="block text-[10px] font-bold text-gray-800 dark:text-gray-200">
-                        Bắt đầu làm bài
+                        {t("exams.startExam")}
                       </span>
                       <span className="text-[9px] text-gray-400 block mt-0.5">
                         {new Date(attempt.startTime).toLocaleString("vi-VN")}
@@ -912,7 +975,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                         <span className="h-2 w-2 rounded-full bg-brand-500" />
                       </span>
                       <span className="block text-[10px] font-bold text-gray-800 dark:text-gray-200">
-                        Nộp bài
+                        {t("exams.btnSubmit")}
                       </span>
                       <span className="text-[9px] text-gray-400 block mt-0.5">
                         {attempt.submitTime ? new Date(attempt.submitTime).toLocaleString("vi-VN") : ""}
@@ -930,7 +993,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                 }}
                 className="w-full text-center py-2.5 text-xs font-bold text-brand-600 bg-brand-50 hover:bg-brand-100 dark:text-brand-400 dark:bg-brand-950/20 dark:hover:bg-brand-950/40 rounded-xl transition-colors block border border-brand-100 dark:border-brand-900/30"
               >
-                Quay lại trang làm bài
+                {t("exams.btnBackToExam")}
               </button>
             </div>
           </div>
