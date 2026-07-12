@@ -11,7 +11,6 @@ export default function SemestersPage() {
   return (
     <PermissionGuard requiredPermission="Semester.View" fallback={<div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 text-center text-sm text-rose-500 font-medium">Bạn không có quyền truy cập chức năng này.</div>}>
       <div>
-        <PageBreadcrumb pageTitle={t("sidebar.semesters")} />
         <div className="space-y-6">
           <SemesterTable />
         </div>

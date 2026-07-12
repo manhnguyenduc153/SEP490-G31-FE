@@ -8,6 +8,7 @@ import { courseApi, CourseItem } from "@/services/course.api";
 import { semesterApi, StudentRegistrationSaveDto, StudentRegistrationDto, SemesterItem } from "@/services/semester.api";
 import { CheckCircle2, AlertTriangle, XCircle, FileSpreadsheet, PlusCircle, Check, Sun, Sunset, Moon, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 interface StudentRegistrationModalProps {
   isOpen: boolean;
@@ -402,23 +403,16 @@ export function StudentRegistrationModal({
             </h3>
             <div className="flex items-center gap-2 mt-2 w-full max-w-xs">
               <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 shrink-0">{t("registration.modalSemesterLabel")}</span>
-              <select
-                required
+              <SearchableSelect
                 disabled={!!registrationToEdit}
                 value={modalSemesterId}
-                onChange={(e) => {
-                  setModalSemesterId(e.target.value ? Number(e.target.value) : "");
+                onChange={(value) => {
+                  setModalSemesterId(value ? Number(value) : "");
                   setPreviewRows([]);
                 }}
-                className="w-full rounded-md border border-gray-250 bg-transparent px-2.5 py-1 text-xs text-gray-855 font-semibold focus:border-brand-500 focus:outline-hidden dark:border-gray-855 dark:bg-gray-955 dark:text-white cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
-              >
-                <option value="">{t("registration.modalSemesterSelect")}</option>
-                {semesters.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
+                options={semesters.map((s) => ({ value: s.id, label: s.name }))}
+                placeholder={t("registration.modalSemesterSelect")}
+              />
             </div>
           </div>
 
@@ -615,19 +609,15 @@ export function StudentRegistrationModal({
                       {registrationToEdit.studentName} ({registrationToEdit.studentCode || "—"} - {registrationToEdit.studentEmail})
                     </div>
                   ) : (
-                    <select
-                      required
+                    <SearchableSelect
                       value={formStudentId}
-                      onChange={(e) => setFormStudentId(e.target.value ? Number(e.target.value) : "")}
-                      className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-855 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-955 dark:text-white"
-                    >
-                      <option value="">{t("registration.modalManualSelectStudentPlaceholder")}</option>
-                      {students.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name} ({s.code} - {s.email || "No email"})
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(value) => setFormStudentId(value ? Number(value) : "")}
+                      options={students.map((s) => ({
+                        value: s.id,
+                        label: `${s.name} (${s.code} - ${s.email || "No email"})`
+                      }))}
+                      placeholder={t("registration.modalManualSelectStudentPlaceholder")}
+                    />
                   )}
                 </div>
 
@@ -636,19 +626,15 @@ export function StudentRegistrationModal({
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                     {t("registration.modalManualSelectCourse")} <span className="text-rose-500">*</span>
                   </label>
-                  <select
-                    required
+                  <SearchableSelect
                     value={formCourseId}
-                    onChange={(e) => setFormCourseId(e.target.value ? Number(e.target.value) : "")}
-                    className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-855 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-955 dark:text-white"
-                  >
-                    <option value="">{t("registration.modalManualSelectCoursePlaceholder")}</option>
-                    {courses.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(value) => setFormCourseId(value ? Number(value) : "")}
+                    options={courses.map((c) => ({
+                      value: c.id,
+                      label: c.name
+                    }))}
+                    placeholder={t("registration.modalManualSelectCoursePlaceholder")}
+                  />
                 </div>
 
                 {/* Preferred Slots */}

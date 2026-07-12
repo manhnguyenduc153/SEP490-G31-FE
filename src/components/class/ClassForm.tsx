@@ -10,6 +10,7 @@ import { semesterApi, SemesterItem } from "@/services/semester.api";
 import { CodeHelper } from "@/helpers/CodeHelper";
 import * as XLSX from "xlsx";
 import { Calendar, FileSpreadsheet, Plus, Search, X, ArrowLeft, BookOpen, Info, UserPlus, BookPlus, CalendarDays, AlertCircle, Download } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 interface ClassFormProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -766,10 +767,10 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                   {t("class.colSemester")}
                 </label>
-                <select
+                <SearchableSelect
                   value={formSemesterId || ""}
-                  onChange={(e) => {
-                    const id = e.target.value ? Number(e.target.value) : null;
+                  onChange={(value) => {
+                    const id = value ? Number(value) : null;
                     setFormSemesterId(id);
                     const matchedSem = semesters.find((s) => s.id === id);
                     if (matchedSem) {
@@ -780,15 +781,12 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                       setFormEndDate("");
                     }
                   }}
-                  className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-805 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
-                >
-                  <option value="">{t("class.selectSemesterPlaceholder")}</option>
-                  {semesters.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.code})
-                    </option>
-                  ))}
-                </select>
+                  options={semesters.map((s) => ({
+                    value: s.id,
+                    label: `${s.name} (${s.code})`,
+                  }))}
+                  placeholder={t("class.selectSemesterPlaceholder")}
+                />
               </div>
 
               {/* Tên lớp học */}
@@ -896,22 +894,19 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                   {t("class.formTeacherLabel")}
                 </label>
-                <select
+                <SearchableSelect
                   value={formTeacherId || ""}
-                  onChange={(e) => {
-                    setFormTeacherId(e.target.value ? Number(e.target.value) : null);
+                  onChange={(value) => {
+                    setFormTeacherId(value ? Number(value) : null);
                     setFormNewTeacherEmail(null);
                     setFormNewTeacherName(null);
                   }}
-                  className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-855 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
-                >
-                  <option value="">{t("class.formTeacherPlaceholder")}</option>
-                  {teachers.map((teacher) => (
-                    <option key={teacher.id} value={teacher.id}>
-                      {teacher.name}
-                    </option>
-                  ))}
-                </select>
+                  options={teachers.map((t) => ({
+                    value: t.id,
+                    label: t.name,
+                  }))}
+                  placeholder={t("class.formTeacherPlaceholder")}
+                />
                 {formNewTeacherEmail && (
                   <div className="mt-1.5 p-2 bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-150 dark:border-emerald-900/30 rounded-lg flex items-center justify-between gap-2">
                     <span className="text-[11px] text-emerald-800 dark:text-emerald-450 font-medium flex items-center gap-1.5">
@@ -938,19 +933,18 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                   {t("class.formCourseLabel")}
                 </label>
-                <select
+                <SearchableSelect
                   value={formCourseId || ""}
-                  onChange={(e) => {
-                    setFormCourseId(e.target.value ? Number(e.target.value) : null);
+                  onChange={(value) => {
+                    setFormCourseId(value ? Number(value) : null);
                     setFormNewCourseName(null);
                   }}
-                  className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-855 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
-                >
-                  <option value="">{t("class.formCoursePlaceholder")}</option>
-                  {courses.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+                  options={courses.map((c) => ({
+                    value: c.id,
+                    label: c.name,
+                  }))}
+                  placeholder={t("class.formCoursePlaceholder")}
+                />
                 {formNewCourseName && (
                   <div className="mt-1.5 p-2 bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-150 dark:border-emerald-900/30 rounded-lg flex items-center justify-between gap-2">
                     <span className="text-[11px] text-emerald-800 dark:text-emerald-450 font-medium flex items-center gap-1.5">

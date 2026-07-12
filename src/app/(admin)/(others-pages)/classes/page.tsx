@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import ClassTable from "@/components/class/ClassTable";
 import ClassForm from "@/components/class/ClassForm";
 import ClassDetail from "@/components/class/ClassDetail";
@@ -17,18 +18,28 @@ export default function ClassPage() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   // ── Toast ──
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [toastType, setToastType] = useState<"success" | "error">("success");
+  const [toasts, setToasts] = useState<{ id: number; message: string; type: "success" | "error" }[]>([]);
+  const [mounted, setMounted] = useState(false);
 
   React.useEffect(() => {
-    if (!toastMessage) return;
-    const timer = setTimeout(() => setToastMessage(null), 3000);
-    return () => clearTimeout(timer);
-  }, [toastMessage]);
+    setMounted(true);
+  }, []);
 
   const showToast = React.useCallback((msg: string, type: "success" | "error" = "success") => {
-    setToastMessage(msg);
-    setToastType(type);
+    if (!msg) return;
+    const messages = msg
+      .split(/\r?\n/)
+      .map((m) => m.trim())
+      .filter(Boolean);
+
+    messages.forEach((message, index) => {
+      const id = Date.now() + index;
+      setToasts((prev) => [...prev, { id, message, type }]);
+
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 4000);
+    });
   }, []);
 
   const handleSuccess = (msg: string) => {
@@ -40,19 +51,26 @@ export default function ClassPage() {
 
   return (
     <div>
-      {/* Toast */}
-      {toastMessage && (
-        <div className="fixed bottom-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
-          {toastType === "success" ? (
-            <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" />
-          ) : (
-            <XCircle className="w-5 h-5 text-rose-500 shrink-0" />
-          )}
-          <span className="text-sm font-medium">{toastMessage}</span>
-        </div>
+      {/* Toast Container */}
+      {mounted && typeof document !== "undefined" && createPortal(
+        <div className="fixed bottom-5 right-5 z-[999999] flex flex-col gap-2 max-w-md w-full sm:w-auto">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className="flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5"
+            >
+              {toast.type === "success" ? (
+                <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" />
+              ) : (
+                <XCircle className="w-5 h-5 text-rose-500 shrink-0" />
+              )}
+              <span className="text-sm font-medium">{toast.message}</span>
+            </div>
+          ))}
+        </div>,
+        document.body
       )}
 
-      <PageBreadcrumb pageTitle="class.title" />
       <div className="space-y-6">
         {activeTab === "list" ? (
           <ClassTable

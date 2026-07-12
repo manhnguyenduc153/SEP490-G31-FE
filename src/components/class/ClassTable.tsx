@@ -18,6 +18,7 @@ import { courseApi, CourseItem } from "@/services/course.api";
 import { semesterApi, SemesterItem } from "@/services/semester.api";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { useTranslation } from "react-i18next";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 type TabType = "all" | "active" | "planning" | "completed";
 
@@ -327,7 +328,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
   };
 
   return (
-    <div className="w-full bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs overflow-hidden">
+    <div className="w-full bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs">
 
       {/* Header with Title & Add Class Button */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 sm:p-6 border-b border-gray-100 dark:border-gray-800">
@@ -420,16 +421,13 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
             <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
               {t("class.formSemesterLabel", { defaultValue: "Học kỳ" })}
             </label>
-            <select
+            <SearchableSelect
               value={selectedSemester || ""}
-              onChange={(e) => { setSelectedSemester(e.target.value ? Number(e.target.value) : null); setCurrentPage(1); }}
-              className="w-full px-3 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all h-11 cursor-pointer"
-            >
-              <option value="" className="dark:bg-gray-900">{t("class.filterSemesterAll", { defaultValue: "Tất cả học kỳ" })}</option>
-              {semesters.map((s) => (
-                <option key={s.id} value={s.id} className="dark:bg-gray-900">{s.name}</option>
-              ))}
-            </select>
+              onChange={(value) => { setSelectedSemester(value ? Number(value) : null); setCurrentPage(1); }}
+              options={semesters.map((s) => ({ value: s.id, label: s.name }))}
+              placeholder={t("class.filterSemesterAll", { defaultValue: "Tất cả học kỳ" })}
+              onClear={() => { setSelectedSemester(null); setCurrentPage(1); }}
+            />
           </div>
 
           {/* Course Selector */}
@@ -437,16 +435,13 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
             <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
               {t("class.formCourseLabel")}
             </label>
-            <select
+            <SearchableSelect
               value={selectedCourse || ""}
-              onChange={(e) => { setSelectedCourse(e.target.value ? Number(e.target.value) : null); setCurrentPage(1); }}
-              className="w-full px-3 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all h-11 cursor-pointer"
-            >
-              <option value="" className="dark:bg-gray-900">{t("class.filterCourseAll", { defaultValue: "Tất cả khóa học" })}</option>
-              {courses.map((c) => (
-                <option key={c.id} value={c.id} className="dark:bg-gray-900">{c.name}</option>
-              ))}
-            </select>
+              onChange={(value) => { setSelectedCourse(value ? Number(value) : null); setCurrentPage(1); }}
+              options={courses.map((c) => ({ value: c.id, label: c.name }))}
+              placeholder={t("class.filterCourseAll", { defaultValue: "Tất cả khóa học" })}
+              onClear={() => { setSelectedCourse(null); setCurrentPage(1); }}
+            />
           </div>
 
           {/* Teacher Selector */}
@@ -454,16 +449,13 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
             <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
               {t("class.formTeacherLabel")}
             </label>
-            <select
+            <SearchableSelect
               value={selectedTeacher || ""}
-              onChange={(e) => { setSelectedTeacher(e.target.value ? Number(e.target.value) : null); setCurrentPage(1); }}
-              className="w-full px-3 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all h-11 cursor-pointer"
-            >
-              <option value="" className="dark:bg-gray-900">{t("class.filterTeacherAll", { defaultValue: "Tất cả giáo viên" })}</option>
-              {teachers.map((t) => (
-                <option key={t.id} value={t.id} className="dark:bg-gray-900">{t.name}</option>
-              ))}
-            </select>
+              onChange={(value) => { setSelectedTeacher(value ? Number(value) : null); setCurrentPage(1); }}
+              options={teachers.map((t) => ({ value: t.id, label: t.name }))}
+              placeholder={t("class.filterTeacherAll", { defaultValue: "Tất cả giáo viên" })}
+              onClear={() => { setSelectedTeacher(null); setCurrentPage(1); }}
+            />
           </div>
 
           {/* Clear Filters Button */}

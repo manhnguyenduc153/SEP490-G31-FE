@@ -247,16 +247,6 @@ export default function PersonalScheduleCalendar({ type }: PersonalScheduleCalen
           <div className="flex items-center justify-center py-20">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-500" />
           </div>
-        ) : events.length === 0 ? (
-          <div className="py-16 text-center">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <h3 className="mt-4 text-sm font-medium text-gray-900 dark:text-white">Không có lịch học/dạy</h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {type === "teacher" ? "Tài khoản giáo viên của bạn hiện chưa được phân công lớp học nào." : "Tài khoản học sinh của bạn hiện chưa đăng ký lớp học nào."}
-            </p>
-          </div>
         ) : (
           <>
             {/* Toolbar */}

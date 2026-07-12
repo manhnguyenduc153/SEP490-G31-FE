@@ -4,6 +4,7 @@ import { Modal } from "@/components/ui/modal";
 import { teacherApi, TeacherItem } from "@/services/teacher.api";
 import { semesterApi, TeacherAvailabilitySlotDto } from "@/services/semester.api";
 import { useTranslation } from "react-i18next";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 interface TeacherAvailabilityModalProps {
   isOpen: boolean;
@@ -159,19 +160,16 @@ export function TeacherAvailabilityModal({
             {t("semester.availabilitySelectTeacherLabel", { defaultValue: "Chọn giảng viên:" })}
           </label>
           <div className="relative w-full sm:w-[300px]">
-            <select
+            <SearchableSelect
               value={selectedTeacherId}
-              onChange={(e) => setSelectedTeacherId(e.target.value === "" ? "" : Number(e.target.value))}
+              onChange={(value) => setSelectedTeacherId(value === "" ? "" : Number(value))}
               disabled={isLoadingTeachers}
-              className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-            >
-              <option value="">{t("semester.availabilitySelectTeacherPlaceholder", { defaultValue: "-- Chọn giáo viên --" })}</option>
-              {teachers.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} ({t.code})
-                </option>
-              ))}
-            </select>
+              options={teachers.map((t) => ({
+                value: t.id,
+                label: `${t.name} (${t.code})`,
+              }))}
+              placeholder={t("semester.availabilitySelectTeacherPlaceholder", { defaultValue: "-- Chọn giáo viên --" })}
+            />
           </div>
           {isLoadingTeachers && <span className="text-xs text-gray-400 animate-pulse">{t("semester.availabilityLoadingTeachers", { defaultValue: "Đang tải DS..." })}</span>}
         </div>

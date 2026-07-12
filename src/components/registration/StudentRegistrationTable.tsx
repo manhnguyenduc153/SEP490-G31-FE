@@ -15,6 +15,7 @@ import { StudentRegistrationModal } from "./StudentRegistrationModal";
 import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
 import { useTranslation } from "react-i18next";
 import { authApi } from "@/services/auth.api";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 export default function StudentRegistrationTable() {
   const { t } = useTranslation();
@@ -113,11 +114,6 @@ export default function StudentRegistrationTable() {
         if (res.success && res.data) {
           const list = res.data || [];
           setSemesters(list);
-          if (list.length > 0) {
-            // Default to first active semester or just first semester
-            const activeSem = list.find((s) => s.status === 1) || list[0];
-            setSelectedSemesterId(activeSem.id);
-          }
         }
       } catch (err: any) {
         console.error("Lỗi tải học kỳ:", err);
@@ -148,15 +144,13 @@ export default function StudentRegistrationTable() {
 
   // Load Registrations for Selected Semester & Filters
   useEffect(() => {
-    if (selectedSemesterId === null) return;
-
     let mounted = true;
     async function loadRegistrations() {
       setIsLoadingList(true);
       setError(null);
       try {
         const res = await semesterApi.getStudentRegistrations(
-          selectedSemesterId!,
+          selectedSemesterId,
           debouncedSearchTerm,
           selectedCourseId,
           selectedStatus,
@@ -216,7 +210,7 @@ export default function StudentRegistrationTable() {
   const semesterName = selectedSemester ? selectedSemester.name : "";
 
   return (
-    <div className="bg-white dark:bg-gray-900 border border-gray-150 dark:border-gray-800 rounded-2xl shadow-xs overflow-hidden">
+    <div className="bg-white dark:bg-gray-900 border border-gray-150 dark:border-gray-800 rounded-2xl shadow-xs">
       {/* Toast */}
       {toastMessage && (
         <div
@@ -283,55 +277,61 @@ export default function StudentRegistrationTable() {
           </div>
  
           {/* Semester Selector */}
-          <select
-            disabled={isLoadingSemesters}
-            value={selectedSemesterId || ""}
-            onChange={(e) => {
-              setSelectedSemesterId(e.target.value ? Number(e.target.value) : null);
-              setPageIndex(1);
-            }}
-            className="h-11 rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-4 py-2 text-sm text-gray-855 focus:border-brand-500 focus:outline-hidden dark:bg-gray-900 dark:text-white/90 min-w-[150px] cursor-pointer"
-          >
-            <option value="" className="dark:bg-gray-900">{t("registration.selectSemester")}</option>
-            {semesters.map((s) => (
-              <option key={s.id} value={s.id} className="dark:bg-gray-900">
-                {s.name}
-              </option>
-            ))}
-          </select>
+          <div className="w-full sm:w-[180px]">
+            <SearchableSelect
+              disabled={isLoadingSemesters}
+              value={selectedSemesterId || ""}
+              onChange={(value) => {
+                setSelectedSemesterId(value ? Number(value) : null);
+                setPageIndex(1);
+              }}
+              options={semesters.map((s) => ({ value: s.id, label: s.name }))}
+              placeholder={t("registration.selectSemester")}
+              onClear={() => {
+                setSelectedSemesterId(null);
+                setPageIndex(1);
+              }}
+            />
+          </div>
  
           {/* Course Selector */}
-          <select
-            disabled={isLoadingCourses}
-            value={selectedCourseId ?? ""}
-            onChange={(e) => {
-              setSelectedCourseId(e.target.value ? Number(e.target.value) : null);
-              setPageIndex(1);
-            }}
-            className="h-11 rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-4 py-2 text-sm text-gray-855 focus:border-brand-500 focus:outline-hidden dark:bg-gray-900 dark:text-white/90 min-w-[180px] max-w-[240px] cursor-pointer"
-          >
-            <option value="" className="dark:bg-gray-900">{t("registration.selectCourse")}</option>
-            {courses.map((c) => (
-              <option key={c.id} value={c.id} className="dark:bg-gray-900">
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <div className="w-full sm:w-[220px]">
+            <SearchableSelect
+              disabled={isLoadingCourses}
+              value={selectedCourseId ?? ""}
+              onChange={(value) => {
+                setSelectedCourseId(value ? Number(value) : null);
+                setPageIndex(1);
+              }}
+              options={courses.map((c) => ({ value: c.id, label: c.name }))}
+              placeholder={t("registration.selectCourse")}
+              onClear={() => {
+                setSelectedCourseId(null);
+                setPageIndex(1);
+              }}
+            />
+          </div>
  
           {/* Status Selector */}
-          <select
-            value={selectedStatus ?? ""}
-            onChange={(e) => {
-              setSelectedStatus(e.target.value !== "" ? Number(e.target.value) : null);
-              setPageIndex(1);
-            }}
-            className="h-11 rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-4 py-2 text-sm text-gray-855 focus:border-brand-500 focus:outline-hidden dark:bg-gray-900 dark:text-white/90 min-w-[150px] cursor-pointer"
-          >
-            <option value="" className="dark:bg-gray-900">{t("registration.selectStatus")}</option>
-            <option value="0" className="dark:bg-gray-900">{t("registration.statusPending")}</option>
-            <option value="1" className="dark:bg-gray-900">{t("registration.statusScheduled")}</option>
-            <option value="2" className="dark:bg-gray-900">{t("registration.statusCancelled")}</option>
-          </select>
+          <div className="w-full sm:w-[160px]">
+            <SearchableSelect
+              value={selectedStatus !== null ? selectedStatus : ""}
+              onChange={(value) => {
+                setSelectedStatus(value !== "" ? Number(value) : null);
+                setPageIndex(1);
+              }}
+              options={[
+                { value: 0, label: t("registration.statusPending") },
+                { value: 1, label: t("registration.statusScheduled") },
+                { value: 2, label: t("registration.statusCancelled") },
+              ]}
+              placeholder={t("registration.selectStatus")}
+              onClear={() => {
+                setSelectedStatus(null);
+                setPageIndex(1);
+              }}
+            />
+          </div>
         </div>
         <button
           type="button"
@@ -348,7 +348,7 @@ export default function StudentRegistrationTable() {
       </div>
 
       {/* Table Data */}
-      {selectedSemesterId === null ? (
+      {semesters.length === 0 && !isLoadingSemesters ? (
         <div className="p-16 text-center text-sm text-gray-500 dark:text-gray-400">
           {t("registration.noSemesters")}
         </div>

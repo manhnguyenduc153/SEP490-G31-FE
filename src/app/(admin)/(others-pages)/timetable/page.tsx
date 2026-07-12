@@ -11,7 +11,6 @@ export const metadata: Metadata = {
 export default function page() {
   return (
     <div className="w-full">
-      <PageBreadcrumb pageTitle="sidebar.timetable" />
       <PersonalScheduleCalendar type="student" />
     </div>
   );

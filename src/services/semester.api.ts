@@ -110,13 +110,14 @@ export const semesterApi = {
   },
 
   async getStudentRegistrations(
-    semesterId: number,
+    semesterId: number | null | undefined,
     keyword: string = "",
     courseId?: number | null,
     status?: number | null,
     pageIndex: number = 1,
     pageSize: number = 10
   ): Promise<ApiResponse<StudentRegistrationPagingResponse>> {
+    const semId = semesterId ? semesterId : 0;
     const params: Record<string, string> = {
       pageIndex: String(pageIndex),
       pageSize: String(pageSize),
@@ -127,7 +128,7 @@ export const semesterApi = {
 
     const query = new URLSearchParams(params).toString();
     return api.get<StudentRegistrationPagingResponse>(
-      `/api/Semester/${semesterId}/registrations?${query}`
+      `/api/Semester/${semId}/registrations?${query}`
     );
   },
 
