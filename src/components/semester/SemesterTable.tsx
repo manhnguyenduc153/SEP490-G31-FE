@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import {
   Table,
   TableBody,
@@ -62,8 +64,29 @@ export default function SemesterTable() {
   const [isRegistrationsOpen, setIsRegistrationsOpen] = useState(false);
 
   // Toast
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [toastType, setToastType] = useState<"success" | "error">("success");
+  const [toasts, setToasts] = useState<{ id: number; message: string; type: "success" | "error" }[]>([]);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const showToast = (msg: string, type: "success" | "error" = "success") => {
+    if (!msg) return;
+    const messages = msg
+      .split(/\r?\n/)
+      .map((m) => m.trim())
+      .filter(Boolean);
+
+    messages.forEach((message, index) => {
+      const id = Date.now() + index;
+      setToasts((prev) => [...prev, { id, message, type }]);
+
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 4000);
+    });
+  };
 
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
@@ -72,17 +95,6 @@ export default function SemesterTable() {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, statusFilter, startDateFrom, endDateTo]);
-
-  useEffect(() => {
-    if (!toastMessage) return;
-    const timer = setTimeout(() => setToastMessage(null), 3000);
-    return () => clearTimeout(timer);
-  }, [toastMessage]);
-
-  const showToast = (msg: string, type: "success" | "error" = "success") => {
-    setToastMessage(msg);
-    setToastType(type);
-  };
 
   const triggerRefresh = () => setRefreshKey((k) => k + 1);
 
@@ -204,25 +216,29 @@ export default function SemesterTable() {
   const totalPages = Math.ceil(totalRecords / itemsPerPage);
 
   return (
-    <div className="bg-white dark:bg-gray-900 border border-gray-150 dark:border-gray-800 rounded-2xl shadow-xs overflow-hidden">
-      {/* Toast */}
-      {toastMessage && (
-        <div
-          className={`fixed top-5 right-5 z-[99999] flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg text-sm font-medium text-white transition-all duration-300 ${
-            toastType === "success" ? "bg-green-500" : "bg-red-500"
-          }`}
-        >
-          {toastType === "success" ? (
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          ) : (
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          )}
-          {toastMessage}
-        </div>
+    <div className="bg-white dark:bg-gray-900 border border-gray-150 dark:border-gray-800 rounded-2xl shadow-xs">
+      {/* Toast Container */}
+      {mounted && typeof document !== "undefined" && createPortal(
+        <div className="fixed bottom-5 right-5 z-[999999] flex flex-col gap-2 max-w-md w-full sm:w-auto">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className="flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5"
+            >
+              {toast.type === "success" ? (
+                <svg className="w-5 h-5 text-emerald-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 text-rose-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+              <span className="text-sm font-medium">{toast.message}</span>
+            </div>
+          ))}
+        </div>,
+        document.body
       )}
 
       {/* Header */}
@@ -274,17 +290,18 @@ export default function SemesterTable() {
             <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
               {t("semester.filterStatus")}
             </label>
-            <select
+            <SearchableSelect
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all h-11"
-            >
-              <option value="all" className="dark:bg-gray-900">{t("semester.filterAll")}</option>
-              <option value="0" className="dark:bg-gray-900">{t("semester.formStatusDraft")}</option>
-              <option value="1" className="dark:bg-gray-900">{t("semester.formStatusActive")}</option>
-              <option value="2" className="dark:bg-gray-900">{t("semester.formStatusClosed")}</option>
-              <option value="3" className="dark:bg-gray-900">{t("semester.formStatusClosed")}</option>
-            </select>
+              onChange={(value) => { setStatusFilter(value); setCurrentPage(1); }}
+              options={[
+                { value: "0", label: t("semester.formStatusDraft") },
+                { value: "1", label: t("semester.formStatusActive") },
+                { value: "2", label: t("semester.formStatusCompleted", { defaultValue: "Đã hoàn thành" }) },
+                { value: "3", label: t("semester.formStatusClosed") },
+              ]}
+              placeholder={t("semester.filterStatus")}
+              onClear={() => { setStatusFilter("all"); setCurrentPage(1); }}
+            />
           </div>
 
           {/* Start Date From */}

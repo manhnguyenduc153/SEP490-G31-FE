@@ -99,7 +99,6 @@ const schoolItems: NavItem[] = [
     subItems: [
       { name: "users", path: "/users", permission: "User" },
       { name: "roles", path: "/roles", permission: "Role" },
-      { name: "permissions", path: "/permissions" },
     ],
   },
   {
@@ -232,7 +231,6 @@ const navItems: NavItem[] = [
     icon: <LockIcon />,
     subItems: [
       { name: "Role", path: "/roles" },
-      { name: "Permission", path: "/permissions" },
     ],
   },
 ];
@@ -508,7 +506,11 @@ const AppSidebar: React.FC = () => {
   useEffect(() => {
     // Check if the current path matches any submenu item
     let submenuMatched = false;
-    ["school", "main", "support", "others"].forEach((menuType) => {
+    const menuTypes = ["school", "main", "support", "others"] as const;
+
+    for (const menuType of menuTypes) {
+      if (submenuMatched) break;
+
       const items =
         menuType === "school"
           ? schoolItems
@@ -517,20 +519,24 @@ const AppSidebar: React.FC = () => {
             : menuType === "support"
               ? supportItems
               : othersItems;
-      items.forEach((nav, index) => {
+
+      for (let index = 0; index < items.length; index++) {
+        const nav = items[index];
         if (nav.subItems) {
-          nav.subItems.forEach((subItem) => {
+          for (const subItem of nav.subItems) {
             if (isActive(subItem.path)) {
               setOpenSubmenu({
-                type: menuType as "school" | "main" | "support" | "others",
+                type: menuType,
                 index,
               });
               submenuMatched = true;
+              break;
             }
-          });
+          }
         }
-      });
-    });
+        if (submenuMatched) break;
+      }
+    }
 
     // If no submenu item matches, close the open submenu
     if (!submenuMatched) {
@@ -539,33 +545,34 @@ const AppSidebar: React.FC = () => {
   }, [pathname, isActive]);
 
   useEffect(() => {
-    let active = true;
-
-    const updateHeight = () => {
-      if (!active) return;
-      if (openSubmenu !== null) {
-        const key = `${openSubmenu.type}-${openSubmenu.index}`;
-        const el = subMenuRefs.current[key];
-        if (el) {
-          const height = el.scrollHeight;
-          setSubMenuHeight((prevHeights) => ({
-            ...prevHeights,
-            [key]: height || 0,
-          }));
-
-          // If measured height is 0 (due to async PermissionGuards), retry in 100ms
-          if (height === 0) {
-            setTimeout(updateHeight, 100);
-          }
+    if (typeof window === "undefined" || !("ResizeObserver" in window)) return;
+    
+    const observers = new Map<string, ResizeObserver>();
+    
+    const updateAllHeights = () => {
+      Object.entries(subMenuRefs.current).forEach(([key, el]) => {
+        if (!el) return;
+        
+        if (!observers.has(key)) {
+          const observer = new ResizeObserver(() => {
+            const height = el.scrollHeight;
+            setSubMenuHeight((prev) => {
+              if (prev[key] === height) return prev;
+              return { ...prev, [key]: height };
+            });
+          });
+          observer.observe(el);
+          observers.set(key, observer);
         }
-      }
+      });
     };
 
-    updateHeight();
+    updateAllHeights();
+
     return () => {
-      active = false;
+      observers.forEach((obs) => obs.disconnect());
     };
-  }, [openSubmenu]);
+  }, [openSubmenu, role]);
 
   const handleSubmenuToggle = (
     index: number,

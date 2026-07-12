@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Table,
   TableBody,
@@ -62,6 +63,11 @@ export default function QuestionCategoryTable() {
   // ── Toast ──
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<"success" | "error">("success");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // ── Create / Edit modal ──
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -294,10 +300,10 @@ export default function QuestionCategoryTable() {
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="bg-white dark:bg-gray-900 border border-gray-150 dark:border-gray-800 rounded-2xl shadow-xs overflow-hidden">
+    <div className="bg-white dark:bg-gray-900 border border-gray-150 dark:border-gray-800 rounded-2xl shadow-xs">
       {/* Toast */}
-      {toastMessage && (
-        <div className="fixed bottom-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
+      {mounted && typeof document !== "undefined" && toastMessage && createPortal(
+        <div className="fixed bottom-5 right-5 z-[999999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5">
           {toastType === "success" ? (
             <svg className="w-5 h-5 text-emerald-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -308,7 +314,8 @@ export default function QuestionCategoryTable() {
             </svg>
           )}
           <span className="text-sm font-medium">{toastMessage}</span>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Card Header */}

@@ -9,6 +9,7 @@ import { useModal } from "@/hooks/useModal";
 import { Modal } from "@/components/ui/modal";
 import { classApi, ClassItem, ClassScheduleItem } from "@/services/class.api";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 // ── Fixed time slots (must stay in sync with backend FixedTimeSlot.All) ──────
 const FIXED_SLOTS = [
@@ -296,6 +297,11 @@ export default function ClassScheduleCalendar() {
     openModal();
   };
 
+  const classOptions = classes.map((cls) => ({
+    value: cls.id,
+    label: `${cls.code} - ${cls.name} (${cls.scheduleDisplay || "Chưa cấu hình lịch"})`,
+  }));
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
@@ -303,18 +309,13 @@ export default function ClassScheduleCalendar() {
       <div className="p-5 sm:p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-5">
         <div className="flex flex-col gap-1.5 w-full md:max-w-md">
           <label className="text-sm font-semibold text-gray-750 dark:text-gray-300">Lớp học:</label>
-          <select
-            value={selectedClassId === null ? "all" : String(selectedClassId)}
-            onChange={(e) => setSelectedClassId(e.target.value === "all" ? null : Number(e.target.value))}
-            className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-          >
-            <option value="all">Tất cả các lớp</option>
-            {classes.map((cls) => (
-              <option key={cls.id} value={cls.id}>
-                {cls.code} - {cls.name} ({cls.scheduleDisplay || "Chưa cấu hình lịch"})
-              </option>
-            ))}
-          </select>
+          <SearchableSelect
+            options={classOptions}
+            value={selectedClassId || ""}
+            onChange={(val) => setSelectedClassId(val)}
+            placeholder="Tất cả các lớp"
+            onClear={() => setSelectedClassId(null)}
+          />
         </div>
 
         <div className="flex items-center gap-3">

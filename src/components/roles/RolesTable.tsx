@@ -17,6 +17,8 @@ import { authApi, RoleItem } from "@/services/auth.api";
 import { PermissionNode, SortKey, SortOrder } from "./types";
 import { CreateRoleModal } from "./CreateRoleModal";
 import { EditPermissionsModal } from "./EditPermissionsModal";
+import { createPortal } from "react-dom";
+import { Plus, Search } from "lucide-react";
 
 const buildPermissionTree = (permissions: string[]): PermissionNode[] => {
   const groups: Record<string, PermissionNode> = {};
@@ -83,6 +85,31 @@ export default function RolesTable() {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const triggerRefresh = () => setRefreshKey((k) => k + 1);
+
+  // Toast
+  const [toasts, setToasts] = useState<{ id: number; message: string; type: "success" | "error" }[]>([]);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const showToast = (msg: string, type: "success" | "error" = "success") => {
+    if (!msg) return;
+    const messages = msg
+      .split(/\r?\n/)
+      .map((m) => m.trim())
+      .filter(Boolean);
+
+    messages.forEach((message, index) => {
+      const id = Date.now() + index;
+      setToasts((prev) => [...prev, { id, message, type }]);
+
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 4000);
+    });
+  };
   
   // Permissions API states
   const [systemPermissions, setSystemPermissions] = useState<string[]>([]);
@@ -107,21 +134,7 @@ export default function RolesTable() {
     new Set(["Dashboard", "Ecommerce", "Authorization"])
   );
 
-  // Toast notifications state
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (toastMessage) {
-      const timer = setTimeout(() => {
-        setToastMessage(null);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [toastMessage]);
-
-  const showToast = (message: string) => {
-    setToastMessage(message);
-  };
 
   // Debounce Search Term
   useEffect(() => {
@@ -384,105 +397,72 @@ export default function RolesTable() {
   const currentData = filteredAndSortedData;
 
   return (
-    <div className="overflow-hidden bg-white dark:bg-white/[0.03] rounded-xl border border-gray-100 dark:border-white/[0.05]">
-      {/* Table Header Controls */}
-      <div className="flex flex-col gap-3 px-6 py-5 border-b border-gray-100 dark:border-white/[0.05] sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500 dark:text-gray-400">{t("roles.show")}</span>
-          <div className="relative z-20 bg-transparent">
-            <select
-              className="w-full py-2 pl-3 pr-8 text-sm text-gray-800 bg-transparent border border-gray-300 rounded-lg appearance-none dark:bg-dark-900 h-9 bg-none shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-              value={itemsPerPage}
-              onChange={(e) => {
-                setItemsPerPage(Number(e.target.value));
-                setCurrentPage(1);
-              }}
+    <div className="bg-white dark:bg-gray-900 border border-gray-150 dark:border-gray-800 rounded-2xl shadow-xs">
+      {/* Toast Container */}
+      {mounted && typeof document !== "undefined" && createPortal(
+        <div className="fixed bottom-5 right-5 z-[999999] flex flex-col gap-2 max-w-md w-full sm:w-auto">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className="flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5"
             >
-              {[5, 10, 15].map((value) => (
-                <option
-                  key={value}
-                  value={value}
-                  className="text-gray-500 dark:bg-gray-900 dark:text-gray-400"
-                >
-                  {value}
-                </option>
-              ))}
-            </select>
-            <span className="absolute z-30 text-gray-500 -translate-y-1/2 right-2 top-1/2 dark:text-gray-400 pointer-events-none">
-              <svg
-                className="stroke-current"
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M3.8335 5.9165L8.00016 10.0832L12.1668 5.9165"
-                  stroke=""
-                  strokeWidth="1.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
-          </div>
-          <span className="text-sm text-gray-500 dark:text-gray-400">{t("roles.entries")}</span>
+              {toast.type === "success" ? (
+                <svg className="w-5 h-5 text-emerald-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 text-rose-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+              <span className="text-sm font-medium">{toast.message}</span>
+            </div>
+          ))}
+        </div>,
+        document.body
+      )}
+
+      {/* Card Header (Title, Subtitle, and Create Button) */}
+      <div className="flex flex-col gap-4 px-5 sm:px-6 py-5 border-b border-gray-100 dark:border-gray-800 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+            {t("roles.title")}
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            {t("roles.description")}
+          </p>
         </div>
+        
+        <div className="flex flex-wrap items-center gap-3 self-start md:self-auto">
+          <button
+            onClick={openCreateModal}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-theme-xs transition-colors cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            {t("roles.addRole")}
+          </button>
+        </div>
+      </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="relative">
-            <button className="absolute text-gray-500 -translate-y-1/2 left-4 top-1/2 dark:text-gray-400">
-              <svg
-                className="fill-current"
-                width="20"
-                height="20"
-                viewBox="0 0 20 20"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M3.04199 9.37363C3.04199 5.87693 5.87735 3.04199 9.37533 3.04199C12.8733 3.04199 15.7087 5.87693 15.7087 9.37363C15.7087 12.8703 12.8733 15.7053 9.37533 15.7053C5.87735 15.7053 3.04199 12.8703 3.04199 9.37363ZM9.37533 1.54199C5.04926 1.54199 1.54199 5.04817 1.54199 9.37363C1.54199 13.6991 5.04926 17.2053 9.37533 17.2053C11.2676 17.2053 13.0032 16.5344 14.3572 15.4176L17.1773 18.238C17.4702 18.5309 17.945 18.5309 18.2379 18.238C18.5308 17.9451 18.5309 17.4703 18.238 17.1773L15.4182 14.3573C16.5367 13.0033 17.2087 11.2669 17.2087 9.37363C17.2087 5.04817 13.7014 1.54199 9.37533 1.54199Z"
-                  fill=""
-                />
-              </svg>
-            </button>
-
+      {/* Filter / Search Bar */}
+      <div className="p-4 sm:p-5 border-b border-gray-150 dark:border-gray-800 bg-gray-50/20 dark:bg-gray-900/10">
+        <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between w-full">
+          {/* Text Search */}
+          <div className="relative w-full sm:max-w-xs">
             <input
               type="text"
+              placeholder={t("roles.searchPlaceholder")}
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              placeholder={t("roles.searchPlaceholder")}
-              className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent py-2.5 pl-11 pr-4 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[250px]"
+              className="h-11 w-full pl-10 pr-4 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all placeholder-gray-400"
             />
+            <span className="absolute left-3 top-3.5 text-gray-400">
+              <Search className="w-4 h-4" />
+            </span>
           </div>
-          <button
-            onClick={openCreateModal}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 transition-colors shadow-theme-xs"
-          >
-            <svg
-              className="fill-current"
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M8.00016 3.33331V12.6666M3.3335 7.99998H12.6668"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            {t("roles.addRole")}
-          </button>
         </div>
       </div>
 
@@ -544,8 +524,8 @@ export default function RolesTable() {
                   <TableCell className="px-6 py-4">
                     <div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-48"></div>
                   </TableCell>
-                  <TableCell className="px-6 py-4 text-center">
-                    <div className="h-6 bg-gray-200 dark:bg-white/10 rounded-full w-24 mx-auto"></div>
+                  <TableCell className="px-6 py-4">
+                    <div className="h-6 bg-gray-200 dark:bg-white/10 rounded-full w-24"></div>
                   </TableCell>
                   <TableCell className="px-6 py-4">
                     <div className="h-6 bg-gray-200 dark:bg-white/10 rounded-full w-16"></div>
@@ -577,8 +557,8 @@ export default function RolesTable() {
                   <TableCell className="px-6 py-4 text-gray-600 dark:text-gray-400 max-w-[300px] truncate">
                     {role.description}
                   </TableCell>
-                  <TableCell className="px-6 py-4 text-gray-900 dark:text-white text-center whitespace-nowrap">
-                    <span className="inline-flex items-center justify-center px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-gray-200">
+                  <TableCell className="px-6 py-4 text-gray-900 dark:text-white whitespace-nowrap">
+                    <span className="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-gray-200">
                       {t("roles.permissionsCount", { count: role.permissions?.length || 0 })}
                     </span>
                   </TableCell>
@@ -650,9 +630,25 @@ export default function RolesTable() {
       </div>
 
       {/* Pagination Controls */}
-      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between px-6 py-5 bg-gray-50/50 dark:bg-white/[0.01] border-t border-gray-100 dark:border-white/[0.05]">
-        <div className="pb-3 xl:pb-0">
-          <p className="text-sm font-medium text-center text-gray-500 dark:text-gray-400 xl:text-left">
+      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between px-6 py-5 bg-gray-50/50 dark:bg-white/[0.01] border-t border-gray-100 dark:border-gray-800/40">
+        <div className="flex flex-wrap items-center gap-4 pb-3 xl:pb-0 justify-center xl:justify-start">
+          <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+            <span>{t("common.show", { defaultValue: "Hiển thị" })}</span>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="h-8 rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-2 text-sm text-gray-700 dark:text-gray-350 focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all cursor-pointer font-medium"
+            >
+              {[5, 10, 15, 20].map((value) => (
+                <option key={value} value={value} className="dark:bg-gray-900">{value}</option>
+              ))}
+            </select>
+            <span>{t("common.entriesPerPage", { defaultValue: "mục mỗi trang" })}</span>
+          </div>
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
             {t("roles.showing", { start: totalItems === 0 ? 0 : startIndex + 1, end: endIndex, total: totalItems })}
           </p>
         </div>
@@ -703,15 +699,6 @@ export default function RolesTable() {
         checkedPermissions={checkedPermissions}
         handleSavePermissions={handleSavePermissions}
       />
-      {/* Floating premium toast notifications */}
-      {toastMessage && (
-        <div className="fixed bottom-5 right-5 z-99999 flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
-          <svg className="w-5 h-5 text-success-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span className="text-sm font-medium">{toastMessage}</span>
-        </div>
-      )}
     </div>
   );
 }
