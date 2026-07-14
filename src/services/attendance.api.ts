@@ -46,6 +46,7 @@ export interface MyAttendanceClassDto {
   courseName?: string | null;
   teacherName?: string | null;
   attendedSessions: number;
+  absentSessions: number;
   totalSessions: number;
   attendanceRate: number;
 }

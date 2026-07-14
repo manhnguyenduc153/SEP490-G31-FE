@@ -3,7 +3,7 @@
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { attendanceApi, MyAttendanceClassDto, MyAttendanceSessionDto } from "@/services/attendance.api";
 import { BookOpen, CalendarCheck, CalendarDays, CheckCircle2, Clock3, GraduationCap, RefreshCw, ShieldCheck, UserRound, X, XCircle } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 const rateStyles = (rate: number) => {
@@ -133,12 +133,6 @@ export default function MyAttendancePage() {
     };
   };
 
-  const summary = useMemo(() => {
-    const attended = items.reduce((total, item) => total + item.attendedSessions, 0);
-    const sessions = items.reduce((total, item) => total + item.totalSessions, 0);
-    return { attended, sessions, rate: sessions > 0 ? Math.round(attended / sessions * 1000) / 10 : 0 };
-  }, [items]);
-
   const selectedClass = items.find((item) => item.classId === selectedClassId) ?? null;
 
   return (
@@ -162,21 +156,6 @@ export default function MyAttendancePage() {
                   </p>
                 </div>
               </div>
-              {!isLoading && !error && items.length > 0 && (
-                <div className="flex items-center gap-5 rounded-xl border border-gray-100 bg-gray-50/70 px-5 py-3 dark:border-gray-800 dark:bg-gray-800/40">
-                  <div>
-                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                      {t("myAttendance.overall", { defaultValue: "Tổng chuyên cần" })}
-                    </p>
-                    <p className="mt-0.5 text-lg font-bold text-gray-900 dark:text-white">
-                      {summary.attended}/{summary.sessions}
-                      <span className="ml-1 text-xs font-medium text-gray-400">{t("myAttendance.sessions", { defaultValue: "buổi" })}</span>
-                    </p>
-                  </div>
-                  <div className="h-10 w-px bg-gray-200 dark:bg-gray-700" />
-                  <p className={`text-2xl font-extrabold ${rateStyles(summary.rate).text}`}>{summary.rate}%</p>
-                </div>
-              )}
             </div>
           </div>
         </section>
@@ -293,18 +272,18 @@ export default function MyAttendancePage() {
             </div>
 
             <div className="border-b border-gray-100 bg-gray-50/70 px-6 py-4 dark:border-gray-800 dark:bg-gray-800/30">
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-xl bg-white px-4 py-3 dark:bg-gray-900">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t("myAttendance.totalSessions", { defaultValue: "Tổng số buổi học" })}</p>
+                  <p className="mt-1 text-lg font-bold text-gray-900 dark:text-white">{selectedClass.totalSessions}</p>
+                </div>
+                <div className="rounded-xl bg-white px-4 py-3 dark:bg-gray-900">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t("myAttendance.absentSessions", { defaultValue: "Vắng" })}</p>
+                  <p className="mt-1 text-lg font-bold text-rose-600 dark:text-rose-400">{selectedClass.absentSessions}</p>
+                </div>
                 <div className="rounded-xl bg-white px-4 py-3 dark:bg-gray-900">
                   <p className="text-xs text-gray-500 dark:text-gray-400">{t("myAttendance.attended", { defaultValue: "Đã tham gia" })}</p>
-                  <p className="mt-1 text-lg font-bold text-gray-900 dark:text-white">{selectedClass.attendedSessions}/{selectedClass.totalSessions}</p>
-                </div>
-                <div className="rounded-xl bg-white px-4 py-3 dark:bg-gray-900">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t("myAttendance.rate", { defaultValue: "Tỷ lệ chuyên cần" })}</p>
-                  <p className={`mt-1 text-lg font-bold ${rateStyles(selectedClass.attendanceRate).text}`}>{selectedClass.attendanceRate}%</p>
-                </div>
-                <div className="col-span-2 rounded-xl bg-white px-4 py-3 dark:bg-gray-900 sm:col-span-1">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t("myAttendance.teacher", { defaultValue: "Giáo viên" })}</p>
-                  <p className="mt-1 truncate text-sm font-bold text-gray-900 dark:text-white">{selectedClass.teacherName || t("myAttendance.notUpdated")}</p>
+                  <p className="mt-1 text-lg font-bold text-emerald-600 dark:text-emerald-400">{selectedClass.attendedSessions}</p>
                 </div>
               </div>
             </div>

@@ -1469,6 +1469,8 @@
     "class": "Lớp học",
     "notUpdated": "Chưa cập nhật",
     "attended": "Đã tham gia",
+    "totalSessions": "Tổng số buổi học",
+    "absentSessions": "Vắng",
     "viewDetails": "Xem chi tiết từng buổi",
     "hideDetails": "Ẩn chi tiết",
     "detailTitle": "Chi tiết điểm danh",
