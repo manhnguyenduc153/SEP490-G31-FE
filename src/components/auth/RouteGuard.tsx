@@ -45,7 +45,10 @@ export const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }
 
     if (
       userPermissions.includes(requiredPermission) ||
-      (userRole === "student" && (requiredPermission === "Exam" || requiredPermission === "ExamSchedule"))
+      (userRole === "student" &&
+        (requiredPermission === "Exam" ||
+          requiredPermission === "ExamSchedule" ||
+          (pathname === "/attendance" && requiredPermission === "Attendance")))
     ) {
       setIsAuthorized(true);
     } else {

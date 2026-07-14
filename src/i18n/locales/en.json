@@ -45,6 +45,7 @@
     "signOut": "Sign out"
   },
   "sidebar": {
+    "myAttendance": "My attendance",
     "dashboard": "Dashboard",
     "academicOperations": "Academic Operations",
     "semesters": "Semesters",
@@ -1505,6 +1506,34 @@
     "cannotDeactivateSelf": "You cannot deactivate your own account.",
     "invalidEmailFormat": "Invalid Email address format.",
     "invalidPhoneFormat": "Invalid phone number (only digits allowed, 10-11 digits)."
+  },
+  "myAttendance": {
+    "title": "My attendance",
+    "subtitle": "Track the sessions you attended in your active classes.",
+    "overall": "Overall attendance",
+    "sessions": "sessions",
+    "loadError": "Could not load attendance data.",
+    "detailError": "Could not load attendance details.",
+    "retry": "Try again",
+    "emptyTitle": "No active classes",
+    "emptyDescription": "Your active classes will appear here.",
+    "class": "Class",
+    "notUpdated": "Not updated",
+    "attended": "Attended",
+    "viewDetails": "View session details",
+    "hideDetails": "Hide details",
+    "detailTitle": "Attendance details",
+    "close": "Close",
+    "rate": "Attendance rate",
+    "teacher": "Teacher",
+    "loadingDetails": "Loading details...",
+    "noSessions": "This class has no recorded attendance sessions yet.",
+    "noDate": "Date not available",
+    "lesson": "Session",
+    "present": "Present",
+    "absent": "Absent",
+    "late": "Late",
+    "excused": "Excused absence"
   },
   "backendMessages": {
     "GET_EXAM_LIST_SUCCESS": "Successfully retrieved exam list",
