@@ -1520,6 +1520,8 @@
     "class": "Class",
     "notUpdated": "Not updated",
     "attended": "Attended",
+    "totalSessions": "Total sessions",
+    "absentSessions": "Absent",
     "viewDetails": "View session details",
     "hideDetails": "Hide details",
     "detailTitle": "Attendance details",
