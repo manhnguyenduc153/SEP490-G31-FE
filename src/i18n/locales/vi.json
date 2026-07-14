@@ -45,6 +45,7 @@
     "signOut": "Đăng xuất"
   },
   "sidebar": {
+    "myAttendance": "Xem điểm danh",
     "dashboard": "Bảng điều khiển",
     "academicOperations": "Quản lý đào tạo",
     "semesters": "Học kỳ",
@@ -1454,6 +1455,34 @@
     "cannotDeactivateSelf": "Bạn không thể tự vô hiệu hóa tài khoản của chính mình.",
     "invalidEmailFormat": "Địa chỉ Email không đúng định dạng.",
     "invalidPhoneFormat": "Số điện thoại không hợp lệ (chỉ nhập số, từ 10-11 chữ số)."
+  },
+  "myAttendance": {
+    "title": "Điểm danh của tôi",
+    "subtitle": "Theo dõi số buổi đã tham gia trong các lớp đang học.",
+    "overall": "Tổng chuyên cần",
+    "sessions": "buổi",
+    "loadError": "Không thể tải dữ liệu điểm danh.",
+    "detailError": "Không thể tải chi tiết điểm danh.",
+    "retry": "Thử lại",
+    "emptyTitle": "Chưa có lớp đang học",
+    "emptyDescription": "Các lớp đang học của bạn sẽ được hiển thị tại đây.",
+    "class": "Lớp học",
+    "notUpdated": "Chưa cập nhật",
+    "attended": "Đã tham gia",
+    "viewDetails": "Xem chi tiết từng buổi",
+    "hideDetails": "Ẩn chi tiết",
+    "detailTitle": "Chi tiết điểm danh",
+    "close": "Đóng",
+    "rate": "Tỷ lệ chuyên cần",
+    "teacher": "Giáo viên",
+    "loadingDetails": "Đang tải chi tiết...",
+    "noSessions": "Lớp này chưa có buổi nào được điểm danh.",
+    "noDate": "Chưa có ngày",
+    "lesson": "Buổi",
+    "present": "Có mặt",
+    "absent": "Nghỉ học",
+    "late": "Đi muộn",
+    "excused": "Nghỉ có phép"
   },
   "backendMessages": {
     "GET_EXAM_LIST_SUCCESS": "Lấy danh sách bài kiểm tra thành công",

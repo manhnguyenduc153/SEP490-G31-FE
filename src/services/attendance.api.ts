@@ -39,6 +39,26 @@ export interface AttendanceReportDto {
   }[];
 }
 
+export interface MyAttendanceClassDto {
+  classId: number;
+  classCode?: string | null;
+  className?: string | null;
+  courseName?: string | null;
+  teacherName?: string | null;
+  attendedSessions: number;
+  totalSessions: number;
+  attendanceRate: number;
+}
+
+export interface MyAttendanceSessionDto {
+  scheduleId: number;
+  lessonNo: number;
+  date?: string | null;
+  status: number;
+  statusName?: string | null;
+  description?: string | null;
+}
+
 export const attendanceApi = {
   async getByScheduleId(scheduleId: number): Promise<ApiResponse<AttendanceStudentDto[]>> {
     return api.get<AttendanceStudentDto[]>(`/api/Attendance/schedule/${scheduleId}`);
@@ -50,5 +70,13 @@ export const attendanceApi = {
 
   async getReportByClassId(classId: number): Promise<ApiResponse<AttendanceReportDto>> {
     return api.get<AttendanceReportDto>(`/api/Attendance/class/${classId}/report`);
+  },
+
+  async getMyAttendance(): Promise<ApiResponse<MyAttendanceClassDto[]>> {
+    return api.get<MyAttendanceClassDto[]>("/api/Attendance/my");
+  },
+
+  async getMyAttendanceDetails(classId: number): Promise<ApiResponse<MyAttendanceSessionDto[]>> {
+    return api.get<MyAttendanceSessionDto[]>(`/api/Attendance/my/class/${classId}`);
   },
 };

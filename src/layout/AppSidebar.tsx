@@ -89,7 +89,7 @@ const schoolItems: NavItem[] = [
     name: "learning",
     subItems: [
       { name: "learningMaterials", path: "/learning-materials", permission: "LearningMaterial" },
-      { name: "attendance", path: "/attendance", permission: "Attendance" },
+      { name: "myAttendance", path: "/attendance", roles: ["student"] },
       { name: "studentProgress", path: "/student-progress" },
     ],
   },
