@@ -10,11 +10,8 @@ export const metadata: Metadata = {
 
 export default function CoursesPage() {
   return (
-    <div>
-      <PageBreadcrumb pageTitle="course.title" />
-      <div className="space-y-6">
-        <CourseTable />
-      </div>
+    <div className="space-y-6">
+      <CourseTable />
     </div>
   );
 }
