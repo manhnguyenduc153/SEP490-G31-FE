@@ -5,6 +5,7 @@ import { teacherApi, TeacherItem } from "@/services/teacher.api";
 import { semesterApi, TeacherAvailabilitySlotDto } from "@/services/semester.api";
 import { useTranslation } from "react-i18next";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { Check, Ban } from "lucide-react";
 
 interface TeacherAvailabilityModalProps {
   isOpen: boolean;
@@ -115,6 +116,51 @@ export function TeacherAvailabilityModal({
     return selectedSlots.some((s) => s.dayOfWeek === dayOfWeek && s.slotIndex === slotIndex);
   };
 
+  const toggleDay = (dayOfWeek: number) => {
+    const slotsForDay = SLOTS.map((s) => s.index);
+    const selectedForDay = selectedSlots.filter((s) => s.dayOfWeek === dayOfWeek).map((s) => s.slotIndex);
+    const allSelected = slotsForDay.every((slotIdx) => selectedForDay.includes(slotIdx));
+
+    if (allSelected) {
+      setSelectedSlots(selectedSlots.filter((s) => s.dayOfWeek !== dayOfWeek));
+    } else {
+      const remainingSlots = SLOTS.filter((s) => !selectedForDay.includes(s.index)).map((s) => ({
+        dayOfWeek,
+        slotIndex: s.index,
+      }));
+      setSelectedSlots([...selectedSlots, ...remainingSlots]);
+    }
+  };
+
+  const toggleSlotRow = (slotIndex: number) => {
+    const daysValues = DAYS.map((d) => d.value);
+    const selectedForSlot = selectedSlots.filter((s) => s.slotIndex === slotIndex).map((s) => s.dayOfWeek);
+    const allSelected = daysValues.every((day) => selectedForSlot.includes(day));
+
+    if (allSelected) {
+      setSelectedSlots(selectedSlots.filter((s) => s.slotIndex !== slotIndex));
+    } else {
+      const remainingDays = DAYS.filter((d) => !selectedForSlot.includes(d.value)).map((d) => ({
+        dayOfWeek: d.value,
+        slotIndex,
+      }));
+      setSelectedSlots([...selectedSlots, ...remainingDays]);
+    }
+  };
+
+  const totalSlotsCount = DAYS.length * SLOTS.length;
+  const isAllSelected = selectedSlots.length === totalSlotsCount;
+
+  const toggleAllSlots = () => {
+    if (isAllSelected) {
+      setSelectedSlots([]);
+    } else {
+      setSelectedSlots(
+        DAYS.flatMap((d) => SLOTS.map((s) => ({ dayOfWeek: d.value, slotIndex: s.index })))
+      );
+    }
+  };
+
   const handleSave = async () => {
     if (!selectedTeacherId) {
       showToast(t("semester.availabilitySelectTeacherError", { defaultValue: "Vui lòng chọn giáo viên." }), "error");
@@ -196,12 +242,12 @@ export function TeacherAvailabilityModal({
               <span>{t("semester.availabilityNote")}</span>
               <button
                 type="button"
-                onClick={() => setSelectedSlots(
-                  DAYS.flatMap(d => SLOTS.map(s => ({ dayOfWeek: d.value, slotIndex: s.index })))
-                )}
+                onClick={toggleAllSlots}
                 className="text-blue-500 hover:underline"
               >
-                {t("semester.availabilitySelectAll", { defaultValue: "Chọn tất cả các ca" })}
+                {isAllSelected
+                  ? t("semester.availabilityDeselectAll", { defaultValue: "Bỏ chọn tất cả" })
+                  : t("semester.availabilitySelectAll", { defaultValue: "Chọn tất cả các ca" })}
               </button>
             </div>
 
@@ -212,7 +258,12 @@ export function TeacherAvailabilityModal({
                   <tr className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-800">
                     <th className="py-3 px-4 font-semibold text-left w-[180px]">{t("semester.availabilitySlot", { defaultValue: "Ca học" })}</th>
                     {DAYS.map((d) => (
-                      <th key={d.name} className="py-3 px-2 font-semibold">
+                      <th
+                        key={d.name}
+                        className="py-3 px-2 font-semibold cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700/50 transition-colors select-none"
+                        onClick={() => toggleDay(d.value)}
+                        title="Click để chọn/bỏ chọn cả thứ này"
+                      >
                         {t(`semester.days.${d.value}`, { defaultValue: d.name })}
                       </th>
                     ))}
@@ -224,7 +275,11 @@ export function TeacherAvailabilityModal({
                       key={s.index}
                       className="border-b border-gray-100 dark:border-gray-800/80 hover:bg-gray-50/50 dark:hover:bg-gray-800/20"
                     >
-                      <td className="py-3 px-4 text-left border-r border-gray-100 dark:border-gray-800 font-medium">
+                      <td
+                        className="py-3 px-4 text-left border-r border-gray-100 dark:border-gray-800 font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors select-none"
+                        onClick={() => toggleSlotRow(s.index)}
+                        title="Click để chọn/bỏ chọn cả ca này"
+                      >
                         <div className="font-semibold text-gray-800 dark:text-gray-200">{t(`semester.slots.${s.index}`, { defaultValue: s.name })}</div>
                         <div className="text-xs text-gray-400">{s.time}</div>
                       </td>
@@ -232,17 +287,23 @@ export function TeacherAvailabilityModal({
                         const active = isSlotSelected(d.value, s.index);
                         return (
                           <td key={d.value} className="p-1.5">
-                            <button
-                              type="button"
-                              onClick={() => toggleSlot(d.value, s.index)}
-                              className={`w-full py-3.5 rounded-lg border text-xs font-semibold transition-all duration-200 ${
-                                active
-                                  ? "bg-emerald-50 border-emerald-300 text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400 shadow-sm"
-                                  : "bg-white border-gray-200 text-gray-400 hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800 dark:hover:border-gray-700 dark:text-gray-500"
-                              }`}
-                            >
-                              {active ? t("semester.availabilityStatusAvailable", { defaultValue: "Rảnh" }) : t("semester.availabilityStatusBusy", { defaultValue: "Bận" })}
-                            </button>
+                             <button
+                               type="button"
+                               onClick={() => toggleSlot(d.value, s.index)}
+                               className={`w-full py-2.5 flex items-center justify-center rounded-lg border transition-all duration-200 ${
+                                 active
+                                   ? "bg-emerald-50 border-emerald-300 text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400 shadow-sm"
+                                   : "bg-white border-gray-200 text-gray-400 hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800 dark:hover:border-gray-700 dark:text-gray-500"
+                               }`}
+                             >
+                               {active ? (
+                                 <span className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500 text-white dark:bg-emerald-600">
+                                   <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                 </span>
+                               ) : (
+                                 <Ban className="w-5 h-5 text-gray-300 dark:text-gray-700" />
+                               )}
+                             </button>
                           </td>
                         );
                       })}
@@ -266,7 +327,7 @@ export function TeacherAvailabilityModal({
                 disabled={isSaving}
                 className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 disabled:opacity-50"
               >
-                {isSaving ? t("semester.btnSaving") : t("semester.availabilityActionSave", { defaultValue: "Lưu ca rảnh" })}
+                {isSaving ? t("semester.btnSaving") : t("semester.availabilityActionSave", { defaultValue: "Lưu" })}
               </button>
             </div>
           </div>
