@@ -52,12 +52,12 @@ const attendanceStyle = (rate: number) => {
   return { bar: "bg-rose-500", text: "text-rose-600 dark:text-rose-400", badge: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400" };
 };
 
-const sessionStatusInfo = (status: number) => {
-  if (status === 0)  return { label: "Vắng mặt",    cls: "bg-rose-50 text-rose-700 border-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20",     icon: <XCircle className="h-3.5 w-3.5" /> };
-  if (status === 2)  return { label: "Đi muộn",     cls: "bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20", icon: <Clock3 className="h-3.5 w-3.5" /> };
-  if (status === 3)  return { label: "Nghỉ có phép",cls: "bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20",       icon: <ShieldCheck className="h-3.5 w-3.5" /> };
-  if (status === -1) return { label: "Chưa ghi nhận",cls:"bg-gray-50 text-gray-500 border-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700",            icon: <RefreshCw className="h-3.5 w-3.5" /> };
-  return { label: "Có mặt", cls: "bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20", icon: <CheckCircle2 className="h-3.5 w-3.5" /> };
+const sessionStatusInfo = (status: number, t: any) => {
+  if (status === 0)  return { label: t("progress.absentLabel"),    cls: "bg-rose-50 text-rose-700 border-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20",     icon: <XCircle className="h-3.5 w-3.5" /> };
+  if (status === 2)  return { label: t("myAttendance.late", {defaultValue: "Đi muộn"}),     cls: "bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20", icon: <Clock3 className="h-3.5 w-3.5" /> };
+  if (status === 3)  return { label: t("myAttendance.excused", {defaultValue: "Nghỉ có phép"}),cls: "bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20",       icon: <ShieldCheck className="h-3.5 w-3.5" /> };
+  if (status === -1) return { label: t("myAttendance.notUpdated", {defaultValue: "Chưa ghi nhận"}),cls:"bg-gray-50 text-gray-500 border-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700",            icon: <RefreshCw className="h-3.5 w-3.5" /> };
+  return { label: t("progress.present"), cls: "bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20", icon: <CheckCircle2 className="h-3.5 w-3.5" /> };
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -143,10 +143,10 @@ export default function ChildProgressPage() {
           setChildren(unique);
           if (unique.length > 0) setSelectedChild(unique[0]);
         } else {
-          setChildrenError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : "Không thể tải danh sách học sinh.");
+          setChildrenError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("progress.errorLoadChildren"));
         }
       } catch {
-        setChildrenError("Đã xảy ra lỗi khi kết nối hệ thống.");
+        setChildrenError(t("progress.errorSystem"));
       } finally {
         setIsLoadingChildren(false);
       }
@@ -168,10 +168,10 @@ export default function ChildProgressPage() {
           setGrades(res.data);
           setSelectedClassId(res.data[0]?.classId ?? null);
         } else {
-          setGradesError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : "Không thể tải tiến độ học tập.");
+          setGradesError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("progress.errorLoadProgress"));
         }
       })
-      .catch(() => setGradesError("Không thể tải tiến độ học tập."))
+      .catch(() => setGradesError(t("progress.errorLoadProgress")))
       .finally(() => setIsLoadingGrades(false));
   }, [selectedChild, t]);
 
@@ -213,10 +213,10 @@ export default function ChildProgressPage() {
       if (attRes.success && attRes.data) {
         setAttendanceReport(attRes.data);
       } else {
-        setAttendanceError("Không thể tải dữ liệu chuyên cần.");
+        setAttendanceError(t("progress.errorLoadAttendance"));
       }
     } catch {
-      setAttendanceError("Không thể tải dữ liệu chuyên cần.");
+      setAttendanceError(t("progress.errorLoadAttendance"));
     } finally {
       setIsLoadingAtt(false);
     }
@@ -290,7 +290,7 @@ export default function ChildProgressPage() {
   }), [selectedGrade]);
 
   const scoreBarSeries = useMemo(() => [{
-    name: "Điểm",
+    name: t("progress.tabScores"),
     data: selectedGrade?.components.map((c) => Math.round(c.score * 10) / 10) || [],
   }], [selectedGrade]);
 
@@ -298,7 +298,7 @@ export default function ChildProgressPage() {
   const hwDonutOptions: ApexOptions = useMemo(() => ({
     chart: { type: "donut", fontFamily: "Outfit, sans-serif", background: "transparent" },
     colors: ["#10b981", "#f43f5e"],
-    labels: ["Đã nộp", "Chưa nộp"],
+    labels: [t("progress.submitted"), t("progress.notSubmitted")],
     plotOptions: {
       pie: {
         donut: {
@@ -306,7 +306,7 @@ export default function ChildProgressPage() {
           labels: {
             show: true,
             total: {
-              show: true, label: "Tổng BT",
+              show: true, label: t("progress.totalHwLabel"),
               formatter: () => `${homeworkList.length}`,
               fontSize: "14px", fontWeight: 700, fontFamily: "Outfit, sans-serif", color: "#374151",
             },
@@ -317,14 +317,14 @@ export default function ChildProgressPage() {
     dataLabels: { enabled: false },
     legend: { position: "bottom", fontFamily: "Outfit, sans-serif", fontSize: "12px" },
     stroke: { show: false },
-    tooltip: { y: { formatter: (v: number) => `${v} bài` } },
+    tooltip: { y: { formatter: (v: number) => `${v} {t("progress.hwUnit")}` } },
   }), [homeworkList.length]);
 
   // Attendance donut
   const attDonutOptions: ApexOptions = useMemo(() => ({
     chart: { type: "donut", fontFamily: "Outfit, sans-serif", background: "transparent" },
     colors: ["#10b981", "#f43f5e"],
-    labels: ["Có mặt", "Vắng mặt"],
+    labels: [t("progress.present"), t("progress.absentLabel")],
     plotOptions: {
       pie: {
         donut: {
@@ -332,7 +332,7 @@ export default function ChildProgressPage() {
           labels: {
             show: true,
             total: {
-              show: true, label: "Tổng buổi",
+              show: true, label: t("progress.totalSessionsLabel"),
               formatter: () => `${attStats.recorded}`,
               fontSize: "14px", fontWeight: 700, fontFamily: "Outfit, sans-serif", color: "#374151",
             },
@@ -343,7 +343,7 @@ export default function ChildProgressPage() {
     dataLabels: { enabled: false },
     legend: { position: "bottom", fontFamily: "Outfit, sans-serif", fontSize: "12px" },
     stroke: { show: false },
-    tooltip: { y: { formatter: (v: number) => `${v} buổi` } },
+    tooltip: { y: { formatter: (v: number) => `${v} {t("progress.tabAttendance")}` } },
   }), [attStats.recorded]);
 
   // ── Render helpers ───────────────────────────────────────────────────────────
@@ -351,7 +351,7 @@ export default function ChildProgressPage() {
   if (isLoadingChildren) return (
     <div className="flex flex-col items-center justify-center py-32">
       <Loader2 className="animate-spin h-8 w-8 text-brand-500" />
-      <p className="mt-3 text-sm text-gray-500">Đang tải danh sách học sinh...</p>
+      <p className="mt-3 text-sm text-gray-500">{t("progress.loadingChildren")}</p>
     </div>
   );
 
@@ -365,8 +365,8 @@ export default function ChildProgressPage() {
   if (children.length === 0) return (
     <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-12 text-center dark:border-gray-700 dark:bg-gray-900">
       <Users className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-      <p className="font-bold text-gray-700 dark:text-gray-300">Chưa liên kết học sinh</p>
-      <p className="mt-1 text-sm text-gray-400">Tài khoản phụ huynh chưa được liên kết với học sinh nào.</p>
+      <p className="font-bold text-gray-700 dark:text-gray-300">{t("progress.noLinkedChildren")}</p>
+      <p className="mt-1 text-sm text-gray-400">{t("progress.noLinkedChildrenDesc")}</p>
     </div>
   );
 
@@ -379,15 +379,15 @@ export default function ChildProgressPage() {
           <TrendingUp className="w-6 h-6" />
         </div>
         <div>
-          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Tiến độ học tập của con</h1>
-          <p className="text-xs text-gray-400 mt-0.5">Theo dõi điểm số, bài tập và chuyên cần theo từng lớp</p>
+          <h1 className="text-lg font-bold text-gray-900 dark:text-white">{t("progress.parentTitle")}</h1>
+          <p className="text-xs text-gray-400 mt-0.5">{t("progress.parentSubtitle")}</p>
         </div>
       </div>
 
       {/* ── Child Selector ──────────────────────────────────────────────────── */}
       {children.length > 1 ? (
         <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-xs dark:border-white/[0.05] dark:bg-white/[0.03]">
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">Chọn học sinh</p>
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">{t("progress.selectChild")}</p>
           <div className="flex flex-wrap gap-2">
             {children.map((child) => {
               const active = selectedChild?.studentId === child.studentId;
@@ -409,7 +409,7 @@ export default function ChildProgressPage() {
             <GraduationCap className="w-4 h-4" />
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Đang xem tiến độ của</p>
+            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">{t("progress.viewingProgressOf")}</p>
             <p className="text-sm font-bold text-gray-800 dark:text-gray-100">
               {selectedChild?.studentName || `Học sinh #${selectedChild?.studentId}`}
             </p>
@@ -421,7 +421,7 @@ export default function ChildProgressPage() {
       {isLoadingGrades ? (
         <div className="flex items-center justify-center py-20 rounded-2xl border border-gray-100 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
           <RefreshCw className="animate-spin w-5 h-5 text-brand-500 mr-2" />
-          <span className="text-sm text-gray-500">Đang tải dữ liệu...</span>
+          <span className="text-sm text-gray-500">{t("progress.loadingData")}</span>
         </div>
       ) : gradesError ? (
         <div className="rounded-xl border border-red-100 bg-red-50/70 dark:border-red-900/30 dark:bg-red-900/10 p-4 text-sm text-red-600 dark:text-red-400">
@@ -430,14 +430,14 @@ export default function ChildProgressPage() {
       ) : grades.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-12 text-center dark:border-gray-700 dark:bg-gray-900">
           <BookOpen className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-sm text-gray-500">Con chưa có lớp học nào có dữ liệu điểm.</p>
+          <p className="text-sm text-gray-500">{t("progress.noClassesChild")}</p>
         </div>
       ) : (
         <div className="space-y-5">
 
           {/* ── Class Selector ────────────────────────────────────────────────── */}
           <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-xs dark:border-white/[0.05] dark:bg-white/[0.03]">
-            <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">Chọn lớp học để xem chi tiết</p>
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">{t("progress.selectClass")}</p>
             <div className="flex flex-wrap gap-2">
               {grades.map((g) => {
                 const active = selectedClassId === g.classId;
@@ -472,15 +472,15 @@ export default function ChildProgressPage() {
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 <StatCard
                   icon={<Award className="w-5 h-5" />}
-                  label="Điểm trung bình"
+                  label={t("progress.averageScore")}
                   value={Number(selectedGrade.averageScore).toFixed(1)}
-                  sub="/ 10 điểm"
+                  sub={t("progress.points10")}
                   colorText={selectedGrade.averageScore >= 7 ? "text-emerald-600 dark:text-emerald-400" : selectedGrade.averageScore >= 5 ? "text-blue-600 dark:text-blue-400" : "text-amber-600 dark:text-amber-400"}
                   colorBg={selectedGrade.averageScore >= 7 ? "bg-emerald-50 dark:bg-emerald-500/10" : selectedGrade.averageScore >= 5 ? "bg-blue-50 dark:bg-blue-500/10" : "bg-amber-50 dark:bg-amber-500/10"}
                 />
                 <StatCard
                   icon={<CalendarCheck className="w-5 h-5" />}
-                  label="Chuyên cần"
+                  label={t("progress.attendance")}
                   value={isLoadingAtt ? "..." : `${attStats.rate}%`}
                   sub={isLoadingAtt ? "" : `${attStats.present}/${attStats.recorded} buổi có mặt`}
                   colorText={attStats.rate >= 80 ? "text-emerald-600 dark:text-emerald-400" : attStats.rate >= 60 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400"}
@@ -488,7 +488,7 @@ export default function ChildProgressPage() {
                 />
                 <StatCard
                   icon={<CheckCircle2 className="w-5 h-5" />}
-                  label="Bài đã nộp"
+                  label={t("progress.homeworkSubmitted")}
                   value={isLoadingHw ? "..." : `${hwSubmitted.length}`}
                   sub={isLoadingHw ? "" : `/ ${homeworkList.length} bài tổng cộng`}
                   colorText="text-emerald-600 dark:text-emerald-400"
@@ -496,7 +496,7 @@ export default function ChildProgressPage() {
                 />
                 <StatCard
                   icon={<ClipboardList className="w-5 h-5" />}
-                  label="Chưa nộp"
+                  label={t("progress.notSubmitted")}
                   value={isLoadingHw ? "..." : `${hwNotSubmitted.length}`}
                   sub={isLoadingHw ? "" : `bài tập còn thiếu`}
                   colorText={hwNotSubmitted.length === 0 ? "text-gray-400 dark:text-gray-500" : "text-rose-600 dark:text-rose-400"}
@@ -509,13 +509,13 @@ export default function ChildProgressPage() {
                 {/* Tab Bar */}
                 <div className="flex items-center gap-1 border-b border-gray-100 dark:border-white/[0.05] bg-gray-50/50 dark:bg-white/[0.02] px-4 py-3">
                   <TabBtn active={activeTab === "scores"} onClick={() => setActiveTab("scores")}>
-                    <Award className="w-3.5 h-3.5" /> Điểm số
+                    <Award className="w-3.5 h-3.5" /> {t("progress.tabScores")}
                   </TabBtn>
                   <TabBtn active={activeTab === "homework"} onClick={() => setActiveTab("homework")}>
-                    <ClipboardList className="w-3.5 h-3.5" /> Bài tập
+                    <ClipboardList className="w-3.5 h-3.5" /> {t("progress.tabHomework")}
                   </TabBtn>
                   <TabBtn active={activeTab === "attendance"} onClick={() => setActiveTab("attendance")}>
-                    <CalendarCheck className="w-3.5 h-3.5" /> Chuyên cần
+                    <CalendarCheck className="w-3.5 h-3.5" /> {t("progress.tabAttendance")}
                   </TabBtn>
                 </div>
 
@@ -542,7 +542,7 @@ export default function ChildProgressPage() {
                         height={Math.max(160, selectedGrade.components.length * 52 + 40)}
                       />
                     ) : (
-                      <p className="text-sm text-center text-gray-400 py-8">Chưa có thành phần điểm.</p>
+                      <p className="text-sm text-center text-gray-400 py-8">{t("progress.noComponents")}</p>
                     )}
 
                     {/* Score breakdown table */}
@@ -550,9 +550,9 @@ export default function ChildProgressPage() {
                       <table className="w-full text-sm">
                         <thead className="bg-gray-50 dark:bg-white/[0.03] text-[11px] font-bold uppercase tracking-wider text-gray-400">
                           <tr>
-                            <th className="px-4 py-3 text-left">Thành phần</th>
-                            <th className="px-4 py-3 text-center">Trọng số</th>
-                            <th className="px-4 py-3 text-center">Điểm số</th>
+                            <th className="px-4 py-3 text-left">{t("progress.colComponent")}</th>
+                            <th className="px-4 py-3 text-center">{t("progress.colWeight")}</th>
+                            <th className="px-4 py-3 text-center">{t("progress.colScore")}</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 dark:divide-white/[0.04]">
@@ -588,12 +588,12 @@ export default function ChildProgressPage() {
                     {isLoadingHw ? (
                       <div className="flex items-center justify-center py-16">
                         <Loader2 className="animate-spin w-5 h-5 text-brand-500 mr-2" />
-                        <span className="text-sm text-gray-500">Đang tải bài tập...</span>
+                        <span className="text-sm text-gray-500">{t("progress.loadingHomework")}</span>
                       </div>
                     ) : homeworkList.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-14 text-gray-400">
                         <ClipboardList className="w-10 h-10 mb-2 opacity-30" />
-                        <p className="text-sm">Lớp này chưa có bài tập nào.</p>
+                        <p className="text-sm">{t("progress.noHomeworkClass")}</p>
                       </div>
                     ) : (
                       <>
@@ -607,8 +607,8 @@ export default function ChildProgressPage() {
                                 <CheckCircle2 className="w-5 h-5" />
                               </div>
                               <div>
-                                <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Đã nộp</p>
-                                <p className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">{hwSubmitted.length} <span className="text-sm font-medium text-emerald-400">bài</span></p>
+                                <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">{t("progress.submitted")}</p>
+                                <p className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">{hwSubmitted.length} <span className="text-sm font-medium text-emerald-400">{t("progress.hwUnit")}</span></p>
                               </div>
                             </div>
                             {/* Chưa nộp */}
@@ -625,9 +625,9 @@ export default function ChildProgressPage() {
                                 <XCircle className="w-5 h-5" />
                               </div>
                               <div>
-                                <p className={`text-xs font-semibold ${hwNotSubmitted.length === 0 ? "text-gray-500" : "text-rose-700 dark:text-rose-400"}`}>Chưa nộp</p>
+                                <p className={`text-xs font-semibold ${hwNotSubmitted.length === 0 ? "text-gray-500" : "text-rose-700 dark:text-rose-400"}`}>{t("progress.notSubmitted")}</p>
                                 <p className={`text-2xl font-extrabold ${hwNotSubmitted.length === 0 ? "text-gray-400" : "text-rose-600 dark:text-rose-400"}`}>
-                                  {hwNotSubmitted.length} <span className="text-sm font-medium opacity-70">bài</span>
+                                  {hwNotSubmitted.length} <span className="text-sm font-medium opacity-70">{t("progress.hwUnit")}</span>
                                 </p>
                               </div>
                             </div>
@@ -652,7 +652,7 @@ export default function ChildProgressPage() {
                           <div>
                             <div className="flex items-center gap-2 mb-3">
                               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                              <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Bài đã nộp ({hwSubmitted.length})</p>
+                              <p className="text-sm font-bold text-gray-700 dark:text-gray-300">{t("progress.homeworkSubmitted")} ({hwSubmitted.length})</p>
                             </div>
                             <div className="space-y-2">
                               {hwSubmitted.map((hw) => (
@@ -687,7 +687,7 @@ export default function ChildProgressPage() {
                           <div>
                             <div className="flex items-center gap-2 mb-3">
                               <XCircle className="w-4 h-4 text-rose-500" />
-                              <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Bài chưa nộp ({hwNotSubmitted.length})</p>
+                              <p className="text-sm font-bold text-gray-700 dark:text-gray-300">{t("progress.notSubmitted")} ({hwNotSubmitted.length})</p>
                             </div>
                             <div className="space-y-2">
                               {hwNotSubmitted.map((hw) => {
@@ -697,7 +697,7 @@ export default function ChildProgressPage() {
                                     <div className="min-w-0">
                                       <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{hw.title}</p>
                                       <p className={`text-[11px] mt-0.5 ${overdue ? "text-rose-500 font-semibold" : "text-gray-400"}`}>
-                                        {overdue ? "⚠ Đã quá hạn: " : "Hạn nộp: "}{formatDate(hw.dueDate)}
+                                        {overdue ? `${t("progress.overdue")} ` : `${t("progress.dueDate")} `}{formatDate(hw.dueDate)}
                                       </p>
                                     </div>
                                     <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400 px-2.5 py-0.5 text-[10px] font-bold shrink-0">
@@ -720,7 +720,7 @@ export default function ChildProgressPage() {
                     {isLoadingAtt ? (
                       <div className="flex items-center justify-center py-16">
                         <Loader2 className="animate-spin w-5 h-5 text-brand-500 mr-2" />
-                        <span className="text-sm text-gray-500">Đang tải dữ liệu chuyên cần...</span>
+                        <span className="text-sm text-gray-500">{t("progress.loadingAttendance")}</span>
                       </div>
                     ) : attendanceError ? (
                       <div className="rounded-xl border border-amber-100 bg-amber-50/70 dark:border-amber-500/20 dark:bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-400">
@@ -729,7 +729,7 @@ export default function ChildProgressPage() {
                     ) : sessions.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-14 text-gray-400">
                         <CalendarCheck className="w-10 h-10 mb-2 opacity-30" />
-                        <p className="text-sm">Chưa có buổi học nào được ghi nhận.</p>
+                        <p className="text-sm">{t("progress.noSessions")}</p>
                       </div>
                     ) : (
                       <>
@@ -739,22 +739,22 @@ export default function ChildProgressPage() {
                           <div className="flex flex-col gap-3 justify-center">
                             <div className="grid grid-cols-3 gap-2">
                               <div className="rounded-xl bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.05] p-3 text-center">
-                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">Tổng buổi</p>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">{t("progress.totalSessionsLabel")}</p>
                                 <p className="text-xl font-extrabold text-gray-800 dark:text-gray-100 mt-1">{attStats.recorded}</p>
                               </div>
                               <div className="rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 p-3 text-center">
-                                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wide">Có mặt</p>
+                                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wide">{t("progress.present")}</p>
                                 <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">{attStats.present}</p>
                               </div>
                               <div className="rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 p-3 text-center">
-                                <p className="text-[10px] text-rose-600 dark:text-rose-400 font-bold uppercase tracking-wide">Vắng</p>
+                                <p className="text-[10px] text-rose-600 dark:text-rose-400 font-bold uppercase tracking-wide">{t("progress.absent")}</p>
                                 <p className="text-xl font-extrabold text-rose-600 dark:text-rose-400 mt-1">{attStats.absent}</p>
                               </div>
                             </div>
                             {/* Attendance rate + progress bar */}
                             <div className="rounded-xl border border-gray-100 dark:border-white/[0.05] bg-gray-50 dark:bg-white/[0.02] p-4">
                               <div className="flex items-center justify-between mb-2">
-                                <p className="text-xs font-semibold text-gray-500">Tỉ lệ chuyên cần</p>
+                                <p className="text-xs font-semibold text-gray-500">{t("progress.attendanceRate")}</p>
                                 <span className={`text-lg font-extrabold ${attendanceStyle(attStats.rate).text}`}>{attStats.rate}%</span>
                               </div>
                               <div className="h-2.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
@@ -782,10 +782,10 @@ export default function ChildProgressPage() {
 
                         {/* Session list */}
                         <div>
-                          <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">Chi tiết từng buổi học</p>
+                          <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">{t("progress.sessionDetails")}</p>
                           <div className="space-y-2 max-h-80 overflow-y-auto custom-scrollbar pr-1">
                             {sessions.map((s) => {
-                              const si = sessionStatusInfo(s.status);
+                              const si = sessionStatusInfo(s.status, t);
                               return (
                                 <div key={s.scheduleId} className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 dark:border-white/[0.05] bg-white dark:bg-white/[0.02] px-4 py-3">
                                   <div className="flex items-center gap-3">
@@ -794,7 +794,7 @@ export default function ChildProgressPage() {
                                     </div>
                                     <div>
                                       <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
-                                        {s.date ? formatDate(s.date) : "Chưa có ngày"}
+                                        {s.date ? formatDate(s.date) : t("progress.noDate")}
                                       </p>
                                       {s.description && (
                                         <p className="text-[11px] text-gray-400 mt-0.5">{s.description}</p>
