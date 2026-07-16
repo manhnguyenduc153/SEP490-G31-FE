@@ -46,6 +46,7 @@ export function TeacherAvailabilityModal({
   const [selectedSlots, setSelectedSlots] = useState<TeacherAvailabilitySlotDto[]>([]);
   const [isLoadingTeachers, setIsLoadingTeachers] = useState(false);
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
+  const [hasSchedules, setHasSchedules] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Load teachers list
@@ -69,27 +70,38 @@ export function TeacherAvailabilityModal({
     loadTeachers();
     setSelectedTeacherId("");
     setSelectedSlots([]);
+    setHasSchedules(false);
   }, [isOpen]);
 
   // Load teacher availability when selectedTeacherId changes
   useEffect(() => {
     if (!selectedTeacherId || !semesterId) {
       setSelectedSlots([]);
+      setHasSchedules(false);
       return;
     }
 
     async function loadAvailability() {
       setIsLoadingAvailability(true);
       try {
-        const res = await semesterApi.getTeacherAvailability(semesterId, Number(selectedTeacherId));
+        const [res, schedRes] = await Promise.all([
+          semesterApi.getTeacherAvailability(semesterId, Number(selectedTeacherId)),
+          semesterApi.checkTeacherHasSchedules(semesterId, Number(selectedTeacherId))
+        ]);
         if (res.success && res.data) {
           setSelectedSlots(res.data);
         } else {
           setSelectedSlots([]);
         }
+        if (schedRes.success && schedRes.data) {
+          setHasSchedules(schedRes.data);
+        } else {
+          setHasSchedules(false);
+        }
       } catch (err) {
         console.error(err);
         setSelectedSlots([]);
+        setHasSchedules(false);
       } finally {
         setIsLoadingAvailability(false);
       }
@@ -99,6 +111,7 @@ export function TeacherAvailabilityModal({
   }, [selectedTeacherId, semesterId]);
 
   const toggleSlot = (dayOfWeek: number, slotIndex: number) => {
+    if (hasSchedules) return;
     const exists = selectedSlots.some(
       (s) => s.dayOfWeek === dayOfWeek && s.slotIndex === slotIndex
     );
@@ -117,6 +130,7 @@ export function TeacherAvailabilityModal({
   };
 
   const toggleDay = (dayOfWeek: number) => {
+    if (hasSchedules) return;
     const slotsForDay = SLOTS.map((s) => s.index);
     const selectedForDay = selectedSlots.filter((s) => s.dayOfWeek === dayOfWeek).map((s) => s.slotIndex);
     const allSelected = slotsForDay.every((slotIdx) => selectedForDay.includes(slotIdx));
@@ -133,6 +147,7 @@ export function TeacherAvailabilityModal({
   };
 
   const toggleSlotRow = (slotIndex: number) => {
+    if (hasSchedules) return;
     const daysValues = DAYS.map((d) => d.value);
     const selectedForSlot = selectedSlots.filter((s) => s.slotIndex === slotIndex).map((s) => s.dayOfWeek);
     const allSelected = daysValues.every((day) => selectedForSlot.includes(day));
@@ -152,6 +167,7 @@ export function TeacherAvailabilityModal({
   const isAllSelected = selectedSlots.length === totalSlotsCount;
 
   const toggleAllSlots = () => {
+    if (hasSchedules) return;
     if (isAllSelected) {
       setSelectedSlots([]);
     } else {
@@ -238,17 +254,28 @@ export function TeacherAvailabilityModal({
           </div>
         ) : (
           <div className="flex flex-col gap-3 mt-2">
+            {hasSchedules && (
+              <div className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-xl text-amber-800 dark:text-amber-400 text-sm">
+                <Ban className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-500" />
+                <span>
+                  {t("backendMessages.ERR_TEACHER_ALREADY_SCHEDULED_CANNOT_CHANGE_AVAILABILITY")}
+                </span>
+              </div>
+            )}
+
             <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
               <span>{t("semester.availabilityNote")}</span>
-              <button
-                type="button"
-                onClick={toggleAllSlots}
-                className="text-blue-500 hover:underline"
-              >
-                {isAllSelected
-                  ? t("semester.availabilityDeselectAll", { defaultValue: "Bỏ chọn tất cả" })
-                  : t("semester.availabilitySelectAll", { defaultValue: "Chọn tất cả các ca" })}
-              </button>
+              {!hasSchedules && (
+                <button
+                  type="button"
+                  onClick={toggleAllSlots}
+                  className="text-blue-500 hover:underline"
+                >
+                  {isAllSelected
+                    ? t("semester.availabilityDeselectAll", { defaultValue: "Bỏ chọn tất cả" })
+                    : t("semester.availabilitySelectAll", { defaultValue: "Chọn tất cả các ca" })}
+                </button>
+              )}
             </div>
 
             {/* Grid Table */}
@@ -260,9 +287,9 @@ export function TeacherAvailabilityModal({
                     {DAYS.map((d) => (
                       <th
                         key={d.name}
-                        className="py-3 px-2 font-semibold cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700/50 transition-colors select-none"
-                        onClick={() => toggleDay(d.value)}
-                        title="Click để chọn/bỏ chọn cả thứ này"
+                        className={`py-3 px-2 font-semibold select-none ${hasSchedules ? "cursor-not-allowed" : "cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700/50 transition-colors"}`}
+                        onClick={hasSchedules ? undefined : () => toggleDay(d.value)}
+                        title={hasSchedules ? undefined : "Click để chọn/bỏ chọn cả thứ này"}
                       >
                         {t(`semester.days.${d.value}`, { defaultValue: d.name })}
                       </th>
@@ -276,9 +303,9 @@ export function TeacherAvailabilityModal({
                       className="border-b border-gray-100 dark:border-gray-800/80 hover:bg-gray-50/50 dark:hover:bg-gray-800/20"
                     >
                       <td
-                        className="py-3 px-4 text-left border-r border-gray-100 dark:border-gray-800 font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors select-none"
-                        onClick={() => toggleSlotRow(s.index)}
-                        title="Click để chọn/bỏ chọn cả ca này"
+                        className={`py-3 px-4 text-left border-r border-gray-100 dark:border-gray-800 font-medium select-none ${hasSchedules ? "cursor-not-allowed" : "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors"}`}
+                        onClick={hasSchedules ? undefined : () => toggleSlotRow(s.index)}
+                        title={hasSchedules ? undefined : "Click để chọn/bỏ chọn cả ca này"}
                       >
                         <div className="font-semibold text-gray-800 dark:text-gray-200">{t(`semester.slots.${s.index}`, { defaultValue: s.name })}</div>
                         <div className="text-xs text-gray-400">{s.time}</div>
@@ -290,7 +317,8 @@ export function TeacherAvailabilityModal({
                              <button
                                type="button"
                                onClick={() => toggleSlot(d.value, s.index)}
-                               className={`w-full py-2.5 flex items-center justify-center rounded-lg border transition-all duration-200 ${
+                               disabled={hasSchedules}
+                               className={`w-full py-2.5 flex items-center justify-center rounded-lg border transition-all duration-200 ${hasSchedules ? "cursor-not-allowed opacity-70" : ""} ${
                                  active
                                    ? "bg-emerald-50 border-emerald-300 text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400 shadow-sm"
                                    : "bg-white border-gray-200 text-gray-400 hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800 dark:hover:border-gray-700 dark:text-gray-500"
@@ -324,7 +352,7 @@ export function TeacherAvailabilityModal({
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={isSaving}
+                disabled={isSaving || hasSchedules}
                 className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 disabled:opacity-50"
               >
                 {isSaving ? t("semester.btnSaving") : t("semester.availabilityActionSave", { defaultValue: "Lưu" })}

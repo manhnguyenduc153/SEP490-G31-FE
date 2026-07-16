@@ -628,9 +628,18 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
                       </PermissionGuard>
                       <PermissionGuard requiredPermission="Class.Delete">
                         <button
-                          onClick={() => openDeleteModal(item)}
-                          title={t("class.deleteTooltip")}
-                          className="p-1 text-gray-400 hover:text-rose-500 transition-colors"
+                          onClick={() => item.status === 0 && openDeleteModal(item)}
+                          disabled={item.status !== 0}
+                          title={
+                            item.status !== 0
+                              ? t("class.cannotDeleteStarted", { defaultValue: "Lớp học đã bắt đầu hoặc hoàn thành, không thể xóa" })
+                              : t("class.deleteTooltip")
+                          }
+                          className={`p-1 transition-colors ${
+                            item.status !== 0
+                              ? "text-gray-300 dark:text-gray-700 cursor-not-allowed"
+                              : "text-gray-400 hover:text-rose-500"
+                          }`}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

@@ -1202,6 +1202,8 @@
     "studentName": "Student Name",
     "attendance": "Attendance",
     "btnSave": "Save Attendance",
+    "btnSaveClass": "Save",
+    "btnUpdateClass": "Update",
     "attendanceReportTitle": "Attendance Summary Report",
     "btnPreview": "Preview",
     "btnDownload": "Download",
@@ -1507,6 +1509,8 @@
     "excused": "Excused absence"
   },
   "backendMessages": {
+    "ERR_SEMESTER_HAS_SCHEDULES_CANNOT_CHANGE_DATES": "Semester already has schedules, cannot change start and end dates!",
+    "ERR_TEACHER_ALREADY_SCHEDULED_CANNOT_CHANGE_AVAILABILITY": "Teacher has already been scheduled in this semester, cannot change availability registration!",
     "GET_EXAM_LIST_SUCCESS": "Successfully retrieved exam list",
     "GET_EXAM_DETAIL_SUCCESS": "Successfully retrieved exam details",
     "CREATE_EXAM_SUCCESS": "Successfully created exam",
@@ -1629,6 +1633,7 @@
     "UPDATE_CLASS_SUCCESS": "Successfully updated class",
     "DELETE_CLASS_SUCCESS": "Successfully deleted class",
     "ERR_CLASS_NOT_FOUND": "Class not found in the system",
+    "ERR_CLASS_ALREADY_STARTED": "Class has already started or completed, cannot delete!",
     "ERR_START_DATE_EMPTY": "Start date is required",
     "ERR_EXPECTED_LESSONS_INVALID": "Expected lessons must be greater than 0",
     "ERR_WEEKLY_SCHEDULES_EMPTY": "Weekly schedules cannot be empty",

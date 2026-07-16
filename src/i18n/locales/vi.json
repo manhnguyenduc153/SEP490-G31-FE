@@ -1203,6 +1203,8 @@
     "studentName": "Học sinh",
     "attendance": "Điểm danh",
     "btnSave": "Lưu điểm danh",
+    "btnSaveClass": "Lưu",
+    "btnUpdateClass": "Cập nhật",
     "attendanceReportTitle": "Bảng tổng hợp điểm danh",
     "btnPreview": "Xem trước",
     "btnDownload": "Tải xuống",
@@ -1508,6 +1510,8 @@
     "excused": "Nghỉ có phép"
   },
   "backendMessages": {
+    "ERR_SEMESTER_HAS_SCHEDULES_CANNOT_CHANGE_DATES": "Học kỳ đã được xếp lịch học, không thể thay đổi ngày bắt đầu và kết thúc!",
+    "ERR_TEACHER_ALREADY_SCHEDULED_CANNOT_CHANGE_AVAILABILITY": "Giáo viên đã được xếp lịch dạy trong học kỳ này, không thể thay đổi đăng ký lịch dạy!",
     "GET_EXAM_LIST_SUCCESS": "Lấy danh sách bài kiểm tra thành công",
     "GET_EXAM_DETAIL_SUCCESS": "Lấy thông tin bài kiểm tra thành công",
     "CREATE_EXAM_SUCCESS": "Tạo mới bài kiểm tra thành công",
@@ -1630,6 +1634,7 @@
     "UPDATE_CLASS_SUCCESS": "Cập nhật lớp học thành công",
     "DELETE_CLASS_SUCCESS": "Xóa lớp học thành công",
     "ERR_CLASS_NOT_FOUND": "Không tìm thấy lớp học trên hệ thống",
+    "ERR_CLASS_ALREADY_STARTED": "Lớp học đã bắt đầu hoặc hoàn thành, không thể xóa!",
     "ERR_START_DATE_EMPTY": "Ngày bắt đầu không được để trống",
     "ERR_EXPECTED_LESSONS_INVALID": "Số buổi học dự kiến phải lớn hơn 0",
     "ERR_WEEKLY_SCHEDULES_EMPTY": "Lịch học hàng tuần không được để trống",
