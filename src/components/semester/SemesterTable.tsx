@@ -267,7 +267,7 @@ export default function SemesterTable() {
       <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-gray-800">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-4 w-full items-end">
           {/* Search Input */}
-          <div className="relative md:col-span-3">
+          <div className="relative md:col-span-5">
             <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
               {t("semester.filterKeyword", { defaultValue: "Tìm kiếm" })}
             </label>
@@ -277,31 +277,12 @@ export default function SemesterTable() {
                 placeholder={t("semester.searchPlaceholder")}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all placeholder:text-gray-400 dark:placeholder:text-white/30 h-11"
+                className="w-full pl-10 pr-4 py-2 text-sm bg-transparent border border-gray-350 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all placeholder:text-gray-400 dark:placeholder:text-white/30 h-11"
               />
               <span className="absolute left-3 top-3.5 text-gray-400">
                 <Search className="w-4 h-4" />
               </span>
             </div>
-          </div>
-
-          {/* Status Dropdown */}
-          <div className="md:col-span-2">
-            <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
-              {t("semester.filterStatus")}
-            </label>
-            <SearchableSelect
-              value={statusFilter}
-              onChange={(value) => { setStatusFilter(value); setCurrentPage(1); }}
-              options={[
-                { value: "0", label: t("semester.formStatusDraft") },
-                { value: "1", label: t("semester.formStatusActive") },
-                { value: "2", label: t("semester.formStatusCompleted", { defaultValue: "Đã hoàn thành" }) },
-                { value: "3", label: t("semester.formStatusClosed") },
-              ]}
-              placeholder={t("semester.filterStatus")}
-              onClear={() => { setStatusFilter("all"); setCurrentPage(1); }}
-            />
           </div>
 
           {/* Start Date From */}
@@ -384,8 +365,7 @@ export default function SemesterTable() {
                 <TableCell className="w-[5%] px-5 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("semester.colId")}</TableCell>
                 <TableCell className="w-[15%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("semester.colCode")}</TableCell>
                 <TableCell className="w-[20%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("semester.colName")}</TableCell>
-                <TableCell className="w-[25%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("semester.colTime", { defaultValue: "Thời gian" })}</TableCell>
-                <TableCell className="w-[15%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("semester.colStatus")}</TableCell>
+                <TableCell className="w-[30%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("semester.colTime", { defaultValue: "Thời gian" })}</TableCell>
                 <TableCell className="w-[20%] px-5 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("semester.colActions")}</TableCell>
               </TableRow>
             </TableHeader>
@@ -394,14 +374,16 @@ export default function SemesterTable() {
                 <TableRow key={item.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
                   <TableCell className="px-5 sm:px-6 py-4 text-center text-gray-400 font-medium">{startIndex + index + 1}</TableCell>
                   <TableCell className="px-5 sm:px-6 py-4 font-semibold text-gray-900 dark:text-white">{item.code}</TableCell>
-                  <TableCell className="px-5 sm:px-6 py-4 text-gray-750 dark:text-gray-300 font-medium">{item.name}</TableCell>
+                  <TableCell className="px-5 sm:px-6 py-4 text-gray-750 dark:text-gray-300 font-medium">
+                    <div className="flex items-center gap-2">
+                      <span>{item.name}</span>
+                      <span className="text-[10px] bg-gray-100 text-gray-600 dark:bg-gray-800/80 dark:text-gray-400 px-1.5 py-0.5 rounded-md font-semibold">
+                        {item.classCount ?? 0} {t("dashboardPage.classUnit", { defaultValue: "lớp" })}
+                      </span>
+                    </div>
+                  </TableCell>
                   <TableCell className="px-5 sm:px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                     {formatDate(item.startDate)} - {formatDate(item.endDate)}
-                  </TableCell>
-                  <TableCell className="px-5 sm:px-6 py-4">
-                    <span className={`inline-flex items-center text-xs font-semibold px-2.5 py-0.5 rounded-full ${getStatusBadgeClass(item.status)}`}>
-                      {getStatusName(item.status)}
-                    </span>
                   </TableCell>
                   {/* Unified Actions Group */}
                   <TableCell className="px-5 sm:px-6 py-4 text-right">
