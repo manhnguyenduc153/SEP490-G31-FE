@@ -605,14 +605,14 @@ export default function LearningMaterialTable() {
       </div>
 
       {/* ── 3. MAIN TABLE & CONTROLS CONTAINER ── */}
-      <div className="overflow-hidden bg-white dark:bg-white/[0.03] rounded-xl border border-gray-100 dark:border-white/[0.05] shadow-sm">
+      <div className="bg-white dark:bg-gray-900 border border-gray-155 dark:border-gray-800 rounded-2xl shadow-xs">
         {/* Header Title & Upload Button */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-6 py-5 border-b border-gray-100 dark:border-white/[0.05] bg-gray-50/50 dark:bg-white/[0.01]">
+        <div className="flex flex-col gap-4 px-5 sm:px-6 py-5 border-b border-gray-100 dark:border-gray-800/80 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">
               {t("learningMaterial.cardTitle", { defaultValue: "Phân Phối Tài Liệu" })}
             </h3>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               {t("learningMaterial.cardDesc", { defaultValue: "Quản lý việc phân bổ tài liệu học tập, giáo án và học liệu cho lớp học." })}
             </p>
           </div>
@@ -620,7 +620,7 @@ export default function LearningMaterialTable() {
           <PermissionGuard requiredPermission="LearningMaterial.Create">
             <button
               onClick={openCreateModal}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 transition-colors shadow-theme-xs"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-theme-xs transition-colors self-start sm:self-auto"
             >
               <Plus className="w-4 h-4" />
               {t("learningMaterial.addMaterial", { defaultValue: "Tải tài liệu lên" })}
@@ -629,7 +629,7 @@ export default function LearningMaterialTable() {
         </div>
 
         {/* ── FILTERS ROW (matching mock layout) ── */}
-        <div className="p-6 bg-white dark:bg-transparent border-b border-gray-100 dark:border-white/[0.05]">
+        <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-gray-800">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {/* Find material */}
             <div className="relative lg:col-span-2">
