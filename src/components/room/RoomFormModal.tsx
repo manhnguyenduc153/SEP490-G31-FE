@@ -1,10 +1,8 @@
 "use client";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/modal";
-import { RoomItem, RoomSaveDto, RoomType, RoomStatus, roomApi } from "@/services/room.api";
-import { EyeIcon } from "@/icons";
+import { RoomItem, RoomSaveDto, RoomStatus } from "@/services/room.api";
 import { CodeHelper } from "@/helpers/CodeHelper";
-import { ENV } from "@/config/env";
 
 interface RoomFormModalProps {
   isOpen: boolean;
@@ -31,17 +29,9 @@ export function RoomFormModal({
     name: "",
     capacity: null,
     status: RoomStatus.Active,
-    roomType: RoomType.Theory,
     building: "",
     floor: "",
-    image: null,
   });
-
-  const [isUploading, setIsUploading] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (editingItem && isOpen) {
@@ -51,28 +41,19 @@ export function RoomFormModal({
         name: editingItem.name || "",
         capacity: editingItem.capacity ?? null,
         status: editingItem.status ?? RoomStatus.Active,
-        roomType: editingItem.roomType ?? RoomType.Theory,
         building: editingItem.building || "",
         floor: editingItem.floor || "",
-        image: editingItem.image || null,
       });
-      if (editingItem.image) {
-        setImagePreview(`${ENV.API_BASE_URL}${editingItem.image}`);
-      }
     } else if (isOpen) {
       setFormData({
         code: CodeHelper.generate("PH"),
         name: "",
         capacity: null,
         status: RoomStatus.Active,
-        roomType: RoomType.Theory,
         building: "",
         floor: "",
-        image: null,
       });
-      setImagePreview(null);
     }
-    setImageFile(null);
   }, [editingItem, isOpen]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -80,7 +61,7 @@ export function RoomFormModal({
     const { name, value } = e.target;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let parsedValue: any = value;
-    if (name === "status" || name === "roomType") {
+    if (name === "status") {
       parsedValue = Number(value);
     } else if (name === "capacity") {
       parsedValue = value === "" ? null : Number(value);
@@ -88,50 +69,14 @@ export function RoomFormModal({
     setFormData((prev) => ({ ...prev, [name]: parsedValue }));
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const ext = file.name.split(".").pop()?.toLowerCase();
-    if (!["jpg", "jpeg", "png"].includes(ext || "")) return;
-    if (file.size > 2 * 1024 * 1024) return; // 2MB
-
-    setImageFile(file);
-    const reader = new FileReader();
-    reader.onload = (ev) => setImagePreview(ev.target?.result as string);
-    reader.readAsDataURL(file);
-  };
-
-  const handleFormSubmit = async () => {
-    let imageUrl = formData.image;
-
-    // Upload image if new file selected
-    if (imageFile) {
-      setIsUploading(true);
-      try {
-        const uploadRes = await roomApi.uploadImage(imageFile);
-        if (uploadRes.success && uploadRes.data) {
-          imageUrl = uploadRes.data;
-        }
-      } catch {
-        // Upload failed, continue with existing image
-      } finally {
-        setIsUploading(false);
-      }
-    }
-
-    onSubmit({ ...formData, image: imageUrl });
+  const handleFormSubmit = () => {
+    onSubmit(formData);
   };
 
   const statusOptions = [
     { value: RoomStatus.Active, label: t("room.statusActive") },
     { value: RoomStatus.Inactive, label: t("room.statusInactive") },
     { value: RoomStatus.Maintenance, label: t("room.statusMaintenance") },
-  ];
-
-  const roomTypeOptions = [
-    { value: RoomType.Theory, label: t("room.roomTypeTheory") },
-    { value: RoomType.Practice, label: t("room.roomTypePractice") },
   ];
 
   return (
@@ -190,25 +135,8 @@ export function RoomFormModal({
           </div>
         </div>
 
-        {/* Row 2: Room Type + Capacity */}
+        {/* Row 2: Capacity + Status */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t("room.formRoomTypeLabel")}
-            </label>
-            <select
-              name="roomType"
-              value={formData.roomType}
-              onChange={handleChange}
-              className="w-full h-11 rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800 appearance-none"
-            >
-              {roomTypeOptions.map((opt) => (
-                <option key={opt.value} value={opt.value} className="dark:bg-gray-900">
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
           <div>
             <label className="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
               {t("room.formCapacityLabel")} <span className="text-error-500">*</span>
@@ -223,13 +151,30 @@ export function RoomFormModal({
               className="w-full h-11 rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
             />
           </div>
+          <div>
+            <label className="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t("room.formStatusLabel")}
+            </label>
+            <select
+              name="status"
+              value={formData.status}
+              onChange={handleChange}
+              className="w-full h-11 rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800 appearance-none"
+            >
+              {statusOptions.map((opt) => (
+                <option key={opt.value} value={opt.value} className="dark:bg-gray-900">
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* Row 3: Building + Floor */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t("room.formBuildingLabel")} <span className="text-error-500">*</span>
+              {t("room.formBuildingLabel")}
             </label>
             <input
               type="text"
@@ -242,7 +187,7 @@ export function RoomFormModal({
           </div>
           <div>
             <label className="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t("room.formFloorLabel")} <span className="text-error-500">*</span>
+              {t("room.formFloorLabel")}
             </label>
             <input
               type="text"
@@ -252,76 +197,6 @@ export function RoomFormModal({
               placeholder={t("room.formFloorPlaceholder")}
               className="w-full h-11 rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
             />
-          </div>
-        </div>
-
-        {/* Row 4: Status */}
-        <div>
-          <label className="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t("room.formStatusLabel")}
-          </label>
-          <select
-            name="status"
-            value={formData.status}
-            onChange={handleChange}
-            className="w-full h-11 rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800 appearance-none"
-          >
-            {statusOptions.map((opt) => (
-              <option key={opt.value} value={opt.value} className="dark:bg-gray-900">
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Row 5: Image Upload */}
-        <div>
-          <label className="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t("room.formImageLabel")} <span className="text-error-500">*</span>
-          </label>
-          <div className="flex items-center gap-4">
-            {/* Preview */}
-            <div
-              className="relative flex-shrink-0 w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 overflow-hidden cursor-pointer hover:border-brand-400 transition-colors group"
-              onClick={() => imagePreview ? setPreviewImage(imagePreview) : fileInputRef.current?.click()}
-            >
-              {imagePreview ? (
-                <>
-                  <img src={imagePreview} alt="Room" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <EyeIcon className="w-5 h-5 text-white" />
-                  </div>
-                </>
-              ) : (
-                <div className="flex items-center justify-center w-full h-full text-gray-400">
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </div>
-              )}
-            </div>
-
-            {/* Upload button + info */}
-            <div className="flex-1 min-w-0">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
-                className="px-4 py-2 text-sm font-medium text-brand-600 bg-brand-50 rounded-lg hover:bg-brand-100 dark:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/20 transition-colors disabled:opacity-50"
-              >
-                {isUploading ? "Uploading..." : imagePreview ? "Change Image" : "Choose Image"}
-              </button>
-              <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
-                {t("room.uploadPlaceholder")}
-              </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".jpg,.jpeg,.png"
-                onChange={handleImageChange}
-                className="hidden"
-              />
-            </div>
           </div>
         </div>
       </div>
@@ -338,27 +213,12 @@ export function RoomFormModal({
         <button
           type="button"
           onClick={handleFormSubmit}
-          disabled={isSubmitting || isUploading}
+          disabled={isSubmitting}
           className="px-5 py-2.5 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors shadow-theme-xs"
         >
           {isSubmitting ? "Saving..." : t("room.btnSave")}
         </button>
       </div>
-
-      {/* Full Image Preview Overlay */}
-      {previewImage && (
-        <div
-          className="fixed inset-0 z-[99999] bg-black/70 flex items-center justify-center"
-          onClick={() => setPreviewImage(null)}
-        >
-          <img
-            src={previewImage}
-            alt="Preview"
-            className="max-w-[90vw] max-h-[90vh] rounded-xl shadow-2xl object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
     </Modal>
   );
 }

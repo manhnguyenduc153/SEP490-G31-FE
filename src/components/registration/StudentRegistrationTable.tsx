@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -16,6 +16,7 @@ import PaginationWithIcon from "@/components/tables/DataTables/TableOne/Paginati
 import { useTranslation } from "react-i18next";
 import { authApi } from "@/services/auth.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { AngleDownIcon, AngleUpIcon } from "@/icons";
 
 export default function StudentRegistrationTable() {
   const { t } = useTranslation();
@@ -58,6 +59,38 @@ export default function StudentRegistrationTable() {
 
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // ── Sort ──
+  type SortKey = "studentCode" | "studentName" | "courseName" | "status";
+  type SortOrder = "asc" | "desc";
+  const [sortKey, setSortKey] = useState<SortKey>("studentName");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortOrder((o) => (o === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortOrder("asc");
+    }
+  };
+
+  const sortedData = useMemo(() => {
+    return [...registrations].sort((a, b) => {
+      let av: string | number = "";
+      let bv: string | number = "";
+
+      if (sortKey === "status") {
+        av = a.status;
+        bv = b.status;
+        return sortOrder === "asc" ? av - bv : bv - av;
+      } else {
+        av = String(a[sortKey] ?? "");
+        bv = String(b[sortKey] ?? "");
+        return sortOrder === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+    });
+  }, [registrations, sortKey, sortOrder]);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -353,51 +386,122 @@ export default function StudentRegistrationTable() {
           {t("registration.noSemesters")}
         </div>
       ) : isLoadingList ? (
-        <div className="flex justify-center items-center py-20 text-sm text-gray-500 dark:text-gray-400">
-          <div className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-brand-500 border-t-transparent mr-2"></div>
-          {t("registration.loadingList")}
+        <div className="max-w-full overflow-x-auto custom-scrollbar">
+          <Table>
+            <TableHeader className="border-b border-gray-100 dark:border-white/[0.05] bg-gray-50 dark:bg-white/[0.02]">
+              <TableRow>
+                <TableCell isHeader className="px-6 py-4 text-center w-12">#</TableCell>
+                <TableCell isHeader className="px-6 py-4 text-left">{t("registration.colStudentCode")}</TableCell>
+                <TableCell isHeader className="px-6 py-4 text-left">{t("registration.colStudent")}</TableCell>
+                <TableCell isHeader className="px-6 py-4 text-left">{t("registration.colContact")}</TableCell>
+                <TableCell isHeader className="px-6 py-4 text-left">{t("registration.colCourse")}</TableCell>
+                <TableCell isHeader className="px-6 py-4 text-left">{t("registration.colPreferredSlots")}</TableCell>
+                <TableCell isHeader className="px-6 py-4 text-left">{t("registration.colStatus")}</TableCell>
+                <TableCell isHeader className="px-6 py-4 text-center">{t("registration.colActions", { defaultValue: "Thao tác" })}</TableCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+              {Array.from({ length: pageSize }).map((_, idx) => (
+                <TableRow key={idx} className="animate-pulse">
+                  <TableCell className="px-6 py-4 text-center w-12"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-8 mx-auto" /></TableCell>
+                  <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-16" /></TableCell>
+                  <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-28" /></TableCell>
+                  <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-32" /></TableCell>
+                  <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-24" /></TableCell>
+                  <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-20" /></TableCell>
+                  <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-16" /></TableCell>
+                  <TableCell className="px-6 py-4 text-center">
+                    <div className="flex justify-center gap-1.5">
+                      <div className="h-8 w-8 bg-gray-200 dark:bg-white/10 rounded-md" />
+                      <div className="h-8 w-8 bg-gray-200 dark:bg-white/10 rounded-md" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       ) : error ? (
-        <div className="p-8 text-center text-sm text-rose-500">{error}</div>
+        <div className="p-8 text-center text-sm text-rose-500 font-medium">{error}</div>
       ) : registrations.length === 0 ? (
         <div className="p-16 text-center text-sm text-gray-500 dark:text-gray-400">
           {searchTerm || selectedCourseId || selectedStatus !== null ? t("registration.noResults") : t("registration.noRegistered")}
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="max-w-full overflow-x-auto custom-scrollbar">
           <Table>
-            <TableHeader className="bg-gray-50/70 dark:bg-gray-800/40">
+            <TableHeader className="border-b border-gray-100 dark:border-white/[0.05] bg-gray-50 dark:bg-white/[0.02]">
               <TableRow>
-                <TableCell className="w-[5%] px-5 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("registration.colId")}</TableCell>
-                <TableCell className="w-[10%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("registration.colStudentCode")}</TableCell>
-                <TableCell className="w-[20%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("registration.colStudent")}</TableCell>
-                <TableCell className="w-[15%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("registration.colContact")}</TableCell>
-                <TableCell className="w-[15%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("registration.colCourse")}</TableCell>
-                <TableCell className="w-[13%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("registration.colPreferredSlots")}</TableCell>
-                <TableCell className="w-[10%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("registration.colStatus")}</TableCell>
-                <TableCell className="w-[12%] px-5 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("registration.colActions", { defaultValue: "Thao tác" })}</TableCell>
+                <TableCell isHeader className="px-6 py-4 text-center w-12">
+                  <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">#</p>
+                </TableCell>
+                <TableCell isHeader className="px-6 py-4 text-left">
+                  <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => handleSort("studentCode")}>
+                    <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">{t("registration.colStudentCode")}</p>
+                    <button className="flex flex-col gap-0.5 ml-2">
+                      <AngleUpIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "studentCode" && sortOrder === "asc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                      <AngleDownIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "studentCode" && sortOrder === "desc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                    </button>
+                  </div>
+                </TableCell>
+                <TableCell isHeader className="px-6 py-4 text-left">
+                  <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => handleSort("studentName")}>
+                    <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">{t("registration.colStudent")}</p>
+                    <button className="flex flex-col gap-0.5 ml-2">
+                      <AngleUpIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "studentName" && sortOrder === "asc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                      <AngleDownIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "studentName" && sortOrder === "desc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                    </button>
+                  </div>
+                </TableCell>
+                <TableCell isHeader className="px-6 py-4 text-left">
+                  <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">{t("registration.colContact")}</p>
+                </TableCell>
+                <TableCell isHeader className="px-6 py-4 text-left">
+                  <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => handleSort("courseName")}>
+                    <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">{t("registration.colCourse")}</p>
+                    <button className="flex flex-col gap-0.5 ml-2">
+                      <AngleUpIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "courseName" && sortOrder === "asc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                      <AngleDownIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "courseName" && sortOrder === "desc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                    </button>
+                  </div>
+                </TableCell>
+                <TableCell isHeader className="px-6 py-4 text-left">
+                  <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">{t("registration.colPreferredSlots")}</p>
+                </TableCell>
+                <TableCell isHeader className="px-6 py-4 text-left">
+                  <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => handleSort("status")}>
+                    <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">{t("registration.colStatus")}</p>
+                    <button className="flex flex-col gap-0.5 ml-2">
+                      <AngleUpIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "status" && sortOrder === "asc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                      <AngleDownIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "status" && sortOrder === "desc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                    </button>
+                  </div>
+                </TableCell>
+                <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 text-theme-sm dark:text-gray-200">
+                  {t("registration.colActions", { defaultValue: "Thao tác" })}
+                </TableCell>
               </TableRow>
             </TableHeader>
-            <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {registrations.map((item, index) => (
-                <TableRow key={item.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
-                  <TableCell className="px-5 sm:px-6 py-4 text-center text-gray-400 font-medium">
+            <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+              {sortedData.map((item, index) => (
+                <TableRow key={item.id} className="hover:bg-gray-50/50 dark:hover:bg-white/[0.01] transition-colors">
+                  <TableCell className="px-6 py-4 text-center text-gray-500 dark:text-gray-400 whitespace-nowrap w-12 text-theme-sm">
                     {(pageIndex - 1) * pageSize + index + 1}
                   </TableCell>
-                  <TableCell className="px-5 sm:px-6 py-4 font-semibold text-gray-900 dark:text-white">
+                  <TableCell className="px-6 py-4 font-semibold text-gray-900 dark:text-white whitespace-nowrap text-theme-sm">
                     {item.studentCode || <span className="text-gray-400 italic font-normal">—</span>}
                   </TableCell>
-                  <TableCell className="px-5 sm:px-6 py-4 font-semibold text-gray-900 dark:text-white">
+                  <TableCell className="px-6 py-4 font-semibold text-gray-900 dark:text-white whitespace-nowrap text-theme-sm">
                     {item.studentName}
                   </TableCell>
-                  <TableCell className="px-5 sm:px-6 py-4 text-xs">
+                  <TableCell className="px-6 py-4 text-theme-sm whitespace-nowrap">
                     <div className="text-gray-800 dark:text-gray-200">{item.studentEmail}</div>
                     <div className="text-gray-400 mt-0.5">{item.studentPhone || "—"}</div>
                   </TableCell>
-                  <TableCell className="px-5 sm:px-6 py-4 text-gray-700 dark:text-gray-300 font-medium">
+                  <TableCell className="px-6 py-4 text-gray-750 dark:text-gray-300 font-medium whitespace-nowrap text-theme-sm">
                     {item.courseName || t("semester.courseIdText", { id: item.courseId })}
                   </TableCell>
-                  <TableCell className="px-5 sm:px-6 py-4 text-xs font-medium text-gray-500 dark:text-gray-400">
+                  <TableCell className="px-6 py-4 text-theme-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
                     <div className="flex flex-wrap gap-1">
                       {item.preferredSlots && item.preferredSlots.length > 0 ? (
                         item.preferredSlots.map((slot) => (
@@ -410,13 +514,13 @@ export default function StudentRegistrationTable() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="px-5 sm:px-6 py-4">
+                  <TableCell className="px-6 py-4 whitespace-nowrap text-theme-sm">
                     <span className={`inline-flex items-center text-xs font-semibold px-2.5 py-0.5 rounded-full ${getStatusBadgeClass(item.status)}`}>
                       {getStatusText(item.status)}
                     </span>
                   </TableCell>
-                  <TableCell className="px-5 sm:px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                  <TableCell className="px-6 py-4 text-center whitespace-nowrap text-theme-sm">
+                    <div className="flex items-center justify-center gap-2">
                       {hasPermission("StudentRegistration.Edit") && (
                         <button
                           disabled={item.status === 1}
@@ -424,7 +528,7 @@ export default function StudentRegistrationTable() {
                             setRegistrationToEdit(item);
                             setIsModalOpen(true);
                           }}
-                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-brand-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-brand-450 dark:hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-500 dark:disabled:hover:text-gray-400"
+                          className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                           title={item.status === 1 ? t("registration.cannotEditScheduled", { defaultValue: "Không thể sửa đăng ký đã xếp lớp" }) : t("common.edit", { defaultValue: "Sửa" })}
                         >
                           <Edit className="w-4 h-4" />
@@ -434,7 +538,7 @@ export default function StudentRegistrationTable() {
                         <button
                           disabled={item.status === 1}
                           onClick={() => handleDelete(item.id)}
-                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-rose-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-rose-450 dark:hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-500 dark:disabled:hover:text-gray-400"
+                          className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                           title={item.status === 1 ? t("registration.cannotDeleteScheduled", { defaultValue: "Không thể xóa đăng ký đã xếp lớp" }) : t("common.delete", { defaultValue: "Xóa" })}
                         >
                           <Trash2 className="w-4 h-4" />
