@@ -20,28 +20,49 @@ import { EditPermissionsModal } from "./EditPermissionsModal";
 import { createPortal } from "react-dom";
 import { Plus, Search } from "lucide-react";
 
-const buildPermissionTree = (permissions: string[]): PermissionNode[] => {
-  const groups: Record<string, PermissionNode> = {};
+const buildPermissionTree = (data: Record<string, Record<string, string[]>>): PermissionNode[] => {
+  if (!data) return [];
+  
+  const groupOrder = [
+    "academicOperations",
+    "schedule",
+    "assessments",
+    "learning",
+    "administration",
+    "parentServices",
+    "others",
+  ];
 
-  permissions.forEach((perm) => {
-    if (!perm) return;
-    const parts = perm.split(".");
-    const category = parts[0];
+  return groupOrder
+    .filter((gId) => data[gId] !== undefined)
+    .map((gId) => {
+      const featuresMap = data[gId];
+      const children: PermissionNode[] = Object.entries(featuresMap).map(([featureName, permStrings]) => {
+        const parentId = permStrings.find((p) => !p.includes(".")) || featureName;
+        const actions = permStrings
+          .filter((p) => p.includes("."))
+          .map((perm) => {
+            const parts = perm.split(".");
+            return {
+              id: perm,
+              name: parts.slice(1).join("."),
+            };
+          });
 
-    if (!groups[category]) {
-      groups[category] = { id: category, name: category, children: [] };
-    }
-
-    if (parts.length > 1) {
-      const feature = parts.slice(1).join(".");
-      groups[category].children!.push({
-        id: perm,
-        name: feature || perm,
+        return {
+          id: parentId,
+          name: featureName,
+          children: actions,
+        };
       });
-    }
-  });
 
-  return Object.values(groups);
+      return {
+        id: gId,
+        name: gId,
+        children: children,
+      };
+    })
+    .filter((group) => group.children && group.children.length > 0);
 };
 
 const formatDate = (dateStr: string) => {
@@ -112,7 +133,7 @@ export default function RolesTable() {
   };
   
   // Permissions API states
-  const [systemPermissions, setSystemPermissions] = useState<string[]>([]);
+  const [systemPermissions, setSystemPermissions] = useState<Record<string, Record<string, string[]>>>({});
   const [currentUserPermissions, setCurrentUserPermissions] = useState<string[]>([]);
   const [newRolePermissions, setNewRolePermissions] = useState<Set<string>>(new Set());
 
@@ -131,7 +152,7 @@ export default function RolesTable() {
   const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
   const [checkedPermissions, setCheckedPermissions] = useState<Set<string>>(new Set());
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-    new Set(["Dashboard", "Ecommerce", "Authorization"])
+    new Set(["academicOperations", "administration"])
   );
 
 
@@ -288,20 +309,48 @@ export default function RolesTable() {
     }
   };
 
-  // Checkbox state calculations
+  // Checkbox state calculations (recursive)
+  const isNodeChecked = (node: PermissionNode, checkedSet: Set<string>): boolean => {
+    if (!node.children || node.children.length === 0) {
+      return checkedSet.has(node.id);
+    }
+    const isGroup = ["academicOperations", "schedule", "assessments", "learning", "administration", "parentServices", "others"].includes(node.id);
+    if (isGroup) {
+      return node.children.every((child) => isNodeChecked(child, checkedSet));
+    } else {
+      return checkedSet.has(node.id) && node.children.every((child) => checkedSet.has(child.id));
+    }
+  };
+
+  const hasCheckedDescendant = (node: PermissionNode, checkedSet: Set<string>): boolean => {
+    if (!node.children || node.children.length === 0) {
+      return checkedSet.has(node.id);
+    }
+    const isGroup = ["academicOperations", "schedule", "assessments", "learning", "administration", "parentServices", "others"].includes(node.id);
+    if (!isGroup && checkedSet.has(node.id)) {
+      return true;
+    }
+    return node.children.some((child) => hasCheckedDescendant(child, checkedSet));
+  };
+
+  const getPermissionIds = (node: PermissionNode): string[] => {
+    const ids: string[] = [];
+    const isGroup = ["academicOperations", "schedule", "assessments", "learning", "administration", "parentServices", "others"].includes(node.id);
+    if (!isGroup) {
+      ids.push(node.id);
+    }
+    if (node.children) {
+      node.children.forEach((child) => {
+        ids.push(...getPermissionIds(child));
+      });
+    }
+    return ids;
+  };
+
   const getCategorySelectionState = (node: PermissionNode, isCreateForm: boolean = false) => {
     const checkedSet = isCreateForm ? newRolePermissions : checkedPermissions;
-    if (!node.children || node.children.length === 0) {
-      return { isChecked: checkedSet.has(node.id), isIndeterminate: false };
-    }
-    
-    const childrenIds = node.children.map((c) => c.id);
-    const checkedChildrenCount = childrenIds.filter((id) => checkedSet.has(id)).length;
-    const hasParent = checkedSet.has(node.id);
-    
-    const isChecked = hasParent && checkedChildrenCount === childrenIds.length;
-    const isIndeterminate = hasParent && !isChecked;
-
+    const isChecked = isNodeChecked(node, checkedSet);
+    const isIndeterminate = !isChecked && hasCheckedDescendant(node, checkedSet);
     return { isChecked, isIndeterminate };
   };
 
@@ -310,24 +359,15 @@ export default function RolesTable() {
     const setChecked = isCreateForm ? setNewRolePermissions : setCheckedPermissions;
     const next = new Set(checkedSet);
     
-    if (!node.children || node.children.length === 0) {
-      if (next.has(node.id)) next.delete(node.id);
-      else next.add(node.id);
-      setChecked(next);
-      return;
-    }
-
-    const childrenIds = node.children.map((c) => c.id);
-
-    if (next.has(node.id)) {
-      // Uncheck parent and all children
-      next.delete(node.id);
-      childrenIds.forEach((id) => next.delete(id));
+    const isChecked = isNodeChecked(node, checkedSet);
+    const permissionIds = getPermissionIds(node);
+    
+    if (isChecked) {
+      permissionIds.forEach((id) => next.delete(id));
     } else {
-      // Check parent and all children
-      next.add(node.id);
-      childrenIds.forEach((id) => next.add(id));
+      permissionIds.forEach((id) => next.add(id));
     }
+    
     setChecked(next);
   };
 
@@ -340,7 +380,7 @@ export default function RolesTable() {
       next.delete(childId);
     } else {
       next.add(childId);
-      // Auto-check parent when a child is checked
+      // Auto-check parent feature when a child is checked
       next.add(parentId);
     }
     setChecked(next);
