@@ -193,7 +193,6 @@ export function TeacherAvailabilityModal({
 
       if (res.success) {
         showToast(res.message ? t(`backendMessages.${res.message}`) : t("semester.availabilitySaveSuccess", { defaultValue: "Lưu lịch rảnh của giáo viên thành công!" }), "success");
-        onClose();
       } else {
         showToast(res.message ? t(`backendMessages.${res.message}`) : t("semester.availabilitySaveError", { defaultValue: "Không thể lưu lịch rảnh." }), "error");
       }
