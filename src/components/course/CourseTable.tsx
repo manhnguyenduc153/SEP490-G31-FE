@@ -8,7 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AngleDownIcon, AngleUpIcon, PencilIcon, TrashBinIcon } from "@/icons";
+import { AngleDownIcon, AngleUpIcon } from "@/icons";
 import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
 import { CourseFormModal } from "./CourseFormModal";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
@@ -19,7 +19,7 @@ import {
 import { CodeHelper } from "@/helpers/CodeHelper";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { useTranslation } from "react-i18next";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Edit, Trash2 } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -570,9 +570,9 @@ export default function CourseTable() {
                         <button
                           title={t("course.editTooltip", { defaultValue: "Chỉnh sửa" })}
                           onClick={() => openEditModal(item)}
-                          className="p-1.5 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                          className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md transition-colors"
                         >
-                          <PencilIcon className="w-4 h-4" />
+                          <Edit className="w-4 h-4" />
                         </button>
                       </PermissionGuard>
                       <PermissionGuard requiredPermission="Course.Delete">
@@ -580,9 +580,9 @@ export default function CourseTable() {
                           <button
                             title={t("course.deleteTooltip", { defaultValue: "Vô hiệu hóa" })}
                             onClick={() => openDeleteModal(item)}
-                            className="p-1.5 text-gray-500 hover:text-error-500 dark:text-gray-400 dark:hover:text-error-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                            className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors"
                           >
-                            <TrashBinIcon className="w-4 h-4" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         ) : (
                           <span className="w-[28px] h-[28px]" />
