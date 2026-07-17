@@ -1800,5 +1800,30 @@
     "excelColPhone": "Số điện thoại",
     "excelColCourse": "Khóa học",
     "excelColPreferredSlots": "Ca mong muốn"
+  },
+  "classGradeReport": {
+    "title": "Bảng điểm tổng hợp của Lớp học",
+    "description": "Tổng hợp điểm số của học sinh trong lớp theo từng thành phần và kết quả cuối khóa.",
+    "selectClass": "Chọn lớp học",
+    "classPlaceholder": "Nhập mã lớp hoặc tên lớp để tìm kiếm...",
+    "search": "Tra cứu",
+    "studentCode": "Mã học sinh",
+    "studentName": "Tên học sinh",
+    "finalScore": "Điểm Tổng Kết",
+    "evaluation": "Đánh Giá",
+    "passed": "Đạt",
+    "failed": "Chưa đạt",
+    "exportReport": "Xuất báo cáo",
+    "exportSuccess": "Xuất Excel thành công!",
+    "exportError": "Có lỗi xảy ra khi xuất báo cáo",
+    "pleaseSelectClass": "Vui lòng chọn một lớp học để xem báo cáo điểm tổng hợp.",
+    "loading": "Đang tải dữ liệu...",
+    "failedToFetchClasses": "Tải danh sách lớp thất bại",
+    "failedToLoadReport": "Không thể tải báo cáo",
+    "gradeList": "Danh sách Bảng điểm",
+    "classPrefix": "Lớp: ",
+    "noGradeConfigTitle": "Khóa học này chưa được cấu hình các cột điểm (Grade Components).",
+    "noGradeConfigDesc": "Vui lòng thiết lập cấu hình điểm cho khóa học trước khi xem báo cáo.",
+    "noStudentsData": "Chưa có dữ liệu học sinh trong lớp học này."
   }
 }

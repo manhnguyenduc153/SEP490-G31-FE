@@ -1838,5 +1838,25 @@
     "excelColPhone": "Phone",
     "excelColCourse": "Course",
     "excelColPreferredSlots": "Preferred Slots"
+  },
+  "classGradeReport": {
+    "title": "Class Grade Report",
+    "description": "Summary of student scores in the class by component and final results.",
+    "selectClass": "Select a class",
+    "classPlaceholder": "Enter class code or name to search...",
+    "search": "Search",
+    "studentCode": "Student Code",
+    "studentName": "Student Name",
+    "finalScore": "Final Score",
+    "evaluation": "Evaluation",
+    "passed": "Passed",
+    "failed": "Failed",
+    "exportReport": "Export Report",
+    "exportSuccess": "Exported to Excel successfully!",
+    "exportError": "An error occurred while exporting report",
+    "pleaseSelectClass": "Please select a class to view the grade report.",
+    "loading": "Loading data...",
+    "failedToFetchClasses": "Failed to fetch classes",
+    "failedToLoadReport": "Failed to load report"
   }
 }
