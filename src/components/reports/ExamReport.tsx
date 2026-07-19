@@ -6,7 +6,8 @@ import { classApi, ClassItem } from "@/services/class.api";
 import { examApi, ExamItem } from "@/services/exam.api";
 import { reportApi, ExamResultReportDto } from "@/services/report.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-
+import * as XLSX from "xlsx";
+import { Download } from "lucide-react";
 export default function ExamReport() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<number | "">("");
@@ -97,6 +98,41 @@ export default function ExamReport() {
     label: `${e.title}`,
   }));
 
+  const handleExportExcel = () => {
+    if (!reportData) return;
+
+    const dataToExport = reportData.studentResults.map((st, index) => {
+      let ketQua = "CHƯA THI";
+      if (st.finalScore !== null && st.finalScore !== undefined) {
+        ketQua = st.isPassed ? "ĐẠT" : "TRƯỢT";
+      }
+
+      return {
+        "STT": index + 1,
+        "Mã học viên": st.studentCode || "-",
+        "Tên học viên": st.studentName || "-",
+        "Số lần làm bài": st.attemptCount > 0 ? st.attemptCount : "-",
+        "Lần nộp cuối": st.submittedAt ? new Date(st.submittedAt).toLocaleString("vi-VN") : "-",
+        "Điểm số": st.finalScore !== null && st.finalScore !== undefined ? st.finalScore : "-",
+        "Kết quả": ketQua
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    worksheet["!cols"] = [
+      { wch: 5 }, { wch: 15 }, { wch: 25 }, 
+      { wch: 15 }, { wch: 20 }, { wch: 10 }, { wch: 10 }
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Kết quả thi");
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const examObj = exams.find(e => e.id === selectedExamId);
+    const title = examObj ? examObj.title.replace(/[^a-zA-Z0-9]/g, '_') : "Ket_Qua_Thi";
+    XLSX.writeFile(workbook, `Ket_Qua_${title}_${dateStr}.xlsx`);
+  };
+
   return (
     <div className="bg-white dark:bg-gray-900 border border-gray-150 dark:border-gray-800 rounded-2xl shadow-theme-sm overflow-hidden flex flex-col min-h-[600px] animate-fadeIn">
       {/* Header section with class and exam selector */}
@@ -130,7 +166,7 @@ export default function ExamReport() {
               options={examOptions}
               value={selectedExamId}
               onChange={(val) => setSelectedExamId(val)}
-              placeholder={selectedClassId ? (exams.length > 0 ? "Chọn bài thi..." : "Lớp này chưa có bài thi") : "Vui lòng chọn lớp trước"}
+              placeholder={selectedClassId ? (exams.length > 0 ? "Chọn bài thi..." : "Lớp chưa có bài thi") : "Chọn lớp trước"}
               disabled={!selectedClassId || exams.length === 0}
             />
           </div>
@@ -159,9 +195,17 @@ export default function ExamReport() {
           </div>
         ) : (
           <div className="flex flex-col gap-6 animate-fadeIn">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                  Chi tiết kết quả thi
+                </h3>
+              </div>
+            </div>
+
             {/* Summary Stats Cards */}
             <div className="flex flex-wrap items-center gap-4">
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl flex items-center justify-between shadow-xs w-full sm:w-[260px]">
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl flex items-center justify-between shadow-xs w-full sm:w-[260px] h-[88px]">
                 <div>
                   <p className="text-sm text-blue-600 dark:text-blue-400 font-semibold mb-1">Học sinh tham gia</p>
                   <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
@@ -174,7 +218,7 @@ export default function ExamReport() {
                 </div>
               </div>
               
-              <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-xl flex items-center justify-between shadow-xs w-full sm:w-[260px]">
+              <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-xl flex items-center justify-between shadow-xs w-full sm:w-[260px] h-[88px]">
                 <div>
                   <p className="text-sm text-green-600 dark:text-green-400 font-semibold mb-1">Tỷ lệ Đạt ({">="} {reportData.passingScore}đ)</p>
                   <p className="text-2xl font-bold text-green-700 dark:text-green-300">{reportData.passRate}%</p>
@@ -184,7 +228,7 @@ export default function ExamReport() {
                 </div>
               </div>
 
-              <div className="p-4 bg-brand-50 dark:bg-brand-900/20 border border-brand-100 dark:border-brand-800 rounded-xl flex items-center justify-between shadow-xs w-full sm:w-[260px]">
+              <div className="p-4 bg-brand-50 dark:bg-brand-900/20 border border-brand-100 dark:border-brand-800 rounded-xl flex items-center justify-between shadow-xs w-full sm:w-[260px] h-[88px]">
                 <div>
                   <p className="text-sm text-brand-600 dark:text-brand-400 font-semibold mb-1">Điểm trung bình</p>
                   <p className="text-2xl font-bold text-brand-700 dark:text-brand-300">{reportData.averageScore} <span className="text-sm font-normal text-brand-600/70">/ {reportData.totalScore}</span></p>
@@ -193,6 +237,16 @@ export default function ExamReport() {
                   <TrendingUp className="w-5 h-5" />
                 </div>
               </div>
+
+              <button 
+                onClick={handleExportExcel}
+                className="flex flex-col items-center justify-center gap-1.5 p-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xs w-full sm:w-[140px] h-[88px] transition-colors group"
+              >
+                <div className="w-8 h-8 rounded-full bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center text-brand-600 dark:text-brand-400 group-hover:scale-110 transition-transform">
+                  <Download className="w-4 h-4" />
+                </div>
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Xuất Excel</span>
+              </button>
             </div>
 
             {/* Exam Results Table */}

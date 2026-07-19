@@ -5,7 +5,8 @@ import { ClipboardCheck, CheckCircle, FileText, Search } from "lucide-react";
 import { classApi, ClassItem } from "@/services/class.api";
 import { reportApi, ClassAttendanceSheetDto } from "@/services/report.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-
+import * as XLSX from "xlsx";
+import { Download } from "lucide-react";
 export default function AttendanceReport() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<number | "">("");
@@ -72,13 +73,53 @@ export default function AttendanceReport() {
         return <span className="inline-flex w-5 h-5 items-center justify-center rounded bg-green-100 text-green-700 text-xs font-bold" title="Có mặt">P</span>;
       case 0:
         return <span className="inline-flex w-5 h-5 items-center justify-center rounded bg-red-100 text-red-700 text-xs font-bold" title="Vắng mặt">A</span>;
-      case 2:
-        return <span className="inline-flex w-5 h-5 items-center justify-center rounded bg-yellow-100 text-yellow-700 text-xs font-bold" title="Đi muộn">L</span>;
-      case 3:
-        return <span className="inline-flex w-5 h-5 items-center justify-center rounded bg-gray-200 text-gray-700 text-xs font-bold" title="Có phép">E</span>;
       default:
         return <span className="inline-flex w-5 h-5 items-center justify-center rounded text-gray-300 text-xs">-</span>;
     }
+  };
+
+  const handleExportExcel = () => {
+    if (!reportData) return;
+
+    const dataToExport = reportData.students.map((st, index) => {
+      const rowData: any = {
+        "STT": index + 1,
+        "Mã học viên": st.studentCode,
+        "Tên học viên": st.studentName,
+        "Có mặt": st.presentCount,
+        "Vắng": st.absentCount,
+        "Tỷ lệ (%)": st.attendanceRate,
+      };
+
+      // Add each session
+      st.attendances.forEach((att, idx) => {
+        const session = reportData.sessions[idx];
+        let statusStr = "-";
+        if (att.status === 1) statusStr = "P";
+        else if (att.status === 0) statusStr = "A";
+        
+        const colName = `B.${session?.lessonNo || idx + 1}`;
+        rowData[colName] = statusStr;
+      });
+
+      return rowData;
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const wscols = [
+      { wch: 5 }, { wch: 15 }, { wch: 25 }, 
+      { wch: 8 }, { wch: 8 }, { wch: 10 }
+    ];
+    reportData.sessions.forEach(() => wscols.push({ wch: 8 }));
+    worksheet["!cols"] = wscols;
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Điểm danh");
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const classObj = classes.find(c => c.id === selectedClassId);
+    const code = classObj ? classObj.code : "";
+    XLSX.writeFile(workbook, `Diem_Danh_${code}_${dateStr}.xlsx`);
   };
 
   return (
@@ -129,9 +170,17 @@ export default function AttendanceReport() {
           </div>
         ) : (
           <div className="flex flex-col gap-6 animate-fadeIn">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                  Chi tiết điểm danh
+                </h3>
+              </div>
+            </div>
+
             {/* Summary Stats Cards */}
             <div className="flex flex-wrap items-center gap-4">
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl flex items-center justify-between shadow-xs w-full sm:w-[280px]">
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl flex items-center justify-between shadow-xs w-full sm:w-[280px] h-[88px]">
                 <div>
                   <p className="text-sm text-blue-600 dark:text-blue-400 font-semibold mb-1">Tổng số buổi học</p>
                   <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{reportData.totalSessions}</p>
@@ -141,7 +190,7 @@ export default function AttendanceReport() {
                 </div>
               </div>
               
-              <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-xl flex items-center justify-between shadow-xs w-full sm:w-[280px]">
+              <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-xl flex items-center justify-between shadow-xs w-full sm:w-[280px] h-[88px]">
                 <div>
                   <p className="text-sm text-green-600 dark:text-green-400 font-semibold mb-1">Đã điểm danh</p>
                   <p className="text-2xl font-bold text-green-700 dark:text-green-300">{reportData.completedSessions} <span className="text-sm font-normal text-green-600/70">buổi</span></p>
@@ -151,7 +200,7 @@ export default function AttendanceReport() {
                 </div>
               </div>
 
-              <div className="p-4 bg-brand-50 dark:bg-brand-900/20 border border-brand-100 dark:border-brand-800 rounded-xl flex items-center justify-between shadow-xs w-full sm:w-[280px]">
+              <div className="p-4 bg-brand-50 dark:bg-brand-900/20 border border-brand-100 dark:border-brand-800 rounded-xl flex items-center justify-between shadow-xs w-full sm:w-[280px] h-[88px]">
                 <div>
                   <p className="text-sm text-brand-600 dark:text-brand-400 font-semibold mb-1">Tỷ lệ chuyên cần chung</p>
                   <p className="text-2xl font-bold text-brand-700 dark:text-brand-300">{reportData.averageAttendanceRate}%</p>
@@ -160,6 +209,16 @@ export default function AttendanceReport() {
                   <ClipboardCheck className="w-5 h-5" />
                 </div>
               </div>
+
+              <button 
+                onClick={handleExportExcel}
+                className="flex flex-col items-center justify-center gap-1.5 p-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xs w-full sm:w-[140px] h-[88px] transition-colors group"
+              >
+                <div className="w-8 h-8 rounded-full bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center text-brand-600 dark:text-brand-400 group-hover:scale-110 transition-transform">
+                  <Download className="w-4 h-4" />
+                </div>
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Xuất Excel</span>
+              </button>
             </div>
 
             {/* Attendance Table */}
@@ -174,8 +233,6 @@ export default function AttendanceReport() {
                     {/* Summary Columns */}
                     <th className="px-2 py-4 text-center min-w-[70px] text-green-600 dark:text-green-400 bg-green-50/80 dark:bg-green-900/20">Có mặt</th>
                     <th className="px-2 py-4 text-center min-w-[70px] text-red-600 dark:text-red-400 bg-red-50/80 dark:bg-red-900/20">Vắng</th>
-                    <th className="px-2 py-4 text-center min-w-[70px] text-yellow-600 dark:text-yellow-400 bg-yellow-50/80 dark:bg-yellow-900/20">Muộn</th>
-                    <th className="px-2 py-4 text-center min-w-[70px] text-gray-600 dark:text-gray-400 bg-gray-200/50 dark:bg-gray-800/50">Phép</th>
                     <th className="px-4 py-4 text-center min-w-[100px] text-brand-600 dark:text-brand-400 bg-brand-50/80 dark:bg-brand-900/20">Tỷ lệ</th>
 
                     {/* Sessions Columns */}
@@ -207,8 +264,6 @@ export default function AttendanceReport() {
                       {/* Summary Columns Data */}
                       <td className="px-2 py-3 text-center font-bold text-green-600 dark:text-green-400 bg-green-50/40 dark:bg-green-900/5">{st.presentCount}</td>
                       <td className="px-2 py-3 text-center font-bold text-red-600 dark:text-red-400 bg-red-50/40 dark:bg-red-900/5">{st.absentCount}</td>
-                      <td className="px-2 py-3 text-center font-bold text-yellow-600 dark:text-yellow-400 bg-yellow-50/40 dark:bg-yellow-900/5">{st.lateCount}</td>
-                      <td className="px-2 py-3 text-center font-bold text-gray-600 dark:text-gray-400 bg-gray-50/60 dark:bg-gray-800/30">{st.excusedCount}</td>
                       <td className="px-4 py-3 text-center font-black text-brand-600 dark:text-brand-400 bg-brand-50/40 dark:bg-brand-900/5">
                         <div className="flex flex-col items-center gap-1.5">
                           <span>{st.attendanceRate}%</span>

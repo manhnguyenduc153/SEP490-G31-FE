@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { classApi } from "@/services/class.api";
 import { reportApi, ClassGradeReportDto } from "@/services/report.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-
+import * as XLSX from "xlsx";
 export default function ClassGradeReport() {
   const { t } = useTranslation();
   const [classes, setClasses] = useState<{ id: number; name: string; code: string }[]>([]);
@@ -70,9 +70,57 @@ export default function ClassGradeReport() {
     return <span className="inline-flex px-2 py-1 items-center justify-center rounded bg-red-100 text-red-700 text-xs font-bold">{t("classGradeReport.failed").toUpperCase()}</span>;
   };
 
+  const handleExportExcel = () => {
+    if (!reportData) return;
+
+    // Build data for each row dynamically based on the components
+    const dataToExport = reportData.students.map((student, index) => {
+      const rowData: any = {
+        "STT": index + 1,
+        "Mã học viên": student.studentCode,
+        "Tên học viên": student.studentName,
+      };
+
+      // Add each component score as a separate column
+      reportData.components.forEach((comp) => {
+        const score = student.componentScores[comp.id];
+        rowData[`${comp.name} (${comp.weight}%)`] = score !== null && score !== undefined ? score : "-";
+      });
+
+      // Add final scores
+      rowData["Điểm tổng kết"] = student.finalScore !== null && student.finalScore !== undefined ? student.finalScore : "-";
+      rowData["Đánh giá"] = student.finalScore !== null && student.finalScore !== undefined 
+        ? (student.isPassed ? "Đạt" : "Trượt") 
+        : "-";
+
+      return rowData;
+    });
+
+    // Create worksheet and workbook
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    
+    // Set column widths for better readability
+    const wscols = [
+      { wch: 5 },  // STT
+      { wch: 15 }, // Code
+      { wch: 25 }, // Name
+    ];
+    reportData.components.forEach(() => wscols.push({ wch: 15 })); // Component columns
+    wscols.push({ wch: 15 }, { wch: 15 }); // Final Score and Evaluation
+    worksheet["!cols"] = wscols;
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Bảng điểm");
+
+    // File name: Bang_Diem_[ClassCode]_[Date].xlsx
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const fileName = `Bang_Diem_${reportData.classCode}_${dateStr}.xlsx`;
+    
+    XLSX.writeFile(workbook, fileName);
+  };
+
   return (
     <div className="bg-white dark:bg-gray-900 border border-gray-150 dark:border-gray-800 rounded-2xl shadow-theme-sm overflow-hidden flex flex-col min-h-[600px] animate-fadeIn">
-      {/* Header section */}
       <div className="p-6 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex flex-col xl:flex-row items-start xl:items-center gap-6">
         <div>
           <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -122,7 +170,10 @@ export default function ClassGradeReport() {
                   Lớp: <span className="font-semibold text-gray-700 dark:text-gray-300">{reportData.classCode}</span> - {reportData.className}
                 </p>
               </div>
-              <button className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs">
+              <button 
+                onClick={handleExportExcel}
+                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm font-semibold transition-all shadow-sm border border-brand-500 hover:border-brand-600"
+              >
                 <Download className="w-4 h-4" />
                 {t("classGradeReport.exportReport")}
               </button>

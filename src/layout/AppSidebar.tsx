@@ -105,8 +105,9 @@ const schoolItems: NavItem[] = [
     icon: <PieChartIcon />,
     name: "reportsMenu",
     subItems: [
-      { name: "reports", path: "/reports" },
-      { name: "statistics", path: "/statistics" },
+      { name: "classGradeReport", path: "/reports/class-grade" },
+      { name: "attendanceReport", path: "/reports/attendance" },
+      { name: "examReport", path: "/reports/exam" },
     ],
   },
   {

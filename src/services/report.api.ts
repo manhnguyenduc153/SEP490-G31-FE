@@ -18,8 +18,6 @@ export interface ClassAttendanceStudentRowDto {
   studentName?: string;
   presentCount: number;
   absentCount: number;
-  lateCount: number;
-  excusedCount: number;
   attendanceRate: number;
   attendances: ClassAttendanceStatusDto[];
 }
