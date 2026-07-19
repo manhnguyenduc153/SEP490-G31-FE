@@ -53,14 +53,14 @@ const schoolItems: NavItem[] = [
     name: "academicOperations",
     subItems: [
       { name: "semesters", path: "/semesters", permission: "Semester.View" },
-      { name: "courses", path: "/courses", permission: "Course" },
+      { name: "courses", path: "/courses", permission: "Course.View" },
       { name: "registrations", path: "/registrations", permission: "StudentRegistration.View" },
-      { name: "classes", path: "/classes", permission: "Class", roles: ["admin"] },
-      { name: "teachingClasses", path: "/teaching-classes", roles: ["teacher"] },
-      { name: "myClasses", path: "/my-classes", roles: ["student"] },
-      { name: "teachers", path: "/teachers", permission: "Teacher", roles: ["admin"] },
-      { name: "students", path: "/students", permission: "Student", roles: ["admin"] },
-      { name: "rooms", path: "/rooms", permission: "Room", roles: ["admin"] },
+      { name: "classes", path: "/classes", permission: "Class.View" },
+      { name: "teachingClasses", path: "/teaching-classes", permission: "Class.TeacherView" },
+      { name: "myClasses", path: "/my-classes", permission: "Class.StudentView" },
+      { name: "teachers", path: "/teachers", permission: "Teacher.View" },
+      { name: "students", path: "/students", permission: "Student.View" },
+      { name: "rooms", path: "/rooms", permission: "Room.View" },
     ],
   },
   {
@@ -68,8 +68,8 @@ const schoolItems: NavItem[] = [
     name: "schedule",
     subItems: [
       { name: "classSchedules", path: "/schedules", permission: "ClassSchedule" },
-      { name: "teachingSchedules", path: "/teaching-schedules", roles: ["teacher", "admin"] },
-      { name: "timetable", path: "/timetable", roles: ["teacher", "student", "admin"] },
+      { name: "teachingSchedules", path: "/teaching-schedules", permission: "ClassSchedule.View" },
+      { name: "timetable", path: "/timetable", permission: "ClassSchedule.View" },
     ],
   },
   {
@@ -77,11 +77,11 @@ const schoolItems: NavItem[] = [
     name: "assessments",
     subItems: [
       { name: "exams", path: "/exams", permission: "Exam" },
-      { name: "homework", path: "/homework", roles: ["teacher", "student", "admin"] },
+      { name: "homework", path: "/homework", permission: "Homework" },
       { name: "questionBank", path: "/question-bank", permission: "Question" },
       { name: "questionCategory", path: "/question-category", permission: "QuestionCategory" },
-      { name: "scoreSettings", path: "/scores", permission: "StudentGrade", roles: ["admin", "teacher"] },
-      { name: "myScores", path: "/my-scores", roles: ["student"] },
+      { name: "scoreSettings", path: "/scores", permission: "StudentGrade" },
+      { name: "myScores", path: "/my-scores", permission: "StudentGrade.View" },
     ],
   },
   {
@@ -89,7 +89,7 @@ const schoolItems: NavItem[] = [
     name: "learning",
     subItems: [
       { name: "learningMaterials", path: "/learning-materials", permission: "LearningMaterial" },
-      { name: "myAttendance", path: "/attendance", roles: ["student"] },
+      { name: "myAttendance", path: "/attendance", permission: "Attendance" },
       { name: "studentProgress", path: "/student-progress" },
     ],
   },
@@ -104,7 +104,7 @@ const schoolItems: NavItem[] = [
   {
     icon: <PieChartIcon />,
     name: "reportsMenu",
-    roles: ["admin"],
+    permission: "User",
     subItems: [
       { name: "reports", path: "/reports" },
       { name: "statistics", path: "/statistics" },
@@ -116,8 +116,8 @@ const schoolItems: NavItem[] = [
     subItems: [
       { name: "parents", path: "/parent-student", permission: "ParentStudent" },
       { name: "childProfile", path: "/child-profile", permission: "ParentStudent" },
-      { name: "childProgress", path: "/child-progress", roles: ["parent", "admin"] },
-      { name: "childSchedules", path: "/child-schedules", roles: ["parent", "admin"] },
+      { name: "childProgress", path: "/child-progress", permission: "ParentStudent" },
+      { name: "childSchedules", path: "/child-schedules", permission: "ParentStudent" },
     ],
   },
 ];
@@ -142,22 +142,10 @@ const navItems: NavItem[] = [
     icon: <AiIcon />,
     new: true,
     subItems: [
-      {
-        name: "Text Generator",
-        path: "/text-generator",
-      },
-      {
-        name: "Image Generator",
-        path: "/image-generator",
-      },
-      {
-        name: "Code Generator",
-        path: "/code-generator",
-      },
-      {
-        name: "Video Generator",
-        path: "/video-generator",
-      },
+      { name: "Text Generator", path: "/text-generator" },
+      { name: "Image Generator", path: "/image-generator" },
+      { name: "Code Generator", path: "/code-generator" },
+      { name: "Video Generator", path: "/video-generator" },
     ],
   },
   {
@@ -281,10 +269,7 @@ const othersItems: NavItem[] = [
       { name: "Sign In", path: "/signin", pro: false },
       { name: "Sign Up", path: "/signup", pro: false },
       { name: "Reset Password", path: "/reset-password" },
-      {
-        name: "Two Step Verification",
-        path: "/two-step-verification",
-      },
+      { name: "Two Step Verification", path: "/two-step-verification" },
     ],
   },
 ];
@@ -323,14 +308,18 @@ const AppSidebar: React.FC = () => {
   const [isMounted, setIsMounted] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState<{
     type: "school" | "main" | "support" | "others";
-    index: number;
+    name: string;
   } | null>(null);
   const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
     {}
   );
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  const isActive = useCallback((path: string) => path === pathname, [pathname]);
+  const isActive = useCallback((path: string) => {
+    if (!path) return false;
+    if (path === "/") return pathname === "/";
+    return pathname === path || pathname.startsWith(path + "/");
+  }, [pathname]);
 
   const canShowForRole = useCallback((roles?: string[]) => !roles?.length || roles.includes(role), [role]);
 
@@ -398,7 +387,7 @@ const AppSidebar: React.FC = () => {
             if (isActive(subItem.path)) {
               setOpenSubmenu({
                 type: menuType,
-                index,
+                name: nav.name,
               });
               submenuMatched = true;
               break;
@@ -446,18 +435,18 @@ const AppSidebar: React.FC = () => {
   }, [openSubmenu, role, isMounted]);
 
   const handleSubmenuToggle = (
-    index: number,
+    name: string,
     menuType: "school" | "main" | "support" | "others"
   ) => {
     setOpenSubmenu((prevOpenSubmenu) => {
       if (
         prevOpenSubmenu &&
         prevOpenSubmenu.type === menuType &&
-        prevOpenSubmenu.index === index
+        prevOpenSubmenu.name === name
       ) {
         return null;
       }
-      return { type: menuType, index };
+      return { type: menuType, name };
     });
   };
 
@@ -490,13 +479,13 @@ const AppSidebar: React.FC = () => {
 
     return (
       <ul className="flex flex-col gap-1">
-        {filteredItems.map((nav, index) => {
+        {filteredItems.map((nav) => {
           const renderItemContent = () => (
             <li key={nav.name}>
               {nav.subItems ? (
                 <button
-                  onClick={() => handleSubmenuToggle(index, menuType)}
-                  className={`menu-item group  ${openSubmenu?.type === menuType && openSubmenu?.index === index
+                  onClick={() => handleSubmenuToggle(nav.name, menuType)}
+                  className={`menu-item group  ${openSubmenu?.type === menuType && openSubmenu?.name === nav.name
                     ? "menu-item-active"
                     : "menu-item-inactive"
                     } cursor-pointer ${!isExpanded && !isHovered
@@ -505,7 +494,7 @@ const AppSidebar: React.FC = () => {
                     }`}
                 >
                   <span
-                    className={` ${openSubmenu?.type === menuType && openSubmenu?.index === index
+                    className={` ${openSubmenu?.type === menuType && openSubmenu?.name === nav.name
                       ? "menu-item-icon-active"
                       : "menu-item-icon-inactive"
                       }`}
@@ -520,7 +509,7 @@ const AppSidebar: React.FC = () => {
                   {nav.new && (isExpanded || isHovered || isMobileOpen) && (
                     <span
                       className={`ml-auto absolute right-10 ${openSubmenu?.type === menuType &&
-                        openSubmenu?.index === index
+                        openSubmenu?.name === nav.name
                         ? "menu-dropdown-badge-active"
                         : "menu-dropdown-badge-inactive"
                         } menu-dropdown-badge`}
@@ -531,7 +520,7 @@ const AppSidebar: React.FC = () => {
                   {(isExpanded || isHovered || isMobileOpen) && (
                     <ChevronDownIcon
                       className={`ml-auto w-5 h-5 transition-transform duration-200  ${openSubmenu?.type === menuType &&
-                        openSubmenu?.index === index
+                        openSubmenu?.name === nav.name
                         ? "rotate-180 text-brand-500"
                         : ""
                         }`}
@@ -574,13 +563,13 @@ const AppSidebar: React.FC = () => {
               {nav.subItems && (isExpanded || isHovered || isMobileOpen) && (
                 <div
                   ref={(el) => {
-                    subMenuRefs.current[`${menuType}-${index}`] = el;
+                    subMenuRefs.current[`${menuType}-${nav.name}`] = el;
                   }}
                   className="overflow-hidden transition-all duration-300"
                   style={{
                     height:
-                      openSubmenu?.type === menuType && openSubmenu?.index === index
-                        ? `${subMenuHeight[`${menuType}-${index}`]}px`
+                      openSubmenu?.type === menuType && openSubmenu?.name === nav.name
+                        ? `${subMenuHeight[`${menuType}-${nav.name}`]}px`
                         : "0px",
                   }}
                 >
