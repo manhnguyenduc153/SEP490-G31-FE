@@ -17,6 +17,8 @@ import { userApi, UserItem } from "@/services/user.api";
 import { authApi } from "@/services/auth.api";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { useTranslation } from "react-i18next";
+import { Plus, Search } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 type SortKey = "username" | "email" | "phone" | "status";
 type SortOrder = "asc" | "desc";
@@ -354,7 +356,7 @@ export default function UserTable() {
   ];
 
   return (
-    <div className="overflow-hidden bg-white dark:bg-white/[0.03] rounded-xl border border-gray-100 dark:border-white/[0.05]">
+    <div className="bg-white dark:bg-gray-900 border border-gray-155 dark:border-gray-800 rounded-2xl shadow-xs">
       {/* Toast */}
       {toastMessage && (
         <div
@@ -375,95 +377,77 @@ export default function UserTable() {
         </div>
       )}
 
-      {/* Header controls */}
-      <div className="flex flex-col gap-4 px-6 py-5 border-b border-gray-100 dark:border-white/[0.05] lg:flex-row lg:items-center lg:justify-between">
-        
-        {/* Pagination Size & Role Filter */}
-        <div className="flex flex-wrap items-center gap-4">
-          {/* Entries count */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500 dark:text-gray-400">{t("user.show")}</span>
-            <div className="relative z-20 bg-transparent">
-              <select
-                className="w-full py-2 pl-3 pr-8 text-sm text-gray-800 bg-transparent border border-gray-300 rounded-lg appearance-none dark:bg-dark-900 h-9 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-                value={itemsPerPage}
-                onChange={(e) => {
-                  setItemsPerPage(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-              >
-                {[5, 10, 15, 20].map((v) => (
-                  <option key={v} value={v} className="text-gray-500 dark:bg-gray-900 dark:text-gray-400">
-                    {v}
-                  </option>
-                ))}
-              </select>
-              <span className="absolute z-30 text-gray-500 -translate-y-1/2 right-2 top-1/2 dark:text-gray-400 pointer-events-none">
-                <svg className="stroke-current" width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M3.8335 5.9165L8.00016 10.0832L12.1668 5.9165" stroke="" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </span>
-            </div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">{t("user.entries")}</span>
-          </div>
-
-          {/* Role filter select */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500 dark:text-gray-400">{t("user.colRoles")}:</span>
-            <div className="relative z-20 bg-transparent">
-              <select
-                className="w-full py-2 pl-3 pr-8 text-sm text-gray-800 bg-transparent border border-gray-300 rounded-lg appearance-none dark:bg-dark-900 h-9 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-                value={roleFilter}
-                onChange={(e) => {
-                  setRoleFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
-              >
-                <option value="all" className="text-gray-500 dark:bg-gray-900 dark:text-gray-400">
-                  {t("user.filterRoleAll", { defaultValue: "Tất cả vai trò" })}
-                </option>
-                {rolesList.map((r) => (
-                  <option key={r} value={r} className="text-gray-500 dark:bg-gray-900 dark:text-gray-400">
-                    {r}
-                  </option>
-                ))}
-              </select>
-              <span className="absolute z-30 text-gray-500 -translate-y-1/2 right-2 top-1/2 dark:text-gray-400 pointer-events-none">
-                <svg className="stroke-current" width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M3.8335 5.9165L8.00016 10.0832L12.1668 5.9165" stroke="" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </span>
-            </div>
-          </div>
+      {/* Header */}
+      <div className="flex flex-col gap-4 px-5 sm:px-6 py-5 border-b border-gray-100 dark:border-gray-800/80 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t("user.title", { defaultValue: "Quản lý Người dùng" })}</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            {t("user.description", { defaultValue: "Quản lý người dùng trong hệ thống." })}
+          </p>
         </div>
+        <PermissionGuard requiredPermission="User.Create">
+          <button
+            onClick={openCreateModal}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-theme-xs transition-colors self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            {t("user.addUser", { defaultValue: "Thêm người dùng" })}
+          </button>
+        </PermissionGuard>
+      </div>
 
-        {/* Search + Add button */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="relative">
-            <button className="absolute text-gray-500 -translate-y-1/2 left-4 top-1/2 dark:text-gray-400">
-              <svg className="fill-current" width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path fillRule="evenodd" clipRule="evenodd" d="M3.04199 9.37363C3.04199 5.87693 5.87735 3.04199 9.37533 3.04199C12.8733 3.04199 15.7087 5.87693 15.7087 9.37363C15.7087 12.8703 12.8733 15.7053 9.37533 15.7053C5.87735 15.7053 3.04199 12.8703 3.04199 9.37363ZM9.37533 1.54199C5.04926 1.54199 1.54199 5.04817 1.54199 9.37363C1.54199 13.6991 5.04926 17.2053 9.37533 17.2053C11.2676 17.2053 13.0032 16.5344 14.3572 15.4176L17.1773 18.238C17.4702 18.5309 17.945 18.5309 18.2379 18.238C18.5308 17.9451 18.5309 17.4703 18.238 17.1773L15.4182 14.3573C16.5367 13.0033 17.2087 11.2669 17.2087 9.37363C17.2087 5.04817 13.7014 1.54199 9.37533 1.54199Z" fill="" />
-              </svg>
-            </button>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder={t("user.searchPlaceholder")}
-              className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent py-2.5 pl-11 pr-4 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[250px]"
+      {/* Search & Filter Bar */}
+      <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-gray-800">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-4 w-full items-end">
+          {/* Search Input */}
+          <div className="relative md:col-span-5">
+            <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+              {t("user.filterKeyword", { defaultValue: "Tìm kiếm" })}
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder={t("user.searchPlaceholder")}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all placeholder:text-gray-400 h-11"
+              />
+              <span className="absolute left-3 top-3.5 text-gray-400">
+                <Search className="w-4 h-4" />
+              </span>
+            </div>
+          </div>
+
+          {/* Role Filter Dropdown */}
+          <div className="md:col-span-4">
+            <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+              {t("user.colRoles", { defaultValue: "Vai trò" })}
+            </label>
+            <SearchableSelect
+              value={roleFilter}
+              onChange={(value) => { setRoleFilter(value); setCurrentPage(1); }}
+              options={[
+                ...rolesList.map((r) => ({ value: r, label: r })),
+              ]}
+              placeholder={t("user.filterRoleAll", { defaultValue: "Tất cả vai trò" })}
+              onClear={() => { setRoleFilter("all"); setCurrentPage(1); }}
             />
           </div>
-          <PermissionGuard requiredPermission="User.Create">
+
+          {/* Clear Filters Button */}
+          <div className="flex items-center justify-end h-11 md:col-span-3">
             <button
-              onClick={openCreateModal}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 transition-colors shadow-theme-xs"
+              type="button"
+              onClick={() => {
+                setSearchTerm("");
+                setRoleFilter("all");
+                setCurrentPage(1);
+              }}
+              className="inline-flex items-center justify-center px-4 h-11 text-sm font-medium text-gray-700 bg-white border border-gray-355 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors cursor-pointer w-full md:w-auto shadow-theme-xs"
             >
-              <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M8.00016 3.33331V12.6666M3.3335 7.99998H12.6668" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              {t("user.addUser")}
+              {t("user.btnClearFilters", { defaultValue: "Xóa bộ lọc" })}
             </button>
-          </PermissionGuard>
+          </div>
         </div>
       </div>
 
@@ -688,8 +672,26 @@ export default function UserTable() {
 
       {/* Pagination */}
       <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between px-6 py-5 bg-gray-50/50 dark:bg-white/[0.01] border-t border-gray-100 dark:border-white/[0.05]">
-        <div className="pb-3 xl:pb-0">
-          <p className="text-sm font-medium text-center text-gray-500 dark:text-gray-400 xl:text-left">
+        <div className="flex flex-wrap items-center gap-4 pb-3 xl:pb-0 justify-center xl:justify-start">
+          <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+            <span>{t("user.show", { defaultValue: "Hiển thị" })}</span>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="h-8 rounded-lg border border-gray-350 dark:border-gray-700 bg-transparent px-2 text-sm text-gray-700 dark:text-gray-350 focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all cursor-pointer font-medium"
+            >
+              {[5, 10, 15, 20].map((v) => (
+                <option key={v} value={v} className="dark:bg-gray-900">
+                  {v}
+                </option>
+              ))}
+            </select>
+            <span>{t("user.entries", { defaultValue: "mục" })}</span>
+          </div>
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
             {t("user.showing", { start: totalRecords === 0 ? 0 : startIndex + 1, end: endIndex, total: totalRecords, defaultValue: `Hiển thị ${totalRecords === 0 ? 0 : startIndex + 1} đến ${endIndex} trong tổng số ${totalRecords} mục` })}
           </p>
         </div>

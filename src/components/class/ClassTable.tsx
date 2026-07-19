@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -8,7 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Eye, Pencil, Trash2, CalendarDays } from "lucide-react";
+import { Search, Eye, Edit, Trash2, CalendarDays } from "lucide-react";
 import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
 import { classApi, ClassItem } from "@/services/class.api";
 import AutoScheduleModal from "./AutoScheduleModal";
@@ -19,6 +19,7 @@ import { semesterApi, SemesterItem } from "@/services/semester.api";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { useTranslation } from "react-i18next";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { AngleDownIcon, AngleUpIcon } from "@/icons";
 
 type TabType = "all" | "active" | "planning" | "completed";
 
@@ -71,6 +72,38 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const triggerRefresh = () => setRefreshKey((k) => k + 1);
+
+  // ── Sort ──
+  type SortKey = "code" | "name" | "teacherName" | "courseName" | "semesterName" | "status";
+  type SortOrder = "asc" | "desc";
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortOrder((o) => (o === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortOrder("asc");
+    }
+  };
+
+  const sortedData = useMemo(() => {
+    return [...items].sort((a, b) => {
+      let av: string | number = "";
+      let bv: string | number = "";
+
+      if (sortKey === "status") {
+        av = a.status;
+        bv = b.status;
+        return sortOrder === "asc" ? av - bv : bv - av;
+      } else {
+        av = String(a[sortKey] ?? "");
+        bv = String(b[sortKey] ?? "");
+        return sortOrder === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+    });
+  }, [items, sortKey, sortOrder]);
 
 
 
@@ -478,47 +511,89 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
       </div>
 
       {/* Main Table */}
-      <div className="overflow-x-auto">
+      <div className="max-w-full overflow-x-auto custom-scrollbar">
         <Table>
-          <TableHeader className="bg-gray-50/70 dark:bg-gray-800/40">
+          <TableHeader className="border-b border-gray-100 dark:border-white/[0.05] bg-gray-50 dark:bg-white/[0.02]">
             <TableRow>
-              <TableCell className="w-[5%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-                #
+              <TableCell isHeader className="px-6 py-4 text-center w-12">
+                <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">#</p>
               </TableCell>
-              <TableCell className="w-[12%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-                {t("class.colCode")}
+              <TableCell isHeader className="px-6 py-4 text-left">
+                <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => handleSort("code")}>
+                  <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">{t("class.colCode")}</p>
+                  <button className="flex flex-col gap-0.5 ml-2">
+                    <AngleUpIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "code" && sortOrder === "asc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                    <AngleDownIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "code" && sortOrder === "desc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                  </button>
+                </div>
               </TableCell>
-              <TableCell className="w-[20%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-                {t("class.colName")}
+              <TableCell isHeader className="px-6 py-4 text-left">
+                <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => handleSort("name")}>
+                  <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">{t("class.colName")}</p>
+                  <button className="flex flex-col gap-0.5 ml-2">
+                    <AngleUpIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "name" && sortOrder === "asc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                    <AngleDownIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "name" && sortOrder === "desc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                  </button>
+                </div>
               </TableCell>
-              <TableCell className="w-[15%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-                {t("class.colTeacher")}
+              <TableCell isHeader className="px-6 py-4 text-left">
+                <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => handleSort("teacherName")}>
+                  <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">{t("class.colTeacher")}</p>
+                  <button className="flex flex-col gap-0.5 ml-2">
+                    <AngleUpIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "teacherName" && sortOrder === "asc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                    <AngleDownIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "teacherName" && sortOrder === "desc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                  </button>
+                </div>
               </TableCell>
-              <TableCell className="w-[15%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-                {t("class.colCourse")}
+              <TableCell isHeader className="px-6 py-4 text-left">
+                <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => handleSort("courseName")}>
+                  <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">{t("class.colCourse")}</p>
+                  <button className="flex flex-col gap-0.5 ml-2">
+                    <AngleUpIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "courseName" && sortOrder === "asc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                    <AngleDownIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "courseName" && sortOrder === "desc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                  </button>
+                </div>
               </TableCell>
-              <TableCell className="w-[13%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-                {t("class.colSemester")}
+              <TableCell isHeader className="px-6 py-4 text-left">
+                <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => handleSort("semesterName")}>
+                  <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">{t("class.colSemester")}</p>
+                  <button className="flex flex-col gap-0.5 ml-2">
+                    <AngleUpIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "semesterName" && sortOrder === "asc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                    <AngleDownIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "semesterName" && sortOrder === "desc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                  </button>
+                </div>
               </TableCell>
-              <TableCell className="w-[10%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-                {t("class.colDescription")}
+              <TableCell isHeader className="px-6 py-4 text-left">
+                <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">{t("class.colDescription")}</p>
               </TableCell>
-              <TableCell className="w-[10%] px-5 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
+              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 text-theme-sm dark:text-gray-200">
                 {t("class.colActions")}
               </TableCell>
             </TableRow>
           </TableHeader>
-          <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
+          <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
             {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-10 text-sm text-gray-500 dark:text-gray-400">
-                  <div className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-brand-500 border-t-transparent mr-2"></div>
-                  {t("class.loadingDetail")}
-                </TableCell>
-              </TableRow>
+              Array.from({ length: itemsPerPage }).map((_, idx) => (
+                <TableRow key={idx} className="animate-pulse">
+                  <TableCell className="px-6 py-4 text-center w-12"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-8 mx-auto" /></TableCell>
+                  <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-16" /></TableCell>
+                  <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-32" /></TableCell>
+                  <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-24" /></TableCell>
+                  <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-28" /></TableCell>
+                  <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-20" /></TableCell>
+                  <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-20" /></TableCell>
+                  <TableCell className="px-6 py-4 text-center">
+                    <div className="flex justify-center gap-1.5">
+                      <div className="h-8 w-8 bg-gray-200 dark:bg-white/10 rounded-md" />
+                      <div className="h-8 w-8 bg-gray-200 dark:bg-white/10 rounded-md" />
+                      <div className="h-8 w-8 bg-gray-200 dark:bg-white/10 rounded-md" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
             ) : error ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-10 text-sm text-error-500 dark:text-error-400">
+                <TableCell colSpan={8} className="text-center py-10 text-sm text-rose-500 font-medium">
                   {error}
                 </TableCell>
               </TableRow>
@@ -529,14 +604,14 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
                 </TableCell>
               </TableRow>
             ) : (
-              items.map((item, index) => (
-                <TableRow key={item.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
+              sortedData.map((item, index) => (
+                <TableRow key={item.id} className="hover:bg-gray-50/50 dark:hover:bg-white/[0.01] transition-colors">
                   {/* Sequence Number */}
-                  <TableCell className="px-5 sm:px-6 py-4 text-sm font-semibold text-gray-500 dark:text-gray-400">
+                  <TableCell className="px-6 py-4 text-center text-gray-500 dark:text-gray-400 whitespace-nowrap w-12 text-theme-sm font-medium">
                     {(currentPage - 1) * itemsPerPage + index + 1}
                   </TableCell>
                   {/* Code & Status */}
-                  <TableCell className="px-5 sm:px-6 py-4 font-medium text-gray-900 dark:text-white">
+                  <TableCell className="px-6 py-4 font-semibold text-gray-900 dark:text-white whitespace-nowrap text-theme-sm">
                     <div className="flex flex-col gap-1.5 items-start">
                       <span className="text-sm font-semibold">{item.code}</span>
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(item.status)}`}>
@@ -546,7 +621,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
                   </TableCell>
 
                   {/* Name, Urgency & Date Range */}
-                  <TableCell className="px-5 sm:px-6 py-4">
+                  <TableCell className="px-6 py-4 text-gray-750 dark:text-gray-300 font-medium whitespace-nowrap text-theme-sm">
                     <div className="flex flex-col gap-1 items-start">
                       <span className="text-sm font-semibold text-gray-900 dark:text-white hover:text-brand-500 dark:hover:text-brand-400 cursor-pointer" onClick={() => onViewClick(item)}>
                         {item.name}
@@ -568,9 +643,9 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
                   </TableCell>
 
                   {/* Teacher Name Only */}
-                  <TableCell className="px-5 sm:px-6 py-4">
+                  <TableCell className="px-6 py-4 text-gray-750 dark:text-gray-300 font-medium whitespace-nowrap text-theme-sm">
                     {item.teacherName ? (
-                      <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+                      <span className="text-sm text-gray-750 dark:text-gray-300 font-medium">
                         {item.teacherName}
                       </span>
                     ) : (
@@ -579,7 +654,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
                   </TableCell>
 
                   {/* Course / Phân loại */}
-                  <TableCell className="px-5 sm:px-6 py-4">
+                  <TableCell className="px-6 py-4 whitespace-nowrap text-theme-sm">
                     {item.courseName ? (
                       <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200 text-xs font-medium">
                         {item.courseName}
@@ -590,9 +665,9 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
                   </TableCell>
 
                   {/* Semester */}
-                  <TableCell className="px-5 sm:px-6 py-4">
+                  <TableCell className="px-6 py-4 whitespace-nowrap text-theme-sm">
                     {item.semesterName ? (
-                      <span className="inline-flex items-center px-2 py-1 rounded-md bg-amber-50 text-amber-800 dark:bg-amber-950/20 dark:text-amber-400 text-xs font-medium">
+                      <span className="inline-flex items-center px-2 py-1 rounded-md bg-amber-50 text-amber-800 dark:bg-amber-955/20 dark:text-amber-400 text-xs font-medium">
                         {item.semesterName}
                       </span>
                     ) : (
@@ -601,19 +676,19 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
                   </TableCell>
 
                   {/* Note / Description */}
-                  <TableCell className="px-5 sm:px-6 py-4 text-xs text-gray-500 dark:text-gray-400">
+                  <TableCell className="px-6 py-4 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap text-theme-sm">
                     <div className="max-w-[150px] truncate" title={item.description || ""}>
                       {item.description || t("class.noDescription")}
                     </div>
                   </TableCell>
 
                   {/* Actions */}
-                  <TableCell className="px-5 sm:px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                  <TableCell className="px-6 py-4 text-center whitespace-nowrap text-theme-sm">
+                    <div className="flex items-center justify-center gap-1.5">
                       <button
                         onClick={() => onViewClick(item)}
                         title={t("class.viewTooltip", { defaultValue: "Xem chi tiết" })}
-                        className="p-1 text-gray-400 hover:text-brand-500 transition-colors"
+                        className="p-1.5 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
@@ -621,16 +696,21 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
                         <button
                           onClick={() => openEditModal(item)}
                           title={t("class.editTooltip")}
-                          className="p-1 text-gray-400 hover:text-amber-500 transition-colors"
+                          className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md transition-colors"
                         >
-                          <Pencil className="w-4 h-4" />
+                          <Edit className="w-4 h-4" />
                         </button>
                       </PermissionGuard>
                       <PermissionGuard requiredPermission="Class.Delete">
                         <button
-                          onClick={() => openDeleteModal(item)}
-                          title={t("class.deleteTooltip")}
-                          className="p-1 text-gray-400 hover:text-rose-500 transition-colors"
+                          onClick={() => item.status === 0 && openDeleteModal(item)}
+                          disabled={item.status !== 0}
+                          title={
+                            item.status !== 0
+                              ? t("class.cannotDeleteStarted", { defaultValue: "Lớp học đã bắt đầu hoặc hoàn thành, không thể xóa" })
+                              : t("class.deleteTooltip")
+                          }
+                          className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

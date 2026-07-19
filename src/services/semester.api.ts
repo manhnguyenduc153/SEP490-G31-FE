@@ -9,6 +9,8 @@ export interface SemesterItem {
   endDate: string;
   status: number; // 0: Draft, 1: Active, 2: Completed, 3: Closed
   statusName?: string;
+  classCount?: number;
+  hasSchedules?: boolean;
 }
 
 export interface SemesterSaveDto {
@@ -103,6 +105,10 @@ export const semesterApi = {
 
   async getTeacherAvailability(semesterId: number, teacherId: number): Promise<ApiResponse<TeacherAvailabilitySlotDto[]>> {
     return api.get<TeacherAvailabilitySlotDto[]>(`/api/Semester/${semesterId}/teacher/${teacherId}/availability`);
+  },
+
+  async checkTeacherHasSchedules(semesterId: number, teacherId: number): Promise<ApiResponse<boolean>> {
+    return api.get<boolean>(`/api/Semester/${semesterId}/teacher/${teacherId}/has-schedules`);
   },
 
   async saveTeacherAvailability(dto: TeacherAvailabilitySaveDto): Promise<ApiResponse<boolean>> {

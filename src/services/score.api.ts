@@ -107,6 +107,10 @@ export const studentGradeApi = {
     return api.get<MyGradeClassDto[]>("/api/StudentGrade/my");
   },
 
+  getChildGrades(studentId: number): Promise<ApiResponse<MyGradeClassDto[]>> {
+    return api.get<MyGradeClassDto[]>(`/api/StudentGrade/child-grades?studentId=${studentId}`);
+  },
+
   getCourseComponents(courseId: number): Promise<ApiResponse<GradeComponentDto[]>> {
     return api.get<GradeComponentDto[]>(`/api/StudentGrade/course/${courseId}/components`);
   },

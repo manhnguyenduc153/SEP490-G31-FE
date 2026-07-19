@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Calendar, UserCheck, Cpu, Plus, Pencil, Trash2, Search, SlidersHorizontal, Users } from "lucide-react";
+import { Calendar, UserCheck, Cpu, Plus, Edit, Trash2, Search, SlidersHorizontal, Users } from "lucide-react";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
 import { SemesterFormModal } from "./SemesterFormModal";
 import { TeacherAvailabilityModal } from "./TeacherAvailabilityModal";
@@ -21,6 +21,7 @@ import DatePicker from "@/components/form/date-picker";
 import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
 import { useTranslation } from "react-i18next";
 import { authApi } from "@/services/auth.api";
+import { AngleDownIcon, AngleUpIcon } from "@/icons";
 
 export default function SemesterTable() {
   const { t, i18n } = useTranslation();
@@ -28,6 +29,21 @@ export default function SemesterTable() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // ── Sort ──
+  type SortKey = "code" | "name" | "startDate";
+  type SortOrder = "asc" | "desc";
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortOrder((o) => (o === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortOrder("asc");
+    }
+  };
 
   const [permissions, setPermissions] = useState<string[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -206,11 +222,29 @@ export default function SemesterTable() {
     });
   }, [items, searchTerm, statusFilter, startDateFrom, endDateTo]);
 
+  // ── Sort data ──
+  const sortedData = useMemo(() => {
+    return [...filteredItems].sort((a, b) => {
+      let av: string | number = "";
+      let bv: string | number = "";
+
+      if (sortKey === "startDate") {
+        av = new Date(a.startDate).getTime();
+        bv = new Date(b.startDate).getTime();
+        return sortOrder === "asc" ? av - bv : bv - av;
+      } else {
+        av = String(a[sortKey] ?? "");
+        bv = String(b[sortKey] ?? "");
+        return sortOrder === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+    });
+  }, [filteredItems, sortKey, sortOrder]);
+
   // ── Pagination helpers ──
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedItems = useMemo(() => {
-    return filteredItems.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredItems, startIndex, itemsPerPage]);
+    return sortedData.slice(startIndex, startIndex + itemsPerPage);
+  }, [sortedData, startIndex, itemsPerPage]);
   const endIndex = Math.min(startIndex + paginatedItems.length, filteredItems.length);
   const totalRecords = filteredItems.length;
   const totalPages = Math.ceil(totalRecords / itemsPerPage);
@@ -267,7 +301,7 @@ export default function SemesterTable() {
       <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-gray-800">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-4 w-full items-end">
           {/* Search Input */}
-          <div className="relative md:col-span-3">
+          <div className="relative md:col-span-5">
             <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
               {t("semester.filterKeyword", { defaultValue: "Tìm kiếm" })}
             </label>
@@ -277,31 +311,12 @@ export default function SemesterTable() {
                 placeholder={t("semester.searchPlaceholder")}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all placeholder:text-gray-400 dark:placeholder:text-white/30 h-11"
+                className="w-full pl-10 pr-4 py-2 text-sm bg-transparent border border-gray-350 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all placeholder:text-gray-400 dark:placeholder:text-white/30 h-11"
               />
               <span className="absolute left-3 top-3.5 text-gray-400">
                 <Search className="w-4 h-4" />
               </span>
             </div>
-          </div>
-
-          {/* Status Dropdown */}
-          <div className="md:col-span-2">
-            <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
-              {t("semester.filterStatus")}
-            </label>
-            <SearchableSelect
-              value={statusFilter}
-              onChange={(value) => { setStatusFilter(value); setCurrentPage(1); }}
-              options={[
-                { value: "0", label: t("semester.formStatusDraft") },
-                { value: "1", label: t("semester.formStatusActive") },
-                { value: "2", label: t("semester.formStatusCompleted", { defaultValue: "Đã hoàn thành" }) },
-                { value: "3", label: t("semester.formStatusClosed") },
-              ]}
-              placeholder={t("semester.filterStatus")}
-              onClear={() => { setStatusFilter("all"); setCurrentPage(1); }}
-            />
           </div>
 
           {/* Start Date From */}
@@ -362,12 +377,38 @@ export default function SemesterTable() {
 
       {/* Main Content */}
       {isLoading ? (
-        <div className="flex justify-center items-center py-20 text-sm text-gray-500 dark:text-gray-400">
-          <div className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-brand-500 border-t-transparent mr-2"></div>
-          {t("common.loading", { defaultValue: "Đang tải dữ liệu..." })}
+        <div className="max-w-full overflow-x-auto custom-scrollbar">
+          <Table>
+            <TableHeader className="border-b border-gray-100 dark:border-white/[0.05] bg-gray-50 dark:bg-white/[0.02]">
+              <TableRow>
+                <TableCell isHeader className="px-6 py-4 text-center w-12">#</TableCell>
+                <TableCell isHeader className="px-6 py-4 text-left">{t("semester.colCode")}</TableCell>
+                <TableCell isHeader className="px-6 py-4 text-left">{t("semester.colName")}</TableCell>
+                <TableCell isHeader className="px-6 py-4 text-left">{t("semester.colTime", { defaultValue: "Thời gian" })}</TableCell>
+                <TableCell isHeader className="px-6 py-4 text-center">{t("semester.colActions")}</TableCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+              {Array.from({ length: itemsPerPage }).map((_, idx) => (
+                <TableRow key={idx} className="animate-pulse">
+                  <TableCell className="px-6 py-4 text-center w-12"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-8 mx-auto" /></TableCell>
+                  <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-16" /></TableCell>
+                  <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-32" /></TableCell>
+                  <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-24" /></TableCell>
+                  <TableCell className="px-6 py-4 text-center">
+                    <div className="flex justify-center gap-1.5">
+                      <div className="h-8 w-8 bg-gray-200 dark:bg-white/10 rounded-md" />
+                      <div className="h-8 w-8 bg-gray-200 dark:bg-white/10 rounded-md" />
+                      <div className="h-8 w-16 bg-gray-200 dark:bg-white/10 rounded-md" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       ) : error ? (
-        <div className="p-8 text-center text-sm text-rose-500">{error}</div>
+        <div className="p-8 text-center text-sm text-rose-500 font-medium">{error}</div>
       ) : items.length === 0 ? (
         <div className="p-16 text-center text-sm text-gray-500 dark:text-gray-400">
           {t("semester.noResults", { defaultValue: "Không tìm thấy học kỳ nào trong hệ thống. Vui lòng bấm nút thêm mới." })}
@@ -377,35 +418,68 @@ export default function SemesterTable() {
           {t("semester.noResults")}
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="max-w-full overflow-x-auto custom-scrollbar">
           <Table>
-            <TableHeader className="bg-gray-50/70 dark:bg-gray-800/40">
+            <TableHeader className="border-b border-gray-100 dark:border-white/[0.05] bg-gray-50 dark:bg-white/[0.02]">
               <TableRow>
-                <TableCell className="w-[5%] px-5 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("semester.colId")}</TableCell>
-                <TableCell className="w-[15%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("semester.colCode")}</TableCell>
-                <TableCell className="w-[20%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("semester.colName")}</TableCell>
-                <TableCell className="w-[25%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("semester.colTime", { defaultValue: "Thời gian" })}</TableCell>
-                <TableCell className="w-[15%] px-5 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("semester.colStatus")}</TableCell>
-                <TableCell className="w-[20%] px-5 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("semester.colActions")}</TableCell>
+                <TableCell isHeader className="px-6 py-4 text-center w-12">
+                  <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">#</p>
+                </TableCell>
+                <TableCell isHeader className="px-6 py-4 text-left">
+                  <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => handleSort("code")}>
+                    <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">{t("semester.colCode")}</p>
+                    <button className="flex flex-col gap-0.5 ml-2">
+                      <AngleUpIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "code" && sortOrder === "asc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                      <AngleDownIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "code" && sortOrder === "desc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                    </button>
+                  </div>
+                </TableCell>
+                <TableCell isHeader className="px-6 py-4 text-left">
+                  <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => handleSort("name")}>
+                    <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">{t("semester.colName")}</p>
+                    <button className="flex flex-col gap-0.5 ml-2">
+                      <AngleUpIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "name" && sortOrder === "asc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                      <AngleDownIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "name" && sortOrder === "desc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                    </button>
+                  </div>
+                </TableCell>
+                <TableCell isHeader className="px-6 py-4 text-left">
+                  <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => handleSort("startDate")}>
+                    <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">{t("semester.colTime", { defaultValue: "Thời gian" })}</p>
+                    <button className="flex flex-col gap-0.5 ml-2">
+                      <AngleUpIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "startDate" && sortOrder === "asc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                      <AngleDownIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "startDate" && sortOrder === "desc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                    </button>
+                  </div>
+                </TableCell>
+                <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 text-theme-sm dark:text-gray-200">
+                  {t("semester.colActions")}
+                </TableCell>
               </TableRow>
             </TableHeader>
-            <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
+            <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
               {paginatedItems.map((item, index) => (
-                <TableRow key={item.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
-                  <TableCell className="px-5 sm:px-6 py-4 text-center text-gray-400 font-medium">{startIndex + index + 1}</TableCell>
-                  <TableCell className="px-5 sm:px-6 py-4 font-semibold text-gray-900 dark:text-white">{item.code}</TableCell>
-                  <TableCell className="px-5 sm:px-6 py-4 text-gray-750 dark:text-gray-300 font-medium">{item.name}</TableCell>
-                  <TableCell className="px-5 sm:px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                <TableRow key={item.id} className="hover:bg-gray-50/50 dark:hover:bg-white/[0.01] transition-colors">
+                  <TableCell className="px-6 py-4 text-center text-gray-500 dark:text-gray-400 whitespace-nowrap w-12 text-theme-sm">
+                    {startIndex + index + 1}
+                  </TableCell>
+                  <TableCell className="px-6 py-4 font-semibold text-gray-900 dark:text-white whitespace-nowrap text-theme-sm">
+                    {item.code}
+                  </TableCell>
+                  <TableCell className="px-6 py-4 text-gray-750 dark:text-gray-300 font-medium whitespace-nowrap text-theme-sm">
+                    <div className="flex items-center gap-2">
+                      <span>{item.name}</span>
+                      <span className="text-[10px] bg-gray-100 text-gray-600 dark:bg-gray-800/80 dark:text-gray-400 px-1.5 py-0.5 rounded-md font-semibold">
+                        {item.classCount ?? 0} {t("dashboardPage.classUnit", { defaultValue: "lớp" })}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap text-theme-sm">
                     {formatDate(item.startDate)} - {formatDate(item.endDate)}
                   </TableCell>
-                  <TableCell className="px-5 sm:px-6 py-4">
-                    <span className={`inline-flex items-center text-xs font-semibold px-2.5 py-0.5 rounded-full ${getStatusBadgeClass(item.status)}`}>
-                      {getStatusName(item.status)}
-                    </span>
-                  </TableCell>
                   {/* Unified Actions Group */}
-                  <TableCell className="px-5 sm:px-6 py-4 text-right">
-                    <div className="flex justify-end items-center gap-1.5">
+                  <TableCell className="px-6 py-4 text-center whitespace-nowrap text-theme-sm">
+                    <div className="flex justify-center items-center gap-1.5">
                       {/* Teacher Availability Setup */}
                       {hasPermission("Semester.Edit") && (
                         <button
@@ -466,10 +540,10 @@ export default function SemesterTable() {
                             setEditingItem(item);
                             setIsFormOpen(true);
                           }}
-                          className="p-1.5 text-gray-400 hover:text-amber-500 transition-colors"
+                          className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md transition-colors"
                           title={t("semester.actionEdit")}
                         >
-                          <Pencil className="w-4 h-4" />
+                          <Edit className="w-4 h-4" />
                         </button>
                       )}
 
@@ -481,7 +555,7 @@ export default function SemesterTable() {
                             setDeletingItem(item);
                             setIsDeleteOpen(true);
                           }}
-                          className="p-1.5 text-gray-400 hover:text-rose-500 transition-colors"
+                          className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors"
                           title={t("semester.actionDelete")}
                         >
                           <Trash2 className="w-4 h-4" />

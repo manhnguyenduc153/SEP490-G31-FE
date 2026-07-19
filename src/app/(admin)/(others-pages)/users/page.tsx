@@ -10,11 +10,8 @@ export const metadata: Metadata = {
 
 export default function UsersPage() {
   return (
-    <div>
-      <PageBreadcrumb pageTitle="user.title" />
-      <div className="space-y-6">
-        <UserTable />
-      </div>
+    <div className="space-y-6">
+      <UserTable />
     </div>
   );
 }
