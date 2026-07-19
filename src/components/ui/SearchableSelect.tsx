@@ -85,10 +85,10 @@ export function SearchableSelect({
           isOpen ? "border-brand-500 ring-2 ring-brand-500/20" : ""
         }`}
       >
-        <span className={selectedOption ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-white/30"}>
+        <span className={`block truncate ${selectedOption ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-white/30"}`}>
           {selectedOption ? selectedOption.label : placeholder}
         </span>
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0 ml-2">
           {onClear && value !== "" && value !== null && value !== undefined && value !== "all" && (
             <span
               onClick={(e) => {
