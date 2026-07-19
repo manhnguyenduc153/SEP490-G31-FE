@@ -106,8 +106,9 @@ const schoolItems: NavItem[] = [
     name: "reportsMenu",
     permission: "User",
     subItems: [
-      { name: "reports", path: "/reports" },
-      { name: "statistics", path: "/statistics" },
+      { name: "classGradeReport", path: "/reports/class-grade" },
+      { name: "attendanceReport", path: "/reports/attendance" },
+      { name: "examReport", path: "/reports/exam" },
     ],
   },
   {

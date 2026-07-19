@@ -326,18 +326,6 @@ export default function ClassDetailAttendanceTab({
             {t("class.absent", { defaultValue: "Vắng" })}
           </span>
         );
-      case 2:
-        return (
-          <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-655 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-100 dark:border-amber-900/30">
-            {t("class.late", { defaultValue: "Muộn" })}
-          </span>
-        );
-      case 3:
-        return (
-          <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-655 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30">
-            {t("class.excused", { defaultValue: "Có phép" })}
-          </span>
-        );
       default:
         return (
           <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-medium bg-gray-50 text-gray-400 dark:bg-gray-800/40 dark:text-gray-500 border border-gray-100 dark:border-gray-800">
