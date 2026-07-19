@@ -67,9 +67,9 @@ const schoolItems: NavItem[] = [
     icon: <CalenderIcon />,
     name: "schedule",
     subItems: [
-      { name: "classSchedules", path: "/schedules", permission: "ClassSchedule" },
-      { name: "teachingSchedules", path: "/teaching-schedules", permission: "ClassSchedule.View" },
-      { name: "timetable", path: "/timetable", permission: "ClassSchedule.View" },
+      { name: "classSchedules", path: "/schedules", permission: "ClassSchedule.View" },
+      { name: "teachingSchedules", path: "/teaching-schedules", permission: "ClassSchedule.TeacherView" },
+      { name: "timetable", path: "/timetable", permission: "ClassSchedule.StudentView" },
     ],
   },
   {
