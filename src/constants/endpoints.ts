@@ -117,6 +117,8 @@ export const ENDPOINTS = {
     STUDENTS: "/api/Common/students",
     TEACHERS: "/api/Common/teachers",
     ROOMS: "/api/Common/rooms",
+    CLASSES: "/api/Common/classes",
+    QUESTION_CATEGORIES: "/api/Common/question-categories",
   },
 };
 

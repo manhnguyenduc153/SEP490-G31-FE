@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function QuestionBankPage() {
   return (
     <div>
-      <PageBreadcrumb pageTitle="question.title" />
+
       <div className="space-y-6">
         <QuestionTable />
       </div>

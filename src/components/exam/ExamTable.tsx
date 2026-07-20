@@ -10,13 +10,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { PencilIcon, TrashBinIcon, EyeIcon } from "@/icons";
+import { PencilIcon, TrashBinIcon } from "@/icons";
 import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
 import { examApi, ExamItem } from "@/services/exam.api";
-import { classApi, ClassItem } from "@/services/class.api";
+import { ClassItem } from "@/services/class.api";
+import { commonApi } from "@/services/common.api";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
-import { CheckCircle, XCircle, Search } from "lucide-react";
+import { CheckCircle, XCircle, Search, Edit, Trash2, Eye } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 export function ExamTable() {
   const { t } = useTranslation();
@@ -90,7 +92,7 @@ export function ExamTable() {
 
   // ─── Fetch Dropdowns ────────────────────────────────────────────────────────
   useEffect(() => {
-    classApi.getAll(1, 1000).then((res) => {
+    commonApi.getClasses(1, 1000).then((res) => {
       if (res.success && res.data) {
         setClasses(res.data.items || []);
       }
@@ -202,10 +204,10 @@ export function ExamTable() {
       {/* Header with Title & Add Button */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 sm:p-6 border-b border-gray-100 dark:border-gray-800">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
             {t("exam.pageTitle", { defaultValue: "Quản lý bài kiểm tra" })}
-          </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             {t("exam.pageSubtitle", { defaultValue: "Xem danh sách bài kiểm tra đang dùng hoặc quản lý thư viện bài mẫu." })}
           </p>
         </div>
@@ -298,21 +300,22 @@ export function ExamTable() {
               <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
                 {t("exam.filterClass", { defaultValue: "Lớp học" })}
               </label>
-              <select
+              <SearchableSelect
+                options={classes.map((c) => ({
+                  value: c.id,
+                  label: c.name,
+                }))}
                 value={filterClass || ""}
-                onChange={(e) => {
-                  setFilterClass(e.target.value ? Number(e.target.value) : null);
+                onChange={(val) => {
+                  setFilterClass(val ? Number(val) : null);
                   setCurrentPage(1);
                 }}
-                className="w-full px-3 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all h-11 cursor-pointer"
-              >
-                <option value="" className="dark:bg-gray-900">{t("exam.filterClassAll", { defaultValue: "Tất cả lớp học" })}</option>
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id} className="dark:bg-gray-900">
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                placeholder={t("exam.filterClassAll", { defaultValue: "Tất cả lớp học" })}
+                onClear={() => {
+                  setFilterClass(null);
+                  setCurrentPage(1);
+                }}
+              />
             </div>
           )}
 
@@ -496,27 +499,30 @@ export function ExamTable() {
                     <div className="flex justify-center items-center gap-2">
                       {/* View Details */}
                       <button
+                        type="button"
                         onClick={() => router.push(`/exams/${item.id}`)}
                         title={t("exam.viewTooltip")}
-                        className="p-2 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 transition-colors rounded-lg bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700"
+                        className="p-1.5 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
                       >
-                        <EyeIcon className="w-4 h-4" />
+                        <Eye className="w-4 h-4" />
                       </button>
 
                       {/* Edit */}
                       <PermissionGuard requiredPermission="Exam.Edit">
                         <button
+                          type="button"
                           onClick={() => router.push(`/exams/edit/${item.id}`)}
                           title={t("exam.editTooltip")}
-                          className="p-2 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 transition-colors rounded-lg bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700"
+                          className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md transition-colors"
                         >
-                          <PencilIcon className="w-4 h-4" />
+                          <Edit className="w-4 h-4" />
                         </button>
                       </PermissionGuard>
 
                       {/* Duplicate/Copy */}
                       <PermissionGuard requiredPermission="Exam.Create">
                         <button
+                          type="button"
                           onClick={() => handleCopy(item)}
                           title={t("exam.copyTooltip")}
                           className="p-2 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 transition-colors rounded-lg bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700"
@@ -530,11 +536,12 @@ export function ExamTable() {
                       {/* Delete */}
                       <PermissionGuard requiredPermission="Exam.Delete">
                         <button
+                          type="button"
                           onClick={() => setDeleteTarget(item)}
                           title={t("exam.deleteTooltip")}
-                          className="p-2 text-gray-500 hover:text-error-500 dark:text-gray-400 dark:hover:text-error-400 transition-colors rounded-lg bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700"
+                          className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors"
                         >
-                          <TrashBinIcon className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </PermissionGuard>
                     </div>
