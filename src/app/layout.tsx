@@ -5,6 +5,7 @@ import "simplebar-react/dist/simplebar.min.css";
 import { SidebarProvider } from "@/context/SidebarContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { I18nProvider } from "@/providers/I18nProvider";
+import { NotificationProvider } from "@/context/NotificationContext";
 import { Metadata } from "next";
 import NextTopLoader from "nextjs-toploader";
 
@@ -33,7 +34,9 @@ export default function RootLayout({
         <NextTopLoader color="#465fff" showSpinner={false} height={3} />
         <I18nProvider>
           <ThemeProvider>
-            <SidebarProvider>{children}</SidebarProvider>
+            <NotificationProvider>
+              <SidebarProvider>{children}</SidebarProvider>
+            </NotificationProvider>
           </ThemeProvider>
         </I18nProvider>
       </body>
