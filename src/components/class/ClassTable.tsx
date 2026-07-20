@@ -16,6 +16,7 @@ import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
 import { teacherApi, TeacherItem } from "@/services/teacher.api";
 import { courseApi, CourseItem } from "@/services/course.api";
 import { semesterApi, SemesterItem } from "@/services/semester.api";
+import { commonApi } from "@/services/common.api";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { useTranslation } from "react-i18next";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
@@ -195,9 +196,9 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
     async function loadOptions() {
       try {
         const [cRes, tRes, sRes] = await Promise.all([
-          courseApi.getAll(1, 100, "", true),
+          commonApi.getCourses(1, 100, "", true),
           teacherApi.getAll(1, 100),
-          semesterApi.getAll(),
+          commonApi.getSemesters(),
         ]);
         if (cRes.success && cRes.data) setCourses(cRes.data.items || []);
         if (tRes.success && tRes.data) setTeachers(tRes.data.items || []);

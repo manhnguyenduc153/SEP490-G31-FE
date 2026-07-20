@@ -592,7 +592,7 @@ export default function RolesTable() {
               currentData.map((role) => (
                 <TableRow key={role.id} className="hover:bg-gray-50/50 dark:hover:bg-white/[0.01] transition-colors">
                   <TableCell className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">
-                    {role.name}
+                    {t(`roles.names.${role.name}`, { defaultValue: role.name })}
                   </TableCell>
                   <TableCell className="px-6 py-4 text-gray-600 dark:text-gray-400 max-w-[300px] truncate">
                     {role.description}
