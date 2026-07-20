@@ -29,6 +29,7 @@
     "lines-and-columns": "^1.2.4",
     "lucide-react": "^1.22.0",
     "next": "^15.4.3",
+    "nextjs-toploader": "^3.9.17",
     "prismjs": "^1.30.0",
     "react": "^19.0.0",
     "react-apexcharts": "^1.7.0",

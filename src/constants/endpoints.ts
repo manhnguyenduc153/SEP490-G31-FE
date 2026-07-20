@@ -111,5 +111,12 @@ export const ENDPOINTS = {
   DASHBOARD: {
     GET_DATA: "/api/Dashboard",
   },
+  COMMON: {
+    SEMESTERS: "/api/Common/semesters",
+    COURSES: "/api/Common/courses",
+    STUDENTS: "/api/Common/students",
+    TEACHERS: "/api/Common/teachers",
+    ROOMS: "/api/Common/rooms",
+  },
 };
 

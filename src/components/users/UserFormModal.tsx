@@ -125,7 +125,7 @@ export function UserFormModal({
                 </option>
                 {rolesList.map((r) => (
                   <option key={r} value={r} className="dark:bg-gray-900 dark:text-gray-400">
-                    {r}
+                    {t(`roles.names.${r}`, { defaultValue: r })}
                   </option>
                 ))}
               </select>

@@ -1356,7 +1356,15 @@
     "updateError": "Lỗi khi cập nhật quyền",
     "deleteSuccess": "Xóa vai trò thành công",
     "deleteError": "Xóa vai trò thất bại",
-    "systemError": "Đã xảy ra lỗi hệ thống"
+    "systemError": "Đã xảy ra lỗi hệ thống",
+    "names": {
+      "Học sinh": "Học sinh",
+      "Giáo viên": "Giáo viên",
+      "Ban vận hành": "Ban vận hành",
+      "Ban chuyên môn": "Ban chuyên môn",
+      "Quản lý trung tâm": "Quản lý trung tâm",
+      "Phụ huynh": "Phụ huynh"
+    }
   },
   "room": {
     "title": "Quản lý Phòng học",

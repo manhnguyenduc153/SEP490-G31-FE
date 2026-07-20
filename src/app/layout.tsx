@@ -6,6 +6,7 @@ import { SidebarProvider } from "@/context/SidebarContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { I18nProvider } from "@/providers/I18nProvider";
 import { Metadata } from "next";
+import NextTopLoader from "nextjs-toploader";
 
 export const metadata: Metadata = {
   title: {
@@ -29,6 +30,7 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body className={`${inter.className} dark:bg-gray-900`}>
+        <NextTopLoader color="#465fff" showSpinner={false} height={3} />
         <I18nProvider>
           <ThemeProvider>
             <SidebarProvider>{children}</SidebarProvider>

@@ -585,7 +585,7 @@ export default function UserTable() {
                     {item.roles.length > 0 ? (
                       item.roles.map((r) => (
                         <span key={r} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-gray-300 mr-1">
-                          {r}
+                          {t(`roles.names.${r}`, { defaultValue: r })}
                         </span>
                       ))
                     ) : (

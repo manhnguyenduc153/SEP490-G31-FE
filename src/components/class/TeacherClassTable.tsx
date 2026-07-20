@@ -13,6 +13,7 @@ import PaginationWithIcon from "@/components/tables/DataTables/TableOne/Paginati
 import { classApi, ClassItem } from "@/services/class.api";
 import { courseApi, CourseItem } from "@/services/course.api";
 import { semesterApi, SemesterItem } from "@/services/semester.api";
+import { commonApi } from "@/services/common.api";
 import { useTranslation } from "react-i18next";
 
 type TabType = "all" | "active" | "planning" | "completed";
@@ -80,8 +81,8 @@ export default function TeacherClassTable({ refreshKey: externalRefreshKey, onVi
     async function loadOptions() {
       try {
         const [cRes, sRes] = await Promise.all([
-          courseApi.getAll(1, 100, "", true),
-          semesterApi.getAll(),
+          commonApi.getCourses(1, 100, "", true),
+          commonApi.getSemesters(),
         ]);
         if (cRes.success && cRes.data) setCourses(cRes.data.items || []);
         if (sRes.success && sRes.data) setSemesters(sRes.data || []);

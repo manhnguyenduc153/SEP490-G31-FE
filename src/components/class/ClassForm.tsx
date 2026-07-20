@@ -7,6 +7,7 @@ import { teacherApi, TeacherItem } from "@/services/teacher.api";
 import { studentApi, StudentItem } from "@/services/student.api";
 import { roomApi, RoomItem } from "@/services/room.api";
 import { semesterApi, SemesterItem } from "@/services/semester.api";
+import { commonApi } from "@/services/common.api";
 import { CodeHelper } from "@/helpers/CodeHelper";
 import * as XLSX from "xlsx";
 import { Calendar, FileSpreadsheet, Plus, Search, X, ArrowLeft, BookOpen, Info, UserPlus, BookPlus, CalendarDays, AlertCircle, Download } from "lucide-react";
@@ -138,10 +139,10 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
     async function loadOptions() {
       try {
         const [cRes, tRes, rRes, sRes] = await Promise.all([
-          courseApi.getAll(1, 100, "", true),
+          commonApi.getCourses(1, 100, "", true),
           teacherApi.getAll(1, 100),
           roomApi.getAll(1, 100),
-          semesterApi.getAll(),
+          commonApi.getSemesters(),
         ]);
         if (cRes.success && cRes.data) setCourses(cRes.data.items || []);
         if (tRes.success && tRes.data) setTeachers(tRes.data.items || []);
