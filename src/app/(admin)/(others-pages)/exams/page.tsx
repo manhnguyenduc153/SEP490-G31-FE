@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function ExamsPage() {
   return (
     <div>
-      <PageBreadcrumb pageTitle="sidebar.exams" />
+
       <div className="space-y-6">
         <ExamsClient />
       </div>

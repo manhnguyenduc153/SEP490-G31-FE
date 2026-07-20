@@ -262,21 +262,26 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
         answerContent: content
       }));
 
+      const logKey = `examLogs_${currentAttempt.id}`;
+      const exitsKey = `tabExits_${currentAttempt.id}`;
+      
+      const exitsCount = Number(localStorage.getItem(exitsKey) || "0");
+      let logs = [];
+      try {
+        logs = JSON.parse(localStorage.getItem(logKey) || "[]");
+      } catch {}
+      logs.push({ type: "submit", time: new Date().toISOString() });
+      localStorage.setItem(logKey, JSON.stringify(logs));
+
       const payload = {
         attemptId: currentAttempt.id,
+        tabExitsCount: exitsCount,
+        log: JSON.stringify(logs),
         answers: answersPayload
       };
 
       const res = await examApi.submitAttempt(exam.id, payload);
       if (res.success && res.data) {
-        // Log submit event in localStorage
-        const logKey = `examLogs_${currentAttempt.id}`;
-        let logs = [];
-        try {
-          logs = JSON.parse(localStorage.getItem(logKey) || "[]");
-        } catch {}
-        logs.push({ type: "submit", time: new Date().toISOString() });
-        localStorage.setItem(logKey, JSON.stringify(logs));
 
         setSelectedPastAttempt(res.data);
         setViewState("result");
@@ -957,30 +962,89 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
               ) : (
                 // History tab contents (Attempt events timeline)
                 <div className="space-y-4">
-                  <div className="relative border-l border-gray-100 pl-4 space-y-4 py-2 ml-1">
-                    <div className="relative">
-                      <span className="absolute -left-6.5 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-100">
-                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                      </span>
-                      <span className="block text-[10px] font-bold text-gray-800 dark:text-gray-200">
-                        {t("exams.startExam")}
-                      </span>
-                      <span className="text-[9px] text-gray-400 block mt-0.5">
-                        {new Date(attempt.startTime).toLocaleString("vi-VN")}
-                      </span>
+                  {/* Overview panel */}
+                  <div className="p-4 bg-gray-50 dark:bg-white/[0.02] border border-gray-150 dark:border-white/[0.05] rounded-xl space-y-2 text-xs">
+                    <p className="font-bold text-gray-800 dark:text-gray-200">{t("exams.processOverview")}</p>
+                    <div className="space-y-1.5 text-gray-550 dark:text-gray-400 font-semibold font-semibold">
+                      <div className="flex justify-between">
+                        <span>{t("exams.tabExitsCountLabel")}:</span>
+                        <span className="font-bold text-red-655 dark:text-red-400">{attempt.tabExitsCount || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{t("exams.editsCountLabel")}:</span>
+                        <span className="font-semibold text-gray-700 dark:text-gray-300 font-bold">0</span>
+                      </div>
                     </div>
+                  </div>
 
-                    <div className="relative">
-                      <span className="absolute -left-6.5 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-brand-100">
-                        <span className="h-2 w-2 rounded-full bg-brand-500" />
-                      </span>
-                      <span className="block text-[10px] font-bold text-gray-800 dark:text-gray-200">
-                        {t("exams.btnSubmit")}
-                      </span>
-                      <span className="text-[9px] text-gray-400 block mt-0.5">
-                        {attempt.submitTime ? new Date(attempt.submitTime).toLocaleString("vi-VN") : ""}
-                      </span>
-                    </div>
+                  <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block mt-2">{t("exams.attemptHistory")}</span>
+
+                  {/* Timeline */}
+                  <div className="relative border-l border-gray-100 dark:border-gray-800 pl-4 space-y-4 py-2 ml-1">
+                    {(() => {
+                      let exitLogs: Array<{ type: string; time: string }> = [];
+                      if (attempt.log) {
+                        try {
+                          exitLogs = JSON.parse(attempt.log);
+                        } catch {}
+                      }
+
+                      if (exitLogs.length === 0 && typeof window !== "undefined") {
+                        const exitsKey = `tabExits_${attempt.id}`;
+                        const logKey = `examLogs_${attempt.id}`;
+                        try {
+                          const storedLogs = localStorage.getItem(logKey);
+                          if (storedLogs) {
+                            exitLogs = JSON.parse(storedLogs);
+                          }
+                        } catch {}
+                      }
+
+                      if (exitLogs.length === 0) {
+                        exitLogs = [
+                          { type: "start", time: attempt.startTime },
+                          ...(attempt.submitTime ? [{ type: "submit", time: attempt.submitTime }] : [])
+                        ];
+                      }
+
+                      return exitLogs.map((log, idx) => {
+                        let title = "";
+                        let dotColor = "bg-gray-400";
+                        let bgColor = "bg-gray-100 dark:bg-gray-800";
+
+                        if (log.type === "start") {
+                          title = t("exams.startExam");
+                          dotColor = "bg-emerald-500";
+                          bgColor = "bg-emerald-100 dark:bg-emerald-950/40";
+                        } else if (log.type === "exit") {
+                          title = t("exams.exitScreen");
+                          dotColor = "bg-red-500";
+                          bgColor = "bg-red-100 dark:bg-red-950/40";
+                        } else if (log.type === "enter") {
+                          title = t("exams.enterScreen");
+                          dotColor = "bg-blue-500";
+                          bgColor = "bg-blue-100 dark:bg-blue-950/40";
+                        } else if (log.type === "submit") {
+                          title = t("exams.btnSubmit");
+                          dotColor = "bg-brand-500";
+                          bgColor = "bg-brand-100 dark:bg-brand-950/40";
+                        }
+
+                        return (
+                          <div key={idx} className="relative">
+                            <span className={`absolute -left-6.5 top-1 flex h-4 w-4 items-center justify-center rounded-full ${bgColor}`}>
+                              <span className={`h-2 w-2 rounded-full ${dotColor}`} />
+                            </span>
+                            <span className="block text-[10px] font-bold text-gray-800 dark:text-gray-200">
+                              {title}
+                            </span>
+                            <span className="text-[9px] text-gray-400 block mt-0.5">
+                              {log.time ? new Date(log.time).toLocaleString("vi-VN") : ""}
+                            </span>
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                 </div>
               )}

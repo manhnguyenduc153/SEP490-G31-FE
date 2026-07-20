@@ -213,16 +213,21 @@ export default function ExamDetailPage() {
     const incorrectCount = attempt.answers ? attempt.answers.filter(a => !a.isCorrect && a.answerContent).length : 0;
     const unansweredCount = totalQuestions - correctCount - incorrectCount;
 
-    // Load tab exits and logs from localStorage:
-    const attemptId = attempt.id;
-    const exitsKey = `tabExits_${attemptId}`;
-    const logKey = `examLogs_${attemptId}`;
-    
-    let tabExitsCount = 0;
+    // Load tab exits and logs (try attempt DTO from backend first, fallback to localStorage):
+    let tabExitsCount = attempt.tabExitsCount || 0;
     let exitLogs: Array<{ type: string; time: string }> = [];
     
-    if (typeof window !== "undefined") {
-      tabExitsCount = Number(localStorage.getItem(exitsKey) || "0");
+    if (attempt.log) {
+      try {
+        exitLogs = JSON.parse(attempt.log);
+      } catch {}
+    }
+
+    if (exitLogs.length === 0 && typeof window !== "undefined") {
+      const attemptId = attempt.id;
+      const exitsKey = `tabExits_${attemptId}`;
+      const logKey = `examLogs_${attemptId}`;
+      tabExitsCount = Number(localStorage.getItem(exitsKey) || "0") || tabExitsCount;
       try {
         const storedLogs = localStorage.getItem(logKey);
         if (storedLogs) {
