@@ -1679,13 +1679,19 @@
       "ExamSchedule": "Exam Schedule",
       "ExamStudent": "Exam Student",
       "StudentGrade": "Student Grade",
-      "Homework": "Homework"
+      "Homework": "Homework",
+      "Exam": "Exam",
+      "ExamQuestion": "Exam Question",
+      "ExamAttempt": "Exam Attempt",
+      "ExamAnswer": "Exam Answer"
     },
     "action": {
       "View": "View",
       "Create": "Create",
       "Edit": "Edit",
-      "Delete": "Delete"
+      "Delete": "Delete",
+      "StudentView": "Student View",
+      "TeacherView": "Teacher View"
     },
     "ERR_NO_FEASIBLE_SCHEDULE_FOUND": "Could not find a feasible schedule (please add more rooms, teachers, or timeslots)!",
     "GET_SEMESTER_LIST_SUCCESS": "Successfully retrieved semester list",
