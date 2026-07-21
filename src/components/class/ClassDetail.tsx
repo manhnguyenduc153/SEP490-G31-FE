@@ -249,7 +249,7 @@ export default function ClassDetail({
                 {t("class.tabExams", { defaultValue: "Bài kiểm tra" })}
               </button>
             )}
-            {hasPermission("StudentGrade.View") && (
+            {hasPermission("StudentGrade.ViewSettings") && (
               <button
                 onClick={() => setActiveDetailTab("grades")}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all ${
@@ -318,7 +318,7 @@ export default function ClassDetail({
             )}
 
             {/* TAB 7: BẢNG ĐIỂM (REAL DATA FROM CLASS) */}
-            {activeDetailTab === "grades" && hasPermission("StudentGrade.View") && (
+            {activeDetailTab === "grades" && hasPermission("StudentGrade.ViewSettings") && (
               <ClassDetailGradesTab
                 itemDetail={itemDetail}
                 t={t}
