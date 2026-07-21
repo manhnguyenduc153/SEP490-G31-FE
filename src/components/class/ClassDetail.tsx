@@ -3,13 +3,14 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { roomApi } from "@/services/room.api";
 import { classApi } from "@/services/class.api";
-import { ArrowLeft, BookOpen, Users, ClipboardCheck, FileText, Award, Info } from "lucide-react";
+import { ArrowLeft, BookOpen, Users, ClipboardCheck, FileText, Award, Info, CheckSquare } from "lucide-react";
 import ClassDetailInfoTab from "./ClassDetailInfoTab";
 import ClassDetailStudentsTab from "./ClassDetailStudentsTab";
 import ClassDetailAttendanceTab from "./ClassDetailAttendanceTab";
 import ClassDetailSyllabusTab from "./ClassDetailSyllabusTab";
 import ClassDetailHomeworkTab from "./ClassDetailHomeworkTab";
 import ClassDetailGradesTab from "./ClassDetailGradesTab";
+import ClassDetailExamsTab from "./ClassDetailExamsTab";
 import { authApi } from "@/services/auth.api";
 
 interface ClassDetailProps {
@@ -20,7 +21,7 @@ interface ClassDetailProps {
   showToast: (msg: string, type?: "success" | "error") => void;
 }
 
-type DetailTabType = "detail" | "students" | "attendance" | "syllabus" | "homework" | "grades";
+type DetailTabType = "detail" | "students" | "attendance" | "syllabus" | "homework" | "grades" | "exams";
 
 export default function ClassDetail({
   itemId,
@@ -235,6 +236,19 @@ export default function ClassDetail({
                 {t("class.tabHomework", { defaultValue: "Bài tập" })}
               </button>
             )}
+            {hasPermission("Exam.View") && (
+              <button
+                onClick={() => setActiveDetailTab("exams")}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all ${
+                  activeDetailTab === "exams"
+                    ? "bg-brand-500 text-white shadow-theme-xs"
+                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-250 dark:hover:bg-gray-800"
+                }`}
+              >
+                <CheckSquare className="w-4 h-4" />
+                {t("class.tabExams", { defaultValue: "Bài kiểm tra" })}
+              </button>
+            )}
             {hasPermission("StudentGrade.View") && (
               <button
                 onClick={() => setActiveDetailTab("grades")}
@@ -295,7 +309,15 @@ export default function ClassDetail({
               />
             )}
 
-            {/* TAB 6: BÀI TẬP (MOCKED WITH REAL STUDENTS) */}
+            {/* TAB 6: BÀI KIỂM TRA (REAL DATA FROM CLASS) */}
+            {activeDetailTab === "exams" && hasPermission("Exam.View") && (
+              <ClassDetailExamsTab
+                itemDetail={itemDetail}
+                t={t}
+              />
+            )}
+
+            {/* TAB 7: BẢNG ĐIỂM (REAL DATA FROM CLASS) */}
             {activeDetailTab === "grades" && hasPermission("StudentGrade.View") && (
               <ClassDetailGradesTab
                 itemDetail={itemDetail}
