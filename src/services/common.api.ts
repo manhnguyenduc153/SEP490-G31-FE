@@ -2,6 +2,8 @@ import { api, ApiResponse } from "./api";
 import { ENDPOINTS } from "@/constants/endpoints";
 import { SemesterItem } from "./semester.api";
 import { CoursePagingResponse } from "./course.api";
+import { ClassPagingResponse } from "./class.api";
+import { QuestionCategoryPagingResponse } from "./questionCategory.api";
 
 export const commonApi = {
   async getSemesters(): Promise<ApiResponse<SemesterItem[]>> {
@@ -27,6 +29,36 @@ export const commonApi = {
     const query = new URLSearchParams(params).toString();
     return api.get<CoursePagingResponse>(
       `${ENDPOINTS.COMMON.COURSES}?${query}`
+    );
+  },
+
+  async getClasses(
+    pageIndex: number,
+    pageSize: number,
+    keyword: string = ""
+  ): Promise<ApiResponse<ClassPagingResponse>> {
+    const query = new URLSearchParams({
+      pageIndex: String(pageIndex),
+      pageSize: String(pageSize),
+      ...(keyword ? { keyword } : {}),
+    }).toString();
+    return api.get<ClassPagingResponse>(
+      `${ENDPOINTS.COMMON.CLASSES}?${query}`
+    );
+  },
+
+  async getQuestionCategories(
+    pageIndex: number,
+    pageSize: number,
+    keyword: string = ""
+  ): Promise<ApiResponse<QuestionCategoryPagingResponse>> {
+    const query = new URLSearchParams({
+      pageIndex: String(pageIndex),
+      pageSize: String(pageSize),
+      ...(keyword ? { keyword } : {}),
+    }).toString();
+    return api.get<QuestionCategoryPagingResponse>(
+      `${ENDPOINTS.COMMON.QUESTION_CATEGORIES}?${query}`
     );
   },
 };

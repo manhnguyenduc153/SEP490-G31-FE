@@ -44,11 +44,11 @@ export const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }
     const userRole = authApi.getRole().toLowerCase();
 
     if (
+      userRole === "admin" ||
       userPermissions.includes(requiredPermission) ||
       (userRole === "student" &&
         (requiredPermission === "Exam" ||
-          requiredPermission === "ExamSchedule" ||
-          (pathname === "/attendance" && requiredPermission === "Attendance")))
+          requiredPermission === "ExamSchedule"))
     ) {
       setIsAuthorized(true);
     } else {

@@ -20,7 +20,7 @@ import {
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { useTranslation } from "react-i18next";
 import { Modal } from "@/components/ui/modal";
-import { Eye, Search } from "lucide-react";
+import { Eye, Search, Edit, Trash2 } from "lucide-react";
 import { StudentViewModal } from "./StudentViewModal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -516,10 +516,10 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
       {/* Header with Title & Action Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 sm:p-6 border-b border-gray-100 dark:border-gray-800">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
             {t("student.title", { defaultValue: "Quản lý Học sinh" })}
-          </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             {t("student.description", { defaultValue: "Quản lý danh sách học sinh, thông tin phụ huynh và cấp tài khoản." })}
           </p>
         </div>
@@ -650,25 +650,6 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
             </div>
           </div>
 
-          {/* Grade Level Selector */}
-          <div className="md:col-span-3">
-            <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
-              {t("student.filterGrade", { defaultValue: "Khối lớp" })}
-            </label>
-            <select
-              value={filterGrade === null ? "" : filterGrade}
-              onChange={(e) => { setFilterGrade(e.target.value ? Number(e.target.value) : null); setCurrentPage(1); }}
-              className="w-full px-3 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all h-11 cursor-pointer"
-            >
-              <option value="" className="dark:bg-gray-900">{t("student.filterAll", { defaultValue: "Tất cả khối lớp" })}</option>
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((g) => (
-                <option key={g} value={g} className="dark:bg-gray-900">
-                  {t("student.colGradeLevel")} {g}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* Gender Selector */}
           <div className="md:col-span-3">
             <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -688,6 +669,9 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
               <option value="false" className="dark:bg-gray-900">{t("student.formGenderFemale", { defaultValue: "Nữ" })}</option>
             </select>
           </div>
+
+          {/* Spacer to push Clear Filters to the right */}
+          <div className="hidden md:block md:col-span-3" />
 
           {/* Clear Filters Button */}
           <div className="flex items-center justify-end h-11 md:col-span-2">
@@ -884,31 +868,23 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
                       </button>
                       <PermissionGuard requiredPermission="Student.Edit">
                         <button
+                          type="button"
                           title={t("student.editTooltip", { defaultValue: "Chỉnh sửa" })}
                           onClick={() => onEditClick(item)}
-                          className="p-1.5 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                          className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md transition-colors"
                         >
-                          <PencilIcon className="w-4 h-4" />
+                          <Edit className="w-4 h-4" />
                         </button>
                       </PermissionGuard>
                       <PermissionGuard requiredPermission="Student.Delete">
-                        {item.status !== 0 && (
-                          <button
-                            title={t("student.deactivateTooltip", { defaultValue: "Vô hiệu hóa" })}
-                            onClick={() => openDeactivateModal(item)}
-                            className="p-1.5 text-gray-500 hover:text-yellow-500 dark:text-gray-400 dark:hover:text-yellow-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                            </svg>
-                          </button>
-                        )}
+
                         <button
+                          type="button"
                           title={t("student.deleteTooltip", { defaultValue: "Xóa" })}
                           onClick={() => openDeleteModal(item)}
-                          className="p-1.5 text-gray-500 hover:text-error-500 dark:text-gray-400 dark:hover:text-error-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                          className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors"
                         >
-                          <TrashBinIcon className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </PermissionGuard>
                     </div>

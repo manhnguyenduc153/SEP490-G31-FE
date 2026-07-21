@@ -1680,13 +1680,19 @@
       "ExamSchedule": "Lịch thi",
       "ExamStudent": "Học sinh thi",
       "StudentGrade": "Điểm số",
-      "Homework": "Bài tập"
+      "Homework": "Bài tập",
+      "Exam": "Bài kiểm tra",
+      "ExamQuestion": "Câu hỏi bài thi",
+      "ExamAttempt": "Lượt làm bài thi",
+      "ExamAnswer": "Đáp án bài thi"
     },
     "action": {
       "View": "Xem",
       "Create": "Thêm mới",
       "Edit": "Sửa",
-      "Delete": "Xóa"
+      "Delete": "Xóa",
+      "StudentView": "Xem cho Học sinh",
+      "TeacherView": "Xem cho Giáo viên"
     },
     "ERR_NO_FEASIBLE_SCHEDULE_FOUND": "Không tìm thấy phương án xếp lịch khả thi (vui lòng bổ sung thêm phòng học, giáo viên hoặc kiểm tra trùng lặp ca học)!",
     "GET_SEMESTER_LIST_SUCCESS": "Lấy danh sách học kỳ thành công",

@@ -50,7 +50,7 @@ export default function StudentsPage() {
         </div>
       )}
 
-      <PageBreadcrumb pageTitle="sidebar.students" />
+
       <div className="space-y-6">
         {activeTab === "list" ? (
           <StudentTable
