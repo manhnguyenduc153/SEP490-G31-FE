@@ -1,8 +1,11 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import { courseApi, CourseItem } from "@/services/course.api";
+import { CourseItem } from "@/services/course.api";
+import { commonApi } from "@/services/common.api";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
+import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
 import { GradeComponentDto, GradeComponentSaveDto, studentGradeApi } from "@/services/score.api";
 import { CheckCircle, Plus, RefreshCw, Save, Trash2, XCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -35,6 +38,8 @@ export default function ScoresPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<"success" | "error">("success");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
 
   const selectedCourse = useMemo(
     () => courses.find((item) => item.id === selectedCourseId),
@@ -61,11 +66,11 @@ export default function ScoresPage() {
     async function loadCourses() {
       setIsLoadingCourses(true);
       try {
-        const res = await courseApi.getAll(1, 500);
+        const res = await commonApi.getCourses(1, 500);
         if (res.success && res.data) {
           setCourses(res.data.items || []);
         } else {
-          showToast(res.message || t("class.gradeCourseLoadError", { defaultValue: "Could not load courses" }), "error");
+          showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("class.gradeCourseLoadError"), "error");
         }
       } catch {
         showToast(t("class.gradeCourseConnectionError", { defaultValue: "Could not connect to server to load courses" }), "error");
@@ -82,7 +87,7 @@ export default function ScoresPage() {
     try {
       const res = await studentGradeApi.getCourseComponents(courseId);
       if (!res.success || !res.data) {
-        throw new Error(res.message || t("class.gradeSettingsLoadError", { defaultValue: "Could not load score settings" }));
+        throw new Error(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("class.gradeSettingsLoadError"));
       }
       setRules(res.data.map(componentToRule));
     } catch (err) {
@@ -130,6 +135,14 @@ export default function ScoresPage() {
     setRules((current) => current.filter((rule) => rule.id !== id));
   };
 
+  const totalPages = Math.max(1, Math.ceil(rules.length / itemsPerPage));
+  const pageRules = rules.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  useEffect(() => setCurrentPage(1), [selectedCourseId, itemsPerPage]);
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
   const saveRules = async () => {
     if (!selectedCourseId) return;
     if (!rules.length) {
@@ -154,7 +167,7 @@ export default function ScoresPage() {
 
       const res = await studentGradeApi.saveCourseComponents(Number(selectedCourseId), payload);
       if (!res.success || !res.data) {
-        throw new Error(res.message || t("class.gradeSaveError", { defaultValue: "Could not save score settings" }));
+        throw new Error(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("class.gradeSaveError"));
       }
 
       setRules(res.data.map(componentToRule));
@@ -179,36 +192,41 @@ export default function ScoresPage() {
         </div>
       )}
 
-      <PageBreadcrumb pageTitle="sidebar.scoreSettings" />
-
       <div className="space-y-6">
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-xs dark:border-gray-800 dark:bg-gray-900">
+        <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xs dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex flex-col gap-3 border-b border-gray-100 px-6 py-5 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">{t("sidebar.scoreSettings")}</h2>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("class.gradeCourseWeightHelp")}</p>
+            </div>
+            <PermissionGuard requiredPermission="StudentGrade.Create">
+              <button onClick={addRule} disabled={!selectedCourseId} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">
+                <Plus className="h-5 w-5" /> {t("class.gradeAddComponent")}
+              </button>
+            </PermissionGuard>
+          </div>
+          <div className="p-5">
           <label className="mb-2 block text-sm font-semibold text-gray-700 dark:text-gray-200">
             {t("class.gradeSelectCourse", { defaultValue: "Select course" })}
           </label>
-          <select
+          <SearchableSelect
             value={selectedCourseId}
-            onChange={(event) => setSelectedCourseId(event.target.value ? Number(event.target.value) : "")}
+            onChange={(value) => setSelectedCourseId(value ? Number(value) : "")}
             disabled={isLoadingCourses}
-            className="h-11 w-full max-w-xl rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
-          >
-            <option value="">
-              {isLoadingCourses
-                ? t("class.gradeLoadingCourses", { defaultValue: "Loading courses..." })
-                : t("class.gradeSelectCoursePlaceholder", { defaultValue: "Select a course to configure score components" })}
-            </option>
-            {courses.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.code ? `${item.code} - ${item.name}` : item.name}
-              </option>
-            ))}
-          </select>
+            className="max-w-xl"
+            options={courses.map((item) => ({ value: item.id, label: item.code ? `${item.code} - ${item.name}` : item.name }))}
+            placeholder={isLoadingCourses ? t("class.gradeLoadingCourses") : t("class.gradeSelectCoursePlaceholder")}
+            searchPlaceholder={t("common.searchPlaceholder", { defaultValue: "Tìm kiếm..." })}
+            noResultsText={t("common.noResults", { defaultValue: "Không tìm thấy kết quả" })}
+            onClear={() => setSelectedCourseId("")}
+          />
 
           {selectedCourse && (
             <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
               {t("sidebar.courses", { defaultValue: "Course" })}: <span className="font-semibold">{selectedCourse.name}</span>
             </div>
           )}
+          </div>
         </div>
 
         {!selectedCourseId ? (
@@ -227,14 +245,11 @@ export default function ScoresPage() {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <button onClick={addRule} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white hover:bg-brand-600">
-                  <Plus className="h-3.5 w-3.5" />
-                  {t("class.gradeAddComponent", { defaultValue: "Add component" })}
-                </button>
-                <button onClick={saveRules} disabled={isSaving || isLoadingRules} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-60">
-                  <Save className="h-3.5 w-3.5" />
-                  {t("class.gradeSettingsSave", { defaultValue: "Save settings" })}
-                </button>
+                <PermissionGuard requiredPermission="StudentGrade.Edit">
+                  <button onClick={saveRules} disabled={isSaving || isLoadingRules} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-60">
+                    <Save className="h-3.5 w-3.5" /> {t("class.gradeSettingsSave")}
+                  </button>
+                </PermissionGuard>
               </div>
             </div>
 
@@ -259,7 +274,7 @@ export default function ScoresPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                    {rules.map((rule) => (
+                    {pageRules.map((rule) => (
                       <tr key={rule.id}>
                         <td className="px-4 py-3">
                           <input
@@ -281,14 +296,28 @@ export default function ScoresPage() {
                           />
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <button onClick={() => removeRule(rule.id)} disabled={rules.length <= 1} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-rose-500/10">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          <PermissionGuard requiredPermission="StudentGrade.Delete">
+                            <button title={t("common.delete", { defaultValue: "Xóa" })} onClick={() => removeRule(rule.id)} disabled={rules.length <= 1} className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-40">
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </PermissionGuard>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+            {!isLoadingRules && (
+              <div className="mt-4 flex flex-col gap-4 border-t border-gray-100 pt-4 dark:border-gray-800 xl:flex-row xl:items-center xl:justify-between">
+                <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+                  <span>{t("common.show")}</span>
+                  <select value={itemsPerPage} onChange={(e) => setItemsPerPage(Number(e.target.value))} className="h-10 rounded-lg border border-gray-300 bg-white px-3 pr-8 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                    {[5, 10, 15, 20].map((value) => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                  <span>{t("common.entries")}</span>
+                </div>
+                {totalPages > 1 && <PaginationWithIcon totalPages={totalPages} initialPage={currentPage} onPageChange={setCurrentPage} />}
               </div>
             )}
           </div>

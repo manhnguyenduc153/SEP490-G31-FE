@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import TeacherTable from "@/components/teacher/TeacherTable";
 import { TeacherForm } from "@/components/teacher/TeacherForm";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
@@ -101,8 +100,6 @@ export default function TeacherPage() {
           <span className="text-sm font-medium">{toastMessage}</span>
         </div>
       )}
-
-      <PageBreadcrumb pageTitle="teacher.title" />
 
       <PermissionGuard requiredPermission="Teacher.View">
         {activeTab === "list" ? (

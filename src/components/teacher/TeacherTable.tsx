@@ -11,12 +11,14 @@ import {
 } from "@/components/ui/table";
 import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
-import { AngleDownIcon, AngleUpIcon, PencilIcon, TrashBinIcon } from "@/icons";
+import { AngleDownIcon, AngleUpIcon } from "@/icons";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
-import { teacherApi, TeacherItem, TeacherSaveDto, GradeLevel } from "@/services/teacher.api";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { teacherApi, TeacherItem, TeacherSaveDto } from "@/services/teacher.api";
 import { useTranslation } from "react-i18next";
+import { Edit, Plus, Trash2 } from "lucide-react";
 
-type SortKey = "code" | "name" | "email" | "phone" | "status" | "gradeLevelName" | "hasAccount";
+type SortKey = "code" | "name" | "email" | "phone" | "status" | "hasAccount";
 type SortOrder = "asc" | "desc";
 
 interface TeacherTableProps {
@@ -46,7 +48,6 @@ export default function TeacherTable({
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<number | null>(null);
-  const [filterGradeLevel, setFilterGradeLevel] = useState<GradeLevel | null>(null);
   const [filterGender, setFilterGender] = useState<boolean | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -136,7 +137,7 @@ export default function TeacherTable({
           itemsPerPage,
           debouncedSearchTerm,
           filterStatus,
-          filterGradeLevel,
+          null,
           filterGender
         );
         if (!mounted) return;
@@ -164,7 +165,7 @@ export default function TeacherTable({
     return () => {
       mounted = false;
     };
-  }, [currentPage, itemsPerPage, debouncedSearchTerm, filterStatus, filterGradeLevel, filterGender, refreshKey, t]);
+  }, [currentPage, itemsPerPage, debouncedSearchTerm, filterStatus, filterGender, refreshKey, t]);
 
   const sortedData = useMemo(() => {
     return [...items].sort((a, b) => {
@@ -194,8 +195,6 @@ export default function TeacherTable({
       setSortOrder("asc");
     }
   };
-
-  const gradeLevelOptions = Object.values(GradeLevel);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -228,7 +227,6 @@ export default function TeacherTable({
         "Ngày sinh": "01/01/1990",
         "Giới tính": "Nam",
         "Địa chỉ": "123 Đường Láng, Hà Nội",
-        "Cấp độ": "Ielts65Plus",
         "Trạng thái": 1,
         "Mô tả": "Giáo viên giỏi"
       }
@@ -238,12 +236,12 @@ export default function TeacherTable({
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Template Nhập Giáo viên");
     XLSX.writeFile(wb, "Template_Nhap_Giao_Vien.xlsx");
-    showToast("Tải file mẫu Excel thành công!");
+    showToast(t("teacher.templateDownloadSuccess"));
   };
 
   const handleExportExcel = async () => {
     try {
-      const res = await teacherApi.getAll(1, 10000, searchTerm, filterStatus, filterGradeLevel, filterGender);
+      const res = await teacherApi.getAll(1, 10000, searchTerm, filterStatus, null, filterGender);
       if (res.success && res.data) {
         const exportItems = res.data.items || [];
         
@@ -256,7 +254,6 @@ export default function TeacherTable({
           "Ngày sinh": item.dob ? new Date(item.dob).toLocaleDateString("vi-VN") : "",
           "Giới tính": item.gender === true ? "Nam" : item.gender === false ? "Nữ" : "",
           "Địa chỉ": item.address || "",
-          "Cấp độ": item.gradeLevelName || "",
           "Trạng thái": item.status === 1 ? "Hoạt động" : "Ngưng hoạt động",
           "Mô tả": item.description || ""
         }));
@@ -265,13 +262,13 @@ export default function TeacherTable({
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Danh sách Giáo viên");
         XLSX.writeFile(wb, "Danh_Sach_Giao_Vien.xlsx");
-        showToast("Xuất dữ liệu Excel thành công!");
+        showToast(t("teacher.exportSuccess"));
       } else {
-        showToast(res.message || "Không thể xuất file Excel", "error");
+        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("teacher.exportError"), "error");
       }
     } catch (err) {
       console.error("Export Excel error", err);
-      showToast("Lỗi hệ thống khi xuất Excel", "error");
+      showToast(t("teacher.exportSystemError"), "error");
     }
   };
 
@@ -289,7 +286,7 @@ export default function TeacherTable({
 
         const rows = XLSX.utils.sheet_to_json(ws);
         if (rows.length === 0) {
-          showToast("File Excel không có dữ liệu", "error");
+          showToast(t("teacher.importEmptyError"), "error");
           return;
         }
 
@@ -302,7 +299,6 @@ export default function TeacherTable({
           const dobStr = row["Ngày sinh"] || row["Dob"] || row["dob"];
           const genderStr = row["Giới tính"] || row["Gender"] || row["gender"];
           const address = row["Địa chỉ"] || row["Address"] || row["address"];
-          const gradeLevelStr = row["Cấp độ"] || row["Grade"] || row["grade"];
           const statusStr = row["Trạng thái"] || row["Status"] || row["status"];
           const description = row["Mô tả"] || row["Note"] || row["description"];
 
@@ -330,14 +326,6 @@ export default function TeacherTable({
             }
           }
           
-          let gradeLevel: GradeLevel | null = null;
-          if (gradeLevelStr) {
-            const normalized = String(gradeLevelStr).trim();
-            if (Object.values(GradeLevel).includes(normalized as GradeLevel)) {
-                gradeLevel = normalized as GradeLevel;
-            }
-          }
-
           dtos.push({
             code: code ? String(code).trim() : "",
             name: String(name).trim(),
@@ -346,27 +334,26 @@ export default function TeacherTable({
             dob,
             gender,
             address: address ? String(address).trim() : null,
-            gradeLevel,
             description: description ? String(description).trim() : null,
             status: statusStr ? Number(statusStr) : 1
           });
         }
 
         if (dtos.length === 0) {
-          showToast("Không tìm thấy dòng dữ liệu hợp lệ (yêu cầu Họ Tên & Email)", "error");
+          showToast(t("teacher.importInvalidRowsError"), "error");
           return;
         }
 
         const res = await teacherApi.import(dtos);
         if (res.success) {
-          showToast(`Nhập thành công ${res.data?.length || dtos.length} giáo viên!`);
+          showToast(t("teacher.importSuccess", { count: res.data?.length || dtos.length }));
           setRefreshKey((key) => key + 1);
         } else {
-          showToast(res.message || "Lỗi khi nhập danh sách giáo viên", "error");
+          showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("teacher.importError"), "error");
         }
       } catch (err: any) {
         console.error("Import Excel error", err);
-        showToast("Lỗi khi đọc file Excel: " + err.message, "error");
+        showToast(t("teacher.importReadError", { message: err.message }), "error");
       }
     };
     reader.readAsBinaryString(file);
@@ -378,7 +365,6 @@ export default function TeacherTable({
   const columns: { key: SortKey; label: string }[] = [
     { key: "code", label: t("teacher.colCode") },
     { key: "name", label: t("teacher.colName") },
-    { key: "gradeLevelName", label: t("teacher.formGradeLevelLabel") },
     { key: "email", label: t("teacher.colEmail") },
     { key: "phone", label: t("teacher.colPhone") },
     { key: "status", label: t("teacher.colStatus") },
@@ -389,23 +375,9 @@ export default function TeacherTable({
     <div className="overflow-hidden bg-white dark:bg-white/[0.03] rounded-xl border border-gray-100 dark:border-white/[0.05]">
       <div className="space-y-5 border-b border-gray-100 px-6 py-5 dark:border-white/[0.05]">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-500 dark:text-gray-400">{t("teacher.show")}</span>
-            <select
-              className="h-10 rounded-lg border border-gray-300 bg-white px-3 pr-8 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              value={itemsPerPage}
-              onChange={(e) => {
-                setItemsPerPage(Number(e.target.value));
-                setCurrentPage(1);
-              }}
-            >
-              {[5, 10, 15, 20].map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-            <span className="text-sm text-gray-500 dark:text-gray-400">{t("teacher.entries")}</span>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">{t("teacher.title")}</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("teacher.description")}</p>
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
@@ -471,64 +443,36 @@ export default function TeacherTable({
               onClick={onAddClick}
               className="flex h-11 items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white shadow-theme-xs transition-colors hover:bg-brand-600"
             >
-              <span className="text-lg leading-none">+</span>
+              <Plus className="h-5 w-5" />
               {t("teacher.addTeacher")}
             </button>
           </PermissionGuard>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(180px,220px)_minmax(220px,280px)_minmax(140px,180px)_minmax(300px,1fr)]">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(180px,220px)_minmax(140px,180px)_minmax(300px,1fr)]">
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("teacher.filterStatus", { defaultValue: "Trạng thái" })}</span>
-            <select
-              className="h-11 rounded-lg border border-gray-300 bg-transparent px-3 pr-8 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+            <SearchableSelect
               value={filterStatus === null ? "" : filterStatus}
-              onChange={(e) => {
-                setFilterStatus(e.target.value === "" ? null : Number(e.target.value));
-                setCurrentPage(1);
-              }}
-            >
-              <option value="">{t("teacher.filterAll", { defaultValue: "Tất cả" })}</option>
-              <option value={1}>{t("teacher.statusActive")}</option>
-              <option value={0}>{t("teacher.statusInactive")}</option>
-              <option value={2}>{t("teacher.statusOnLeave", { defaultValue: "On Leave" })}</option>
-            </select>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("teacher.formGradeLevelLabel")}</span>
-            <select
-              className="h-11 rounded-lg border border-gray-300 bg-transparent px-3 pr-8 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              value={filterGradeLevel ?? ""}
-              onChange={(e) => {
-                setFilterGradeLevel(e.target.value ? (e.target.value as GradeLevel) : null);
-                setCurrentPage(1);
-              }}
-            >
-              <option value="">{t("teacher.filterAll", { defaultValue: "Tất cả" })}</option>
-              {gradeLevelOptions.map((grade) => (
-                <option key={grade} value={grade}>
-                  {t(`teacher.gradeLevels.${grade}`, { defaultValue: grade })}
-                </option>
-              ))}
-            </select>
+              options={[{ value: "", label: t("teacher.filterAll") }, { value: 1, label: t("teacher.statusActive") }, { value: 0, label: t("teacher.statusInactive") }, { value: 2, label: t("teacher.statusOnLeave") }]}
+              onChange={(value) => { setFilterStatus(value === "" ? null : Number(value)); setCurrentPage(1); }}
+              placeholder={t("teacher.filterAll")}
+              searchPlaceholder={t("common.searchPlaceholder", { defaultValue: "Tìm kiếm..." })}
+              noResultsText={t("common.noResults", { defaultValue: "Không tìm thấy kết quả" })}
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("teacher.formGenderLabel")}</span>
-            <select
-              className="h-11 rounded-lg border border-gray-300 bg-transparent px-3 pr-8 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+            <SearchableSelect
               value={filterGender === null ? "" : String(filterGender)}
-              onChange={(e) => {
-                setFilterGender(e.target.value === "" ? null : e.target.value === "true");
-                setCurrentPage(1);
-              }}
-            >
-              <option value="">{t("teacher.filterAll", { defaultValue: "Tất cả" })}</option>
-              <option value="true">{t("teacher.genderMale")}</option>
-              <option value="false">{t("teacher.genderFemale")}</option>
-            </select>
+              options={[{ value: "", label: t("teacher.filterAll") }, { value: "true", label: t("teacher.genderMale") }, { value: "false", label: t("teacher.genderFemale") }]}
+              onChange={(value) => { setFilterGender(value === "" ? null : value === "true"); setCurrentPage(1); }}
+              placeholder={t("teacher.filterAll")}
+              searchPlaceholder={t("common.searchPlaceholder", { defaultValue: "Tìm kiếm..." })}
+              noResultsText={t("common.noResults", { defaultValue: "Không tìm thấy kết quả" })}
+            />
           </div>
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("teacher.searchLabel", { defaultValue: "Tìm kiếm" })}</span>
@@ -662,7 +606,6 @@ export default function TeacherTable({
                   </TableCell>
                   <TableCell className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">{item.code}</TableCell>
                   <TableCell className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">{item.name}</TableCell>
-                  <TableCell className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">{item.gradeLevelName || "-"}</TableCell>
                   <TableCell className="px-6 py-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">{item.email || "-"}</TableCell>
                   <TableCell className="px-6 py-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">{item.phone || "-"}</TableCell>
                   <TableCell className="px-6 py-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">
@@ -687,9 +630,9 @@ export default function TeacherTable({
                         <button
                           title={t("teacher.editTooltip")}
                           onClick={() => onEditClick(item)}
-                          className="p-1.5 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                          className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md transition-colors"
                         >
-                          <PencilIcon className="w-4 h-4" />
+                          <Edit className="w-4 h-4" />
                         </button>
                       </PermissionGuard>
                       <PermissionGuard requiredPermission="Teacher.Delete">
@@ -699,9 +642,9 @@ export default function TeacherTable({
                             setDeleteTarget(item);
                             setIsDeleteModalOpen(true);
                           }}
-                          className="p-1.5 text-gray-500 hover:text-error-500 dark:text-gray-400 dark:hover:text-error-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                          className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors"
                         >
-                          <TrashBinIcon className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </PermissionGuard>
                     </div>
@@ -720,9 +663,16 @@ export default function TeacherTable({
       </div>
 
       <div className="flex flex-col gap-4 px-6 py-5 bg-gray-50/50 dark:bg-white/[0.01] border-t border-gray-100 dark:border-white/[0.05] xl:flex-row xl:items-center xl:justify-between">
-        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-          {t("teacher.showing", { start: totalRecords === 0 ? 0 : startIndex + 1, end: endIndex, total: totalRecords })}
-        </p>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-500 dark:text-gray-400">{t("teacher.show")}</span>
+            <select className="h-10 rounded-lg border border-gray-300 bg-white px-3 pr-8 text-sm text-gray-800 shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}>
+              {[5, 10, 15, 20].map((value) => <option key={value} value={value}>{value}</option>)}
+            </select>
+            <span className="text-sm text-gray-500 dark:text-gray-400">{t("teacher.entries")}</span>
+          </div>
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t("teacher.showing", { start: totalRecords === 0 ? 0 : startIndex + 1, end: endIndex, total: totalRecords })}</p>
+        </div>
         {totalPages > 1 && (
           <PaginationWithIcon totalPages={totalPages} initialPage={currentPage} onPageChange={(page) => setCurrentPage(page)} />
         )}

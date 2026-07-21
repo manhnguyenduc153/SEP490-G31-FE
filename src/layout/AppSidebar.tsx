@@ -80,8 +80,8 @@ const schoolItems: NavItem[] = [
       { name: "homework", path: "/homework", permission: "Homework" },
       { name: "questionBank", path: "/question-bank", permission: "Question" },
       { name: "questionCategory", path: "/question-category", permission: "QuestionCategory" },
-      { name: "scoreSettings", path: "/scores", permission: "StudentGrade" },
-      { name: "myScores", path: "/my-scores", permission: "StudentGrade.View" },
+      { name: "scoreSettings", path: "/scores", permission: "StudentGrade.ViewSettings" },
+      { name: "myScores", path: "/my-scores", permission: "StudentGrade.ViewOwnGrades" },
     ],
   },
   {
