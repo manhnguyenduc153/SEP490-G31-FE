@@ -932,7 +932,10 @@
     "genderMale": "Male",
     "genderFemale": "Female",
     "avatarLabel": "Avatar",
-    "certificateLabel": "Certificate",
+    "certificateLabel": "Certificates",
+    "uploadCertificates": "Upload multiple certificates",
+    "removeCertificate": "Remove certificate",
+    "pendingUpload": "Pending",
     "uploadPlaceholder": "Allowed formats: *.png, *.jpg, *.jpeg. Max size: 2MB",
     "gradeLevels": {
       "Foundation": "Foundation",

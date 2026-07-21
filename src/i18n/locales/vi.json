@@ -934,6 +934,9 @@
     "genderFemale": "Nữ",
     "avatarLabel": "Ảnh đại diện",
     "certificateLabel": "Chứng chỉ",
+    "uploadCertificates": "Tải nhiều chứng chỉ lên",
+    "removeCertificate": "Xóa chứng chỉ",
+    "pendingUpload": "Chờ tải",
     "uploadPlaceholder": "Cho phép các định dạng: *.png, *.jpg và *.jpeg. Kích thước tối đa: 2MB",
     "gradeLevels": {
       "Foundation": "Cơ bản (Foundation)",
