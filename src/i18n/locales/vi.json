@@ -1358,12 +1358,13 @@
     "deleteError": "Xóa vai trò thất bại",
     "systemError": "Đã xảy ra lỗi hệ thống",
     "names": {
-      "Học sinh": "Học sinh",
-      "Giáo viên": "Giáo viên",
-      "Ban vận hành": "Ban vận hành",
-      "Ban chuyên môn": "Ban chuyên môn",
-      "Quản lý trung tâm": "Quản lý trung tâm",
-      "Phụ huynh": "Phụ huynh"
+      "Admin": "Quản trị viên",
+      "Student": "Học sinh",
+      "Teacher": "Giáo viên",
+      "Parent": "Phụ huynh",
+      "Operation staff": "Ban vận hành",
+      "Academic staff": "Ban chuyên môn",
+      "Center manager": "Quản lý trung tâm"
     }
   },
   "room": {

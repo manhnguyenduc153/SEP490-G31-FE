@@ -427,7 +427,7 @@ export default function UserTable() {
               value={roleFilter}
               onChange={(value) => { setRoleFilter(value); setCurrentPage(1); }}
               options={[
-                ...rolesList.map((r) => ({ value: r, label: r })),
+                ...rolesList.map((r) => ({ value: r, label: t(`roles.names.${r}`, { defaultValue: r }) })),
               ]}
               placeholder={t("user.filterRoleAll", { defaultValue: "Tất cả vai trò" })}
               onClear={() => { setRoleFilter("all"); setCurrentPage(1); }}

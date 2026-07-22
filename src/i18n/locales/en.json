@@ -1357,12 +1357,13 @@
     "deleteError": "Failed to delete role",
     "systemError": "System error occurred",
     "names": {
-      "Học sinh": "Student",
-      "Giáo viên": "Teacher",
-      "Ban vận hành": "Operation staff",
-      "Ban chuyên môn": "Academic staff",
-      "Quản lý trung tâm": "Center manager",
-      "Phụ huynh": "Parent"
+      "Admin": "Admin",
+      "Student": "Student",
+      "Teacher": "Teacher",
+      "Parent": "Parent",
+      "Operation staff": "Operation staff",
+      "Academic staff": "Academic staff",
+      "Center manager": "Center manager"
     }
   },
   "room": {
