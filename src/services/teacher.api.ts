@@ -2,16 +2,7 @@ import { api, ApiResponse } from "./api";
 import { ENDPOINTS } from "@/constants/endpoints";
 import { ENV } from "@/config/env";
 
-// ─── Enums & DTOs ────────────────────────────────────────────────────────────────────
-
-export enum GradeLevel {
-  Foundation = "Foundation",
-  PreIelts = "PreIelts",
-  Ielts4_5 = "Ielts4_5",
-  Ielts5_6 = "Ielts5_6",
-  Ielts6_65 = "Ielts6_65",
-  Ielts65Plus = "Ielts65Plus",
-}
+// ─── DTOs ────────────────────────────────────────────────────────────────────
 
 export interface TeacherItem {
   id: number;
@@ -24,8 +15,6 @@ export interface TeacherItem {
   address?: string | null;
   status: number;
   description?: string | null;
-  gradeLevel?: GradeLevel | null;
-  gradeLevelName?: string | null;
   avatar?: string | null;
   certificates: string[];
   hasAccount?: boolean;
@@ -50,7 +39,6 @@ export interface TeacherSaveDto {
   address?: string | null;
   status: number;
   description?: string | null;
-  gradeLevel?: GradeLevel | null;
   avatar?: string | null;
   certificates?: string[];
 }
@@ -63,7 +51,6 @@ export const teacherApi = {
     pageSize: number,
     keyword: string = "",
     teacherStatus: number | null = null,
-    gradeLevel: GradeLevel | null = null,
     gender: boolean | null = null
   ): Promise<ApiResponse<TeacherPagingResponse>> {
     const query = new URLSearchParams({
@@ -71,7 +58,6 @@ export const teacherApi = {
       pageSize: String(pageSize),
       ...(keyword ? { keyword } : {}),
       ...(teacherStatus !== null ? { teacherStatus: String(teacherStatus) } : {}),
-      ...(gradeLevel ? { gradeLevel } : {}),
       ...(gender !== null ? { gender: String(gender) } : {}),
     }).toString();
     return api.get<TeacherPagingResponse>(
