@@ -37,7 +37,7 @@ export interface UserUpdateDto {
   id: string;
   email: string;
   phone: string;
-  roleName: string;
+  roleName?: string;
 }
 
 export const userApi = {

@@ -20,7 +20,7 @@ import {
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { useTranslation } from "react-i18next";
 import { Modal } from "@/components/ui/modal";
-import { Users, Eye, Plus, Search } from "lucide-react";
+import { Users, Eye, Plus, Search, Edit, Trash2 } from "lucide-react";
 import { ChildItem } from "@/services/parentStudent.api";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -391,9 +391,9 @@ export default function ParentStudentTable({
                           <button
                             onClick={() => openEditModal(item)}
                             title={t("parentStudent.editTooltip")}
-                            className="p-1.5 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                            className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md transition-colors"
                           >
-                            <PencilIcon className="w-4 h-4" />
+                            <Edit className="w-4 h-4" />
                           </button>
                         </PermissionGuard>
 
@@ -401,9 +401,9 @@ export default function ParentStudentTable({
                           <button
                             onClick={() => openDeleteModal(item)}
                             title={t("parentStudent.deleteTooltip")}
-                            className="p-1.5 text-gray-500 hover:text-error-500 dark:text-gray-400 dark:hover:text-error-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                            className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors"
                           >
-                            <TrashBinIcon className="w-4 h-4" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </PermissionGuard>
                       </div>
