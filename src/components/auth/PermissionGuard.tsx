@@ -24,12 +24,12 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     }
 
     const role = authApi.getRole().toLowerCase();
-    if (role === "admin") {
-      setHasPermission(true);
-      return;
-    }
-
-    if (role === "student" && (requiredPermission === "Exam" || requiredPermission === "ExamSchedule")) {
+    if (
+      role === "admin" ||
+      role === "academic staff" ||
+      role === "ban chuyên môn" ||
+      role === "ban vận hành"
+    ) {
       setHasPermission(true);
       return;
     }

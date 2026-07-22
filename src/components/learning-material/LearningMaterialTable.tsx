@@ -23,7 +23,7 @@ import { teacherApi } from "@/services/teacher.api";
 import { authApi } from "@/services/auth.api";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { useTranslation } from "react-i18next";
-import { FileText, Plus, Search, Filter, BookOpen, Layers, CheckCircle, HelpCircle, HardDrive, ListFilter, Eye, Download, Pencil, Trash2 } from "lucide-react";
+import { FileText, Plus, Search, Filter, BookOpen, Layers, CheckCircle, HelpCircle, HardDrive, ListFilter, Eye, Download, Edit, Trash2 } from "lucide-react";
 import { CodeHelper } from "@/helpers/CodeHelper";
 import { ENV } from "@/config/env";
 
@@ -470,17 +470,28 @@ export default function LearningMaterialTable() {
 
   const checkEditPermission = (item: LearningMaterialItem) => {
     const role = userRole.toLowerCase();
-    if (role === "admin" || role === "academicstaff" || role === "academic staff") {
-      return true;
-    }
-    if (role === "teacher" && currentTeacherId !== null && item.uploadedBy === currentTeacherId) {
+    if (role === "admin") return true;
+
+    if (authApi.hasPermission("LearningMaterial.Edit")) {
+      if (role === "teacher" && currentTeacherId !== null) {
+        return item.uploadedBy === currentTeacherId;
+      }
       return true;
     }
     return false;
   };
 
   const checkDeletePermission = (item: LearningMaterialItem) => {
-    return checkEditPermission(item);
+    const role = userRole.toLowerCase();
+    if (role === "admin") return true;
+
+    if (authApi.hasPermission("LearningMaterial.Delete")) {
+      if (role === "teacher" && currentTeacherId !== null) {
+        return item.uploadedBy === currentTeacherId;
+      }
+      return true;
+    }
+    return false;
   };
 
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -890,9 +901,9 @@ export default function LearningMaterialTable() {
                               <button
                                 title={t("questionCategory.editTooltip", { defaultValue: "Chỉnh sửa" })}
                                 onClick={() => openEditModal(item)}
-                                className="p-2 text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg dark:bg-amber-950/20 dark:text-amber-400 dark:hover:bg-amber-950/30 transition-colors"
+                                className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md transition-colors"
                               >
-                                <Pencil className="w-4 h-4" />
+                                <Edit className="w-4 h-4" />
                               </button>
                             </PermissionGuard>
                           )}
@@ -903,7 +914,7 @@ export default function LearningMaterialTable() {
                               <button
                                 title={t("questionCategory.deleteTooltip", { defaultValue: "Xóa" })}
                                 onClick={() => openDeleteModal(item)}
-                                className="p-2 text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg dark:bg-rose-950/20 dark:text-rose-400 dark:hover:text-rose-400 transition-colors"
+                                className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>

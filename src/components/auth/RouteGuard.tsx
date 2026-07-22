@@ -44,13 +44,11 @@ export const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }
     const userPermissions = authApi.getPermissions();
     const userRole = authApi.getRole().toLowerCase();
 
-    if (
-      userRole === "admin" ||
-      userPermissions.includes(requiredPermission) ||
-      (userRole === "student" &&
-        (requiredPermission === "Exam" ||
-          requiredPermission === "ExamSchedule"))
-    ) {
+    const hasRequired = Array.isArray(requiredPermission)
+      ? requiredPermission.some((p) => userPermissions.includes(p))
+      : userPermissions.includes(requiredPermission);
+
+    if (userRole === "admin" || hasRequired) {
       setIsAuthorized(true);
     } else {
       setIsAuthorized(false);

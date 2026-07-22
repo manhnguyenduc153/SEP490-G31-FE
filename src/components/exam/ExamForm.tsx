@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { classApi, ClassItem } from "@/services/class.api";
 import { questionApi, QuestionItem } from "@/services/question.api";
 import { examApi, ExamSaveDto } from "@/services/exam.api";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 interface ExamFormProps {
   id?: number; // If provided, edit mode
@@ -284,18 +285,13 @@ export function ExamForm({ id }: ExamFormProps) {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                   Lớp học nhận bài
                 </label>
-                <select
+                <SearchableSelect
                   value={classId || ""}
-                  onChange={(e) => setClassId(e.target.value ? Number(e.target.value) : null)}
-                  className="w-full h-11 px-3 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-300 focus:outline-hidden dark:text-white text-sm"
-                >
-                  <option value="">Không chọn lớp (tự do)</option>
-                  {classes.map((cls) => (
-                    <option key={cls.id} value={cls.id}>
-                      {cls.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => setClassId(value ? Number(value) : null)}
+                  options={classes.map((cls) => ({ value: cls.id, label: cls.name }))}
+                  placeholder="Không chọn lớp (tự do)"
+                  onClear={() => setClassId(null)}
+                />
               </div>
             )}
           </div>

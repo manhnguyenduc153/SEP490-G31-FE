@@ -9,6 +9,7 @@ export const ENDPOINTS = {
     GET_CURRENT_PERMISSIONS: "/api/Auth/GetCurrentPermissions",
     ASSIGN_ROLE_PERMISSIONS: "/api/Auth/AssignRolePermissions",
     CREATE_ROLE: "/api/Auth/CreateRole",
+    CHANGE_PASSWORD: "/api/Auth/ChangePassword",
   },
   USER: {
     PROFILE: "/api/User/Profile",
