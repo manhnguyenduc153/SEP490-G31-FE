@@ -4,6 +4,7 @@ import { Modal } from "@/components/ui/modal";
 import { LearningMaterialItem } from "@/services/learningMaterial.api";
 import { courseApi, CourseItem } from "@/services/course.api";
 import { classApi, ClassItem } from "@/services/class.api";
+import { commonApi } from "@/services/common.api";
 import { teacherApi } from "@/services/teacher.api";
 import { UploadCloud, FileText, X } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
@@ -76,8 +77,8 @@ export function MaterialFormModal({
     async function loadData() {
       try {
         const [courseRes, classRes] = await Promise.all([
-          courseApi.getAll(1, 100, "", true), // Load active courses
-          classApi.getAll(1, 100, ""),       // Load classes
+          commonApi.getCourses(1, 100, "", true), // Load active courses
+          commonApi.getClasses(1, 100),       // Load classes
         ]);
         if (courseRes.success && courseRes.data) {
           setCourses(courseRes.data.items || []);
