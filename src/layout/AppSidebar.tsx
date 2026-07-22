@@ -36,9 +36,9 @@ type NavItem = {
   icon: React.ReactNode;
   path?: string;
   new?: boolean;
-  permission?: string;
+  permission?: string | string[];
   roles?: string[];
-  subItems?: { name: string; path: string; pro?: boolean; new?: boolean; permission?: string; roles?: string[] }[];
+  subItems?: { name: string; path: string; pro?: boolean; new?: boolean; permission?: string | string[]; roles?: string[] }[];
 };
 
 // ── NEW: School Management menu (rendered at top) ────────────────────────────
@@ -76,7 +76,7 @@ const schoolItems: NavItem[] = [
     icon: <TableIcon />,
     name: "assessments",
     subItems: [
-      { name: "exams", path: "/exams", permission: "Exam" },
+      { name: "exams", path: "/exams", permission: ["Exam.View", "Exam.StudentView", "Exam.TeacherView"] },
       { name: "homework", path: "/homework", permission: "Homework" },
       { name: "questionBank", path: "/question-bank", permission: "Question" },
       { name: "questionCategory", path: "/question-category", permission: "QuestionCategory" },
@@ -324,7 +324,7 @@ const AppSidebar: React.FC = () => {
 
   const canShowForRole = useCallback((roles?: string[]) => !roles?.length || roles.includes(role), [role]);
 
-  const hasPermission = useCallback((permission?: string) => {
+  const hasPermission = useCallback((permission?: string | string[]) => {
     if (!permission) return true;
     const lowerRole = role.toLowerCase();
     if (
@@ -334,12 +334,15 @@ const AppSidebar: React.FC = () => {
       lowerRole === "ban vận hành"
     ) return true;
     
-    // Custom mapping: If check for ExamSchedule.View, student with ExamStudent.View can also pass
-    if (permission === "ExamSchedule.View" && lowerRole === "student") {
-      return permissions.includes("ExamStudent.View");
-    }
+    const permissionsToCheck = Array.isArray(permission) ? permission : [permission];
     
-    return permissions.includes(permission);
+    return permissionsToCheck.some((p) => {
+      // Custom mapping: If check for ExamSchedule.View, student with ExamStudent.View can also pass
+      if (p === "ExamSchedule.View" && lowerRole === "student") {
+        return permissions.includes("ExamStudent.View");
+      }
+      return permissions.includes(p);
+    });
   }, [role, permissions]);
 
   useEffect(() => {

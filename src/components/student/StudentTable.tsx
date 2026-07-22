@@ -511,7 +511,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
   };
 
   return (
-    <div className="w-full bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs overflow-hidden">
+    <div className="w-full bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs overflow-visible">
 
       {/* Header with Title & Action Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 sm:p-6 border-b border-gray-100 dark:border-gray-800">
@@ -692,7 +692,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
       </div>
 
       {/* Table */}
-      <div className="max-w-full overflow-x-auto custom-scrollbar">
+      <div className="max-w-full overflow-visible custom-scrollbar">
         <Table>
           <TableHeader className="border-b border-gray-100 dark:border-white/[0.05] bg-gray-50 dark:bg-white/[0.02]">
             <TableRow>
@@ -711,7 +711,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
                 isHeader
                 className="px-6 py-4 border-r border-gray-100 dark:border-white/[0.05] text-center w-12"
               >
-                <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">#</p>
+                <p className="font-semibold text-gray-800 text-xs dark:text-gray-200">#</p>
               </TableCell>
               {columns.map(({ key, label }) => (
                 <TableCell
@@ -723,7 +723,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
                     className="flex items-center justify-between cursor-pointer select-none"
                     onClick={() => handleSort(key)}
                   >
-                    <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">
+                    <p className="font-semibold text-gray-800 text-xs dark:text-gray-200">
                       {label}
                     </p>
                     <button className="flex flex-col gap-0.5 ml-2">
@@ -747,7 +747,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
               ))}
               <TableCell
                 isHeader
-                className="px-6 py-4 text-center font-semibold text-gray-800 text-theme-sm dark:text-gray-200"
+                className="px-6 py-4 text-center font-semibold text-gray-800 text-xs dark:text-gray-200"
               >
                 {t("student.colActions", { defaultValue: "Thao tác" })}
               </TableCell>

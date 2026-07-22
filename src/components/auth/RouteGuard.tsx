@@ -4,14 +4,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { authApi } from "@/services/auth.api";
 
 // Mapping từ URL route sang Permission tương ứng
-const routePermissions: Record<string, string> = {
+const routePermissions: Record<string, string | string[]> = {
   "/courses": "Course",
   "/classes": "Class",
   "/teachers": "Teacher",
   "/students": "Student",
   "/rooms": "Room",
   "/schedules": "ClassSchedule",
-  "/exams": "ExamSchedule",
+  "/exams": ["Exam.View", "Exam.StudentView", "Exam.TeacherView"],
   "/assignments": "Activity",
   "/question-bank": "Question",
   "/question-category": "QuestionCategory",
