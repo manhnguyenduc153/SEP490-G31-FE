@@ -7,6 +7,7 @@ import { questionCategoryApi, QuestionCategoryItem } from "@/services/questionCa
 import { CodeHelper } from "@/helpers/CodeHelper";
 import { useTranslation } from "react-i18next";
 import { TrashBinIcon } from "@/icons";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 interface QuestionFormProps {
   id?: number; // If provided, we are in Edit mode
@@ -495,18 +496,16 @@ export function QuestionForm({ id }: QuestionFormProps) {
           <label className="block text-sm font-bold text-gray-900 dark:text-white">
             Danh mục câu hỏi
           </label>
-          <select
+          <SearchableSelect
+            options={categories.map((c) => ({
+              value: c.id,
+              label: c.name,
+            }))}
             value={selectedCategory || ""}
-            onChange={(e) => setSelectedCategory(e.target.value ? Number(e.target.value) : null)}
-            className="w-full rounded-lg border border-gray-300 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden dark:border-gray-700 dark:text-white/90 shadow-theme-xs"
-          >
-            <option value="">-- Không thuộc danh mục --</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => setSelectedCategory(val ? Number(val) : null)}
+            placeholder="Không thuộc danh mục"
+            onClear={() => setSelectedCategory(null)}
+          />
         </div>
 
         {/* Guide box */}

@@ -36,9 +36,9 @@ type NavItem = {
   icon: React.ReactNode;
   path?: string;
   new?: boolean;
-  permission?: string;
+  permission?: string | string[];
   roles?: string[];
-  subItems?: { name: string; path: string; pro?: boolean; new?: boolean; permission?: string; roles?: string[] }[];
+  subItems?: { name: string; path: string; pro?: boolean; new?: boolean; permission?: string | string[]; roles?: string[] }[];
 };
 
 // ── NEW: School Management menu (rendered at top) ────────────────────────────
@@ -76,20 +76,20 @@ const schoolItems: NavItem[] = [
     icon: <TableIcon />,
     name: "assessments",
     subItems: [
-      { name: "exams", path: "/exams", permission: "Exam" },
+      { name: "exams", path: "/exams", permission: ["Exam.View", "Exam.StudentView", "Exam.TeacherView"] },
       { name: "homework", path: "/homework", permission: "Homework" },
       { name: "questionBank", path: "/question-bank", permission: "Question" },
       { name: "questionCategory", path: "/question-category", permission: "QuestionCategory" },
-      { name: "scoreSettings", path: "/scores", permission: "StudentGrade" },
-      { name: "myScores", path: "/my-scores", permission: "StudentGrade.View" },
+      { name: "scoreSettings", path: "/scores", permission: "StudentGrade.ViewSettings" },
+      { name: "myScores", path: "/my-scores", permission: "StudentGrade.ViewOwnGrades" },
     ],
   },
   {
     icon: <BoxCubeIcon />,
     name: "learning",
     subItems: [
-      { name: "learningMaterials", path: "/learning-materials", permission: "LearningMaterial" },
-      { name: "myAttendance", path: "/attendance", permission: "Attendance" },
+      { name: "learningMaterials", path: "/learning-materials", permission: "LearningMaterial.View" },
+      { name: "myAttendance", path: "/attendance", permission: "Attendance.StudentView" },
       { name: "studentProgress", path: "/student-progress" },
     ],
   },
@@ -97,14 +97,14 @@ const schoolItems: NavItem[] = [
     icon: <LockIcon />,
     name: "administration",
     subItems: [
-      { name: "users", path: "/users", permission: "User" },
-      { name: "roles", path: "/roles", permission: "Role" },
+      { name: "users", path: "/users", permission: "User.View" },
+      { name: "roles", path: "/roles", permission: "Role.View" },
     ],
   },
   {
     icon: <PieChartIcon />,
     name: "reportsMenu",
-    permission: "User",
+    permission: "User.View",
     subItems: [
       { name: "classGradeReport", path: "/reports/class-grade" },
       { name: "attendanceReport", path: "/reports/attendance" },
@@ -115,10 +115,10 @@ const schoolItems: NavItem[] = [
     icon: <GroupIcon />,
     name: "parentServices",
     subItems: [
-      { name: "parents", path: "/parent-student", permission: "ParentStudent" },
-      { name: "childProfile", path: "/child-profile", permission: "ParentStudent" },
-      { name: "childProgress", path: "/child-progress", permission: "ParentStudent" },
-      { name: "childSchedules", path: "/child-schedules", permission: "ParentStudent" },
+      { name: "parents", path: "/parent-student", permission: "ParentStudent.View", roles: ["admin", "academicstaff", "academic staff"] },
+      { name: "childProfile", path: "/child-profile", permission: "ParentStudent.View", roles: ["admin", "parent"] },
+      { name: "childProgress", path: "/child-progress", permission: "ParentStudent.View", roles: ["admin", "parent"] },
+      { name: "childSchedules", path: "/child-schedules", permission: "ParentStudent.View", roles: ["admin", "parent"] },
     ],
   },
 ];
@@ -324,14 +324,25 @@ const AppSidebar: React.FC = () => {
 
   const canShowForRole = useCallback((roles?: string[]) => !roles?.length || roles.includes(role), [role]);
 
-  const hasPermission = useCallback((permission?: string) => {
+  const hasPermission = useCallback((permission?: string | string[]) => {
     if (!permission) return true;
     const lowerRole = role.toLowerCase();
-    if (lowerRole === "admin") return true;
-    if (lowerRole === "student" && (permission === "Exam" || permission === "ExamSchedule")) {
-      return true;
-    }
-    return permissions.includes(permission);
+    if (
+      lowerRole === "admin" ||
+      lowerRole === "academic staff" ||
+      lowerRole === "ban chuyên môn" ||
+      lowerRole === "ban vận hành"
+    ) return true;
+    
+    const permissionsToCheck = Array.isArray(permission) ? permission : [permission];
+    
+    return permissionsToCheck.some((p) => {
+      // Custom mapping: If check for ExamSchedule.View, student with ExamStudent.View can also pass
+      if (p === "ExamSchedule.View" && lowerRole === "student") {
+        return permissions.includes("ExamStudent.View");
+      }
+      return permissions.includes(p);
+    });
   }, [role, permissions]);
 
   useEffect(() => {
@@ -344,6 +355,9 @@ const AppSidebar: React.FC = () => {
     setIsMounted(true);
 
     // 2. Fetch fresh permissions from API in the background to ensure synchronization
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) return; // Skip API call if not logged in
+
     authApi.getCurrentPermissions()
       .then((res) => {
         if (res.success && res.data) {
@@ -359,8 +373,8 @@ const AppSidebar: React.FC = () => {
           localStorage.setItem("permissions", JSON.stringify(finalPerms));
         }
       })
-      .catch((err) => {
-        console.error("[AppSidebar] Failed to refresh permissions:", err);
+      .catch(() => {
+        // Silently ignore - user may not be authenticated
       });
   }, []);
 

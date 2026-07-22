@@ -34,7 +34,10 @@ export function clearAuth() {
     localStorage.removeItem("username");
     localStorage.removeItem("role");
     localStorage.removeItem("permissions");
-    window.location.href = "/signin";
+    // Avoid redirect loop if already on signin page
+    if (!window.location.pathname.includes("/signin")) {
+      window.location.href = "/signin";
+    }
   }
 }
 
@@ -144,7 +147,18 @@ async function request<T>(path: string, options: RequestInit): Promise<ApiRespon
     headers: getHeaders(options.headers),
   };
 
-  let response = await fetch(`${ENV.API_BASE_URL}${path}`, mergedOptions);
+  let response: Response;
+  try {
+    response = await fetch(`${ENV.API_BASE_URL}${path}`, mergedOptions);
+  } catch {
+    // Network error (server unreachable, CORS, etc.)
+    return {
+      success: false,
+      statusCode: 0,
+      message: "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.",
+      data: null as unknown as T,
+    };
+  }
 
   const isAuthEndpoint = path.includes("/api/Auth/Login") || 
                          path.includes("/api/Auth/RefreshToken") || 
@@ -160,7 +174,16 @@ async function request<T>(path: string, options: RequestInit): Promise<ApiRespon
           ...options,
           headers: getHeaders(options.headers),
         };
-        response = await fetch(`${ENV.API_BASE_URL}${path}`, retryOptions);
+        try {
+          response = await fetch(`${ENV.API_BASE_URL}${path}`, retryOptions);
+        } catch {
+          return {
+            success: false,
+            statusCode: 0,
+            message: "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.",
+            data: null as unknown as T,
+          };
+        }
       } else {
         clearAuth();
         return {

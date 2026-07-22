@@ -9,6 +9,7 @@ export const ENDPOINTS = {
     GET_CURRENT_PERMISSIONS: "/api/Auth/GetCurrentPermissions",
     ASSIGN_ROLE_PERMISSIONS: "/api/Auth/AssignRolePermissions",
     CREATE_ROLE: "/api/Auth/CreateRole",
+    CHANGE_PASSWORD: "/api/Auth/ChangePassword",
   },
   USER: {
     PROFILE: "/api/User/Profile",
@@ -118,6 +119,7 @@ export const ENDPOINTS = {
     TEACHERS: "/api/Common/teachers",
     ROOMS: "/api/Common/rooms",
     CLASSES: "/api/Common/classes",
+    ACCESSIBLE_CLASSES: "/api/Common/classes/accessible",
     QUESTION_CATEGORIES: "/api/Common/question-categories",
   },
 };

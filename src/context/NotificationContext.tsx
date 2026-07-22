@@ -32,14 +32,21 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       return;
     }
 
+    // Don't fetch notifications if on auth pages
+    const path = window.location.pathname;
+    if (path.includes("/signin") || path.includes("/signup") || path.includes("/reset-password")) {
+      setNotifications([]);
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await notificationApi.getMyNotifications();
       if (res.success && Array.isArray(res.data)) {
         setNotifications(res.data);
       }
-    } catch (err) {
-      console.error("Failed to fetch notifications:", err);
+    } catch {
+      // Silently ignore - token may be invalid/expired
     } finally {
       setLoading(false);
     }
@@ -93,6 +100,12 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    // Don't connect on auth pages
+    const path = window.location.pathname;
+    if (path.includes("/signin") || path.includes("/signup") || path.includes("/reset-password")) {
+      return;
+    }
+
     if (!tokenState) {
       if (connection) {
         connection.stop();
@@ -133,10 +146,11 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     newConnection
       .start()
       .then(() => {
-        console.log("Connected to SignalR Notification Hub");
         setConnection(newConnection);
       })
-      .catch((err) => console.error("SignalR Connection Error: ", err));
+      .catch(() => {
+        // Silently ignore - token may be invalid
+      });
 
     // Request browser notification permission
     if ("Notification" in window && Notification.permission === "default") {
