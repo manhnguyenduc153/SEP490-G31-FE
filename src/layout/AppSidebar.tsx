@@ -76,12 +76,12 @@ const schoolItems: NavItem[] = [
     icon: <TableIcon />,
     name: "assessments",
     subItems: [
-      { name: "exams", path: "/exams", permission: "ExamSchedule.View" },
-      { name: "homework", path: "/homework", permission: "Homework.View" },
-      { name: "questionBank", path: "/question-bank", permission: "Question.View" },
-      { name: "questionCategory", path: "/question-category", permission: "QuestionCategory.View" },
-      { name: "scoreSettings", path: "/scores", permission: "StudentGrade.View" },
-      { name: "myScores", path: "/my-scores", permission: "StudentGrade.StudentView" },
+      { name: "exams", path: "/exams", permission: "Exam" },
+      { name: "homework", path: "/homework", permission: "Homework" },
+      { name: "questionBank", path: "/question-bank", permission: "Question" },
+      { name: "questionCategory", path: "/question-category", permission: "QuestionCategory" },
+      { name: "scoreSettings", path: "/scores", permission: "StudentGrade.ViewSettings" },
+      { name: "myScores", path: "/my-scores", permission: "StudentGrade.ViewOwnGrades" },
     ],
   },
   {

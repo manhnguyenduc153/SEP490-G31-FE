@@ -1,8 +1,11 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { CheckCircle, XCircle } from "lucide-react";
-import { classApi, ClassItem } from "@/services/class.api";
+import { CheckCircle, Plus, XCircle } from "lucide-react";
+import { ClassItem } from "@/services/class.api";
+import { commonApi } from "@/services/common.api";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import HomeworkList from "./HomeworkList";
 import HomeworkForm from "./HomeworkForm";
 import HomeworkSubmissions from "./HomeworkSubmissions";
@@ -47,53 +50,7 @@ export default function HomeworkPage() {
   useEffect(() => {
     const fetchClasses = async () => {
       try {
-        const role = localStorage.getItem("role");
-
-        if (role === "Student") {
-          const scheduleRes = await classApi.getStudentSchedules();
-          if (scheduleRes.success && scheduleRes.data) {
-            const uniqueClasses = new Map<number, ClassItem>();
-            scheduleRes.data.forEach(s => {
-              if (s.classId) {
-                uniqueClasses.set(s.classId, {
-                  id: s.classId,
-                  name: s.className || "",
-                  code: s.classCode || "",
-                  teacherId: s.teacherId,
-                  teacherName: s.teacherName,
-                } as ClassItem);
-              }
-            });
-            const classList = Array.from(uniqueClasses.values());
-            setClasses(classList);
-            if (classList.length > 0) setSelectedClassId(classList[0].id);
-          }
-          return;
-        }
-
-        if (role === "Teacher") {
-          const scheduleRes = await classApi.getTeacherSchedules();
-          if (scheduleRes.success && scheduleRes.data) {
-            const uniqueClasses = new Map<number, ClassItem>();
-            scheduleRes.data.forEach(s => {
-              if (s.classId) {
-                uniqueClasses.set(s.classId, {
-                  id: s.classId,
-                  name: s.className || "",
-                  code: s.classCode || "",
-                  teacherId: s.teacherId,
-                  teacherName: s.teacherName,
-                } as ClassItem);
-              }
-            });
-            const classList = Array.from(uniqueClasses.values());
-            setClasses(classList);
-            if (classList.length > 0) setSelectedClassId(classList[0].id);
-          }
-          return;
-        }
-
-        const res = await classApi.getAll(1, 100);
+        const res = await commonApi.getAccessibleClasses(1, 500);
         if (res.success && res.data) {
           setClasses(res.data.items);
           if (res.data.items.length > 0) {
@@ -124,32 +81,38 @@ export default function HomeworkPage() {
         </div>
       )}
 
-      <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+      <div className="mb-6 overflow-hidden rounded-xl border border-gray-100 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+        <div className="flex flex-col gap-3 border-b border-gray-100 px-6 py-5 dark:border-white/[0.05] sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">{t("homework.title", { defaultValue: "Bài tập" })}</h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("homework.description", { defaultValue: "Quản lý bài tập theo lớp học." })}</p>
+          </div>
+          <PermissionGuard requiredPermission="Homework.Create">
+            <button onClick={() => { setEditingItem(null); setActiveView("form"); }} disabled={!selectedClassId} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">
+              <Plus className="h-5 w-5" /> {t("homework.addHomework")}
+            </button>
+          </PermissionGuard>
+        </div>
+        <div className="p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="w-full sm:max-w-xl">
             <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
               {t("homework.selectClassLabel")}
             </label>
-            <select
+            <SearchableSelect
               value={selectedClassId ?? ""}
-              onChange={(e) => handleClassChange(Number(e.target.value))}
+              onChange={(value) => handleClassChange(Number(value))}
               disabled={classes.length === 0}
-              className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 outline-none transition-colors focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:disabled:bg-gray-900"
-            >
-              {classes.length === 0 ? (
-                <option value="">{t("homework.noClasses")}</option>
-              ) : (
-                classes.map((cls) => (
-                  <option key={cls.id} value={cls.id}>
-                    {cls.name} ({cls.code}){cls.teacherName ? ` - ${cls.teacherName}` : ""}
-                  </option>
-                ))
-              )}
-            </select>
+              options={classes.map((cls) => ({ value: cls.id, label: `${cls.name} (${cls.code})${cls.teacherName ? ` - ${cls.teacherName}` : ""}` }))}
+              placeholder={classes.length === 0 ? t("homework.noClasses") : t("homework.selectClassLabel")}
+              searchPlaceholder={t("common.searchPlaceholder", { defaultValue: "Tìm kiếm..." })}
+              noResultsText={t("common.noResults", { defaultValue: "Không tìm thấy kết quả" })}
+            />
           </div>
           <div className="text-sm text-gray-500 dark:text-gray-400">
             {t("homework.classCount", { count: classes.length })}
           </div>
+        </div>
         </div>
       </div>
 
@@ -159,10 +122,6 @@ export default function HomeworkPage() {
             classId={selectedClassId}
             showToast={showToast}
             refreshKey={refreshKey}
-            onAddClick={() => {
-              setEditingItem(null);
-              setActiveView("form");
-            }}
             onEditClick={(item) => {
               setEditingItem(item);
               setActiveView("form");

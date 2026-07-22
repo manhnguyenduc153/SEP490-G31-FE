@@ -27,7 +27,7 @@ export interface TeacherItem {
   gradeLevel?: GradeLevel | null;
   gradeLevelName?: string | null;
   avatar?: string | null;
-  certificate?: string | null;
+  certificates: string[];
   hasAccount?: boolean;
 }
 
@@ -52,7 +52,7 @@ export interface TeacherSaveDto {
   description?: string | null;
   gradeLevel?: GradeLevel | null;
   avatar?: string | null;
-  certificate?: string | null;
+  certificates?: string[];
 }
 
 // ─── API ─────────────────────────────────────────────────────────────────────

@@ -47,6 +47,21 @@ export const commonApi = {
     );
   },
 
+  async getAccessibleClasses(
+    pageIndex: number,
+    pageSize: number,
+    keyword: string = ""
+  ): Promise<ApiResponse<ClassPagingResponse>> {
+    const query = new URLSearchParams({
+      pageIndex: String(pageIndex),
+      pageSize: String(pageSize),
+      ...(keyword ? { keyword } : {}),
+    }).toString();
+    return api.get<ClassPagingResponse>(
+      `${ENDPOINTS.COMMON.ACCESSIBLE_CLASSES}?${query}`
+    );
+  },
+
   async getQuestionCategories(
     pageIndex: number,
     pageSize: number,
