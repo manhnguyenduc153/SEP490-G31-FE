@@ -46,16 +46,13 @@ export default function SemesterTable() {
   };
 
   const [permissions, setPermissions] = useState<string[]>([]);
-  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    const role = authApi.getRole().toLowerCase();
-    setIsAdmin(role === "admin");
     setPermissions(authApi.getPermissions());
   }, []);
 
   const hasPermission = (perm: string) => {
-    return isAdmin || permissions.includes(perm);
+    return permissions.includes(perm);
   };
 
   // Search & Filter States
@@ -511,7 +508,7 @@ export default function SemesterTable() {
                       )}
 
                       {/* Auto Schedule Solver */}
-                      {hasPermission("Class.Edit") && (
+                      {hasPermission("Semester.Scheduling") && (
                         <button
                           type="button"
                           onClick={() => {

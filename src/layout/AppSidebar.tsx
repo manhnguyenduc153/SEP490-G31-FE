@@ -67,9 +67,9 @@ const schoolItems: NavItem[] = [
     icon: <CalenderIcon />,
     name: "schedule",
     subItems: [
-      { name: "classSchedules", path: "/schedules", permission: "ClassSchedule.View" },
-      { name: "teachingSchedules", path: "/teaching-schedules", permission: "ClassSchedule.TeacherView" },
-      { name: "timetable", path: "/timetable", permission: "ClassSchedule.StudentView" },
+      { name: "classSchedules", path: "/schedules", permission: "Schedule" },
+      { name: "teachingSchedules", path: "/teaching-schedules", permission: "TeachingSchedule" },
+      { name: "timetable", path: "/timetable", permission: "Timetable" },
     ],
   },
   {
@@ -116,7 +116,6 @@ const schoolItems: NavItem[] = [
     name: "parentServices",
     subItems: [
       { name: "parents", path: "/parent-student", permission: "ParentStudent.View", roles: ["admin", "academicstaff", "academic staff"] },
-      { name: "childProfile", path: "/child-profile", permission: "ParentStudent.View", roles: ["admin", "parent"] },
       { name: "childProgress", path: "/child-progress", permission: "ParentStudent.View", roles: ["admin", "parent"] },
       { name: "childSchedules", path: "/child-schedules", permission: "ParentStudent.View", roles: ["admin", "parent"] },
     ],

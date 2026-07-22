@@ -31,7 +31,9 @@ const getFeatureDisplayName = (featureName: string, t: any) => {
     Teacher: "teachers",
     Student: "students",
     Room: "rooms",
-    ClassSchedule: "classSchedules",
+    Schedule: "classSchedules",
+    TeachingSchedule: "teachingSchedules",
+    Timetable: "timetable",
     Exam: "exams",
     Question: "questionBank",
     QuestionCategory: "questionCategory",
@@ -169,22 +171,26 @@ export function EditPermissionsModal({
                           <div key={feature.id} className="pl-3 py-1 border-l border-gray-200 dark:border-white/[0.05]">
                             {/* Feature Header */}
                             <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => toggleCategoryExpand(feature.id)}
-                                className="p-0.5 hover:bg-gray-150 dark:hover:bg-white/5 rounded transition-colors"
-                              >
-                                <svg
-                                  className={`w-3 h-3 text-gray-500 transition-transform ${
-                                    isFeatureExpanded ? "rotate-90" : ""
-                                  }`}
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2.5"
-                                  viewBox="0 0 24 24"
+                              {feature.children && feature.children.length > 0 ? (
+                                <button
+                                  onClick={() => toggleCategoryExpand(feature.id)}
+                                  className="p-0.5 hover:bg-gray-150 dark:hover:bg-white/5 rounded transition-colors"
                                 >
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                                </svg>
-                              </button>
+                                  <svg
+                                    className={`w-3 h-3 text-gray-500 transition-transform ${
+                                      isFeatureExpanded ? "rotate-90" : ""
+                                    }`}
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2.5"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                  </svg>
+                                </button>
+                              ) : (
+                                <div className="w-4 h-4"></div>
+                              )}
 
                               <div
                                 onClick={() => toggleCategorySelection(feature, false)}
