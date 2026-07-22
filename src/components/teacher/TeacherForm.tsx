@@ -36,7 +36,6 @@ export function TeacherForm({
     address: "",
     status: 1, // 1: Active
     description: "",
-    gradeLevel: null,
     avatar: null,
     certificates: [],
   });
@@ -65,7 +64,6 @@ export function TeacherForm({
         address: editingItem.address || "",
         status: editingItem.status ?? 1,
         description: editingItem.description || "",
-        gradeLevel: editingItem.gradeLevel ?? null,
         avatar: editingItem.avatar || null,
         certificates: editingItem.certificates || [],
       });
@@ -86,7 +84,6 @@ export function TeacherForm({
         address: "",
         status: 1,
         description: "",
-        gradeLevel: null,
         avatar: null,
         certificates: [],
       });

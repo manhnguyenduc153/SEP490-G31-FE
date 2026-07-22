@@ -137,7 +137,6 @@ export default function TeacherTable({
           itemsPerPage,
           debouncedSearchTerm,
           filterStatus,
-          null,
           filterGender
         );
         if (!mounted) return;
@@ -241,7 +240,7 @@ export default function TeacherTable({
 
   const handleExportExcel = async () => {
     try {
-      const res = await teacherApi.getAll(1, 10000, searchTerm, filterStatus, null, filterGender);
+      const res = await teacherApi.getAll(1, 10000, searchTerm, filterStatus, filterGender);
       if (res.success && res.data) {
         const exportItems = res.data.items || [];
         
