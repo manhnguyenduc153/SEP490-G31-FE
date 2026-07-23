@@ -6,6 +6,7 @@ import { userApi, UserItem } from "@/services/user.api";
 import { teacherApi, TeacherItem } from "@/services/teacher.api";
 import { studentApi, StudentItem } from "@/services/student.api";
 import { parentStudentApi, ParentStudentItem } from "@/services/parentStudent.api";
+import { ENV } from "@/config/env";
 import { 
   User, Mail, Phone, MapPin, Calendar, Award, BookOpen, 
   Shield, UserCheck, Briefcase, Heart, GraduationCap, Building2,
@@ -41,6 +42,50 @@ export default function ProfilePage() {
   const [editAvatar, setEditAvatar] = useState("");
   const [editSchoolName, setEditSchoolName] = useState("");
   const [editRelationship, setEditRelationship] = useState("");
+
+  // Extra Teacher/Student specific edit states
+  const [editDob, setEditDob] = useState("");
+  const [editGender, setEditGender] = useState<boolean | null>(null);
+  const [editGradeLevel, setEditGradeLevel] = useState<string | null>(null);
+  const [editParentName, setEditParentName] = useState("");
+  const [editParentPhone, setEditParentPhone] = useState("");
+  
+  // File uploads
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  
+  const [certFiles, setCertFiles] = useState<File[]>([]);
+  const [certPreview, setCertPreview] = useState<string | null>(null);
+  const [selectedCertificate, setSelectedCertificate] = useState<{ type: "existing" | "pending"; index: number } | null>(null);
+  const [certificatesList, setCertificatesList] = useState<string[]>([]);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Refs
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const certInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Helper to build full image URL
+  const getImageUrl = (path: string | null | undefined) => {
+    if (!path) return null;
+    if (path.startsWith("http")) return path;
+    const cleanPath = path.startsWith("/") ? path : `/${path}`;
+    return `${ENV.API_BASE_URL}${cleanPath}`;
+  };
+
+  const isImage = (path: string | null | undefined) => {
+    if (!path) return false;
+    return path.match(/\.(jpeg|jpg|gif|png)$/i) != null;
+  };
+
+  // Permission helper to verify if the user can edit their profile
+  const canEdit = () => {
+    if (isAdmin) return true;
+    if (isTeacher) return authApi.hasPermission("TeacherProfile.Edit") || authApi.hasPermission("TeacherProfile");
+    if (isStudent) return authApi.hasPermission("StudentProfile.Edit") || authApi.hasPermission("StudentProfile");
+    if (isParent) return true;
+    return false;
+  };
 
   // Change Password state
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -188,20 +233,106 @@ export default function ProfilePage() {
       setEditPhone(teacherProfile.phone || "");
       setEditAddress(teacherProfile.address || "");
       setEditDescription(teacherProfile.description || "");
-      setEditCertificate(teacherProfile.certificate || "");
-      setEditAvatar(teacherProfile.avatar || "");
+      setEditDob(teacherProfile.dob ? teacherProfile.dob.split("T")[0] : "");
+      setEditGender(teacherProfile.gender ?? null);
+      setEditGradeLevel(teacherProfile.gradeLevel || null);
+      setCertificatesList(teacherProfile.certificates || []);
+      setAvatarPreview(teacherProfile.avatar ? getImageUrl(teacherProfile.avatar) : null);
+      setSelectedCertificate(teacherProfile.certificates?.length ? { type: "existing", index: 0 } : null);
+      setCertFiles([]);
+      setCertPreview(null);
     } else if (isStudent && studentProfile) {
       setEditName(studentProfile.name || "");
       setEditPhone(studentProfile.phone || "");
       setEditAddress(studentProfile.address || "");
       setEditSchoolName(studentProfile.schoolName || "");
-      setEditAvatar(studentProfile.avatar || "");
+      setEditDob(studentProfile.dob ? studentProfile.dob.split("T")[0] : "");
+      setEditGender(studentProfile.gender ?? null);
+      setEditGradeLevel(studentProfile.gradeLevel !== undefined && studentProfile.gradeLevel !== null ? String(studentProfile.gradeLevel) : null);
+      setEditParentName(studentProfile.parentName || "");
+      setEditParentPhone(studentProfile.parentPhone || "");
+      setAvatarPreview(studentProfile.avatar ? getImageUrl(studentProfile.avatar) : null);
+      setAvatarFile(null);
     } else if (isParent && parentProfile) {
       setEditName(parentProfile.name || "");
       setEditPhone(parentProfile.parentPhone || "");
       setEditRelationship(parentProfile.relationship || "");
     }
     setEditMode(true);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  };
+
+  const handleCertChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setCertFiles((current) => {
+      const uniqueFiles = files.filter((file) => !current.some((item) =>
+        item.name === file.name && item.size === file.size && item.lastModified === file.lastModified));
+      const nextFiles = [...current, ...uniqueFiles];
+      if (uniqueFiles.length > 0) {
+        const selectedIndex = nextFiles.length - 1;
+        setSelectedCertificate({ type: "pending", index: selectedIndex });
+        setCertPreview(URL.createObjectURL(nextFiles[selectedIndex]));
+      }
+      return nextFiles;
+    });
+    if (certInputRef.current) {
+      certInputRef.current.value = "";
+    }
+  };
+
+  const removeExistingCertificate = (index: number) => {
+    const nextCertificates = certificatesList.filter((_, itemIndex) => itemIndex !== index);
+    setCertificatesList(nextCertificates);
+    setSelectedCertificate((selection) => {
+      if (selection?.type !== "existing") return selection;
+      if (selection.index > index) return { type: "existing", index: selection.index - 1 };
+      if (selection.index !== index) return selection;
+      if (nextCertificates.length > 0) return { type: "existing", index: Math.min(index, nextCertificates.length - 1) };
+      if (certFiles.length > 0) {
+        setCertPreview(URL.createObjectURL(certFiles[0]));
+        return { type: "pending", index: 0 };
+      }
+      return null;
+    });
+  };
+
+  const removePendingCertificate = (index: number) => {
+    setCertFiles((current) => {
+      const nextFiles = current.filter((_, itemIndex) => itemIndex !== index);
+      setSelectedCertificate((selection) => {
+        if (selection?.type !== "pending") return selection;
+        if (selection.index > index) return { type: "pending", index: selection.index - 1 };
+        if (selection.index !== index) return selection;
+        if (nextFiles.length > 0) {
+          const nextIndex = Math.min(index, nextFiles.length - 1);
+          setCertPreview(URL.createObjectURL(nextFiles[nextIndex]));
+          return { type: "pending", index: nextIndex };
+        }
+        setCertPreview(null);
+        return certificatesList.length > 0 ? { type: "existing", index: 0 } : null;
+      });
+      return nextFiles;
+    });
+  };
+
+  const selectExistingCertificate = (index: number) => {
+    setSelectedCertificate({ type: "existing", index });
+    setCertPreview(null);
+  };
+
+  const selectPendingCertificate = (index: number) => {
+    const file = certFiles[index];
+    if (!file) return;
+    setSelectedCertificate({ type: "pending", index });
+    setCertPreview(URL.createObjectURL(file));
   };
 
   const getErrorMsg = (res: { statusCode: number; message?: string }) => {
@@ -238,14 +369,46 @@ export default function ProfilePage() {
           setMsgType("error");
         }
       } else if (isTeacher && teacherProfile) {
+        setIsUploading(true);
+        let finalAvatar = teacherProfile.avatar || null;
+        if (avatarFile) {
+          const uploadRes = await teacherApi.uploadFile(avatarFile);
+          if (uploadRes.success && uploadRes.data) {
+            finalAvatar = uploadRes.data;
+          } else {
+            setMsg(uploadRes.message || "Lỗi tải ảnh đại diện");
+            setMsgType("error");
+            setIsUploading(false);
+            setSaving(false);
+            return;
+          }
+        }
+
+        const certificateUrls = [...certificatesList];
+        for (const cFile of certFiles) {
+          const uploadRes = await teacherApi.uploadDocument(cFile);
+          if (uploadRes.success && uploadRes.data) {
+            certificateUrls.push(uploadRes.data);
+          } else {
+            setMsg(uploadRes.message || `Lỗi tải chứng chỉ ${cFile.name}`);
+            setMsgType("error");
+            setIsUploading(false);
+            setSaving(false);
+            return;
+          }
+        }
+
         const dto = {
           ...teacherProfile,
           name: editName,
           phone: editPhone,
           address: editAddress,
           description: editDescription,
-          avatar: editAvatar,
-          certificate: editCertificate
+          dob: editDob === "" ? null : editDob,
+          gender: editGender,
+          gradeLevel: editGradeLevel as any,
+          avatar: finalAvatar,
+          certificates: certificateUrls
         };
         const res = await teacherApi.update(teacherProfile.id, dto);
         if (res.success || res.statusCode === 200 || res.statusCode === 201) {
@@ -253,18 +416,40 @@ export default function ProfilePage() {
           setEditMode(false);
           setMsg(t("profile.updateSuccess", { defaultValue: "Cập nhật hồ sơ thành công!" }));
           setMsgType("success");
+          setCertFiles([]);
         } else {
           setMsg(getErrorMsg(res));
           setMsgType("error");
         }
+        setIsUploading(false);
       } else if (isStudent && studentProfile) {
+        setIsUploading(true);
+        let finalAvatar = studentProfile.avatar || null;
+        if (avatarFile) {
+          const uploadRes = await studentApi.uploadFile(avatarFile);
+          if (uploadRes.success && uploadRes.data) {
+            finalAvatar = uploadRes.data;
+          } else {
+            setMsg(uploadRes.message || "Lỗi tải ảnh đại diện");
+            setMsgType("error");
+            setIsUploading(false);
+            setSaving(false);
+            return;
+          }
+        }
+
         const dto = {
           ...studentProfile,
           name: editName,
           phone: editPhone,
           address: editAddress,
+          dob: editDob === "" ? null : editDob,
+          gender: editGender,
           schoolName: editSchoolName,
-          avatar: editAvatar
+          gradeLevel: editGradeLevel ? Number(editGradeLevel) : null,
+          parentName: editParentName,
+          parentPhone: editParentPhone,
+          avatar: finalAvatar
         };
         const res = await studentApi.update(studentProfile.id, dto);
         if (res.success || res.statusCode === 200 || res.statusCode === 201) {
@@ -276,6 +461,7 @@ export default function ProfilePage() {
           setMsg(getErrorMsg(res));
           setMsgType("error");
         }
+        setIsUploading(false);
       } else if (isParent && parentProfile) {
         const dto = {
           id: parentProfile.id,
@@ -368,6 +554,8 @@ export default function ProfilePage() {
     }
   }
 
+  const finalAvatarUrl = editMode && avatarPreview ? avatarPreview : (avatarUrl ? getImageUrl(avatarUrl) : "");
+
   const initials = displayName
     ? displayName
         .split(" ")
@@ -412,6 +600,12 @@ export default function ProfilePage() {
     }
   };
 
+  const certFile = selectedCertificate?.type === "pending" ? certFiles[selectedCertificate.index] || null : null;
+  const existingCertificate = selectedCertificate?.type === "existing"
+    ? certificatesList?.[selectedCertificate.index] || null
+    : null;
+  const selectedCertificateUrl = certFile ? certPreview : getImageUrl(existingCertificate);
+
   return (
     <div className="space-y-6">
       {/* Alert status notification */}
@@ -438,10 +632,10 @@ export default function ProfilePage() {
           <div className="flex flex-col sm:flex-row sm:items-end gap-5 -mt-10 sm:-mt-12">
             {/* Avatar / Initials Box */}
             <div className="relative h-24 w-24 sm:h-28 sm:w-28 rounded-2xl border-4 border-white dark:border-gray-900 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 flex items-center justify-center shadow-md overflow-hidden shrink-0 group">
-              {avatarUrl ? (
+              {finalAvatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img 
-                  src={avatarUrl} 
+                  src={finalAvatarUrl} 
                   alt={displayName} 
                   className="h-full w-full object-cover transition-transform group-hover:scale-105"
                 />
@@ -495,7 +689,7 @@ export default function ProfilePage() {
               </h3>
 
               {/* Edit Mode Toggle */}
-              {!editMode ? (
+              {!editMode && canEdit() ? (
                 <button
                   type="button"
                   onClick={startEditMode}
@@ -504,7 +698,7 @@ export default function ProfilePage() {
                   <Edit3 className="w-3.5 h-3.5" />
                   {t("profile.editBtn", { defaultValue: "Chỉnh sửa" })}
                 </button>
-              ) : (
+              ) : editMode ? (
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -527,7 +721,7 @@ export default function ProfilePage() {
                     {t("common.cancel", { defaultValue: "Hủy" })}
                   </button>
                 </div>
-              )}
+              ) : null}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -588,42 +782,87 @@ export default function ProfilePage() {
                   </div>
                 )}
               </div>
-
-              {/* Birthday (Read-only) */}
+              {/* Birthday (Editable if Teacher or Student) */}
               {(isTeacher || isStudent) && (
                 <div className="space-y-1.5">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">
                     {t("profile.dob", { defaultValue: "Ngày sinh" })}
-                  </p>
-                  <div className="flex items-center gap-2.5 text-sm text-gray-800 dark:text-white/90">
-                    <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
-                    <span>
-                      {isTeacher 
-                        ? formatBirthdate(teacherProfile?.dob) 
-                        : formatBirthdate(studentProfile?.dob)}
-                    </span>
-                  </div>
+                  </label>
+                  {editMode ? (
+                    <input
+                      type="date"
+                      value={editDob}
+                      onChange={(e) => setEditDob(e.target.value)}
+                      className="h-10 w-full px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:border-brand-500"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2.5 text-sm text-gray-800 dark:text-white/90">
+                      <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
+                      <span>
+                        {isTeacher 
+                          ? formatBirthdate(teacherProfile?.dob) 
+                          : formatBirthdate(studentProfile?.dob)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Gender (Read-only) */}
+              {/* Gender (Editable if Teacher or Student) */}
               {(isTeacher || isStudent) && (
                 <div className="space-y-1.5">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">
                     {t("profile.gender", { defaultValue: "Giới tính" })}
-                  </p>
-                  <div className="flex items-center gap-2.5 text-sm text-gray-800 dark:text-white/90">
-                    <Heart className="w-4 h-4 text-gray-400 shrink-0" />
-                    <span>
-                      {isTeacher
-                        ? teacherProfile?.gender === true ? "Nam" : teacherProfile?.gender === false ? "Nữ" : "N/A"
-                        : studentProfile?.gender === true ? "Nam" : studentProfile?.gender === false ? "Nữ" : "N/A"}
-                    </span>
-                  </div>
+                  </label>
+                  {editMode ? (
+                    <select
+                      value={editGender === true ? "true" : editGender === false ? "false" : ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEditGender(val === "true" ? true : val === "false" ? false : null);
+                      }}
+                      className="h-10 w-full px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:border-brand-500"
+                    >
+                      <option value="">{t("teacher.formGenderPlaceholder", { defaultValue: "Chọn giới tính" })}</option>
+                      <option value="true">{t("teacher.genderMale", { defaultValue: "Nam" })}</option>
+                      <option value="false">{t("teacher.genderFemale", { defaultValue: "Nữ" })}</option>
+                    </select>
+                  ) : (
+                    <div className="flex items-center gap-2.5 text-sm text-gray-800 dark:text-white/90">
+                      <Heart className="w-4 h-4 text-gray-400 shrink-0" />
+                      <span>
+                        {isTeacher
+                          ? teacherProfile?.gender === true ? "Nam" : teacherProfile?.gender === false ? "Nữ" : "N/A"
+                          : studentProfile?.gender === true ? "Nam" : studentProfile?.gender === false ? "Nữ" : "N/A"}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
 
-
+              {/* Address (Editable if Teacher or Student) */}
+              {(isTeacher || isStudent) && (
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    {t("profile.address", { defaultValue: "Địa chỉ" })}
+                  </label>
+                  {editMode ? (
+                    <input
+                      type="text"
+                      value={editAddress}
+                      onChange={(e) => setEditAddress(e.target.value)}
+                      className="h-10 w-full px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:border-brand-500"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2.5 text-sm text-gray-800 dark:text-white/90">
+                      <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
+                      <span>
+                        {isTeacher ? teacherProfile?.address || "N/A" : studentProfile?.address || "N/A"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Relationship (Editable for Parent) */}
               {isParent && (
@@ -659,34 +898,57 @@ export default function ProfilePage() {
               
               <div className="space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Grade Level (Readonly) */}
-                  <div className="space-y-1">
-                    <span className="text-xs text-gray-400 font-semibold">{t("profile.gradeLevel", { defaultValue: "Cấp độ giảng dạy" })}</span>
-                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-white">
-                      <GraduationCap className="w-4 h-4 text-blue-500" />
-                      {teacherProfile.gradeLevelName || "Foundation"}
-                    </div>
-                  </div>
-
-                  {/* Certificate (Editable in EditMode) */}
+                  {/* Grade Level */}
                   <div className="space-y-1.5">
                     <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                      {t("profile.certificate", { defaultValue: "Chứng chỉ ngoại ngữ" })}
+                      {t("profile.gradeLevel", { defaultValue: "Cấp độ giảng dạy" })}
                     </label>
                     {editMode ? (
-                      <input
-                        type="text"
-                        value={editCertificate}
-                        onChange={(e) => setEditCertificate(e.target.value)}
-                        className="h-9 w-full px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:border-brand-500"
-                      />
+                      <select
+                        value={editGradeLevel || ""}
+                        onChange={(e) => setEditGradeLevel(e.target.value || null)}
+                        className="h-10 w-full px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:border-brand-500"
+                      >
+                        <option value="">{t("teacher.selectGradeLevel", { defaultValue: "Chọn cấp độ" })}</option>
+                        <option value="Foundation">Foundation</option>
+                        <option value="PreIelts">PreIelts</option>
+                        <option value="Ielts4_5">Ielts 4.5</option>
+                        <option value="Ielts5_6">Ielts 5.6</option>
+                        <option value="Ielts6_65">Ielts 6.0 - 6.5</option>
+                        <option value="Ielts65Plus">Ielts 6.5+</option>
+                      </select>
                     ) : (
                       <div className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-white">
-                        <Award className="w-4 h-4 text-amber-500" />
-                        {teacherProfile.certificate || "N/A"}
+                        <GraduationCap className="w-4 h-4 text-blue-500" />
+                        {teacherProfile.gradeLevelName || teacherProfile.gradeLevel || "Foundation"}
                       </div>
                     )}
                   </div>
+
+                  {/* Certificates (Read-only view) */}
+                  {!editMode && (
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <span className="text-xs text-gray-400 font-semibold">{t("profile.certificatesList", { defaultValue: "Chứng chỉ đã lưu" })}</span>
+                      {certificatesList.length > 0 ? (
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {certificatesList.map((cert, idx) => (
+                            <a
+                              key={idx}
+                              href={getImageUrl(cert) || "#"}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-lg dark:text-brand-400 dark:bg-brand-950/30 dark:hover:bg-brand-950/50 transition-colors"
+                            >
+                              <Award className="w-3.5 h-3.5 animate-pulse text-amber-500" />
+                              <span className="truncate max-w-[200px]">{cert.split('/').pop()}</span>
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-500">N/A</div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Description Bio (Editable in EditMode) */}
@@ -739,31 +1001,66 @@ export default function ProfilePage() {
                   )}
                 </div>
 
-                {/* Grade Level (Read-only) */}
+                {/* Grade Level (Editable in EditMode) */}
                 <div className="space-y-1.5">
-                  <span className="text-xs text-gray-400 font-semibold">{t("profile.gradeLevel", { defaultValue: "Khối lớp" })}</span>
-                  <div className="flex items-center gap-2.5 text-sm text-gray-800 dark:text-white">
-                    <GraduationCap className="w-4 h-4 text-gray-400" />
-                    <span>{studentProfile.gradeLevel ? `Lớp ${studentProfile.gradeLevel}` : "N/A"}</span>
-                  </div>
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    {t("profile.gradeLevel", { defaultValue: "Khối lớp" })}
+                  </label>
+                  {editMode ? (
+                    <input
+                      type="number"
+                      min={1}
+                      max={12}
+                      value={editGradeLevel || ""}
+                      onChange={(e) => setEditGradeLevel(e.target.value)}
+                      className="h-10 w-full px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:border-brand-500"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2.5 text-sm text-gray-800 dark:text-white">
+                      <GraduationCap className="w-4 h-4 text-gray-400" />
+                      <span>{studentProfile.gradeLevel ? `Lớp ${studentProfile.gradeLevel}` : "N/A"}</span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Parent Name (Read-only) */}
+                {/* Parent Name (Editable in EditMode) */}
                 <div className="space-y-1.5">
-                  <span className="text-xs text-gray-400 font-semibold">{t("profile.parentName", { defaultValue: "Người bảo hộ / Phụ huynh" })}</span>
-                  <div className="flex items-center gap-2.5 text-sm text-gray-800 dark:text-white">
-                    <User className="w-4 h-4 text-gray-400" />
-                    <span>{studentProfile.parentName || "N/A"}</span>
-                  </div>
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    {t("profile.parentName", { defaultValue: "Người bảo hộ / Phụ huynh" })}
+                  </label>
+                  {editMode ? (
+                    <input
+                      type="text"
+                      value={editParentName}
+                      onChange={(e) => setEditParentName(e.target.value)}
+                      className="h-10 w-full px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:border-brand-500"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2.5 text-sm text-gray-800 dark:text-white">
+                      <User className="w-4 h-4 text-gray-400" />
+                      <span>{studentProfile.parentName || "N/A"}</span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Parent Phone (Read-only) */}
+                {/* Parent Phone (Editable in EditMode) */}
                 <div className="space-y-1.5">
-                  <span className="text-xs text-gray-400 font-semibold">{t("profile.parentPhone", { defaultValue: "SĐT phụ huynh" })}</span>
-                  <div className="flex items-center gap-2.5 text-sm text-gray-800 dark:text-white">
-                    <Phone className="w-4 h-4 text-gray-400" />
-                    <span>{studentProfile.parentPhone || "N/A"}</span>
-                  </div>
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    {t("profile.parentPhone", { defaultValue: "SĐT phụ huynh" })}
+                  </label>
+                  {editMode ? (
+                    <input
+                      type="text"
+                      value={editParentPhone}
+                      onChange={(e) => setEditParentPhone(e.target.value)}
+                      className="h-10 w-full px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:border-brand-500"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2.5 text-sm text-gray-800 dark:text-white">
+                      <Phone className="w-4 h-4 text-gray-400" />
+                      <span>{studentProfile.parentPhone || "N/A"}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -808,8 +1105,192 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Right Side: Account Actions & Permission overview */}
+        {/* Right Side: Account Actions & File Uploads */}
         <div className="space-y-6">
+          {/* Avatar Upload (visible in editMode for Teacher and Student) */}
+          {editMode && (isTeacher || isStudent) && (
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03] space-y-4">
+              <h3 className="text-base font-bold text-gray-900 dark:text-white pb-3 border-b border-gray-100 dark:border-white/5 flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-brand-500" />
+                {t("teacher.avatarLabel", { defaultValue: "Ảnh đại diện" })}
+              </h3>
+              <div 
+                className="group mt-1.5 flex h-[280px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-4 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-880/50 dark:hover:bg-gray-800"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/png, image/jpeg, image/jpg"
+                  onChange={handleFileChange}
+                />
+                
+                {isUploading ? (
+                  <div className="flex flex-col items-center py-6">
+                    <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="mt-2 text-xs text-gray-500">Đang tải...</span>
+                  </div>
+                ) : avatarPreview ? (
+                  <div className="group relative h-full w-full overflow-hidden rounded-lg">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={avatarPreview}
+                      alt="Avatar preview"
+                      className="object-cover w-full h-full"
+                    />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
+                      <button 
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setPreviewImage(avatarPreview); }}
+                        className="p-2 bg-white/20 hover:bg-white/40 rounded-full text-white transition-colors"
+                        title="Xem ảnh phóng to"
+                      >
+                        <Eye className="w-5 h-5" />
+                      </button>
+                      <span className="text-white text-xs font-medium px-3 py-1.5 bg-white/20 rounded-full hover:bg-white/30 transition-colors">
+                        Thay đổi ảnh
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center text-center py-2">
+                    <div className="w-8 h-8 mb-1.5 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-brand-600 dark:text-brand-400">
+                      <ImageIcon className="w-5 h-5" />
+                    </div>
+                    <p className="text-xs font-medium text-brand-600 dark:text-brand-400 mb-1">
+                      Tải ảnh lên
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Certificates Upload (visible in editMode for Teacher) */}
+          {editMode && isTeacher && (
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03] space-y-4">
+              <h3 className="text-base font-bold text-gray-900 dark:text-white pb-3 border-b border-gray-100 dark:border-white/5 flex items-center gap-2">
+                <Award className="w-5 h-5 text-brand-500" />
+                {t("teacher.certificateLabel", { defaultValue: "Chứng chỉ" })}
+              </h3>
+              <div 
+                className="group mt-1.5 flex h-[280px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-4 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-880/50 dark:hover:bg-gray-800"
+                onClick={() => certInputRef.current?.click()}
+              >
+                <input
+                  type="file"
+                  ref={certInputRef}
+                  className="hidden"
+                  multiple
+                  accept="image/png, image/jpeg, image/jpg, application/pdf, .doc, .docx"
+                  onChange={handleCertChange}
+                />
+                
+                {isUploading ? (
+                  <div className="flex flex-col items-center py-6">
+                    <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="mt-2 text-xs text-gray-500">Đang tải...</span>
+                  </div>
+                ) : certFile || existingCertificate ? (
+                  <div className="group relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-850">
+                    {(certFile && certFile.type.startsWith('image/')) || (!certFile && isImage(existingCertificate)) ? (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={selectedCertificateUrl as string}
+                          alt="Certificate preview"
+                          className="object-cover w-full h-full"
+                        />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
+                          <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setPreviewImage(selectedCertificateUrl); }}
+                            className="p-2 bg-white/20 hover:bg-white/40 rounded-full text-white transition-colors"
+                            title="Xem ảnh phóng to"
+                          >
+                            <Eye className="w-5 h-5" />
+                          </button>
+                          <span className="text-white text-xs font-medium px-3 py-1.5 bg-white/20 rounded-full hover:bg-white/30 transition-colors">
+                            Thay đổi
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex flex-col items-center text-center p-4">
+                          <FileText className="w-12 h-12 text-brand-500 mb-2" />
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 break-all max-w-full">
+                            {certFile ? certFile.name : existingCertificate?.split('/').pop()}
+                          </p>
+                        </div>
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <span className="text-white text-xs font-medium px-3 py-1.5 bg-white/20 rounded-full hover:bg-white/30 transition-colors">Thay đổi</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center text-center py-2">
+                    <div className="w-8 h-8 mb-1.5 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-brand-600 dark:text-brand-400">
+                      <Award className="w-5 h-5" />
+                    </div>
+                    <p className="text-xs font-medium text-brand-600 dark:text-brand-400 mb-1">
+                      {t("teacher.uploadCertificates", { defaultValue: "Tải nhiều chứng chỉ lên" })}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {((certificatesList?.length || 0) > 0 || certFiles.length > 0) && (
+                <div className="mt-3">
+                  <p className="mb-2 text-[11px] text-gray-500 dark:text-gray-400">{t("teacher.selectCertificatePreview")}</p>
+                  <div className="max-h-44 space-y-2 overflow-y-auto">
+                    {certificatesList.map((certificate, index) => (
+                      <div key={`${certificate}-${index}`} className={`flex items-center gap-2 rounded-lg border p-2 transition-colors ${selectedCertificate?.type === "existing" && selectedCertificate.index === index ? "border-brand-400 bg-brand-50 ring-1 ring-brand-200 dark:border-brand-500 dark:bg-brand-500/10" : "border-gray-200 bg-white dark:border-gray-750 dark:bg-gray-850"}`}>
+                        <button
+                          type="button"
+                          onClick={() => selectExistingCertificate(index)}
+                          className="min-w-0 flex-1 truncate text-left text-xs font-medium text-gray-700 hover:text-brand-600 dark:text-gray-300 dark:hover:text-brand-400"
+                          title={certificate.split('/').pop()}
+                        >
+                          {certificate.split('/').pop()}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeExistingCertificate(index)}
+                          className="rounded p-1 text-gray-400 hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-500/10"
+                          aria-label={t("teacher.removeCertificate", { defaultValue: "Xóa chứng chỉ" })}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+
+                    {certFiles.map((file, index) => (
+                      <div key={`${file.name}-${file.size}-${file.lastModified}`} className={`flex items-center gap-2 rounded-lg border p-2 transition-colors ${selectedCertificate?.type === "pending" && selectedCertificate.index === index ? "border-brand-500 bg-brand-100 ring-1 ring-brand-300 dark:border-brand-400 dark:bg-brand-500/20" : "border-brand-100 bg-brand-50/60 dark:border-brand-500/20 dark:bg-brand-500/10"}`}>
+                        <button type="button" onClick={() => selectPendingCertificate(index)} className="min-w-0 flex-1 truncate text-left text-xs font-medium text-gray-700 hover:text-brand-600 dark:text-gray-300" title={file.name}>
+                          {file.name}
+                        </button>
+                        <span className="text-[10px] font-medium text-brand-600 dark:text-brand-400">
+                          {t("teacher.pendingUpload", { defaultValue: "Sẽ tải khi bấm Lưu" })}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removePendingCertificate(index)}
+                          className="rounded p-1 text-gray-400 hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-500/10"
+                          aria-label={t("teacher.removeCertificate", { defaultValue: "Xóa chứng chỉ" })}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Security details card */}
           <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03]">
             <h3 className="text-base font-bold text-gray-900 dark:text-white mb-5 flex items-center gap-2 pb-3 border-b border-gray-100 dark:border-white/5">
@@ -988,6 +1469,27 @@ export default function ProfilePage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Image Preview overlay */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-[99999999] bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setPreviewImage(null)}
+        >
+          <button 
+            type="button"
+            onClick={() => setPreviewImage(null)}
+            className="fixed right-5 top-5 z-[100000000] p-2 text-white transition-colors hover:text-gray-200"
+            aria-label="Close image preview"
+          >
+            <X className="h-7 w-7 stroke-[3]" />
+          </button>
+          <div className="relative max-w-4xl w-full" onClick={(e) => e.stopPropagation()}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={previewImage} alt="Preview" className="max-h-[85vh] object-contain rounded-lg mx-auto" />
           </div>
         </div>
       )}
