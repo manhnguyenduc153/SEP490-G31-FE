@@ -76,7 +76,7 @@ const schoolItems: NavItem[] = [
     icon: <TableIcon />,
     name: "assessments",
     subItems: [
-      { name: "exams", path: "/exams", permission: ["Exam.View", "Exam.StudentView", "Exam.TeacherView"] },
+      { name: "exams", path: "/exams", permission: ["Exam.View", "Exam.TeacherView"] },
       { name: "homework", path: "/homework", permission: "Homework" },
       { name: "questionBank", path: "/question-bank", permission: "Question" },
       { name: "questionCategory", path: "/question-category", permission: "QuestionCategory" },
@@ -90,6 +90,7 @@ const schoolItems: NavItem[] = [
     subItems: [
       { name: "learningMaterials", path: "/learning-materials", permission: "LearningMaterial.View" },
       { name: "myAttendance", path: "/attendance", permission: "Attendance.StudentView" },
+      { name: "myExams", path: "/my-exams", permission: "Exam.StudentView" },
       { name: "studentProgress", path: "/student-progress" },
     ],
   },

@@ -27,7 +27,7 @@ import { StudentViewModal } from "./StudentViewModal";
 
 type SortKey = "code" | "name" | "email" | "phone" | "status" | "gradeLevel" | "hasAccount";
 type SortOrder = "asc" | "desc";
-type TabType = "all" | "active" | "inactive" | "suspended" | "graduated";
+type TabType = "all" | "active" | "suspended" | "graduated";
 
 interface StudentTableProps {
   refreshKey?: number;
@@ -73,7 +73,6 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
   const [activeTab, setActiveTab] = useState<TabType>("all");
   const [countAll, setCountAll] = useState(0);
   const [countActive, setCountActive] = useState(0);
-  const [countInactive, setCountInactive] = useState(0);
   const [countSuspended, setCountSuspended] = useState(0);
   const [countGraduated, setCountGraduated] = useState(0);
 
@@ -182,14 +181,12 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
           const allList = allItemsRes.data.items || [];
           setCountAll(allList.length);
           setCountActive(allList.filter(s => s.status === 1).length);
-          setCountInactive(allList.filter(s => s.status === 0).length);
           setCountSuspended(allList.filter(s => s.status === 2).length);
           setCountGraduated(allList.filter(s => s.status === 3).length);
 
           // Filter main list items by activeTab
           let displayList = allList;
           if (activeTab === "active") displayList = allList.filter(s => s.status === 1);
-          else if (activeTab === "inactive") displayList = allList.filter(s => s.status === 0);
           else if (activeTab === "suspended") displayList = allList.filter(s => s.status === 2);
           else if (activeTab === "graduated") displayList = allList.filter(s => s.status === 3);
 
@@ -467,13 +464,13 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
   const endIndex = Math.min(startIndex + items.length, totalRecords);
 
   const columns: { key: SortKey; label: string }[] = [
-    { key: "code", label: t("student.colCode", { defaultValue: "Mã HS" }) },
-    { key: "name", label: t("student.colName", { defaultValue: "Họ và tên" }) },
-    { key: "email", label: t("student.colEmail", { defaultValue: "Email" }) },
-    { key: "phone", label: t("student.colPhone", { defaultValue: "Số điện thoại" }) },
-    { key: "gradeLevel", label: t("student.colGradeLevel", { defaultValue: "Khối lớp" }) },
-    { key: "status", label: t("student.colStatus", { defaultValue: "Trạng thái" }) },
-    { key: "hasAccount", label: t("student.colAccount", { defaultValue: "Tài khoản" }) },
+    { key: "code", label: t("student.colCode") },
+    { key: "name", label: t("student.colName") },
+    { key: "email", label: t("student.colEmail") },
+    { key: "phone", label: t("student.colPhone") },
+    { key: "gradeLevel", label: t("student.colGradeLevel") },
+    { key: "status", label: t("student.colStatus") },
+    { key: "hasAccount", label: t("student.colAccount") },
   ];
 
   const getStatusLabel = (status: number) => {
@@ -584,7 +581,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
               : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           }`}
         >
-          {t("student.tabAll", { defaultValue: "Tất cả" })} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countAll}</span>
+          {t("student.tabAll")} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countAll}</span>
         </button>
         <button
           onClick={() => { setActiveTab("active"); setCurrentPage(1); }}
@@ -594,17 +591,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
               : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           }`}
         >
-          {t("student.tabActive", { defaultValue: "Hoạt động" })} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countActive}</span>
-        </button>
-        <button
-          onClick={() => { setActiveTab("inactive"); setCurrentPage(1); }}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${
-            activeTab === "inactive"
-              ? "border-brand-500 text-brand-500 dark:border-brand-400 dark:text-brand-400"
-              : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-          }`}
-        >
-          {t("student.tabInactive", { defaultValue: "Ngưng hoạt động" })} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countInactive}</span>
+          {t("student.tabActive")} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countActive}</span>
         </button>
         <button
           onClick={() => { setActiveTab("suspended"); setCurrentPage(1); }}
@@ -614,7 +601,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
               : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           }`}
         >
-          {t("student.tabSuspended", { defaultValue: "Bị đình chỉ" })} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countSuspended}</span>
+          {t("student.tabSuspended")} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countSuspended}</span>
         </button>
         <button
           onClick={() => { setActiveTab("graduated"); setCurrentPage(1); }}
@@ -624,7 +611,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
               : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           }`}
         >
-          {t("student.tabGraduated", { defaultValue: "Đã tốt nghiệp" })} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countGraduated}</span>
+          {t("student.tabGraduated")} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countGraduated}</span>
         </button>
       </div>
 
@@ -700,18 +687,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
                 isHeader
                 className="px-6 py-4 border-r border-gray-100 dark:border-white/[0.05] text-center w-12"
               >
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 text-brand-600 border-gray-300 rounded focus:ring-brand-500 cursor-pointer"
-                  checked={items.length > 0 && selectedIds.length === items.length}
-                  onChange={handleSelectAll}
-                />
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-6 py-4 border-r border-gray-100 dark:border-white/[0.05] text-center w-12"
-              >
-                <p className="font-semibold text-gray-800 text-xs dark:text-gray-200">#</p>
+                <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">#</p>
               </TableCell>
               {columns.map(({ key, label }) => (
                 <TableCell
@@ -723,7 +699,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
                     className="flex items-center justify-between cursor-pointer select-none"
                     onClick={() => handleSort(key)}
                   >
-                    <p className="font-semibold text-gray-800 text-xs dark:text-gray-200">
+                    <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">
                       {label}
                     </p>
                     <button className="flex flex-col gap-0.5 ml-2">
@@ -747,7 +723,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
               ))}
               <TableCell
                 isHeader
-                className="px-6 py-4 text-center font-semibold text-gray-800 text-xs dark:text-gray-200"
+                className="px-6 py-4 text-center font-semibold text-gray-800 text-theme-sm dark:text-gray-200"
               >
                 {t("student.colActions", { defaultValue: "Thao tác" })}
               </TableCell>
@@ -758,7 +734,6 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
             {isLoading ? (
               Array.from({ length: itemsPerPage }).map((_, idx) => (
                 <TableRow key={idx} className="animate-pulse">
-                  <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-6" /></TableCell>
                   <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-6" /></TableCell>
                   <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-16" /></TableCell>
                   <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-32" /></TableCell>
@@ -777,7 +752,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
             ) : error ? (
               <TableRow>
                 <TableCell
-                  colSpan={9}
+                  colSpan={8}
                   className="px-6 py-10 text-center text-error-500 dark:text-error-400 font-medium"
                 >
                   {error}
@@ -789,14 +764,6 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
                   key={item.id}
                   className="hover:bg-gray-50/50 dark:hover:bg-white/[0.01] transition-colors"
                 >
-                  <TableCell className="px-6 py-4 border-r border-gray-100 dark:border-white/[0.05] text-center w-12">
-                    <input
-                      type="checkbox"
-                      className="w-4 h-4 text-brand-600 border-gray-300 rounded focus:ring-brand-500 cursor-pointer"
-                      checked={selectedIds.includes(item.id)}
-                      onChange={(e) => handleSelectItem(item.id, e.target.checked)}
-                    />
-                  </TableCell>
                   <TableCell className="px-6 py-4 text-gray-500 dark:text-gray-400 whitespace-nowrap w-12 text-center">
                     {startIndex + index + 1}
                   </TableCell>
@@ -841,7 +808,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
                     {item.phone || <span className="text-gray-300 dark:text-gray-700">-</span>}
                   </TableCell>
                   <TableCell className="px-6 py-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                    {item.gradeLevel ? `${t("student.colGradeLevel")} ${item.gradeLevel}` : <span className="text-gray-300 dark:text-gray-700">-</span>}
+                    {item.gradeLevel ? t("student.gradeText", { level: item.gradeLevel }) : <span className="text-gray-300 dark:text-gray-700">-</span>}
                   </TableCell>
                   <TableCell className="px-6 py-4 whitespace-nowrap">
                     {renderStatusBadge(item.status, getStatusLabel(item.status))}
@@ -909,7 +876,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
       <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between px-6 py-5 bg-gray-50/50 dark:bg-white/[0.01] border-t border-gray-100 dark:border-gray-800/40">
         <div className="flex flex-wrap items-center gap-4 pb-3 xl:pb-0 justify-center xl:justify-start">
           <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
-            <span>{t("student.show", { defaultValue: "Hiển thị" })}</span>
+            <span>{t("student.show")}</span>
             <select
               value={itemsPerPage}
               onChange={(e) => {
@@ -923,14 +890,13 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
               <option value="15" className="dark:bg-gray-900">15</option>
               <option value="20" className="dark:bg-gray-900">20</option>
             </select>
-            <span>{t("student.entriesPerPage", { defaultValue: "mục mỗi trang" })}</span>
+            <span>{t("student.entriesPerPage")}</span>
           </div>
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
             {t("student.showing", {
               start: totalRecords === 0 ? 0 : startIndex + 1,
               end: endIndex,
               total: totalRecords,
-              defaultValue: `Hiển thị ${totalRecords === 0 ? 0 : startIndex + 1} đến ${endIndex} trong tổng số ${totalRecords} mục`
             })}
           </p>
         </div>
