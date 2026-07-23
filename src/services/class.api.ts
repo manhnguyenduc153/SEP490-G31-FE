@@ -174,6 +174,10 @@ export const classApi = {
     return api.get<ClassScheduleItem[]>("/api/Class/StudentSchedules");
   },
   
+  async getChildSchedules(studentId: number): Promise<ApiResponse<ClassScheduleItem[]>> {
+    return api.get<ClassScheduleItem[]>(`/api/Class/ChildSchedules?studentId=${studentId}`);
+  },
+  
   async getClassSchedules(): Promise<ApiResponse<ClassScheduleItem[]>> {
     return api.get<ClassScheduleItem[]>("/api/Class/Schedules");
   },

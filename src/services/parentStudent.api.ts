@@ -3,19 +3,24 @@ import { ENDPOINTS } from "@/constants/endpoints";
 
 // ─── DTOs ─────────────────────────────────────────────────────────────────────
 
+export interface ChildItem {
+  studentId: number;
+  studentName?: string | null;
+  relationship?: string | null;
+}
+
 export interface ParentStudentItem {
   id: number;
   code: string;
   name: string;          // Tên phụ huynh
-  studentId: number;
-  studentName?: string | null;
   parentPhone?: string | null;
   email?: string | null;
-  relationship?: string | null;
+  relationship?: string | null; // Mối quan hệ chung của phụ huynh
   status: number;
   userId?: string | null;
   createdAt?: string | null;
   createdBy?: string | null;
+  children: ChildItem[];
 }
 
 export interface ParentStudentPagingResponse {
@@ -28,13 +33,13 @@ export interface ParentStudentPagingResponse {
 
 export interface ParentStudentSaveDto {
   id?: number;
-  studentId: number;
   code?: string;
   name: string;
   parentPhone?: string | null;
   email: string;
-  relationship?: string | null;
+  relationship?: string | null; // Mối quan hệ chung của phụ huynh
   status?: number;
+  studentIds: number[];
 }
 
 // ─── API ──────────────────────────────────────────────────────────────────────

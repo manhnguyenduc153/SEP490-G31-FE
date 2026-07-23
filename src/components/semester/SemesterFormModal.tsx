@@ -19,11 +19,11 @@ export function SemesterFormModal({
   onSubmitSuccess,
 }: SemesterFormModalProps) {
   const { t } = useTranslation();
+  const hasSchedules = editingItem?.hasSchedules === true;
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
-  const [status, setStatus] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -33,13 +33,11 @@ export function SemesterFormModal({
       setName(editingItem.name);
       setStartDate(editingItem.startDate ? new Date(editingItem.startDate) : null);
       setEndDate(editingItem.endDate ? new Date(editingItem.endDate) : null);
-      setStatus(editingItem.status);
     } else {
       setCode("");
       setName("");
       setStartDate(null);
       setEndDate(null);
-      setStatus(0);
     }
     setError(null);
   }, [editingItem, isOpen]);
@@ -60,7 +58,7 @@ export function SemesterFormModal({
       name: name.trim(),
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
-      status: status,
+      status: editingItem ? editingItem.status : 1,
     };
 
     try {
@@ -143,6 +141,7 @@ export function SemesterFormModal({
               </label>
               <DatePicker
                 id="formStartDate"
+                disabled={hasSchedules}
                 placeholder="dd/MM/yyyy"
                 dateFormat="d/m/Y"
                 defaultDate={editingItem?.startDate ? new Date(editingItem.startDate) : undefined}
@@ -158,6 +157,7 @@ export function SemesterFormModal({
               </label>
               <DatePicker
                 id="formEndDate"
+                disabled={hasSchedules}
                 placeholder="dd/MM/yyyy"
                 dateFormat="d/m/Y"
                 defaultDate={editingItem?.endDate ? new Date(editingItem.endDate) : undefined}
@@ -165,24 +165,6 @@ export function SemesterFormModal({
                   setEndDate(dates && dates.length > 0 ? dates[0] : null);
                 }}
               />
-            </div>
-          </div>
-
-          <div>
-            <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t("semester.formStatusLabel")}
-            </label>
-            <div className="relative z-20 bg-transparent">
-              <select
-                value={status}
-                onChange={(e) => setStatus(Number(e.target.value))}
-                className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 appearance-none focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 focus:ring-brand-500/10 dark:focus:border-brand-800 shadow-theme-xs"
-              >
-                <option value={0} className="dark:bg-gray-900 dark:text-white">{t("semester.formStatusDraft")}</option>
-                <option value={1} className="dark:bg-gray-900 dark:text-white">{t("semester.formStatusActive")}</option>
-                <option value={2} className="dark:bg-gray-900 dark:text-white">{t("semester.formStatusClosed")}</option>
-                <option value={3} className="dark:bg-gray-900 dark:text-white">{t("semester.formStatusClosed")}</option>
-              </select>
             </div>
           </div>
 

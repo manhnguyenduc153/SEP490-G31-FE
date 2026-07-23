@@ -48,6 +48,7 @@ const FIXED_SLOTS = [
 ];
 
 export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToast }: ClassFormProps) {
+  const isStarted = editingItem ? editingItem.status !== 0 : false;
   const startDateInputRef = useRef<HTMLInputElement>(null);
   
   const getFriendlyErrorMessage = (msg: string) => {
@@ -712,22 +713,32 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
         </div>
 
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => excelInputRef.current?.click()}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950/20 dark:border-emerald-900/30 dark:hover:bg-emerald-950/40 transition-colors"
-          >
-            <FileSpreadsheet className="w-4.5 h-4.5" />
-            {t("class.importExcel")}
-          </button>
-          <a
-            href="/class_import_template.xlsx"
-            download
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-850 dark:border-gray-700 dark:hover:bg-gray-800 transition-colors"
-          >
-            <Download className="w-4 h-4 text-gray-500 dark:text-gray-400 shrink-0" />
-            {t("class.downloadTemplate")}
-          </a>
+           <button
+             type="button"
+             disabled={isStarted}
+             onClick={() => excelInputRef.current?.click()}
+             className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+               isStarted
+                 ? "text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed dark:bg-gray-800 dark:border-gray-700 dark:text-gray-600"
+                 : "text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950/20 dark:border-emerald-900/30 dark:hover:bg-emerald-950/40"
+             }`}
+           >
+             <FileSpreadsheet className="w-4.5 h-4.5" />
+             {t("class.importExcel")}
+           </button>
+           <a
+             href={isStarted ? undefined : "/class_import_template.xlsx"}
+             onClick={(e) => isStarted && e.preventDefault()}
+             download
+             className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+               isStarted
+                 ? "text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed dark:bg-gray-800 dark:border-gray-700 dark:text-gray-600 pointer-events-none"
+                 : "text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-850 dark:border-gray-700 dark:hover:bg-gray-800"
+             }`}
+           >
+             <Download className="w-4 h-4 text-gray-500 dark:text-gray-400 shrink-0" />
+             {t("class.downloadTemplate")}
+           </a>
           <input
             type="file"
             ref={excelInputRef}
@@ -749,7 +760,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
             className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-theme-xs transition-colors disabled:opacity-60"
           >
             <Plus className="w-4 h-4" />
-            {editingItem ? t("class.btnSave") : t("class.btnCreateClass")}
+            {editingItem ? t("class.btnUpdateClass") : t("class.btnCreateClass")}
           </button>
         </div>
       </div>
@@ -763,12 +774,14 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
               {t("class.basicInfo")}
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">              <div className="space-y-1.5 col-span-1 sm:col-span-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div className="space-y-1.5 col-span-1 sm:col-span-2">
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                   {t("class.colSemester")}
                 </label>
                 <SearchableSelect
                   value={formSemesterId || ""}
+                  disabled={isStarted}
                   onChange={(value) => {
                     const id = value ? Number(value) : null;
                     setFormSemesterId(id);
@@ -783,7 +796,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                   }}
                   options={semesters.map((s) => ({
                     value: s.id,
-                    label: `${s.name} (${s.code})`,
+                    label: `${s.name} (${s.code}) - ${s.classCount ?? 0} lớp`,
                   }))}
                   placeholder={t("class.selectSemesterPlaceholder")}
                 />
@@ -797,10 +810,13 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                 <input
                   type="text"
                   required
+                  disabled={isStarted}
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
                   placeholder={t("class.formNamePlaceholder")}
-                  className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-805 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                  className={`w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white ${
+                    isStarted ? "bg-gray-50/60 dark:bg-gray-950/45 text-gray-400 cursor-not-allowed" : "text-gray-805"
+                  }`}
                 />
               </div>
 
@@ -811,10 +827,13 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                 </label>
                 <input
                   type="text"
+                  disabled={isStarted}
                   value={formCode}
                   onChange={(e) => setFormCode(e.target.value)}
                   placeholder={t("class.formCodePlaceholder")}
-                  className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-855 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                  className={`w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white ${
+                    isStarted ? "bg-gray-50/60 dark:bg-gray-950/45 text-gray-400 cursor-not-allowed" : "text-gray-855"
+                  }`}
                 />
               </div>
 
@@ -831,11 +850,13 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                       required
                       ref={startDateInputRef}
                       value={formStartDate}
-                      disabled={!!formSemesterId}
+                      disabled={isStarted || !!formSemesterId}
                       onChange={(e) => setFormStartDate(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-transparent disabled:bg-gray-50/60 dark:disabled:bg-gray-950/40 pl-3 pr-10 py-2 text-sm text-gray-855 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                      className={`w-full rounded-lg border border-gray-200 bg-transparent disabled:bg-gray-50/60 dark:disabled:bg-gray-950/40 pl-3 pr-10 py-2 text-sm focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-955 dark:text-white ${
+                        isStarted ? "cursor-not-allowed text-gray-400" : "text-gray-855"
+                      }`}
                     />
-                    {!formSemesterId && (
+                    {!isStarted && !formSemesterId && (
                       <button
                         type="button"
                         onClick={() => startDateInputRef.current?.showPicker()}
@@ -879,11 +900,13 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                     type="number"
                     min={1}
                     max={200}
-                    disabled={!!formSemesterId}
+                    disabled={isStarted || !!formSemesterId}
                     value={formSemesterId ? "" : formExpectedLessons}
                     onChange={(e) => setFormExpectedLessons(Number(e.target.value))}
                     placeholder={formSemesterId ? t("class.expectedLessonsPlaceholderSemester") : t("class.expectedLessonsPlaceholder")}
-                    className="w-full rounded-lg border border-gray-200 bg-transparent disabled:bg-gray-50/60 dark:disabled:bg-gray-955/40 px-3 py-2 text-sm text-gray-855 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-955 dark:text-white"
+                    className={`w-full rounded-lg border border-gray-200 bg-transparent disabled:bg-gray-50/60 dark:disabled:bg-gray-955/40 px-3 py-2 text-sm focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-955 dark:text-white ${
+                      isStarted ? "cursor-not-allowed text-gray-400" : "text-gray-855"
+                    }`}
                   />
                   <span className="text-[10px] text-gray-400 block mt-1">
                     {formSemesterId ? t("class.expectedLessonsHelpSemester") : t("class.expectedLessonsHelpManual")}
@@ -935,6 +958,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                 </label>
                 <SearchableSelect
                   value={formCourseId || ""}
+                  disabled={isStarted}
                   onChange={(value) => {
                     setFormCourseId(value ? Number(value) : null);
                     setFormNewCourseName(null);
@@ -1141,10 +1165,13 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
               </label>
               <textarea
                 value={formDesc}
+                disabled={isStarted}
                 onChange={(e) => setFormDesc(e.target.value)}
                 placeholder={t("class.formDescPlaceholder")}
                 rows={3}
-                className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white resize-none"
+                className={`w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white resize-none ${
+                  isStarted ? "bg-gray-50/60 dark:bg-gray-950/45 text-gray-400 cursor-not-allowed" : "text-gray-800"
+                }`}
               />
             </div>
           </div>
@@ -1173,16 +1200,21 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                     className={`p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between space-y-3.5 ${
                       isSelected
                         ? "bg-brand-50/20 border-brand-500 dark:bg-brand-950/10 dark:border-brand-500 shadow-xs"
-                        : "bg-gray-50/30 border-gray-200 dark:bg-gray-950/40 dark:border-gray-850 opacity-60 hover:opacity-80"
+                        : "bg-gray-50/30 border-gray-200 dark:bg-gray-955 dark:border-gray-850 opacity-60 hover:opacity-80"
                     }`}
                   >
                     {/* Header: Checkbox + Day Label */}
-                    <label className="flex items-center gap-2 cursor-pointer select-none pb-1 border-b border-gray-100 dark:border-gray-800/60">
+                    <label className={`flex items-center gap-2 select-none pb-1 border-b border-gray-100 dark:border-gray-800/60 ${
+                      isStarted ? "cursor-not-allowed" : "cursor-pointer"
+                    }`}>
                       <input
                         type="checkbox"
                         checked={isSelected}
+                        disabled={isStarted}
                         onChange={() => toggleDaySelected(day)}
-                        className="rounded text-brand-600 focus:ring-brand-500 w-4 h-4 cursor-pointer"
+                        className={`rounded text-brand-600 focus:ring-brand-500 w-4 h-4 ${
+                          isStarted ? "cursor-not-allowed" : "cursor-pointer"
+                        }`}
                       />
                       <span className={`text-sm font-bold ${
                         isSelected ? "text-brand-700 dark:text-brand-400" : "text-gray-600 dark:text-gray-400"
@@ -1203,7 +1235,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                         {t("class.formSlotLabel")}
                       </span>
                       <select
-                        disabled={!isSelected}
+                        disabled={!isSelected || isStarted}
                         value={config?.startTime ?? DEFAULT_SLOT.start}
                         onChange={(e) => {
                           const slot = FIXED_SLOTS.find(s => s.start === e.target.value);
@@ -1226,7 +1258,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                         {t("class.formRoomLabel")}
                       </span>
                       <select
-                        disabled={!isSelected}
+                        disabled={!isSelected || isStarted}
                         value={config?.roomId || ""}
                         onChange={(e) => updateDayConfig(day, "roomId", e.target.value ? Number(e.target.value) : null)}
                         className="w-full px-2 py-1 text-xs border border-gray-205 dark:border-gray-800 rounded-md bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 disabled:bg-gray-50 dark:disabled:bg-gray-955/60 disabled:text-gray-400"
@@ -1307,7 +1339,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
             disabled={isSubmitting}
             className="px-4 py-2 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 shadow-theme-xs disabled:opacity-60 transition-colors"
           >
-            {isSubmitting ? t("class.btnSaving") : editingItem ? t("class.btnSave") : t("class.btnCreateClass")}
+            {isSubmitting ? t("class.btnSaving") : editingItem ? t("class.btnUpdateClass") : t("class.btnCreateClass")}
           </button>
         </div>
       </div>

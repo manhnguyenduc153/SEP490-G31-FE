@@ -136,8 +136,8 @@ export const authApi = {
     return api.get<RolesResponse>(`${ENDPOINTS.AUTH.GET_ALL_ROLES}?${query}`);
   },
 
-  async getAllPermissions(): Promise<ApiResponse<string[]>> {
-    return api.get<string[]>(ENDPOINTS.AUTH.GET_ALL_PERMISSIONS);
+  async getAllPermissions(): Promise<ApiResponse<Record<string, Record<string, string[]>>>> {
+    return api.get<Record<string, Record<string, string[]>>>(ENDPOINTS.AUTH.GET_ALL_PERMISSIONS);
   },
 
   async getCurrentPermissions(): Promise<ApiResponse<string[]>> {

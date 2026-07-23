@@ -10,11 +10,8 @@ export const metadata: Metadata = {
 
 export default function LearningMaterialsPage() {
   return (
-    <div>
-      <PageBreadcrumb pageTitle="learningMaterial.title" />
-      <div className="space-y-6">
-        <LearningMaterialTable />
-      </div>
+    <div className="space-y-6">
+      <LearningMaterialTable />
     </div>
   );
 }

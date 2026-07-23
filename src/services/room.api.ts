@@ -24,11 +24,8 @@ export interface RoomItem {
   capacity?: number | null;
   status: number;
   statusName?: string | null;
-  roomType: RoomType;
-  roomTypeName?: string | null;
   building?: string | null;
   floor?: string | null;
-  image?: string | null;
 }
 
 export interface RoomPagingResponse {
@@ -45,10 +42,8 @@ export interface RoomSaveDto {
   name: string;
   capacity?: number | null;
   status: number;
-  roomType: RoomType;
   building?: string | null;
   floor?: string | null;
-  image?: string | null;
 }
 
 export interface RoomStatsDto {
@@ -85,7 +80,6 @@ export const roomApi = {
     pageIndex: number,
     pageSize: number,
     keyword: string = "",
-    roomType?: RoomType | null,
     building?: string | null,
     minCapacity?: number | null
   ): Promise<ApiResponse<RoomPagingResponse>> {
@@ -94,7 +88,6 @@ export const roomApi = {
       pageSize: String(pageSize),
     };
     if (keyword) params.keyword = keyword;
-    if (roomType != null) params.roomType = String(roomType);
     if (building) params.building = building;
     if (minCapacity != null) params.minCapacity = String(minCapacity);
 

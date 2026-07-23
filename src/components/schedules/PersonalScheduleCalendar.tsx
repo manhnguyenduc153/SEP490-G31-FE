@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -29,13 +30,15 @@ const SLOT_COLORS = [
   "bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/50",
 ];
 
-const STATUS_CONFIG: Record<number, { text: string; color: string }> = {
-  0: { text: "Chưa diễn ra", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800" },
-  1: { text: "Đang học",     color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800" },
-  2: { text: "Đã hoàn thành",color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-800" },
-  3: { text: "Đã hủy",       color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800" },
+const getStatus = (s: number, t: (k: string, opt?: Record<string, string>) => string) => {
+  const configs: Record<number, { text: string; color: string }> = {
+    0: { text: t("schedules.statusNotStarted", { defaultValue: "Chưa diễn ra" }), color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800" },
+    1: { text: t("schedules.statusActive", { defaultValue: "Đang học" }), color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800" },
+    2: { text: t("schedules.statusCompleted", { defaultValue: "Đã hoàn thành" }), color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-800" },
+    3: { text: t("schedules.statusCancelled", { defaultValue: "Đã hủy" }), color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800" },
+  };
+  return configs[s] ?? { text: t("schedules.statusUnknown", { defaultValue: "Không xác định" }), color: "bg-gray-100 text-gray-800 border-gray-200" };
 };
-const getStatus = (s: number) => STATUS_CONFIG[s] ?? { text: "Không xác định", color: "bg-gray-100 text-gray-800 border-gray-200" };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function getWeekStart(date: Date): Date {
@@ -85,10 +88,12 @@ interface ScheduleEvent {
 
 interface PersonalScheduleCalendarProps {
   type: "teacher" | "student";
+  studentId?: number;
 }
 
 // ── Week grid ─────────────────────────────────────────────────────────────────
 function WeekGrid({ events, weekStart, onEventClick }: { events: ScheduleEvent[]; weekStart: Date; onEventClick: (ev: ScheduleEvent) => void }) {
+  const { t } = useTranslation();
   const lookup: Record<string, Record<number, ScheduleEvent[]>> = {};
   for (const ev of events) {
     if (!lookup[ev.scheduleDate]) lookup[ev.scheduleDate] = {};
@@ -109,7 +114,7 @@ function WeekGrid({ events, weekStart, onEventClick }: { events: ScheduleEvent[]
         <thead>
           <tr>
             <th className="w-28 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-850 px-3 py-2.5 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
-              Ca / Ngày
+              {t("schedules.slotDay", { defaultValue: "Ca / Ngày" })}
             </th>
             {days.map((d) => (
               <th
@@ -167,7 +172,8 @@ function WeekGrid({ events, weekStart, onEventClick }: { events: ScheduleEvent[]
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
-export default function PersonalScheduleCalendar({ type }: PersonalScheduleCalendarProps) {
+export default function PersonalScheduleCalendar({ type, studentId }: PersonalScheduleCalendarProps) {
+  const { t } = useTranslation();
   const { isOpen, openModal, closeModal } = useModal();
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -179,7 +185,9 @@ export default function PersonalScheduleCalendar({ type }: PersonalScheduleCalen
     async function load() {
       setLoading(true);
       try {
-        const res = type === "teacher" ? await classApi.getTeacherSchedules() : await classApi.getStudentSchedules();
+        const res = type === "teacher" 
+          ? await classApi.getTeacherSchedules() 
+          : (studentId ? await classApi.getChildSchedules(studentId) : await classApi.getStudentSchedules());
         if (res.success && res.data) {
           setEvents(
             (res.data as ClassScheduleItem[])
@@ -212,7 +220,7 @@ export default function PersonalScheduleCalendar({ type }: PersonalScheduleCalen
       }
     }
     load();
-  }, [type]);
+  }, [type, studentId]);
 
   const handleEventClick = useCallback((ev: ScheduleEvent) => {
     setSelectedEvent(ev);
@@ -258,10 +266,13 @@ export default function PersonalScheduleCalendar({ type }: PersonalScheduleCalen
                     <ChevronLeft className="w-5 h-5" />
                   </button>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-gray-800 dark:text-gray-200">Tuần: {formatWeekLabel(weekStart)}</span>
+                    <span className="text-sm font-bold text-gray-800 dark:text-gray-200">
+                      {t("schedules.weekPrefix", { defaultValue: "Tuần: " })}
+                      {formatWeekLabel(weekStart)}
+                    </span>
                     <button type="button" onClick={() => setWeekStart(getWeekStart(new Date()))}
                       className="px-3 py-1 text-xs font-semibold rounded-lg border border-brand-300 text-brand-600 dark:text-brand-400 dark:border-brand-700 hover:bg-brand-50 dark:hover:bg-brand-950/20 transition-colors">
-                      Hôm nay
+                      {t("schedules.today", { defaultValue: "Hôm nay" })}
                     </button>
                   </div>
                   <button type="button" onClick={() => setWeekStart((w) => addDays(w, 7))}
@@ -270,18 +281,18 @@ export default function PersonalScheduleCalendar({ type }: PersonalScheduleCalen
                   </button>
                 </>
               ) : (
-                <span className="text-sm font-bold text-gray-800 dark:text-gray-200">Xem theo tháng</span>
+                <span className="text-sm font-bold text-gray-800 dark:text-gray-200">{t("schedules.viewMonthly", { defaultValue: "Xem theo tháng" })}</span>
               )}
 
               {/* View toggle */}
               <div className="flex rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden bg-gray-50 dark:bg-gray-850 ml-auto">
                 <button type="button" onClick={() => setView("week")}
                   className={`px-4 py-2 text-sm font-semibold transition-colors ${view === "week" ? "bg-brand-500 text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}>
-                  Tuần
+                  {t("schedules.week", { defaultValue: "Tuần" })}
                 </button>
                 <button type="button" onClick={() => setView("month")}
                   className={`px-4 py-2 text-sm font-semibold transition-colors ${view === "month" ? "bg-brand-500 text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}>
-                  Tháng
+                  {t("schedules.month", { defaultValue: "Tháng" })}
                 </button>
               </div>
             </div>
@@ -306,7 +317,7 @@ export default function PersonalScheduleCalendar({ type }: PersonalScheduleCalen
                   plugins={[dayGridPlugin, interactionPlugin]}
                   initialView="dayGridMonth"
                   locale="vi"
-                  buttonText={{ today: "Hôm nay" }}
+                  buttonText={{ today: t("schedules.today", { defaultValue: "Hôm nay" }) }}
                   headerToolbar={{ left: "prev,next today", center: "title", right: "" }}
                   events={fcEvents}
                   selectable={false}
@@ -327,23 +338,23 @@ export default function PersonalScheduleCalendar({ type }: PersonalScheduleCalen
             <div className="border-b border-gray-100 dark:border-gray-800 pb-4">
               <div className="flex items-center justify-between gap-3">
                 <h5 className="font-bold text-gray-900 dark:text-white text-lg sm:text-xl">
-                  Chi Tiết Buổi Học {selectedEvent.lessonNo}
+                  {t("schedules.sessionDetails", { defaultValue: "Chi Tiết Buổi Học" })} {selectedEvent.lessonNo}
                 </h5>
-                <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${getStatus(selectedEvent.status).color}`}>
-                  {getStatus(selectedEvent.status).text}
+                <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${getStatus(selectedEvent.status, t).color}`}>
+                  {getStatus(selectedEvent.status, t).text}
                 </span>
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Lớp: <strong className="text-gray-700 dark:text-gray-200">{selectedEvent.classCode} – {selectedEvent.className}</strong>
+                {t("schedules.classLabel", { defaultValue: "Lớp" })}: <strong className="text-gray-700 dark:text-gray-200">{selectedEvent.classCode} – {selectedEvent.className}</strong>
               </p>
             </div>
 
             <div className="mt-6 space-y-4">
               {[
-                { icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z", label: "Ngày diễn ra", value: selectedEvent.scheduleDate },
-                { icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z", label: "Khung giờ", value: `${FIXED_SLOTS[selectedEvent.slotIndex]?.label ?? ""} · ${selectedEvent.startTime} – ${selectedEvent.endTime}` },
-                { icon: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4", label: "Phòng học", value: selectedEvent.roomName },
-                { icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z", label: "Giáo viên giảng dạy", value: selectedEvent.teacherName },
+                { icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z", label: t("schedules.dateLabel", { defaultValue: "Ngày diễn ra" }), value: selectedEvent.scheduleDate },
+                { icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z", label: t("schedules.timeLabel", { defaultValue: "Khung giờ" }), value: `${FIXED_SLOTS[selectedEvent.slotIndex]?.label ?? ""} · ${selectedEvent.startTime} – ${selectedEvent.endTime}` },
+                { icon: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4", label: t("schedules.roomLabel", { defaultValue: "Phòng học" }), value: selectedEvent.roomName },
+                { icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z", label: t("schedules.teacherLabel", { defaultValue: "Giáo viên giảng dạy" }), value: selectedEvent.teacherName },
               ].map(({ icon, label, value }) => (
                 <div key={label} className="flex items-start gap-3.5">
                   <div className="mt-0.5 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-500">
@@ -366,7 +377,7 @@ export default function PersonalScheduleCalendar({ type }: PersonalScheduleCalen
                     </svg>
                   </div>
                   <div className="flex-1">
-                    <span className="block text-xs text-gray-400 font-semibold uppercase">Ghi chú</span>
+                    <span className="block text-xs text-gray-400 font-semibold uppercase">{t("schedules.noteLabel", { defaultValue: "Ghi chú" })}</span>
                     <p className="text-sm text-gray-600 dark:text-gray-300 mt-0.5 whitespace-pre-wrap bg-gray-50 dark:bg-gray-850 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800">
                       {selectedEvent.note}
                     </p>
@@ -378,7 +389,7 @@ export default function PersonalScheduleCalendar({ type }: PersonalScheduleCalen
             <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-100 dark:border-gray-800">
               <button onClick={closeModal} type="button"
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-750 transition-colors">
-                Đóng
+                {t("schedules.btnClose", { defaultValue: "Đóng" })}
               </button>
             </div>
           </div>
