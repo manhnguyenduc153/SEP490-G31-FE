@@ -12,6 +12,8 @@ import { AngleDownIcon, AngleUpIcon } from "@/icons";
 import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
 import { MaterialFormModal } from "./MaterialFormModal";
 import { MaterialViewModal } from "./MaterialViewModal";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import DatePicker from "@/components/form/date-picker";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
 import {
   learningMaterialApi,
@@ -19,11 +21,12 @@ import {
 } from "@/services/learningMaterial.api";
 import { courseApi, CourseItem } from "@/services/course.api";
 import { classApi, ClassItem } from "@/services/class.api";
+import { commonApi } from "@/services/common.api";
 import { teacherApi } from "@/services/teacher.api";
 import { authApi } from "@/services/auth.api";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { useTranslation } from "react-i18next";
-import { FileText, Plus, Search, Filter, BookOpen, Layers, CheckCircle, HelpCircle, HardDrive, ListFilter, Eye, Download, Pencil, Trash2 } from "lucide-react";
+import { FileText, Plus, Search, Filter, BookOpen, Layers, CheckCircle, HelpCircle, HardDrive, ListFilter, Eye, Download, Edit, Trash2, ChevronDown } from "lucide-react";
 import { CodeHelper } from "@/helpers/CodeHelper";
 import { ENV } from "@/config/env";
 
@@ -73,8 +76,9 @@ export default function LearningMaterialTable() {
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   
   // Date filters from Mock
-  const [fromDate, setFromDate] = useState<string>("");
-  const [toDate, setToDate] = useState<string>("");
+  const [fromDate, setFromDate] = useState<Date | null>(null);
+  const [toDate, setToDate] = useState<Date | null>(null);
+  const [filterResetKey, setFilterResetKey] = useState(0);
 
   const [refreshKey, setRefreshKey] = useState(0);
   const triggerRefresh = () => setRefreshKey((k) => k + 1);
@@ -162,8 +166,8 @@ export default function LearningMaterialTable() {
     async function loadFilters() {
       try {
         const [courseRes, classRes] = await Promise.all([
-          courseApi.getAll(1, 100, "", true),
-          classApi.getAll(1, 100, ""),
+          commonApi.getCourses(1, 100, "", true),
+          commonApi.getClasses(1, 100),
         ]);
         if (courseRes.success && courseRes.data) {
           setCourses(courseRes.data.items || []);
@@ -219,12 +223,13 @@ export default function LearningMaterialTable() {
           }
 
           if (fromDate) {
-            const fromTime = new Date(fromDate).getTime();
+            const fromTime = fromDate.getTime();
             filteredItems = filteredItems.filter(x => new Date(x.createdAt).getTime() >= fromTime);
           }
           if (toDate) {
-            const toTime = new Date(toDate).getTime();
-            filteredItems = filteredItems.filter(x => new Date(x.createdAt).getTime() <= toTime);
+            const toTime = new Date(toDate);
+            toTime.setHours(23, 59, 59, 999);
+            filteredItems = filteredItems.filter(x => new Date(x.createdAt).getTime() <= toTime.getTime());
           }
 
           setItems(filteredItems);
@@ -309,8 +314,9 @@ export default function LearningMaterialTable() {
     setSelectedClassId(null);
     setSelectedCourseId(null);
     setSelectedStatus("all");
-    setFromDate("");
-    setToDate("");
+    setFromDate(null);
+    setToDate(null);
+    setFilterResetKey((k) => k + 1);
     setCurrentPage(1);
   };
 
@@ -470,17 +476,28 @@ export default function LearningMaterialTable() {
 
   const checkEditPermission = (item: LearningMaterialItem) => {
     const role = userRole.toLowerCase();
-    if (role === "admin" || role === "academicstaff" || role === "academic staff") {
-      return true;
-    }
-    if (role === "teacher" && currentTeacherId !== null && item.uploadedBy === currentTeacherId) {
+    if (role === "admin") return true;
+
+    if (authApi.hasPermission("LearningMaterial.Edit")) {
+      if (role === "teacher" && currentTeacherId !== null) {
+        return item.uploadedBy === currentTeacherId;
+      }
       return true;
     }
     return false;
   };
 
   const checkDeletePermission = (item: LearningMaterialItem) => {
-    return checkEditPermission(item);
+    const role = userRole.toLowerCase();
+    if (role === "admin") return true;
+
+    if (authApi.hasPermission("LearningMaterial.Delete")) {
+      if (role === "teacher" && currentTeacherId !== null) {
+        return item.uploadedBy === currentTeacherId;
+      }
+      return true;
+    }
+    return false;
   };
 
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -557,53 +574,6 @@ export default function LearningMaterialTable() {
         </div>
       </div>
 
-      {/* ── 2. SUMMARY STATS CARDS (4 cards) ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total */}
-        <div className="bg-white dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.05] p-4 rounded-xl flex items-center justify-between shadow-xs">
-          <div>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
-            <p className="text-xs text-gray-400 font-medium mt-0.5">{t("learningMaterial.statTotal", { defaultValue: "Tổng tài liệu" })}</p>
-          </div>
-          <div className="p-2.5 rounded-lg bg-blue-50 text-blue-500 dark:bg-blue-950/20">
-            <FileText className="w-5 h-5" />
-          </div>
-        </div>
-
-        {/* Active */}
-        <div className="bg-white dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.05] p-4 rounded-xl flex items-center justify-between shadow-xs">
-          <div>
-            <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats.active}</p>
-            <p className="text-xs text-gray-400 font-medium mt-0.5">{t("learningMaterial.statActive", { defaultValue: "Đang hoạt động" })}</p>
-          </div>
-          <div className="p-2.5 rounded-lg bg-emerald-50 text-emerald-500 dark:bg-emerald-950/20">
-            <CheckCircle className="w-5 h-5" />
-          </div>
-        </div>
-
-        {/* Inactive */}
-        <div className="bg-white dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.05] p-4 rounded-xl flex items-center justify-between shadow-xs">
-          <div>
-            <p className="text-2xl font-bold text-rose-600 dark:text-rose-400">{stats.inactive}</p>
-            <p className="text-xs text-gray-400 font-medium mt-0.5">{t("learningMaterial.statInactive", { defaultValue: "Ngưng hoạt động" })}</p>
-          </div>
-          <div className="p-2.5 rounded-lg bg-rose-50 text-rose-500 dark:bg-rose-950/20">
-            <HelpCircle className="w-5 h-5" />
-          </div>
-        </div>
-
-        {/* PDF/Word docs */}
-        <div className="bg-white dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.05] p-4 rounded-xl flex items-center justify-between shadow-xs">
-          <div>
-            <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{stats.documents}</p>
-            <p className="text-xs text-gray-400 font-medium mt-0.5">{t("learningMaterial.statDocs", { defaultValue: "Tài liệu văn bản" })}</p>
-          </div>
-          <div className="p-2.5 rounded-lg bg-amber-50 text-amber-500 dark:bg-amber-950/20">
-            <BookOpen className="w-5 h-5" />
-          </div>
-        </div>
-      </div>
-
       {/* ── 3. MAIN TABLE & CONTROLS CONTAINER ── */}
       <div className="bg-white dark:bg-gray-900 border border-gray-155 dark:border-gray-800 rounded-2xl shadow-xs">
         {/* Header Title & Upload Button */}
@@ -629,90 +599,92 @@ export default function LearningMaterialTable() {
         </div>
 
         {/* ── FILTERS ROW (matching mock layout) ── */}
-        <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-gray-800">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-gray-800 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-3">
             {/* Find material */}
-            <div className="relative lg:col-span-2">
+            <div className="relative w-full sm:w-60">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder={t("learningMaterial.searchPlaceholder", { defaultValue: "Tìm kiếm tài liệu..." })}
-                className="w-full rounded-lg border border-gray-300 bg-transparent py-2 pl-9 pr-4 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                className="w-full h-11 rounded-lg border border-gray-300 bg-transparent py-2.5 pl-9 pr-4 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white"
               />
             </div>
 
-            {/* Class Dropdown */}
-            <div className="relative">
-              <select
+            <div className="w-full sm:w-52">
+              <SearchableSelect
                 value={selectedClassId || ""}
-                onChange={(e) => {
-                  setSelectedClassId(e.target.value ? Number(e.target.value) : null);
+                onChange={(val) => {
+                  setSelectedClassId(val ? Number(val) : null);
                   setCurrentPage(1);
                 }}
-                className="w-full py-2 pl-3 pr-8 text-sm text-gray-800 bg-transparent border border-gray-300 rounded-lg appearance-none dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              >
-                <option value="">{t("learningMaterial.filterClassAll", { defaultValue: "Lớp học (Tất cả)" })}</option>
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              <Filter className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+                options={classes.map((c) => ({ value: c.id, label: c.name }))}
+                placeholder={t("learningMaterial.filterClassAll", { defaultValue: "Lớp học (Tất cả)" })}
+                onClear={() => {
+                  setSelectedClassId(null);
+                  setCurrentPage(1);
+                }}
+              />
             </div>
 
             {/* Status Dropdown */}
-            <div className="relative">
+            <div className="relative w-full sm:w-44">
               <select
                 value={selectedStatus}
                 onChange={(e) => {
                   setSelectedStatus(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full py-2 pl-3 pr-8 text-sm text-gray-800 bg-transparent border border-gray-300 rounded-lg appearance-none dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                className="w-full h-11 py-2.5 pl-3 pr-8 text-sm text-gray-800 bg-transparent border border-gray-300 rounded-lg appearance-none dark:border-gray-700 dark:bg-gray-900 dark:text-white cursor-pointer"
               >
                 <option value="all">{t("learningMaterial.filterStatusAll", { defaultValue: "Trạng thái (Tất cả)" })}</option>
                 <option value="active">{t("student.formStatusActive", { defaultValue: "Hoạt động" })}</option>
                 <option value="inactive">{t("student.formStatusInactive", { defaultValue: "Ngưng hoạt động" })}</option>
               </select>
-              <Filter className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
             </div>
 
             {/* From Date */}
-            <div>
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => {
-                  setFromDate(e.target.value);
+            <div className="w-full sm:w-44">
+              <DatePicker
+                key={`from-${filterResetKey}`}
+                id="filterFromDate"
+                placeholder={t("learningMaterial.dateFrom", { defaultValue: "Từ ngày" })}
+                dateFormat="d/m/Y"
+                staticOption={false}
+                defaultDate={fromDate || undefined}
+                onChange={(dates) => {
+                  setFromDate(dates && dates.length > 0 ? dates[0] : null);
                   setCurrentPage(1);
                 }}
-                className="w-full py-1.5 px-3 text-sm text-gray-800 bg-transparent border border-gray-300 rounded-lg dark:border-gray-700 dark:bg-gray-900 dark:text-white"
               />
             </div>
 
             {/* To Date */}
-            <div>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => {
-                  setToDate(e.target.value);
+            <div className="w-full sm:w-44">
+              <DatePicker
+                key={`to-${filterResetKey}`}
+                id="filterToDate"
+                placeholder={t("learningMaterial.dateTo", { defaultValue: "Đến ngày" })}
+                dateFormat="d/m/Y"
+                staticOption={false}
+                defaultDate={toDate || undefined}
+                onChange={(dates) => {
+                  setToDate(dates && dates.length > 0 ? dates[0] : null);
                   setCurrentPage(1);
                 }}
-                className="w-full py-1.5 px-3 text-sm text-gray-800 bg-transparent border border-gray-300 rounded-lg dark:border-gray-700 dark:bg-gray-900 dark:text-white"
               />
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 mt-4">
+          <div className="flex items-center justify-end shrink-0 lg:ml-auto w-full lg:w-auto">
             <button
               onClick={handleResetFilters}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700 transition-colors"
+              className="px-4 py-2 h-11 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700 transition-colors w-full lg:w-auto flex items-center justify-center cursor-pointer shadow-theme-xs"
             >
-              {t("learningMaterial.btnReset", { defaultValue: "Reset" })}
+              {t("learningMaterial.btnReset", { defaultValue: "Xóa bộ lọc" })}
             </button>
           </div>
         </div>
@@ -723,46 +695,58 @@ export default function LearningMaterialTable() {
             <TableHeader className="border-b border-gray-100 dark:border-white/[0.05] bg-gray-50/70 dark:bg-white/[0.02]">
               <TableRow>
                 <TableCell isHeader className="px-6 py-4 text-center w-12 border-r border-gray-100 dark:border-white/[0.05]">
-                  {t("learningMaterial.colId", { defaultValue: "#" })}
-                </TableCell>
-                
-                <TableCell isHeader className="px-6 py-4 text-left border-r border-gray-100 dark:border-white/[0.05]">
-                  <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => handleSort("title")}>
-                    <span>{t("learningMaterial.colMaterial", { defaultValue: "Tài liệu" })}</span>
-                    <button className="flex flex-col gap-0.5 ml-2">
-                      <AngleUpIcon className={`text-gray-400 w-3 h-3 ${sortKey === "title" && sortOrder === "asc" ? "text-brand-500" : ""}`} />
-                      <AngleDownIcon className={`text-gray-400 w-3 h-3 ${sortKey === "title" && sortOrder === "desc" ? "text-brand-500" : ""}`} />
-                    </button>
-                  </div>
+                  <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">#</p>
                 </TableCell>
 
                 <TableCell isHeader className="px-6 py-4 text-left border-r border-gray-100 dark:border-white/[0.05]">
                   <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => handleSort("code")}>
-                    <span>{t("learningMaterial.formCodeLabel", { defaultValue: "Mã tài liệu" })}</span>
+                    <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">
+                      {t("learningMaterial.formCodeLabel", { defaultValue: "Mã tài liệu" })}
+                    </p>
                     <button className="flex flex-col gap-0.5 ml-2">
-                      <AngleUpIcon className={`text-gray-400 w-3 h-3 ${sortKey === "code" && sortOrder === "asc" ? "text-brand-500" : ""}`} />
-                      <AngleDownIcon className={`text-gray-400 w-3 h-3 ${sortKey === "code" && sortOrder === "desc" ? "text-brand-500" : ""}`} />
+                      <AngleUpIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "code" && sortOrder === "asc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                      <AngleDownIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "code" && sortOrder === "desc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                    </button>
+                  </div>
+                </TableCell>
+                
+                <TableCell isHeader className="px-6 py-4 text-left border-r border-gray-100 dark:border-white/[0.05]">
+                  <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => handleSort("title")}>
+                    <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">
+                      {t("learningMaterial.colMaterial", { defaultValue: "Tài liệu" })}
+                    </p>
+                    <button className="flex flex-col gap-0.5 ml-2">
+                      <AngleUpIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "title" && sortOrder === "asc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                      <AngleDownIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "title" && sortOrder === "desc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
                     </button>
                   </div>
                 </TableCell>
 
                 <TableCell isHeader className="px-6 py-4 text-left border-r border-gray-100 dark:border-white/[0.05]">
-                  {t("learningMaterial.colCourse", { defaultValue: "Khóa học" })}
+                  <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">
+                    {t("learningMaterial.colCourse", { defaultValue: "Khóa học" })}
+                  </p>
                 </TableCell>
 
                 <TableCell isHeader className="px-6 py-4 text-left border-r border-gray-100 dark:border-white/[0.05]">
-                  {t("learningMaterial.colClass", { defaultValue: "Lớp học" })}
+                  <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => handleSort("createdAt")}>
+                    <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">
+                      {t("question.colCreatedAt", { defaultValue: "Ngày tạo" })}
+                    </p>
+                    <button className="flex flex-col gap-0.5 ml-2">
+                      <AngleUpIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "createdAt" && sortOrder === "asc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                      <AngleDownIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "createdAt" && sortOrder === "desc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                    </button>
+                  </div>
                 </TableCell>
 
                 <TableCell isHeader className="px-6 py-4 text-left border-r border-gray-100 dark:border-white/[0.05]">
-                  {t("question.colCreatedAt", { defaultValue: "Ngày tạo" })}
+                  <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">
+                    {t("student.colStatus", { defaultValue: "Trạng thái" })}
+                  </p>
                 </TableCell>
 
-                <TableCell isHeader className="px-6 py-4 text-left border-r border-gray-100 dark:border-white/[0.05]">
-                  {t("student.colStatus", { defaultValue: "Trạng thái" })}
-                </TableCell>
-
-                <TableCell isHeader className="px-6 py-4 text-center">
+                <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 text-theme-sm dark:text-gray-200">
                   {t("learningMaterial.colActions", { defaultValue: "Thao tác" })}
                 </TableCell>
               </TableRow>
@@ -773,9 +757,8 @@ export default function LearningMaterialTable() {
                 Array.from({ length: itemsPerPage }).map((_, idx) => (
                   <TableRow key={idx} className="animate-pulse">
                     <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-8 mx-auto" /></TableCell>
-                    <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-48" /></TableCell>
                     <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-24" /></TableCell>
-                    <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-28" /></TableCell>
+                    <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-48" /></TableCell>
                     <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-28" /></TableCell>
                     <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-24" /></TableCell>
                     <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-16" /></TableCell>
@@ -784,7 +767,7 @@ export default function LearningMaterialTable() {
                 ))
               ) : error ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="px-6 py-12 text-center text-rose-500 font-medium bg-rose-50/10 dark:bg-rose-950/5">
+                  <TableCell colSpan={7} className="px-6 py-12 text-center text-rose-500 font-medium bg-rose-50/10 dark:bg-rose-950/5">
                     {error}
                   </TableCell>
                 </TableRow>
@@ -794,8 +777,13 @@ export default function LearningMaterialTable() {
                   return (
                     <TableRow key={item.id} className="hover:bg-gray-50/50 dark:hover:bg-white/[0.01] transition-colors">
                       {/* Index */}
-                      <TableCell className="px-6 py-4 text-center text-gray-500 dark:text-gray-400 whitespace-nowrap w-12">
+                      <TableCell className="px-6 py-4 text-center text-gray-500 dark:text-gray-400 whitespace-nowrap w-12 text-sm">
                         {startIndex + index + 1}
+                      </TableCell>
+
+                      {/* Code */}
+                      <TableCell className="px-6 py-4 font-mono text-sm font-semibold text-gray-800 dark:text-gray-200">
+                        {item.code}
                       </TableCell>
 
                       {/* Title */}
@@ -805,7 +793,7 @@ export default function LearningMaterialTable() {
                             <FileText className="w-5 h-5" />
                           </div>
                           <div className="overflow-hidden">
-                            <p className="truncate font-semibold text-gray-900 dark:text-white" title={item.title || item.name}>
+                            <p className="truncate font-semibold text-gray-900 dark:text-white text-sm" title={item.title || item.name}>
                               {item.title || item.name}
                             </p>
                             <p className="text-xs text-gray-400 truncate mt-0.5">
@@ -815,31 +803,17 @@ export default function LearningMaterialTable() {
                         </div>
                       </TableCell>
 
-                      {/* Code */}
-                      <TableCell className="px-6 py-4 font-mono text-xs text-gray-600 dark:text-gray-300">
-                        {item.code}
-                      </TableCell>
-
                       {/* Course */}
-                      <TableCell className="px-6 py-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                      <TableCell className="px-6 py-4 text-gray-800 dark:text-gray-200 text-sm whitespace-nowrap">
                         {item.courseName || (
-                          <span className="text-gray-400 italic text-xs">
+                          <span className="text-gray-400 italic text-sm">
                             {t("learningMaterial.noCourseAssigned", { defaultValue: "Không gán khóa học" })}
                           </span>
                         )}
                       </TableCell>
 
-                      {/* Class */}
-                      <TableCell className="px-6 py-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                        {item.className || (
-                          <span className="text-gray-400 italic text-xs">
-                            {t("learningMaterial.noClass", { defaultValue: "Tất cả lớp học" })}
-                          </span>
-                        )}
-                      </TableCell>
-
                       {/* Date created */}
-                      <TableCell className="px-6 py-4 text-gray-500 dark:text-gray-400 text-sm whitespace-nowrap">
+                      <TableCell className="px-6 py-4 text-gray-700 dark:text-gray-300 text-sm whitespace-nowrap">
                         {item.createdAt ? new Date(item.createdAt).toLocaleDateString("vi-VN") : "-"}
                       </TableCell>
 
@@ -890,9 +864,9 @@ export default function LearningMaterialTable() {
                               <button
                                 title={t("questionCategory.editTooltip", { defaultValue: "Chỉnh sửa" })}
                                 onClick={() => openEditModal(item)}
-                                className="p-2 text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg dark:bg-amber-950/20 dark:text-amber-400 dark:hover:bg-amber-950/30 transition-colors"
+                                className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md transition-colors"
                               >
-                                <Pencil className="w-4 h-4" />
+                                <Edit className="w-4 h-4" />
                               </button>
                             </PermissionGuard>
                           )}
@@ -903,7 +877,7 @@ export default function LearningMaterialTable() {
                               <button
                                 title={t("questionCategory.deleteTooltip", { defaultValue: "Xóa" })}
                                 onClick={() => openDeleteModal(item)}
-                                className="p-2 text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg dark:bg-rose-950/20 dark:text-rose-400 dark:hover:text-rose-400 transition-colors"
+                                className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -916,7 +890,7 @@ export default function LearningMaterialTable() {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="px-6 py-12 text-center text-gray-400 dark:text-gray-600 font-medium">
+                  <TableCell colSpan={7} className="px-6 py-12 text-center text-gray-400 dark:text-gray-600 font-medium">
                     {t("learningMaterial.noResultsFiltered", { defaultValue: "Không tìm thấy tài liệu học tập nào thỏa mãn điều kiện lọc." })}
                   </TableCell>
                 </TableRow>

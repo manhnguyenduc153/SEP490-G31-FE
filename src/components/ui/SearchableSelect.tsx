@@ -16,6 +16,8 @@ interface SearchableSelectProps {
   className?: string;
   disabled?: boolean;
   onClear?: () => void;
+  searchPlaceholder?: string;
+  noResultsText?: string;
 }
 
 export function SearchableSelect({
@@ -26,6 +28,8 @@ export function SearchableSelect({
   className = "",
   disabled = false,
   onClear,
+  searchPlaceholder = "Tìm kiếm...",
+  noResultsText = "Không tìm thấy kết quả",
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -115,7 +119,7 @@ export function SearchableSelect({
             <input
               ref={searchInputRef}
               type="text"
-              placeholder="Tìm kiếm..."
+              placeholder={searchPlaceholder}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="h-10 w-full pl-9 pr-4 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-800 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all placeholder-gray-400"
@@ -147,7 +151,7 @@ export function SearchableSelect({
               })
             ) : (
               <div className="py-6 text-center text-sm text-gray-400 dark:text-gray-600 font-medium">
-                Không tìm thấy kết quả
+                {noResultsText}
               </div>
             )}
           </div>

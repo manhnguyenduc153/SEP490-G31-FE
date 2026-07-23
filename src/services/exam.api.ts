@@ -151,6 +151,8 @@ export interface ExamAttemptDto {
   score?: number | null;
   status: number; // 1 = In Progress, 2 = Submitted
   duration?: number | null;
+  tabExitsCount?: number;
+  log?: string | null;
   answers: ExamAnswerDto[];
 }
 
@@ -161,5 +163,7 @@ export interface ExamSubmitAnswerDto {
 
 export interface ExamSubmitDto {
   attemptId: number;
+  tabExitsCount?: number;
+  log?: string | null;
   answers: ExamSubmitAnswerDto[];
 }

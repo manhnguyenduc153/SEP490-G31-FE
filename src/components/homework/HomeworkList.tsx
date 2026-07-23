@@ -8,15 +8,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Eye, Pencil, Plus } from "lucide-react";
+import { Edit, Eye, Trash2 } from "lucide-react";
 import { homeworkApi, HomeworkDto, HomeworkSubmissionDto } from "@/services/homework.api";
 import { useTranslation } from "react-i18next";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
+import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
+import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
 
 interface HomeworkListProps {
   classId: number;
   showToast: (msg: string, type?: "success" | "error") => void;
-  onAddClick: () => void;
   onEditClick: (item: HomeworkDto) => void;
   onViewClick: (item: HomeworkDto) => void;
   refreshKey: number;
@@ -26,7 +27,6 @@ interface HomeworkListProps {
 export default function HomeworkList({
   classId,
   showToast,
-  onAddClick,
   onEditClick,
   onViewClick,
   refreshKey,
@@ -36,6 +36,36 @@ export default function HomeworkList({
   const [items, setItems] = useState<HomeworkDto[]>([]);
   const [studentSubmissions, setStudentSubmissions] = useState<Record<number, HomeworkSubmissionDto | null>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
+  const [deleteTarget, setDeleteTarget] = useState<HomeworkDto | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const totalPages = Math.max(1, Math.ceil(items.length / itemsPerPage));
+  const pageItems = items.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [classId, itemsPerPage]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      const res = await homeworkApi.deleteHomework(deleteTarget.id);
+      if (res.success) {
+        setItems((current) => current.filter((item) => item.id !== deleteTarget.id));
+        showToast(t("homework.deleteSuccess"));
+        setDeleteTarget(null);
+      } else showToast(t("backendMessages." + res.message, { defaultValue: res.message || t("homework.deleteError") }), "error");
+    } catch {
+      showToast(t("homework.deleteError"), "error");
+    } finally { setIsDeleting(false); }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -89,20 +119,6 @@ export default function HomeworkList({
 
   return (
     <div className="w-full bg-white dark:bg-gray-900 rounded-2xl shadow-xs overflow-hidden">
-      <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-          {t("homework.listTitle")}
-        </h2>
-        <PermissionGuard requiredPermission="Homework.Create">
-          <button
-            onClick={onAddClick}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            <Plus className="w-4 h-4" /> {t("homework.addHomework")}
-          </button>
-        </PermissionGuard>
-      </div>
-
       <div className="overflow-x-auto">
         <Table>
           <TableHeader className="bg-gray-50/70 dark:bg-gray-800/40">
@@ -124,7 +140,7 @@ export default function HomeworkList({
                 <TableCell colSpan={5} className="text-center py-10 text-sm text-gray-500">{t("homework.noHomework")}</TableCell>
               </TableRow>
             ) : (
-              items.map((item) => (
+              pageItems.map((item) => (
                 <TableRow key={item.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20">
                   <TableCell className="px-5 py-4 font-medium text-gray-900 dark:text-white">
                     {item.title}
@@ -156,8 +172,13 @@ export default function HomeworkList({
                         <Eye className="w-4 h-4" />
                       </button>
                       <PermissionGuard requiredPermission="Homework.Edit">
-                        <button onClick={() => onEditClick(item)} className="p-1 text-gray-400 hover:text-amber-500">
-                          <Pencil className="w-4 h-4" />
+                        <button title={t("common.edit", { defaultValue: "Sửa" })} onClick={() => onEditClick(item)} className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md transition-colors">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                      </PermissionGuard>
+                      <PermissionGuard requiredPermission="Homework.Delete">
+                        <button title={t("common.delete", { defaultValue: "Xóa" })} onClick={() => setDeleteTarget(item)} className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors">
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </PermissionGuard>
                     </div>
@@ -168,6 +189,18 @@ export default function HomeworkList({
           </TableBody>
         </Table>
       </div>
+      <div className="flex flex-col gap-4 border-t border-gray-100 bg-gray-50/50 px-6 py-5 dark:border-white/[0.05] dark:bg-white/[0.01] xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+          <span>{t("common.show")}</span>
+          <select value={itemsPerPage} onChange={(e) => setItemsPerPage(Number(e.target.value))} className="h-10 rounded-lg border border-gray-300 bg-white px-3 pr-8 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+            {[5, 10, 15, 20].map((value) => <option key={value} value={value}>{value}</option>)}
+          </select>
+          <span>{t("common.entries")}</span>
+          <span>{t("homework.showing", { start: items.length ? (currentPage - 1) * itemsPerPage + 1 : 0, end: Math.min(currentPage * itemsPerPage, items.length), total: items.length, defaultValue: "{{start}}-{{end}} / {{total}}" })}</span>
+        </div>
+        {totalPages > 1 && <PaginationWithIcon totalPages={totalPages} initialPage={currentPage} onPageChange={setCurrentPage} />}
+      </div>
+      <DeleteConfirmModal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={handleDelete} isDeleting={isDeleting} itemName={deleteTarget?.title} />
     </div>
   );
 }

@@ -523,23 +523,21 @@ export default function StudentRegistrationTable() {
                     <div className="flex items-center justify-center gap-2">
                       {hasPermission("StudentRegistration.Edit") && (
                         <button
-                          disabled={item.status === 1}
                           onClick={() => {
                             setRegistrationToEdit(item);
                             setIsModalOpen(true);
                           }}
-                          className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                          title={item.status === 1 ? t("registration.cannotEditScheduled", { defaultValue: "Không thể sửa đăng ký đã xếp lớp" }) : t("common.edit", { defaultValue: "Sửa" })}
+                          className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md transition-colors cursor-pointer"
+                          title={t("common.edit", { defaultValue: "Sửa" })}
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                       )}
                       {hasPermission("StudentRegistration.Delete") && (
                         <button
-                          disabled={item.status === 1}
                           onClick={() => handleDelete(item.id)}
-                          className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                          title={item.status === 1 ? t("registration.cannotDeleteScheduled", { defaultValue: "Không thể xóa đăng ký đã xếp lớp" }) : t("common.delete", { defaultValue: "Xóa" })}
+                          className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors cursor-pointer"
+                          title={t("common.delete", { defaultValue: "Xóa" })}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

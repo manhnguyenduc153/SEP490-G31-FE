@@ -4,8 +4,10 @@ import { Modal } from "@/components/ui/modal";
 import { LearningMaterialItem } from "@/services/learningMaterial.api";
 import { courseApi, CourseItem } from "@/services/course.api";
 import { classApi, ClassItem } from "@/services/class.api";
+import { commonApi } from "@/services/common.api";
 import { teacherApi } from "@/services/teacher.api";
 import { UploadCloud, FileText, X } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 interface MaterialFormModalProps {
   isOpen: boolean;
@@ -75,8 +77,8 @@ export function MaterialFormModal({
     async function loadData() {
       try {
         const [courseRes, classRes] = await Promise.all([
-          courseApi.getAll(1, 100, "", true), // Load active courses
-          classApi.getAll(1, 100, ""),       // Load classes
+          commonApi.getCourses(1, 100, "", true), // Load active courses
+          commonApi.getClasses(1, 100),       // Load classes
         ]);
         if (courseRes.success && courseRes.data) {
           setCourses(courseRes.data.items || []);
@@ -200,18 +202,13 @@ export function MaterialFormModal({
               <label className="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t("learningMaterial.formCourseLabel", { defaultValue: "Khóa học áp dụng" })}
               </label>
-              <select
+              <SearchableSelect
                 value={formCourseId || ""}
-                onChange={(e) => setFormCourseId(e.target.value ? Number(e.target.value) : null)}
-                className="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 shadow-theme-xs"
-              >
-                <option value="">{t("learningMaterial.noCourse", { defaultValue: "Tất cả khóa học" })}</option>
-                {courses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.code})
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => setFormCourseId(value ? Number(value) : null)}
+                options={courses.map((c) => ({ value: c.id, label: `${c.name} (${c.code})` }))}
+                placeholder={t("learningMaterial.noCourse", { defaultValue: "Tất cả khóa học" })}
+                onClear={() => setFormCourseId(null)}
+              />
             </div>
 
             {/* Class */}
@@ -219,18 +216,13 @@ export function MaterialFormModal({
               <label className="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t("learningMaterial.formClassLabel", { defaultValue: "Lớp học áp dụng" })}
               </label>
-              <select
+              <SearchableSelect
                 value={formClassId || ""}
-                onChange={(e) => setFormClassId(e.target.value ? Number(e.target.value) : null)}
-                className="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 shadow-theme-xs"
-              >
-                <option value="">{t("learningMaterial.noClass", { defaultValue: "Tất cả lớp học" })}</option>
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.code})
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => setFormClassId(value ? Number(value) : null)}
+                options={classes.map((c) => ({ value: c.id, label: `${c.name} (${c.code})` }))}
+                placeholder={t("learningMaterial.noClass", { defaultValue: "Tất cả lớp học" })}
+                onClear={() => setFormClassId(null)}
+              />
             </div>
           </div>
 

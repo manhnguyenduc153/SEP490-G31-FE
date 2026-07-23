@@ -576,17 +576,13 @@ export default function CourseTable() {
                         </button>
                       </PermissionGuard>
                       <PermissionGuard requiredPermission="Course.Delete">
-                        {item.status === 1 ? (
-                          <button
-                            title={t("course.deleteTooltip", { defaultValue: "Vô hiệu hóa" })}
-                            onClick={() => openDeleteModal(item)}
-                            className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        ) : (
-                          <span className="w-[28px] h-[28px]" />
-                        )}
+                        <button
+                          title={t("course.deleteTooltip", { defaultValue: "Vô hiệu hóa" })}
+                          onClick={() => openDeleteModal(item)}
+                          className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </PermissionGuard>
                     </div>
                   </TableCell>

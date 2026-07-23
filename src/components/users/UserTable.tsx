@@ -17,7 +17,7 @@ import { userApi, UserItem } from "@/services/user.api";
 import { authApi } from "@/services/auth.api";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { useTranslation } from "react-i18next";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Edit, Trash2 } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 type SortKey = "username" | "email" | "phone" | "status";
@@ -427,7 +427,7 @@ export default function UserTable() {
               value={roleFilter}
               onChange={(value) => { setRoleFilter(value); setCurrentPage(1); }}
               options={[
-                ...rolesList.map((r) => ({ value: r, label: r })),
+                ...rolesList.map((r) => ({ value: r, label: t(`roles.names.${r}`, { defaultValue: r }) })),
               ]}
               placeholder={t("user.filterRoleAll", { defaultValue: "Tất cả vai trò" })}
               onClear={() => { setRoleFilter("all"); setCurrentPage(1); }}
@@ -585,7 +585,7 @@ export default function UserTable() {
                     {item.roles.length > 0 ? (
                       item.roles.map((r) => (
                         <span key={r} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-gray-300 mr-1">
-                          {r}
+                          {t(`roles.names.${r}`, { defaultValue: r })}
                         </span>
                       ))
                     ) : (
@@ -598,28 +598,23 @@ export default function UserTable() {
                         <button
                           title={t("user.editTooltip", { defaultValue: "Chỉnh sửa" })}
                           onClick={() => openEditModal(item)}
-                          className="p-1.5 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                          className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md transition-colors"
                         >
-                          <PencilIcon className="w-4 h-4" />
+                          <Edit className="w-4 h-4" />
                         </button>
                       </PermissionGuard>
                       <PermissionGuard requiredPermission="User.Delete">
                         {/* Deactivate/Activate lock icon */}
                         <button
-                          disabled={item.username === currentUser}
                           title={
-                            item.username === currentUser
-                              ? t("user.cannotDeactivateSelf", { defaultValue: "Bạn không thể tự vô hiệu hóa tài khoản của chính mình." })
-                              : item.status === 1
+                            item.status === 1
                               ? t("user.deactivateTooltip")
                               : t("user.activateTooltip")
                           }
                           onClick={() => openDeactiveModal(item)}
                           className={`p-1.5 rounded-md transition-colors ${
-                            item.username === currentUser
-                              ? "text-gray-300 dark:text-gray-600 cursor-not-allowed"
-                              : item.status === 1
-                              ? "text-gray-500 hover:text-warning-500 dark:text-gray-400 dark:hover:text-warning-400 hover:bg-gray-100 dark:hover:bg-white/5"
+                            item.status === 1
+                              ? "text-warning-600 hover:text-warning-800 dark:text-warning-400 dark:hover:text-warning-300 hover:bg-warning-50 dark:hover:bg-warning-950/30"
                               : "text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-300 hover:bg-gray-100 dark:hover:bg-white/5"
                           }`}
                         >
@@ -636,20 +631,11 @@ export default function UserTable() {
                       </PermissionGuard>
                       <PermissionGuard requiredPermission="User.Delete">
                         <button
-                          disabled={item.username === currentUser}
-                          title={
-                            item.username === currentUser
-                              ? t("user.cannotDeleteSelf", { defaultValue: "Bạn không thể tự xóa tài khoản của chính mình." })
-                              : t("user.deleteTooltip", { defaultValue: "Xóa hẳn" })
-                          }
+                          title={t("user.deleteTooltip", { defaultValue: "Xóa hẳn" })}
                           onClick={() => openDeleteModal(item)}
-                          className={`p-1.5 rounded-md transition-colors ${
-                            item.username === currentUser
-                              ? "text-gray-300 dark:text-gray-600 cursor-not-allowed"
-                              : "text-gray-500 hover:text-error-500 dark:text-gray-400 dark:hover:text-error-400 hover:bg-gray-100 dark:hover:bg-white/5"
-                          }`}
+                          className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors"
                         >
-                          <TrashBinIcon className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </PermissionGuard>
                     </div>

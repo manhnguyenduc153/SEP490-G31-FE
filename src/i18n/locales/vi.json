@@ -218,6 +218,7 @@
     "description": "Quản lý danh sách các danh mục câu hỏi.",
     "show": "Hiển thị",
     "entries": "mục",
+    "entries": "mục",
     "searchPlaceholder": "Tìm kiếm danh mục...",
     "addCategory": "Thêm danh mục",
     "colId": "#",
@@ -517,9 +518,10 @@
         "Course": "Khóa học",
         "Class": "Lớp học",
         "Room": "Phòng học",
-        "TimeSlot": "Khung giờ học",
         "StudentClass": "Học sinh - Lớp học",
-        "ClassSchedule": "Lịch học",
+        "Schedule": "Lịch học",
+        "TeachingSchedule": "Lịch dạy",
+        "Timetable": "Thời khóa biểu",
         "Attendance": "Điểm danh",
         "LearningMaterial": "Tài liệu học tập",
         "Notification": "Thông báo",
@@ -619,7 +621,7 @@
     "filterStatusAll": "Trạng thái (Tất cả)",
     "noClassAssigned": "Không gán lớp học",
     "noCourseAssigned": "Không gán khóa học",
-    "btnReset": "Reset",
+    "btnReset": "Xóa bộ lọc",
     "noResultsFiltered": "Không tìm thấy tài liệu học tập nào thỏa mãn điều kiện lọc.",
     "noPreview": "Xem trước không khả dụng cho định dạng này.",
     "colMaterial": "Tài liệu"
@@ -880,11 +882,19 @@
     "selectClassLabel": "Chọn lớp học",
     "noClasses": "Không có lớp học nào",
     "classCount": "{{count}} lớp",
-    "listTitle": "Danh sách bài tập"
+    "listTitle": "Danh sách bài tập",
+    "title": "Quản lý bài tập",
+    "description": "Quản lý bài tập theo lớp học.",
+    "deleteSuccess": "Xóa bài tập thành công",
+    "deleteError": "Không thể xóa bài tập",
+    "showing": "Hiển thị {{start}} đến {{end}} trong tổng số {{total}} mục"
   },
   "teacher": {
     "title": "Quản lý Giáo viên",
     "description": "Quản lý danh sách giáo viên trong trường.",
+    "filterStatus": "Trạng thái",
+    "filterAll": "Tất cả",
+    "searchLabel": "Tìm kiếm",
     "show": "Hiển thị",
     "entries": "mục",
     "searchPlaceholder": "Tìm kiếm giáo viên...",
@@ -892,6 +902,15 @@
     "exportExcel": "Xuất Excel",
     "downloadTemplate": "Tải file mẫu",
     "importExcel": "Nhập Excel",
+    "templateDownloadSuccess": "Tải file mẫu Excel thành công!",
+    "exportSuccess": "Xuất dữ liệu Excel thành công!",
+    "exportError": "Không thể xuất file Excel",
+    "exportSystemError": "Lỗi hệ thống khi xuất Excel",
+    "importEmptyError": "File Excel không có dữ liệu",
+    "importInvalidRowsError": "Không tìm thấy dòng dữ liệu hợp lệ (yêu cầu Họ Tên và Email)",
+    "importSuccess": "Nhập thành công {{count}} giáo viên!",
+    "importError": "Lỗi khi nhập danh sách giáo viên",
+    "importReadError": "Lỗi khi đọc file Excel: {{message}}",
     "colId": "#",
     "colCode": "Mã GV",
     "colName": "Họ Tên",
@@ -905,6 +924,7 @@
     "provisionError": "Có lỗi xảy ra khi cấp tài khoản giáo viên.",
     "statusActive": "Hoạt động",
     "statusInactive": "Ngưng hoạt động",
+    "statusOnLeave": "Đang nghỉ phép",
     "editTooltip": "Chỉnh sửa",
     "deleteTooltip": "Xóa",
     "noResults": "Không tìm thấy giáo viên nào.",
@@ -934,6 +954,10 @@
     "genderFemale": "Nữ",
     "avatarLabel": "Ảnh đại diện",
     "certificateLabel": "Chứng chỉ",
+    "uploadCertificates": "Tải nhiều chứng chỉ lên",
+    "removeCertificate": "Xóa chứng chỉ",
+    "pendingUpload": "Sẽ tải khi bấm Lưu",
+    "selectCertificatePreview": "Bấm vào tên file để chọn và xem trước",
     "uploadPlaceholder": "Cho phép các định dạng: *.png, *.jpg và *.jpeg. Kích thước tối đa: 2MB",
     "gradeLevels": {
       "Foundation": "Cơ bản (Foundation)",
@@ -1306,7 +1330,11 @@
     "sun": "Chủ Nhật",
     "show": "Hiển thị",
     "entriesPerPage": "mục mỗi trang.",
-    "clearFilters": "Xóa bộ lọc"
+    "clearFilters": "Xóa bộ lọc",
+    "searchPlaceholder": "Tìm kiếm...",
+    "noResults": "Không tìm thấy kết quả",
+    "edit": "Sửa",
+    "delete": "Xóa"
   },
   "roles": {
     "title": "Quản lý vai trò",
@@ -1356,7 +1384,16 @@
     "updateError": "Lỗi khi cập nhật quyền",
     "deleteSuccess": "Xóa vai trò thành công",
     "deleteError": "Xóa vai trò thất bại",
-    "systemError": "Đã xảy ra lỗi hệ thống"
+    "systemError": "Đã xảy ra lỗi hệ thống",
+    "names": {
+      "Admin": "Quản trị viên",
+      "Student": "Học sinh",
+      "Teacher": "Giáo viên",
+      "Parent": "Phụ huynh",
+      "Operation staff": "Ban vận hành",
+      "Academic staff": "Ban chuyên môn",
+      "Center manager": "Quản lý trung tâm"
+    }
   },
   "room": {
     "title": "Quản lý Phòng học",
@@ -1656,9 +1693,10 @@
       "Course": "Khóa học",
       "Class": "Lớp học",
       "Room": "Phòng học",
-      "TimeSlot": "Khung giờ học",
       "StudentClass": "Học sinh - Lớp học",
-      "ClassSchedule": "Lịch học",
+      "Schedule": "Lịch học",
+      "TeachingSchedule": "Lịch dạy",
+      "Timetable": "Thời khóa biểu",
       "Attendance": "Điểm danh",
       "LearningMaterial": "Tài liệu học tập",
       "Notification": "Thông báo",
@@ -1672,13 +1710,22 @@
       "ExamSchedule": "Lịch thi",
       "ExamStudent": "Học sinh thi",
       "StudentGrade": "Điểm số",
-      "Homework": "Bài tập"
+      "Homework": "Bài tập",
+      "Exam": "Bài kiểm tra",
+      "ExamQuestion": "Câu hỏi bài thi",
+      "ExamAttempt": "Lượt làm bài thi",
+      "ExamAnswer": "Đáp án bài thi"
     },
     "action": {
       "View": "Xem",
+      "ViewSettings": "Xem cấu hình điểm",
+      "ViewOwnGrades": "Xem điểm cá nhân",
       "Create": "Thêm mới",
       "Edit": "Sửa",
-      "Delete": "Xóa"
+      "Delete": "Xóa",
+      "StudentView": "Xem cho Học sinh",
+      "TeacherView": "Xem cho Giáo viên",
+      "Scheduling": "Xếp lịch"
     },
     "ERR_NO_FEASIBLE_SCHEDULE_FOUND": "Không tìm thấy phương án xếp lịch khả thi (vui lòng bổ sung thêm phòng học, giáo viên hoặc kiểm tra trùng lặp ca học)!",
     "GET_SEMESTER_LIST_SUCCESS": "Lấy danh sách học kỳ thành công",
@@ -1828,7 +1875,6 @@
     "excelColCourse": "Khóa học",
     "excelColPreferredSlots": "Ca mong muốn"
   },
-
   "classGradeReport": {
     "title": "Bảng điểm tổng hợp của Lớp học",
     "description": "Tổng hợp điểm số của học sinh trong lớp theo từng thành phần và kết quả cuối khóa.",

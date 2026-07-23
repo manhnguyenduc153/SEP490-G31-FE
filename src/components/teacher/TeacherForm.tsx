@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
-import { TeacherItem, TeacherSaveDto, teacherApi, GradeLevel } from "@/services/teacher.api";
+import { TeacherItem, TeacherSaveDto, teacherApi } from "@/services/teacher.api";
 import { EyeIcon, CalenderIcon } from "@/icons";
 import { CodeHelper } from "@/helpers/CodeHelper";
 import { ENV } from "@/config/env";
@@ -13,8 +13,10 @@ interface TeacherFormProps {
   editingItem: TeacherItem | null;
   formError: string | null;
   isSubmitting: boolean;
-  onSubmit: (dto: TeacherSaveDto) => void;
+  onSubmit: (dto: TeacherSaveDto) => void | Promise<void>;
 }
+
+type CertificateSelection = { type: "existing" | "pending"; index: number } | null;
 
 export function TeacherForm({
   onCancel,
@@ -34,16 +36,16 @@ export function TeacherForm({
     address: "",
     status: 1, // 1: Active
     description: "",
-    gradeLevel: null,
     avatar: null,
-    certificate: null,
+    certificates: [],
   });
 
   const [isUploading, setIsUploading] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [certFile, setCertFile] = useState<File | null>(null);
+  const [certFiles, setCertFiles] = useState<File[]>([]);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [certPreview, setCertPreview] = useState<string | null>(null);
+  const [selectedCertificate, setSelectedCertificate] = useState<CertificateSelection>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const certInputRef = useRef<HTMLInputElement>(null);
@@ -62,15 +64,15 @@ export function TeacherForm({
         address: editingItem.address || "",
         status: editingItem.status ?? 1,
         description: editingItem.description || "",
-        gradeLevel: editingItem.gradeLevel ?? null,
         avatar: editingItem.avatar || null,
-        certificate: editingItem.certificate || null,
+        certificates: editingItem.certificates || [],
       });
       if (editingItem.avatar) {
         setAvatarPreview(getImageUrl(editingItem.avatar));
       } else {
         setAvatarPreview(null);
       }
+      setSelectedCertificate(editingItem.certificates?.length ? { type: "existing", index: 0 } : null);
     } else {
       setFormData({
         code: CodeHelper.generate("GV"),
@@ -82,16 +84,16 @@ export function TeacherForm({
         address: "",
         status: 1,
         description: "",
-        gradeLevel: null,
         avatar: null,
-        certificate: null,
+        certificates: [],
       });
       setAvatarPreview(null);
+      setSelectedCertificate(null);
     }
 
     // Reset local files
     setAvatarFile(null);
-    setCertFile(null);
+    setCertFiles([]);
     setCertPreview(null);
   }, [editingItem]);
 
@@ -102,8 +104,6 @@ export function TeacherForm({
       let parsedValue: any = value;
       if (name === "status") {
         parsedValue = value ? parseInt(value) : null;
-      } else if (name === "gradeLevel") {
-        parsedValue = value || null;
       } else if (name === "gender") {
         if (value === "true") parsedValue = true;
         else if (value === "false") parsedValue = false;
@@ -130,15 +130,72 @@ export function TeacherForm({
   };
 
   const handleCertChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    setCertFile(file);
-    const url = URL.createObjectURL(file);
-    setCertPreview(url);
+    setCertFiles((current) => {
+      const uniqueFiles = files.filter((file) => !current.some((item) =>
+        item.name === file.name && item.size === file.size && item.lastModified === file.lastModified));
+      const nextFiles = [...current, ...uniqueFiles];
+      if (uniqueFiles.length > 0) {
+        const selectedIndex = nextFiles.length - 1;
+        setSelectedCertificate({ type: "pending", index: selectedIndex });
+        setCertPreview(URL.createObjectURL(nextFiles[selectedIndex]));
+      }
+      return nextFiles;
+    });
     if (certInputRef.current) {
       certInputRef.current.value = "";
     }
+  };
+
+  const removeExistingCertificate = (index: number) => {
+    setFormData((current) => {
+      const nextCertificates = (current.certificates || []).filter((_, itemIndex) => itemIndex !== index);
+      setSelectedCertificate((selection) => {
+        if (selection?.type !== "existing") return selection;
+        if (selection.index > index) return { type: "existing", index: selection.index - 1 };
+        if (selection.index !== index) return selection;
+        if (nextCertificates.length > 0) return { type: "existing", index: Math.min(index, nextCertificates.length - 1) };
+        if (certFiles.length > 0) {
+          setCertPreview(URL.createObjectURL(certFiles[0]));
+          return { type: "pending", index: 0 };
+        }
+        return null;
+      });
+      return { ...current, certificates: nextCertificates };
+    });
+  };
+
+  const removePendingCertificate = (index: number) => {
+    setCertFiles((current) => {
+      const nextFiles = current.filter((_, itemIndex) => itemIndex !== index);
+      setSelectedCertificate((selection) => {
+        if (selection?.type !== "pending") return selection;
+        if (selection.index > index) return { type: "pending", index: selection.index - 1 };
+        if (selection.index !== index) return selection;
+        if (nextFiles.length > 0) {
+          const nextIndex = Math.min(index, nextFiles.length - 1);
+          setCertPreview(URL.createObjectURL(nextFiles[nextIndex]));
+          return { type: "pending", index: nextIndex };
+        }
+        setCertPreview(null);
+        return (formData.certificates?.length || 0) > 0 ? { type: "existing", index: 0 } : null;
+      });
+      return nextFiles;
+    });
+  };
+
+  const selectExistingCertificate = (index: number) => {
+    setSelectedCertificate({ type: "existing", index });
+    setCertPreview(null);
+  };
+
+  const selectPendingCertificate = (index: number) => {
+    const file = certFiles[index];
+    if (!file) return;
+    setSelectedCertificate({ type: "pending", index });
+    setCertPreview(URL.createObjectURL(file));
   };
 
   const handleAvatarClick = () => {
@@ -172,18 +229,26 @@ export function TeacherForm({
           return;
         }
       }
-      if (certFile) {
+      const certificateUrls = [...(finalFormData.certificates || [])];
+      for (const certFile of certFiles) {
         const res = await teacherApi.uploadDocument(certFile);
-        if (res.success && res.data) {
-          finalFormData.certificate = res.data;
-        } else {
-          alert(res.message || "Lỗi tải chứng chỉ");
+        if (!res.success || !res.data) {
+          alert(res.message || `Lỗi tải chứng chỉ ${certFile.name}`);
           setIsUploading(false);
           return;
         }
+        certificateUrls.push(res.data);
       }
+      finalFormData.certificates = certificateUrls;
+      if (certFiles.length > 0) {
+        setFormData((current) => ({ ...current, certificates: certificateUrls }));
+        setSelectedCertificate({ type: "existing", index: certificateUrls.length - 1 });
+        setCertFiles([]);
+        setCertPreview(null);
+        if (certInputRef.current) certInputRef.current.value = "";
+      }
+      await onSubmit(finalFormData);
       setIsUploading(false);
-      onSubmit(finalFormData);
     } catch (err) {
       alert("Lỗi upload file");
       setIsUploading(false);
@@ -202,6 +267,12 @@ export function TeacherForm({
     if (!path) return false;
     return path.match(/\.(jpeg|jpg|gif|png)$/i) != null;
   };
+
+  const certFile = selectedCertificate?.type === "pending" ? certFiles[selectedCertificate.index] || null : null;
+  const existingCertificate = selectedCertificate?.type === "existing"
+    ? formData.certificates?.[selectedCertificate.index] || null
+    : null;
+  const selectedCertificateUrl = certFile ? certPreview : getImageUrl(existingCertificate);
 
   return (
     <>
@@ -334,27 +405,6 @@ export function TeacherForm({
                   />
                 </div>
 
-                {/* Grade Level */}
-                <div>
-                  <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t("teacher.formGradeLevelLabel")}
-                  </label>
-                  <select
-                    name="gradeLevel"
-                    value={formData.gradeLevel || ""}
-                    onChange={handleChange}
-                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-                  >
-                    <option value="">Chọn cấp độ...</option>
-                    <option value={GradeLevel.Foundation}>{t("teacher.gradeLevels.Foundation")}</option>
-                    <option value={GradeLevel.PreIelts}>{t("teacher.gradeLevels.PreIelts")}</option>
-                    <option value={GradeLevel.Ielts4_5}>{t("teacher.gradeLevels.Ielts4_5")}</option>
-                    <option value={GradeLevel.Ielts5_6}>{t("teacher.gradeLevels.Ielts5_6")}</option>
-                    <option value={GradeLevel.Ielts6_65}>{t("teacher.gradeLevels.Ielts6_65")}</option>
-                    <option value={GradeLevel.Ielts65Plus}>{t("teacher.gradeLevels.Ielts65Plus")}</option>
-                  </select>
-                </div>
-
                 {/* Status */}
                 <div>
                   <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -480,6 +530,7 @@ export function TeacherForm({
                     type="file"
                     ref={certInputRef}
                     className="hidden"
+                    multiple
                     accept="image/png, image/jpeg, image/jpg, application/pdf, .doc, .docx"
                     onChange={handleCertChange}
                   />
@@ -489,20 +540,20 @@ export function TeacherForm({
                       <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
                       <span className="mt-2 text-xs text-gray-500">Đang lưu...</span>
                     </div>
-                  ) : certPreview || formData.certificate ? (
+                  ) : certFile || existingCertificate ? (
                     <div className="group relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
-                      {(certFile && certFile.type.startsWith('image/')) || (!certFile && isImage(formData.certificate)) ? (
+                      {(certFile && certFile.type.startsWith('image/')) || (!certFile && isImage(existingCertificate)) ? (
                         <>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
-                            src={certPreview || (getImageUrl(formData.certificate) as string)}
+                            src={selectedCertificateUrl as string}
                             alt="Certificate preview"
                             className="object-cover w-full h-full"
                           />
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
                             <button 
                               type="button"
-                              onClick={(e) => { e.stopPropagation(); setPreviewImage(certPreview || getImageUrl(formData.certificate)); }}
+                              onClick={(e) => { e.stopPropagation(); setPreviewImage(selectedCertificateUrl); }}
                               className="p-2 bg-white/20 hover:bg-white/40 rounded-full text-white transition-colors"
                               title="Xem ảnh phóng to"
                             >
@@ -520,7 +571,7 @@ export function TeacherForm({
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                             </svg>
                             <p className="text-sm font-medium text-gray-700 dark:text-gray-300 break-all max-w-full">
-                              {certFile ? certFile.name : formData.certificate?.split('/').pop()}
+                              {certFile ? certFile.name : existingCertificate?.split('/').pop()}
                             </p>
                           </div>
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -537,11 +588,58 @@ export function TeacherForm({
                         </svg>
                       </div>
                       <p className="text-xs font-medium text-brand-600 dark:text-brand-400 mb-1">
-                        Tải chứng chỉ lên
+                        {t("teacher.uploadCertificates", { defaultValue: "Tải nhiều chứng chỉ lên" })}
                       </p>
                     </div>
                   )}
                 </div>
+
+                {((formData.certificates?.length || 0) > 0 || certFiles.length > 0) && (
+                  <div className="mt-3">
+                    <p className="mb-2 text-[11px] text-gray-500 dark:text-gray-400">{t("teacher.selectCertificatePreview")}</p>
+                    <div className="max-h-44 space-y-2 overflow-y-auto">
+                    {(formData.certificates || []).map((certificate, index) => (
+                      <div key={`${certificate}-${index}`} className={`flex items-center gap-2 rounded-lg border p-2 transition-colors ${selectedCertificate?.type === "existing" && selectedCertificate.index === index ? "border-brand-400 bg-brand-50 ring-1 ring-brand-200 dark:border-brand-500 dark:bg-brand-500/10" : "border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"}`}>
+                        <button
+                          type="button"
+                          onClick={() => selectExistingCertificate(index)}
+                          className="min-w-0 flex-1 truncate text-left text-xs font-medium text-gray-700 hover:text-brand-600 dark:text-gray-300 dark:hover:text-brand-400"
+                          title={certificate.split('/').pop()}
+                        >
+                          {certificate.split('/').pop()}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeExistingCertificate(index)}
+                          className="rounded p-1 text-gray-400 hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-500/10"
+                          aria-label={t("teacher.removeCertificate", { defaultValue: "Xóa chứng chỉ" })}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+
+                    {certFiles.map((file, index) => (
+                      <div key={`${file.name}-${file.size}-${file.lastModified}`} className={`flex items-center gap-2 rounded-lg border p-2 transition-colors ${selectedCertificate?.type === "pending" && selectedCertificate.index === index ? "border-brand-500 bg-brand-100 ring-1 ring-brand-300 dark:border-brand-400 dark:bg-brand-500/20" : "border-brand-100 bg-brand-50/60 dark:border-brand-500/20 dark:bg-brand-500/10"}`}>
+                        <button type="button" onClick={() => selectPendingCertificate(index)} className="min-w-0 flex-1 truncate text-left text-xs font-medium text-gray-700 hover:text-brand-600 dark:text-gray-300" title={file.name}>
+                          {file.name}
+                        </button>
+                        <span className="text-[10px] font-medium text-brand-600 dark:text-brand-400">
+                          {t("teacher.pendingUpload", { defaultValue: "Sẽ tải khi bấm Lưu" })}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removePendingCertificate(index)}
+                          className="rounded p-1 text-gray-400 hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-500/10"
+                          aria-label={t("teacher.removeCertificate", { defaultValue: "Xóa chứng chỉ" })}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
             </div>

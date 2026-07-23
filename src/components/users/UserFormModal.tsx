@@ -113,28 +113,45 @@ export function UserFormModal({
             <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
               {t("user.formRoleLabel", { defaultValue: "Vai trò hệ thống" })} <span className="text-error-500">*</span>
             </label>
-            <div className="relative z-20 bg-transparent">
-              <select
-                required
-                value={formRole}
-                onChange={(e) => setFormRole(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 appearance-none focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 focus:ring-brand-500/10 dark:focus:border-brand-800 shadow-theme-xs"
-              >
-                <option value="" disabled className="dark:bg-gray-900 dark:text-gray-400">
-                  {t("user.formRolePlaceholder", { defaultValue: "Chọn vai trò..." })}
-                </option>
-                {rolesList.map((r) => (
-                  <option key={r} value={r} className="dark:bg-gray-900 dark:text-gray-400">
-                    {r}
-                  </option>
-                ))}
-              </select>
-              <span className="absolute z-30 text-gray-500 -translate-y-1/2 right-4 top-1/2 dark:text-gray-400 pointer-events-none">
-                <svg className="stroke-current" width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M3.8335 5.9165L8.00016 10.0832L12.1668 5.9165" stroke="" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </span>
-            </div>
+            {(() => {
+              const isEditingAdmin = formRole.toLowerCase() === "admin" || editingItem?.roles?.some(r => r.toLowerCase() === "admin");
+              const effectiveRolesList = isEditingAdmin && !rolesList.some(r => r.toLowerCase() === "admin")
+                ? ["Admin", ...rolesList]
+                : rolesList;
+
+              return (
+                <div>
+                  <div className="relative z-20 bg-transparent">
+                    <select
+                      required
+                      disabled={isEditingAdmin}
+                      value={formRole}
+                      onChange={(e) => setFormRole(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 appearance-none focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 focus:ring-brand-500/10 dark:focus:border-brand-800 shadow-theme-xs disabled:bg-gray-100 dark:disabled:bg-white/5 disabled:cursor-not-allowed"
+                    >
+                      <option value="" disabled className="dark:bg-gray-900 dark:text-gray-400">
+                        {t("user.formRolePlaceholder", { defaultValue: "Chọn vai trò..." })}
+                      </option>
+                      {effectiveRolesList.map((r) => (
+                        <option key={r} value={r} className="dark:bg-gray-900 dark:text-gray-400">
+                          {t(`roles.names.${r}`, { defaultValue: r })}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="absolute z-30 text-gray-500 -translate-y-1/2 right-4 top-1/2 dark:text-gray-400 pointer-events-none">
+                      <svg className="stroke-current" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M3.8335 5.9165L8.00016 10.0832L12.1668 5.9165" stroke="" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </span>
+                  </div>
+                  {isEditingAdmin && (
+                    <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium">
+                      {t("backendMessages.ERR_CANNOT_ASSIGN_ADMIN_ROLE", { defaultValue: "Không thể gán vai trò Admin cho người dùng mới" })}
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Form-level error */}

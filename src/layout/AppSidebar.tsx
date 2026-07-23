@@ -36,9 +36,9 @@ type NavItem = {
   icon: React.ReactNode;
   path?: string;
   new?: boolean;
-  permission?: string;
+  permission?: string | string[];
   roles?: string[];
-  subItems?: { name: string; path: string; pro?: boolean; new?: boolean; permission?: string; roles?: string[] }[];
+  subItems?: { name: string; path: string; pro?: boolean; new?: boolean; permission?: string | string[]; roles?: string[] }[];
 };
 
 // ── NEW: School Management menu (rendered at top) ────────────────────────────
@@ -53,43 +53,43 @@ const schoolItems: NavItem[] = [
     name: "academicOperations",
     subItems: [
       { name: "semesters", path: "/semesters", permission: "Semester.View" },
-      { name: "courses", path: "/courses", permission: "Course" },
+      { name: "courses", path: "/courses", permission: "Course.View" },
       { name: "registrations", path: "/registrations", permission: "StudentRegistration.View" },
-      { name: "classes", path: "/classes", permission: "Class", roles: ["admin"] },
-      { name: "teachingClasses", path: "/teaching-classes", roles: ["teacher"] },
-      { name: "myClasses", path: "/my-classes", roles: ["student"] },
-      { name: "teachers", path: "/teachers", permission: "Teacher", roles: ["admin"] },
-      { name: "students", path: "/students", permission: "Student", roles: ["admin"] },
-      { name: "rooms", path: "/rooms", permission: "Room", roles: ["admin"] },
+      { name: "classes", path: "/classes", permission: "Class.View" },
+      { name: "teachingClasses", path: "/teaching-classes", permission: "Class.TeacherView" },
+      { name: "myClasses", path: "/my-classes", permission: "Class.StudentView" },
+      { name: "teachers", path: "/teachers", permission: "Teacher.View" },
+      { name: "students", path: "/students", permission: "Student.View" },
+      { name: "rooms", path: "/rooms", permission: "Room.View" },
     ],
   },
   {
     icon: <CalenderIcon />,
     name: "schedule",
     subItems: [
-      { name: "classSchedules", path: "/schedules", permission: "ClassSchedule" },
-      { name: "teachingSchedules", path: "/teaching-schedules", roles: ["teacher", "admin"] },
-      { name: "timetable", path: "/timetable", roles: ["teacher", "student", "admin"] },
+      { name: "classSchedules", path: "/schedules", permission: "Schedule" },
+      { name: "teachingSchedules", path: "/teaching-schedules", permission: "TeachingSchedule" },
+      { name: "timetable", path: "/timetable", permission: "Timetable" },
     ],
   },
   {
     icon: <TableIcon />,
     name: "assessments",
     subItems: [
-      { name: "exams", path: "/exams", permission: "Exam" },
-      { name: "homework", path: "/homework", roles: ["teacher", "student", "admin"] },
+      { name: "exams", path: "/exams", permission: ["Exam.View", "Exam.StudentView", "Exam.TeacherView"] },
+      { name: "homework", path: "/homework", permission: "Homework" },
       { name: "questionBank", path: "/question-bank", permission: "Question" },
       { name: "questionCategory", path: "/question-category", permission: "QuestionCategory" },
-      { name: "scoreSettings", path: "/scores", permission: "StudentGrade", roles: ["admin", "teacher"] },
-      { name: "myScores", path: "/my-scores", roles: ["student"] },
+      { name: "scoreSettings", path: "/scores", permission: "StudentGrade.ViewSettings" },
+      { name: "myScores", path: "/my-scores", permission: "StudentGrade.ViewOwnGrades" },
     ],
   },
   {
     icon: <BoxCubeIcon />,
     name: "learning",
     subItems: [
-      { name: "learningMaterials", path: "/learning-materials", permission: "LearningMaterial" },
-      { name: "myAttendance", path: "/attendance", roles: ["student"] },
+      { name: "learningMaterials", path: "/learning-materials", permission: "LearningMaterial.View" },
+      { name: "myAttendance", path: "/attendance", permission: "Attendance.StudentView" },
       { name: "studentProgress", path: "/student-progress" },
     ],
   },
@@ -97,14 +97,14 @@ const schoolItems: NavItem[] = [
     icon: <LockIcon />,
     name: "administration",
     subItems: [
-      { name: "users", path: "/users", permission: "User" },
-      { name: "roles", path: "/roles", permission: "Role" },
+      { name: "users", path: "/users", permission: "User.View" },
+      { name: "roles", path: "/roles", permission: "Role.View" },
     ],
   },
   {
     icon: <PieChartIcon />,
     name: "reportsMenu",
-    roles: ["admin"],
+    permission: "User.View",
     subItems: [
       { name: "classGradeReport", path: "/reports/class-grade" },
       { name: "attendanceReport", path: "/reports/attendance" },
@@ -115,10 +115,9 @@ const schoolItems: NavItem[] = [
     icon: <GroupIcon />,
     name: "parentServices",
     subItems: [
-      { name: "parents", path: "/parent-student", permission: "ParentStudent" },
-      { name: "childProfile", path: "/child-profile", permission: "ParentStudent" },
-      { name: "childProgress", path: "/child-progress", roles: ["parent", "admin"] },
-      { name: "childSchedules", path: "/child-schedules", roles: ["parent", "admin"] },
+      { name: "parents", path: "/parent-student", permission: "ParentStudent.View", roles: ["admin", "academicstaff", "academic staff"] },
+      { name: "childProgress", path: "/child-progress", permission: "ParentStudent.View", roles: ["admin", "parent"] },
+      { name: "childSchedules", path: "/child-schedules", permission: "ParentStudent.View", roles: ["admin", "parent"] },
     ],
   },
 ];
@@ -143,22 +142,10 @@ const navItems: NavItem[] = [
     icon: <AiIcon />,
     new: true,
     subItems: [
-      {
-        name: "Text Generator",
-        path: "/text-generator",
-      },
-      {
-        name: "Image Generator",
-        path: "/image-generator",
-      },
-      {
-        name: "Code Generator",
-        path: "/code-generator",
-      },
-      {
-        name: "Video Generator",
-        path: "/video-generator",
-      },
+      { name: "Text Generator", path: "/text-generator" },
+      { name: "Image Generator", path: "/image-generator" },
+      { name: "Code Generator", path: "/code-generator" },
+      { name: "Video Generator", path: "/video-generator" },
     ],
   },
   {
@@ -282,10 +269,7 @@ const othersItems: NavItem[] = [
       { name: "Sign In", path: "/signin", pro: false },
       { name: "Sign Up", path: "/signup", pro: false },
       { name: "Reset Password", path: "/reset-password" },
-      {
-        name: "Two Step Verification",
-        path: "/two-step-verification",
-      },
+      { name: "Two Step Verification", path: "/two-step-verification" },
     ],
   },
 ];
@@ -324,25 +308,40 @@ const AppSidebar: React.FC = () => {
   const [isMounted, setIsMounted] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState<{
     type: "school" | "main" | "support" | "others";
-    index: number;
+    name: string;
   } | null>(null);
   const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
     {}
   );
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  const isActive = useCallback((path: string) => path === pathname, [pathname]);
+  const isActive = useCallback((path: string) => {
+    if (!path) return false;
+    if (path === "/") return pathname === "/";
+    return pathname === path || pathname.startsWith(path + "/");
+  }, [pathname]);
 
   const canShowForRole = useCallback((roles?: string[]) => !roles?.length || roles.includes(role), [role]);
 
-  const hasPermission = useCallback((permission?: string) => {
+  const hasPermission = useCallback((permission?: string | string[]) => {
     if (!permission) return true;
     const lowerRole = role.toLowerCase();
-    if (lowerRole === "admin") return true;
-    if (lowerRole === "student" && (permission === "Exam" || permission === "ExamSchedule")) {
-      return true;
-    }
-    return permissions.includes(permission);
+    if (
+      lowerRole === "admin" ||
+      lowerRole === "academic staff" ||
+      lowerRole === "ban chuyên môn" ||
+      lowerRole === "ban vận hành"
+    ) return true;
+    
+    const permissionsToCheck = Array.isArray(permission) ? permission : [permission];
+    
+    return permissionsToCheck.some((p) => {
+      // Custom mapping: If check for ExamSchedule.View, student with ExamStudent.View can also pass
+      if (p === "ExamSchedule.View" && lowerRole === "student") {
+        return permissions.includes("ExamStudent.View");
+      }
+      return permissions.includes(p);
+    });
   }, [role, permissions]);
 
   useEffect(() => {
@@ -355,6 +354,9 @@ const AppSidebar: React.FC = () => {
     setIsMounted(true);
 
     // 2. Fetch fresh permissions from API in the background to ensure synchronization
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) return; // Skip API call if not logged in
+
     authApi.getCurrentPermissions()
       .then((res) => {
         if (res.success && res.data) {
@@ -370,8 +372,8 @@ const AppSidebar: React.FC = () => {
           localStorage.setItem("permissions", JSON.stringify(finalPerms));
         }
       })
-      .catch((err) => {
-        console.error("[AppSidebar] Failed to refresh permissions:", err);
+      .catch(() => {
+        // Silently ignore - user may not be authenticated
       });
   }, []);
 
@@ -399,7 +401,7 @@ const AppSidebar: React.FC = () => {
             if (isActive(subItem.path)) {
               setOpenSubmenu({
                 type: menuType,
-                index,
+                name: nav.name,
               });
               submenuMatched = true;
               break;
@@ -447,18 +449,18 @@ const AppSidebar: React.FC = () => {
   }, [openSubmenu, role, isMounted]);
 
   const handleSubmenuToggle = (
-    index: number,
+    name: string,
     menuType: "school" | "main" | "support" | "others"
   ) => {
     setOpenSubmenu((prevOpenSubmenu) => {
       if (
         prevOpenSubmenu &&
         prevOpenSubmenu.type === menuType &&
-        prevOpenSubmenu.index === index
+        prevOpenSubmenu.name === name
       ) {
         return null;
       }
-      return { type: menuType, index };
+      return { type: menuType, name };
     });
   };
 
@@ -491,13 +493,13 @@ const AppSidebar: React.FC = () => {
 
     return (
       <ul className="flex flex-col gap-1">
-        {filteredItems.map((nav, index) => {
+        {filteredItems.map((nav) => {
           const renderItemContent = () => (
             <li key={nav.name}>
               {nav.subItems ? (
                 <button
-                  onClick={() => handleSubmenuToggle(index, menuType)}
-                  className={`menu-item group  ${openSubmenu?.type === menuType && openSubmenu?.index === index
+                  onClick={() => handleSubmenuToggle(nav.name, menuType)}
+                  className={`menu-item group  ${openSubmenu?.type === menuType && openSubmenu?.name === nav.name
                     ? "menu-item-active"
                     : "menu-item-inactive"
                     } cursor-pointer ${!isExpanded && !isHovered
@@ -506,7 +508,7 @@ const AppSidebar: React.FC = () => {
                     }`}
                 >
                   <span
-                    className={` ${openSubmenu?.type === menuType && openSubmenu?.index === index
+                    className={` ${openSubmenu?.type === menuType && openSubmenu?.name === nav.name
                       ? "menu-item-icon-active"
                       : "menu-item-icon-inactive"
                       }`}
@@ -521,7 +523,7 @@ const AppSidebar: React.FC = () => {
                   {nav.new && (isExpanded || isHovered || isMobileOpen) && (
                     <span
                       className={`ml-auto absolute right-10 ${openSubmenu?.type === menuType &&
-                        openSubmenu?.index === index
+                        openSubmenu?.name === nav.name
                         ? "menu-dropdown-badge-active"
                         : "menu-dropdown-badge-inactive"
                         } menu-dropdown-badge`}
@@ -532,7 +534,7 @@ const AppSidebar: React.FC = () => {
                   {(isExpanded || isHovered || isMobileOpen) && (
                     <ChevronDownIcon
                       className={`ml-auto w-5 h-5 transition-transform duration-200  ${openSubmenu?.type === menuType &&
-                        openSubmenu?.index === index
+                        openSubmenu?.name === nav.name
                         ? "rotate-180 text-brand-500"
                         : ""
                         }`}
@@ -575,13 +577,13 @@ const AppSidebar: React.FC = () => {
               {nav.subItems && (isExpanded || isHovered || isMobileOpen) && (
                 <div
                   ref={(el) => {
-                    subMenuRefs.current[`${menuType}-${index}`] = el;
+                    subMenuRefs.current[`${menuType}-${nav.name}`] = el;
                   }}
                   className="overflow-hidden transition-all duration-300"
                   style={{
                     height:
-                      openSubmenu?.type === menuType && openSubmenu?.index === index
-                        ? `${subMenuHeight[`${menuType}-${index}`]}px`
+                      openSubmenu?.type === menuType && openSubmenu?.name === nav.name
+                        ? `${subMenuHeight[`${menuType}-${nav.name}`]}px`
                         : "0px",
                   }}
                 >

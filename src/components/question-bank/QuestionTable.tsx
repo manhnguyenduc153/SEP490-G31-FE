@@ -11,15 +11,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { PencilIcon, TrashBinIcon, EyeIcon, PlusIcon } from "@/icons";
+import { PencilIcon, TrashBinIcon, PlusIcon } from "@/icons";
 import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
 import { QuestionViewModal } from "./QuestionViewModal";
 import { questionApi, QuestionItem, QuestionSaveDto } from "@/services/question.api";
-import { questionCategoryApi, QuestionCategoryItem } from "@/services/questionCategory.api";
+import { QuestionCategoryItem } from "@/services/questionCategory.api";
+import { commonApi } from "@/services/common.api";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { useTranslation } from "react-i18next";
-import { CheckCircle, XCircle, Search } from "lucide-react";
+import { CheckCircle, XCircle, Search, Edit, Trash2, Eye } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 type TabType = "all" | "easy" | "medium" | "hard";
 
@@ -129,7 +131,7 @@ export default function QuestionTable() {
   useEffect(() => {
     async function loadCategories() {
       try {
-        const res = await questionCategoryApi.getAll(1, 100);
+        const res = await commonApi.getQuestionCategories(1, 1000);
         if (res.success && res.data) {
           setCategories(res.data.items || []);
         }
@@ -492,7 +494,7 @@ export default function QuestionTable() {
   };
 
   return (
-    <div className="w-full bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs overflow-hidden">
+    <div className="w-full bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs overflow-visible">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
@@ -508,10 +510,10 @@ export default function QuestionTable() {
       {/* Header with Title & Action Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 sm:p-6 border-b border-gray-100 dark:border-gray-800">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
             {t("question.title", { defaultValue: "Ngân hàng câu hỏi" })}
-          </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             {t("question.description", { defaultValue: "Quản lý thư viện câu hỏi, nhập xuất dữ liệu và tạo câu hỏi mới." })}
           </p>
         </div>
@@ -635,21 +637,22 @@ export default function QuestionTable() {
             <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
               {t("question.filterCategory", { defaultValue: "Danh mục" })}
             </label>
-            <select
+            <SearchableSelect
+              options={categories.map((c) => ({
+                value: c.id,
+                label: c.name,
+              }))}
               value={selectedCategory || ""}
-              onChange={(e) => {
-                setSelectedCategory(e.target.value ? Number(e.target.value) : undefined);
+              onChange={(val) => {
+                setSelectedCategory(val ? Number(val) : undefined);
                 setCurrentPage(1);
               }}
-              className="w-full px-3 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all h-11 cursor-pointer"
-            >
-              <option value="" className="dark:bg-gray-900">{t("question.filterCategoryAll", { defaultValue: "Tất cả danh mục" })}</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id} className="dark:bg-gray-900">
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              placeholder={t("question.filterCategoryAll", { defaultValue: "Tất cả danh mục" })}
+              onClear={() => {
+                setSelectedCategory(undefined);
+                setCurrentPage(1);
+              }}
+            />
           </div>
 
           {/* Type Filter */}
@@ -687,32 +690,32 @@ export default function QuestionTable() {
       </div>
 
       {/* Table view */}
-      <div className="max-w-full overflow-x-auto custom-scrollbar">
+      <div className="max-w-full overflow-visible custom-scrollbar">
         <Table>
           <TableHeader className="border-b border-gray-100 dark:border-white/[0.05] bg-gray-50 dark:bg-white/[0.02]">
             <TableRow>
-              <TableCell isHeader className="px-6 py-4 text-center w-12 font-semibold text-gray-800 dark:text-gray-200">
+              <TableCell isHeader className="px-6 py-4 text-center w-12 font-semibold text-gray-800 dark:text-gray-200 text-xs">
                 #
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-left font-semibold text-gray-800 dark:text-gray-200">
+              <TableCell isHeader className="px-6 py-4 text-left font-semibold text-gray-800 dark:text-gray-200 text-xs">
                 {t("question.colQuestion")}
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-32">
+              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-32 text-xs">
                 {t("question.colType")}
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-28">
+              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-28 text-xs">
                 {t("question.colDifficulty")}
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-24">
+              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-24 text-xs">
                 {t("question.colPoint")}
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-left font-semibold text-gray-800 dark:text-gray-200 w-40">
+              <TableCell isHeader className="px-6 py-4 text-left font-semibold text-gray-800 dark:text-gray-200 w-40 text-xs">
                 {t("question.colCreatedBy")}
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-left font-semibold text-gray-800 dark:text-gray-200 w-32">
+              <TableCell isHeader className="px-6 py-4 text-left font-semibold text-gray-800 dark:text-gray-200 w-32 text-xs">
                 {t("question.colCreatedAt")}
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-32">
+              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-32 text-xs">
                 {t("question.colActions")}
               </TableCell>
             </TableRow>
@@ -776,28 +779,31 @@ export default function QuestionTable() {
                   <TableCell className="px-6 py-4 text-center whitespace-nowrap">
                     <div className="flex items-center justify-center gap-1.5">
                       <button
+                        type="button"
                         title={t("question.viewTooltip")}
                         onClick={() => openViewModal(item)}
                         className="p-1.5 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
                       >
-                        <EyeIcon className="w-4.5 h-4.5" />
+                        <Eye className="w-4 h-4" />
                       </button>
                       <PermissionGuard requiredPermission="Question.Edit">
                         <button
+                          type="button"
                           title={t("question.editTooltip")}
                           onClick={() => router.push(`/question-bank/edit/${item.id}`)}
-                          className="p-1.5 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                          className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md transition-colors"
                         >
-                          <PencilIcon className="w-4.5 h-4.5" />
+                          <Edit className="w-4 h-4" />
                         </button>
                       </PermissionGuard>
                       <PermissionGuard requiredPermission="Question.Delete">
                         <button
+                          type="button"
                           title={t("question.deleteTooltip")}
                           onClick={() => openDeleteModal(item)}
-                          className="p-1.5 text-gray-500 hover:text-rose-500 dark:text-gray-400 dark:hover:text-rose-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                          className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors"
                         >
-                          <TrashBinIcon className="w-4.5 h-4.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </PermissionGuard>
                     </div>
