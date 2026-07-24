@@ -63,7 +63,8 @@
     "timetable": "Thời khóa biểu",
     "assessments": "Đánh giá & Khảo thí",
     "exams": "Bài kiểm tra",
-    "homework": "Bài tập",
+    "homework": "Quản lý bài tập",
+    "myHomework": "Bài tập của tôi",
     "assignments": "Bài tập",
     "questionBank": "Ngân hàng câu hỏi",
     "questionCategory": "Danh mục câu hỏi",
@@ -806,6 +807,11 @@
     "viewTooltip": "Xem chi tiết"
   },
   "homework": {
+    "myHomework": "Bài tập của tôi",
+    "studentDescription": "Xem và nộp bài tập của các lớp đang học.",
+    "allClasses": "Tất cả lớp",
+    "searchPlaceholder": "Tìm theo tiêu đề, lớp, giáo viên, kỹ năng hoặc hạn nộp...",
+    "colClass": "Lớp / Giáo viên",
     "addHomework": "Thêm bài tập",
     "allScores": "Tất cả điểm",
     "allStatuses": "Tất cả trạng thái",
@@ -1543,7 +1549,8 @@
     "present": "Có mặt",
     "absent": "Nghỉ học",
     "late": "Đi muộn",
-    "excused": "Nghỉ có phép"
+    "excused": "Nghỉ có phép",
+    "notMarked": "Chưa điểm danh"
   },
   "backendMessages": {
     "ERR_SEMESTER_HAS_SCHEDULES_CANNOT_CHANGE_DATES": "Học kỳ đã được xếp lịch học, không thể thay đổi ngày bắt đầu và kết thúc!",
@@ -1706,8 +1713,10 @@
       "ActivityAnswer": "Câu trả lời hoạt động",
       "ExamSchedule": "Lịch thi",
       "ExamStudent": "Học sinh thi",
-      "StudentGrade": "Điểm số",
-      "Homework": "Bài tập",
+      "StudentGrade": "Cấu hình điểm",
+      "StudentResult": "Xem điểm học sinh",
+      "HomeworkManagement": "Quản lý bài tập",
+      "StudentHomework": "Bài tập học sinh",
       "Exam": "Bài kiểm tra",
       "ExamQuestion": "Câu hỏi bài thi",
       "ExamAttempt": "Lượt làm bài thi",
@@ -1717,6 +1726,7 @@
       "View": "Xem",
       "ViewSettings": "Xem cấu hình điểm",
       "ViewOwnGrades": "Xem điểm cá nhân",
+      "Submit": "Nộp bài tập",
       "Create": "Thêm mới",
       "Edit": "Sửa",
       "Delete": "Xóa",

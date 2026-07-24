@@ -77,11 +77,10 @@ const schoolItems: NavItem[] = [
     name: "assessments",
     subItems: [
       { name: "exams", path: "/exams", permission: "Exam" },
-      { name: "homework", path: "/homework", permission: "Homework" },
+      { name: "homework", path: "/homework", permission: "HomeworkManagement.View" },
       { name: "questionBank", path: "/question-bank", permission: "Question" },
       { name: "questionCategory", path: "/question-category", permission: "QuestionCategory" },
       { name: "scoreSettings", path: "/scores", permission: "StudentGrade.ViewSettings" },
-      { name: "myScores", path: "/my-scores", permission: "StudentGrade.ViewOwnGrades" },
     ],
   },
   {
@@ -89,7 +88,9 @@ const schoolItems: NavItem[] = [
     name: "learning",
     subItems: [
       { name: "learningMaterials", path: "/learning-materials", permission: "LearningMaterial" },
+      { name: "myHomework", path: "/my-homework", permission: "StudentHomework.View" },
       { name: "myAttendance", path: "/attendance", permission: "Attendance" },
+      { name: "myScores", path: "/my-scores", permission: "StudentResult.View" },
       { name: "studentProgress", path: "/student-progress" },
     ],
   },
