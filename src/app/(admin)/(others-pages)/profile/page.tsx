@@ -235,7 +235,6 @@ export default function ProfilePage() {
       setEditDescription(teacherProfile.description || "");
       setEditDob(teacherProfile.dob ? teacherProfile.dob.split("T")[0] : "");
       setEditGender(teacherProfile.gender ?? null);
-      setEditGradeLevel(teacherProfile.gradeLevel || null);
       setCertificatesList(teacherProfile.certificates || []);
       setAvatarPreview(teacherProfile.avatar ? getImageUrl(teacherProfile.avatar) : null);
       setSelectedCertificate(teacherProfile.certificates?.length ? { type: "existing", index: 0 } : null);
@@ -406,7 +405,6 @@ export default function ProfilePage() {
           description: editDescription,
           dob: editDob === "" ? null : editDob,
           gender: editGender,
-          gradeLevel: editGradeLevel as any,
           avatar: finalAvatar,
           certificates: certificateUrls
         };
@@ -898,33 +896,6 @@ export default function ProfilePage() {
               
               <div className="space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Grade Level */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                      {t("profile.gradeLevel", { defaultValue: "Cấp độ giảng dạy" })}
-                    </label>
-                    {editMode ? (
-                      <select
-                        value={editGradeLevel || ""}
-                        onChange={(e) => setEditGradeLevel(e.target.value || null)}
-                        className="h-10 w-full px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:border-brand-500"
-                      >
-                        <option value="">{t("teacher.selectGradeLevel", { defaultValue: "Chọn cấp độ" })}</option>
-                        <option value="Foundation">Foundation</option>
-                        <option value="PreIelts">PreIelts</option>
-                        <option value="Ielts4_5">Ielts 4.5</option>
-                        <option value="Ielts5_6">Ielts 5.6</option>
-                        <option value="Ielts6_65">Ielts 6.0 - 6.5</option>
-                        <option value="Ielts65Plus">Ielts 6.5+</option>
-                      </select>
-                    ) : (
-                      <div className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-white">
-                        <GraduationCap className="w-4 h-4 text-blue-500" />
-                        {teacherProfile.gradeLevelName || teacherProfile.gradeLevel || "Foundation"}
-                      </div>
-                    )}
-                  </div>
-
                   {/* Certificates (Read-only view) */}
                   {!editMode && (
                     <div className="space-y-1.5 sm:col-span-2">
