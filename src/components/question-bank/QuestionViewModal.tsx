@@ -3,6 +3,7 @@
 import React from "react";
 import { Modal } from "@/components/ui/modal";
 import { QuestionItem } from "@/services/question.api";
+import { useTranslation } from "react-i18next";
 
 interface QuestionViewModalProps {
   isOpen: boolean;
@@ -11,6 +12,8 @@ interface QuestionViewModalProps {
 }
 
 export function QuestionViewModal({ isOpen, onClose, question }: QuestionViewModalProps) {
+  const { t } = useTranslation();
+
   const getDifficultyBadgeColor = (level: number) => {
     switch (level) {
       case 1:
@@ -34,17 +37,17 @@ export function QuestionViewModal({ isOpen, onClose, question }: QuestionViewMod
               {question.questionTypeName}
             </span>
             <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${getDifficultyBadgeColor(question.difficultyLevel)}`}>
-              Độ khó: {question.difficultyLevelName}
+              {t("question.colDifficulty")}: {question.difficultyLevelName}
             </span>
             <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
-              Điểm: {question.point ?? 0}
+              {t("question.colPoint")}: {question.point ?? 0}
             </span>
           </div>
           <h3 className="text-xl font-bold text-gray-900 dark:text-white mt-1">
             {question.name}
           </h3>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Mã câu hỏi: {question.code} • Người tạo: {question.createdBy || "Hệ thống"}
+            {t("question.viewModalCode")}: {question.code} • {t("question.viewModalCreatedBy")}: {question.createdBy || t("question.viewModalSystem")}
           </p>
         </div>
 
@@ -52,7 +55,9 @@ export function QuestionViewModal({ isOpen, onClose, question }: QuestionViewMod
         <div className="space-y-5">
           {/* Question Content */}
           <div>
-            <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-2">Nội dung câu hỏi</h4>
+            <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-2">
+              {t("question.viewModalContent")}
+            </h4>
             <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg text-gray-800 dark:text-gray-200 text-sm whitespace-pre-wrap leading-relaxed border border-gray-100 dark:border-gray-800">
               {question.content}
             </div>
@@ -61,7 +66,9 @@ export function QuestionViewModal({ isOpen, onClose, question }: QuestionViewMod
           {/* Choices/Answers */}
           {question.questionType !== 3 && question.questionAnswers && question.questionAnswers.length > 0 && (
             <div>
-              <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-2">Danh sách đáp án</h4>
+              <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-2">
+                {t("question.viewModalAnswers")}
+              </h4>
               <div className="space-y-2.5">
                 {question.questionAnswers.map((answer, index) => {
                   const optionLabel = String.fromCharCode(65 + index); // A, B, C, D...
@@ -86,7 +93,7 @@ export function QuestionViewModal({ isOpen, onClose, question }: QuestionViewMod
                       <div className="flex-1 break-words">{answer.content}</div>
                       {answer.isCorrect && (
                         <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 shrink-0">
-                          ✓ Đúng
+                          ✓ {t("question.viewModalCorrect")}
                         </span>
                       )}
                     </div>
@@ -99,7 +106,9 @@ export function QuestionViewModal({ isOpen, onClose, question }: QuestionViewMod
           {/* Explanation */}
           {question.explanation && (
             <div>
-              <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-2">Giải thích đáp án</h4>
+              <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-2">
+                {t("question.viewModalExplanation")}
+              </h4>
               <div className="p-4 bg-amber-50/20 dark:bg-amber-500/5 rounded-lg text-gray-700 dark:text-gray-300 text-sm whitespace-pre-wrap leading-relaxed border border-amber-100/50 dark:border-amber-500/10">
                 {question.explanation}
               </div>
@@ -113,7 +122,7 @@ export function QuestionViewModal({ isOpen, onClose, question }: QuestionViewMod
             onClick={onClose}
             className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700 transition-colors"
           >
-            Đóng
+            {t("question.viewModalClose")}
           </button>
         </div>
       </div>

@@ -1,5 +1,4 @@
 import { QuestionForm } from "@/components/question-bank/QuestionForm";
-import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { Metadata } from "next";
 import React from "react";
 
@@ -10,8 +9,7 @@ export const metadata: Metadata = {
 
 export default function CreateQuestionPage() {
   return (
-    <div className="space-y-6">
-      <PageBreadcrumb pageTitle="question.createTitle" />
+    <div>
       <QuestionForm />
     </div>
   );

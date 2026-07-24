@@ -123,6 +123,7 @@ export const authApi = {
   },
 
   hasPermission(permission: string): boolean {
+    if (!permission) return true;
     const permissions = this.getPermissions();
     return permissions.includes(permission);
   },
@@ -154,5 +155,9 @@ export const authApi = {
 
   async createRole(roleName: string): Promise<ApiResponse<boolean>> {
     return api.post<boolean>(ENDPOINTS.AUTH.CREATE_ROLE, { roleName });
+  },
+
+  async changePassword(dto: { oldPassword: string; newPassword: string; confirmPassword: string }): Promise<ApiResponse<boolean>> {
+    return api.post<boolean>(ENDPOINTS.AUTH.CHANGE_PASSWORD, dto);
   }
 };

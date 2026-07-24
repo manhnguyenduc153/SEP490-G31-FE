@@ -188,7 +188,7 @@ export function ExamTable() {
   };
 
   return (
-    <div className="w-full bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs overflow-hidden">
+    <div className="w-full bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs overflow-visible">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
@@ -352,32 +352,32 @@ export function ExamTable() {
       </div>
 
       {/* Grid Table view */}
-      <div className="max-w-full overflow-x-auto custom-scrollbar">
+      <div className="max-w-full overflow-visible custom-scrollbar">
         <Table>
           <TableHeader className="border-b border-gray-100 dark:border-white/[0.05] bg-gray-50 dark:bg-white/[0.02]">
             <TableRow>
-              <TableCell isHeader className="px-6 py-4 text-left font-semibold text-gray-800 dark:text-gray-200">
+              <TableCell isHeader className="px-6 py-4 text-left font-semibold text-gray-800 dark:text-gray-200 text-theme-sm">
                 {t("exam.colTitle")}
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-left font-semibold text-gray-800 dark:text-gray-200">
+              <TableCell isHeader className="px-6 py-4 text-left font-semibold text-gray-800 dark:text-gray-200 text-theme-sm">
                 {t("exam.colAssign")}
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-28">
+              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-28 text-theme-sm">
                 {t("exam.colQuestions")}
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-20">
+              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-20 text-theme-sm">
                 {t("exam.colPoint")}
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-32">
+              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-32 text-theme-sm">
                 {t("exam.colDuration")}
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-36">
+              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-36 text-theme-sm">
                 {t("exam.colStatus")}
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-28">
+              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-28 text-theme-sm">
                 {t("exam.colSubmissions")}
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-36">
+              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-36 text-theme-sm">
                 {t("exam.colActions")}
               </TableCell>
             </TableRow>
@@ -557,7 +557,7 @@ export function ExamTable() {
       <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between px-6 py-5 bg-gray-50/50 dark:bg-white/[0.01] border-t border-gray-100 dark:border-gray-800/40">
         <div className="flex flex-wrap items-center gap-4 pb-3 xl:pb-0 justify-center xl:justify-start">
           <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
-            <span>{t("exam.show", { defaultValue: "Hiển thị" })}</span>
+            <span>{t("exam.show")}</span>
             <select
               value={itemsPerPage}
               onChange={(e) => {
@@ -571,14 +571,13 @@ export function ExamTable() {
               <option value="20" className="dark:bg-gray-900">20</option>
               <option value="50" className="dark:bg-gray-900">50</option>
             </select>
-            <span>{t("exam.entriesPerPage", { defaultValue: "mục mỗi trang" })}</span>
+            <span>{t("exam.entriesPerPage")}</span>
           </div>
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-            {t("student.showing", {
+            {t("exam.showing", {
               start: totalRecords === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1,
               end: Math.min(currentPage * itemsPerPage, totalRecords),
               total: totalRecords,
-              defaultValue: `Hiển thị ${totalRecords === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} đến ${Math.min(currentPage * itemsPerPage, totalRecords)} trong tổng số ${totalRecords} mục`
             })}
           </p>
         </div>

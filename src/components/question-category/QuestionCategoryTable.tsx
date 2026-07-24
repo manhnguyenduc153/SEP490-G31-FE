@@ -9,12 +9,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AngleDownIcon, AngleUpIcon, PencilIcon, TrashBinIcon, EyeIcon } from "@/icons";
+import { AngleDownIcon, AngleUpIcon } from "@/icons";
 import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
 import { CategoryFormModal } from "./CategoryFormModal";
 import { CategoryViewModal } from "./CategoryViewModal";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
-import { Plus, Search, CheckCircle, XCircle } from "lucide-react";
+import { Plus, Search, CheckCircle, XCircle, Eye, Edit, Trash2 } from "lucide-react";
 import {
   questionCategoryApi,
   QuestionCategoryItem,
@@ -473,32 +473,35 @@ export default function QuestionCategoryTable() {
                     )}
                   </TableCell>
                   <TableCell className="px-6 py-4 text-center whitespace-nowrap">
-                    <div className="flex items-center justify-center gap-2">
+                    <div className="flex items-center justify-center gap-1.5">
                       <PermissionGuard requiredPermission="QuestionCategory.View">
                         <button
+                          type="button"
                           title={t("questionCategory.viewTooltip", { defaultValue: "Xem chi tiết" })}
                           onClick={() => openViewModal(item)}
                           className="p-1.5 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
                         >
-                          <EyeIcon className="w-4 h-4" />
+                          <Eye className="w-4 h-4" />
                         </button>
                       </PermissionGuard>
                       <PermissionGuard requiredPermission="QuestionCategory.Edit">
                         <button
+                          type="button"
                           title="Chỉnh sửa"
                           onClick={() => openEditModal(item)}
-                          className="p-1.5 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                          className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-955/30 rounded-md transition-colors"
                         >
-                          <PencilIcon className="w-4 h-4" />
+                          <Edit className="w-4 h-4" />
                         </button>
                       </PermissionGuard>
                       <PermissionGuard requiredPermission="QuestionCategory.Delete">
                         <button
+                          type="button"
                           title="Xóa"
                           onClick={() => openDeleteModal(item)}
-                          className="p-1.5 text-gray-500 hover:text-error-500 dark:text-gray-400 dark:hover:text-error-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                          className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-955/30 rounded-md transition-colors"
                         >
-                          <TrashBinIcon className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </PermissionGuard>
                     </div>
