@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useEffect } from "react";
 import { homeworkApi, HomeworkDto, HomeworkSubmissionDto, HomeworkSubmissionSaveDto } from "@/services/homework.api";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { useDropzone } from "react-dropzone";
 import { UploadCloud, File, FileAudio, FileText, FileVideo, X } from "lucide-react";
 import { teacherApi } from "@/services/teacher.api"; // Use for upload API
@@ -172,6 +173,7 @@ export default function StudentSubmitForm({ homework, onBack, showToast }: Stude
             )}
           </div>
         ) : (
+          <PermissionGuard requiredPermission="StudentHomework.Submit">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block mb-2 text-sm font-medium">Nội dung bài làm (hoặc ghi chú)</label>
@@ -232,6 +234,7 @@ export default function StudentSubmitForm({ homework, onBack, showToast }: Stude
               </button>
             </div>
           </form>
+          </PermissionGuard>
         )}
       </div>
     </div>

@@ -63,7 +63,8 @@
     "timetable": "Timetable",
     "assessments": "Assessments",
     "exams": "Exams",
-    "homework": "Homework",
+    "homework": "Homework management",
+    "myHomework": "My homework",
     "questionBank": "Question Bank",
     "questionCategory": "Question Category",
     "scores": "Scores",
@@ -979,6 +980,11 @@
     "viewTooltip": "View Details"
   },
   "homework": {
+    "myHomework": "My homework",
+    "studentDescription": "View and submit homework for your classes.",
+    "allClasses": "All classes",
+    "searchPlaceholder": "Search by title, class, teacher, skill or due date...",
+    "colClass": "Class / Teacher",
     "addHomework": "Add homework",
     "allScores": "All scores",
     "allStatuses": "All statuses",
@@ -1906,7 +1912,8 @@
     "present": "Present",
     "absent": "Absent",
     "late": "Late",
-    "excused": "Excused absence"
+    "excused": "Excused absence",
+    "notMarked": "Not marked"
   },
   "backendMessages": {
     "ERR_SEMESTER_HAS_SCHEDULES_CANNOT_CHANGE_DATES": "Semester already has schedules, cannot change start and end dates!",
@@ -2072,8 +2079,10 @@
       "ActivityAnswer": "Activity Answer",
       "ExamSchedule": "Exam Schedule",
       "ExamStudent": "Exam Student",
-      "StudentGrade": "Student Grade",
-      "Homework": "Homework",
+      "StudentGrade": "Grade Configuration",
+      "StudentResult": "Student Grade Viewing",
+      "HomeworkManagement": "Homework Management",
+      "StudentHomework": "Student Homework",
       "Exam": "Exam",
       "ExamQuestion": "Exam Question",
       "ExamAttempt": "Exam Attempt",
@@ -2083,6 +2092,7 @@
       "View": "View",
       "ViewSettings": "View grade settings",
       "ViewOwnGrades": "View own grades",
+      "Submit": "Submit homework",
       "Create": "Create",
       "Edit": "Edit",
       "Delete": "Delete",
