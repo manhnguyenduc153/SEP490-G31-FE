@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { FileText, Download, Clock, AlertTriangle, Trophy, Target } from "lucide-react";
 import { homeworkApi, HomeworkDto } from "@/services/homework.api";
 import { ENV } from "@/config/env";
+import { authApi } from "@/services/auth.api";
 
 interface ClassDetailHomeworkTabProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -27,7 +28,10 @@ export default function ClassDetailHomeworkTab({
     async function loadHomeworks() {
       setIsLoading(true);
       try {
-        const res = await homeworkApi.getHomeworkByClass(classId);
+        const isStudent = authApi.getRole().toLowerCase() === "student";
+        const res = isStudent
+          ? await homeworkApi.getStudentHomeworkByClass(classId)
+          : await homeworkApi.getHomeworkByClass(classId);
         if (active && res.success && res.data) {
           setHomeworks(res.data);
         }

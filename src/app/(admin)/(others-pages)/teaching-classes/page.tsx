@@ -30,7 +30,7 @@ export default function TeachingClassesPage() {
   }, []);
 
   return (
-    <PermissionGuard requiredPermission="Class.TeacherView" fallback={<div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 text-center text-sm text-rose-500 font-medium">Bạn không có quyền truy cập chức năng này.</div>}>
+    <PermissionGuard requiredPermission="TeachingClass" fallback={<div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 text-center text-sm text-rose-500 font-medium">Bạn không có quyền truy cập chức năng này.</div>}>
       <div>
         {/* Toast */}
         {toastMessage && (
