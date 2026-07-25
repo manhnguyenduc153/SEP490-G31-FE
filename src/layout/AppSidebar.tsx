@@ -91,7 +91,7 @@ const schoolItems: NavItem[] = [
       { name: "myHomework", path: "/my-homework", permission: "StudentHomework.View" },
       { name: "myAttendance", path: "/attendance", permission: "Attendance.View" },
       { name: "myExams", path: "/my-exams", permission: "Exam.StudentView" },
-      { name: "myScores", path: "/my-scores", permission: "StudentResult.View" },
+      { name: "myScores", path: "/my-scores", permission: "MyGrade" },
       { name: "studentProgress", path: "/student-progress" },
     ],
   },

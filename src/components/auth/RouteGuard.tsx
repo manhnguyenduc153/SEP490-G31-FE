@@ -17,7 +17,7 @@ const routePermissions: Record<string, string | string[]> = {
   "/question-bank": "Question",
   "/question-category": "QuestionCategory",
   "/scores": "StudentGrade.ViewSettings",
-  "/my-scores": "StudentResult.View",
+  "/my-scores": "MyGrade",
   "/learning-materials": "LearningMaterial.View",
   "/attendance": "Attendance.View",
   "/homework": "HomeworkManagement.View",
