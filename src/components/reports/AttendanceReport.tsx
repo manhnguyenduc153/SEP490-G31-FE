@@ -1,16 +1,17 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { ClipboardCheck, CheckCircle, FileText, Search } from "lucide-react";
+import { ClipboardCheck, FileText, Search, Download, ChevronDown, File as FilePdf } from "lucide-react";
 import { classApi, ClassItem } from "@/services/class.api";
 import { reportApi, ClassAttendanceSheetDto } from "@/services/report.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import * as XLSX from "xlsx";
-import { Download } from "lucide-react";
+
 export default function AttendanceReport() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<number | "">("");
   const [reportData, setReportData] = useState<ClassAttendanceSheetDto | null>(null);
+  const [isExportOpen, setIsExportOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -120,6 +121,85 @@ export default function AttendanceReport() {
     const classObj = classes.find(c => c.id === selectedClassId);
     const code = classObj ? classObj.code : "";
     XLSX.writeFile(workbook, `Diem_Danh_${code}_${dateStr}.xlsx`);
+    setIsExportOpen(false);
+  };
+
+  const handleExportWord = () => {
+    const el = document.getElementById("report-table-container");
+    if (!el || !reportData) return;
+    const html = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8">
+        <title>Export</title>
+        <style>
+          table { width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 14px; }
+          th { background-color: #f3f4f6; color: #374151; }
+        </style>
+      </head><body>
+      <h2>Báo cáo điểm danh</h2>
+      <p>Lớp: ${reportData.className} (${reportData.classCode})</p>
+      ${el.outerHTML}
+      </body></html>`;
+    const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const dateStr = new Date().toISOString().slice(0, 10);
+    link.download = `Diem_Danh_${reportData.classCode}_${dateStr}.doc`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setIsExportOpen(false);
+  };
+
+  const handleExportPdf = () => {
+    const el = document.getElementById("report-table-container");
+    if (!el || !reportData) return;
+    
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    
+    const doc = iframe.contentWindow?.document;
+    if (!doc) return;
+    
+    doc.open();
+    doc.write(`
+      <html>
+      <head>
+        <title>Export PDF</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 13px; }
+          th { background-color: #f8f9fa; color: #111; font-weight: bold; }
+          h2 { margin-bottom: 5px; font-size: 20px; color: #111; }
+          p { margin-top: 0; color: #555; font-size: 14px; margin-bottom: 20px; }
+          @media print {
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          }
+        </style>
+      </head>
+      <body>
+        <h2>Báo cáo điểm danh</h2>
+        <p>Lớp: ${reportData.className} (${reportData.classCode})</p>
+        ${el.outerHTML}
+      </body>
+      </html>
+    `);
+    doc.close();
+    
+    iframe.onload = () => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    };
+    
+    setIsExportOpen(false);
   };
 
   return (
@@ -170,59 +250,44 @@ export default function AttendanceReport() {
           </div>
         ) : (
           <div className="flex flex-col gap-6 animate-fadeIn">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center mb-4">
               <div>
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                  Chi tiết điểm danh
+                  Danh sách Bảng điểm
                 </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Lớp: <span className="font-semibold text-gray-700 dark:text-gray-300">{reportData.classCode}</span> - {reportData.className}
+                </p>
               </div>
-            </div>
-
-            {/* Summary Stats Cards */}
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl flex items-center justify-between shadow-xs w-full sm:w-[280px] h-[88px]">
-                <div>
-                  <p className="text-sm text-blue-600 dark:text-blue-400 font-semibold mb-1">Tổng số buổi học</p>
-                  <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{reportData.totalSessions}</p>
-                </div>
-                <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-800/50 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-inner">
-                  <FileText className="w-5 h-5" />
-                </div>
-              </div>
-              
-              <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-xl flex items-center justify-between shadow-xs w-full sm:w-[280px] h-[88px]">
-                <div>
-                  <p className="text-sm text-green-600 dark:text-green-400 font-semibold mb-1">Đã điểm danh</p>
-                  <p className="text-2xl font-bold text-green-700 dark:text-green-300">{reportData.completedSessions} <span className="text-sm font-normal text-green-600/70">buổi</span></p>
-                </div>
-                <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-800/50 flex items-center justify-center text-green-600 dark:text-green-400 shadow-inner">
-                  <CheckCircle className="w-5 h-5" />
-                </div>
-              </div>
-
-              <div className="p-4 bg-brand-50 dark:bg-brand-900/20 border border-brand-100 dark:border-brand-800 rounded-xl flex items-center justify-between shadow-xs w-full sm:w-[280px] h-[88px]">
-                <div>
-                  <p className="text-sm text-brand-600 dark:text-brand-400 font-semibold mb-1">Tỷ lệ chuyên cần chung</p>
-                  <p className="text-2xl font-bold text-brand-700 dark:text-brand-300">{reportData.averageAttendanceRate}%</p>
-                </div>
-                <div className="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-800/50 flex items-center justify-center text-brand-600 dark:text-brand-400 shadow-inner">
-                  <ClipboardCheck className="w-5 h-5" />
-                </div>
-              </div>
-
-              <button 
-                onClick={handleExportExcel}
-                className="flex flex-col items-center justify-center gap-1.5 p-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xs w-full sm:w-[140px] h-[88px] transition-colors group"
-              >
-                <div className="w-8 h-8 rounded-full bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center text-brand-600 dark:text-brand-400 group-hover:scale-110 transition-transform">
+              <div className="relative" onMouseLeave={() => setIsExportOpen(false)}>
+                <button 
+                  onClick={() => setIsExportOpen(!isExportOpen)}
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm font-semibold transition-all shadow-sm border border-brand-500 hover:border-brand-600"
+                >
                   <Download className="w-4 h-4" />
-                </div>
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Xuất Excel</span>
-              </button>
+                  Xuất báo cáo <ChevronDown className="w-3 h-3 ml-1" />
+                </button>
+
+                {isExportOpen && (
+                  <div className="absolute top-full right-0 pt-2 z-50">
+                    <div className="w-[160px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden">
+                       <button onClick={handleExportExcel} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-left text-gray-700 dark:text-gray-200">
+                          <Download className="w-4 h-4 text-green-600" /> Excel (.xlsx)
+                       </button>
+                       <button onClick={handleExportWord} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-left text-gray-700 dark:text-gray-200">
+                          <FileText className="w-4 h-4 text-blue-600" /> Word (.doc)
+                       </button>
+                       <button onClick={handleExportPdf} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-left text-gray-700 dark:text-gray-200">
+                          <FilePdf className="w-4 h-4 text-red-600" /> PDF (.pdf)
+                       </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Attendance Table */}
-            <div className="overflow-x-auto border border-gray-150 dark:border-gray-800 rounded-xl bg-gray-50/20 shadow-xs">
+            <div id="report-table-container" className="overflow-x-auto border border-gray-150 dark:border-gray-800 rounded-xl bg-gray-50/20 shadow-xs">
               <table className="w-full text-left text-sm border-collapse">
                 <thead>
                   <tr className="border-b border-gray-205 dark:border-gray-800 text-gray-500 dark:text-gray-400 font-semibold bg-gray-100/80 dark:bg-gray-800/60 sticky top-0 z-10">

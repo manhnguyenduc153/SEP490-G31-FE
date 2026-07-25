@@ -207,15 +207,15 @@ export default function QuestionTable() {
     try {
       const res = await questionApi.delete(deleteTarget.id);
       if (res.success) {
-        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : "Xóa câu hỏi thành công!");
+        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("question.toastDeleteSuccess"));
         setIsDeleteModalOpen(false);
         setDeleteTarget(null);
         triggerRefresh();
       } else {
-        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : "Lỗi khi xóa câu hỏi.", "error");
+        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("question.toastDeleteError"), "error");
       }
     } catch {
-      showToast("Lỗi hệ thống khi thực hiện xóa.", "error");
+      showToast(t("question.toastDeleteSystemError"), "error");
     } finally {
       setIsDeleting(false);
     }
@@ -273,7 +273,7 @@ export default function QuestionTable() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Template Nhập Câu hỏi");
     XLSX.writeFile(wb, "Template_Nhap_Cau_Hoi.xlsx");
-    showToast("Tải file mẫu Excel thành công!");
+    showToast(t("question.toastDownloadTemplateSuccess"));
   };
 
   const handleExportExcel = async () => {
@@ -314,13 +314,13 @@ export default function QuestionTable() {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Danh sách Câu hỏi");
         XLSX.writeFile(wb, "Danh_Sach_Cau_Hoi.xlsx");
-        showToast("Xuất dữ liệu Excel thành công!");
+        showToast(t("question.toastExportSuccess"));
       } else {
-        showToast(res.message || "Không thể xuất file Excel", "error");
+        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("question.toastExportError"), "error");
       }
     } catch (err) {
       console.error("Export Excel error", err);
-      showToast("Lỗi hệ thống khi xuất Excel", "error");
+      showToast(t("question.toastExportSystemError"), "error");
     }
   };
 
@@ -338,7 +338,7 @@ export default function QuestionTable() {
 
         const rows = XLSX.utils.sheet_to_json(ws);
         if (rows.length === 0) {
-          showToast("File Excel không có dữ liệu", "error");
+          showToast(t("question.toastImportEmpty"), "error");
           return;
         }
 
@@ -428,20 +428,20 @@ export default function QuestionTable() {
         }
 
         if (dtos.length === 0) {
-          showToast("Không tìm thấy dòng dữ liệu hợp lệ (yêu cầu Tiêu đề & Nội dung)", "error");
+          showToast(t("question.toastImportInvalidData"), "error");
           return;
         }
 
         const res = await questionApi.import(dtos);
         if (res.success) {
-          showToast(`Nhập thành công ${res.data?.length || dtos.length} câu hỏi!`);
+          showToast(t("question.toastImportSuccess", { count: res.data?.length || dtos.length }));
           triggerRefresh();
         } else {
-          showToast(res.message || "Lỗi khi nhập danh sách câu hỏi", "error");
+          showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("question.toastImportError"), "error");
         }
       } catch (err: any) {
         console.error("Import Excel error", err);
-        showToast("Lỗi khi đọc file Excel: " + err.message, "error");
+        showToast(t("question.toastImportReadError", { error: err.message }), "error");
       }
     };
     reader.readAsBinaryString(file);
@@ -559,7 +559,9 @@ export default function QuestionTable() {
               href="/question-bank/create"
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-theme-xs transition-colors h-11"
             >
-              <PlusIcon className="w-4.5 h-4.5" />
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
               {t("question.addQuestion", { defaultValue: "Thêm câu hỏi" })}
             </Link>
           </PermissionGuard>
@@ -694,28 +696,28 @@ export default function QuestionTable() {
         <Table>
           <TableHeader className="border-b border-gray-100 dark:border-white/[0.05] bg-gray-50 dark:bg-white/[0.02]">
             <TableRow>
-              <TableCell isHeader className="px-6 py-4 text-center w-12 font-semibold text-gray-800 dark:text-gray-200 text-xs">
+              <TableCell isHeader className="px-6 py-4 text-center w-12 font-semibold text-gray-800 dark:text-gray-200 text-theme-sm">
                 #
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-left font-semibold text-gray-800 dark:text-gray-200 text-xs">
+              <TableCell isHeader className="px-6 py-4 text-left font-semibold text-gray-800 dark:text-gray-200 text-theme-sm">
                 {t("question.colQuestion")}
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-32 text-xs">
+              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-32 text-theme-sm">
                 {t("question.colType")}
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-28 text-xs">
+              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-28 text-theme-sm">
                 {t("question.colDifficulty")}
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-24 text-xs">
+              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-24 text-theme-sm">
                 {t("question.colPoint")}
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-left font-semibold text-gray-800 dark:text-gray-200 w-40 text-xs">
+              <TableCell isHeader className="px-6 py-4 text-left font-semibold text-gray-800 dark:text-gray-200 w-40 text-theme-sm">
                 {t("question.colCreatedBy")}
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-left font-semibold text-gray-800 dark:text-gray-200 w-32 text-xs">
+              <TableCell isHeader className="px-6 py-4 text-left font-semibold text-gray-800 dark:text-gray-200 w-32 text-theme-sm">
                 {t("question.colCreatedAt")}
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-32 text-xs">
+              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-32 text-theme-sm">
                 {t("question.colActions")}
               </TableCell>
             </TableRow>
@@ -825,7 +827,7 @@ export default function QuestionTable() {
       <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between px-6 py-5 bg-gray-50/50 dark:bg-white/[0.01] border-t border-gray-100 dark:border-gray-800/40">
         <div className="flex flex-wrap items-center gap-4 pb-3 xl:pb-0 justify-center xl:justify-start">
           <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
-            <span>{t("question.show", { defaultValue: "Hiển thị" })}</span>
+            <span>{t("question.show")}</span>
             <select
               value={itemsPerPage}
               onChange={(e) => {
@@ -839,14 +841,13 @@ export default function QuestionTable() {
               <option value="20" className="dark:bg-gray-900">20</option>
               <option value="50" className="dark:bg-gray-900">50</option>
             </select>
-            <span>{t("question.entriesPerPage", { defaultValue: "mục mỗi trang" })}</span>
+            <span>{t("question.entriesPerPage")}</span>
           </div>
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
             {t("question.showing", {
               start: totalRecords === 0 ? 0 : startIndex + 1,
               end: endIndex,
               total: totalRecords,
-              defaultValue: `Hiển thị ${totalRecords === 0 ? 0 : startIndex + 1} đến ${endIndex} trong tổng số ${totalRecords} mục`
             })}
           </p>
         </div>

@@ -111,6 +111,11 @@ export default function MyAttendancePage() {
   };
 
   const sessionStatus = (status: number) => {
+    if (status === -1) return {
+      label: t("myAttendance.notMarked", { defaultValue: "Chưa điểm danh" }),
+      className: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
+      icon: <Clock3 className="h-4 w-4" />,
+    };
     if (status === 0) return {
       label: t("myAttendance.absent", { defaultValue: "Nghỉ học" }),
       className: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400",

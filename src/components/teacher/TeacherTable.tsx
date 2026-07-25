@@ -34,7 +34,7 @@ export default function TeacherTable({
   onEditClick,
   showToast,
 }: TeacherTableProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [items, setItems] = useState<TeacherItem[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
@@ -137,7 +137,6 @@ export default function TeacherTable({
           itemsPerPage,
           debouncedSearchTerm,
           filterStatus,
-          null,
           filterGender
         );
         if (!mounted) return;
@@ -220,48 +219,48 @@ export default function TeacherTable({
   const handleDownloadTemplate = () => {
     const templateData = [
       {
-        "Mã GV": "GV001",
-        "Họ Tên": "Nguyễn Văn A",
-        "Email": "nguyenvana@example.com",
-        "Số điện thoại": "0987654321",
-        "Ngày sinh": "01/01/1990",
-        "Giới tính": "Nam",
-        "Địa chỉ": "123 Đường Láng, Hà Nội",
-        "Trạng thái": 1,
-        "Mô tả": "Giáo viên giỏi"
+        [t("teacher.excelCode")]: "GV001",
+        [t("teacher.excelName")]: t("teacher.excelSampleName"),
+        [t("teacher.excelEmail")]: "teacher@example.com",
+        [t("teacher.excelPhone")]: "0987654321",
+        [t("teacher.excelDob")]: "01/01/1990",
+        [t("teacher.excelGender")]: t("teacher.genderMale"),
+        [t("teacher.excelAddress")]: t("teacher.excelSampleAddress"),
+        [t("teacher.excelStatus")]: 1,
+        [t("teacher.excelDescription")]: t("teacher.excelSampleDescription")
       }
     ];
 
     const ws = XLSX.utils.json_to_sheet(templateData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Template Nhập Giáo viên");
-    XLSX.writeFile(wb, "Template_Nhap_Giao_Vien.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, t("teacher.excelTemplateSheet"));
+    XLSX.writeFile(wb, `${t("teacher.excelTemplateFile")}.xlsx`);
     showToast(t("teacher.templateDownloadSuccess"));
   };
 
   const handleExportExcel = async () => {
     try {
-      const res = await teacherApi.getAll(1, 10000, searchTerm, filterStatus, null, filterGender);
+      const res = await teacherApi.getAll(1, 10000, searchTerm, filterStatus, filterGender);
       if (res.success && res.data) {
         const exportItems = res.data.items || [];
         
         const sheetData = exportItems.map((item, idx) => ({
-          "STT": idx + 1,
-          "Mã GV": item.code,
-          "Họ Tên": item.name,
-          "Email": item.email || "",
-          "Số điện thoại": item.phone || "",
-          "Ngày sinh": item.dob ? new Date(item.dob).toLocaleDateString("vi-VN") : "",
-          "Giới tính": item.gender === true ? "Nam" : item.gender === false ? "Nữ" : "",
-          "Địa chỉ": item.address || "",
-          "Trạng thái": item.status === 1 ? "Hoạt động" : "Ngưng hoạt động",
-          "Mô tả": item.description || ""
+          [t("teacher.excelNo")]: idx + 1,
+          [t("teacher.excelCode")]: item.code,
+          [t("teacher.excelName")]: item.name,
+          [t("teacher.excelEmail")]: item.email || "",
+          [t("teacher.excelPhone")]: item.phone || "",
+          [t("teacher.excelDob")]: item.dob ? new Date(item.dob).toLocaleDateString(i18n.language === "en" ? "en-GB" : "vi-VN") : "",
+          [t("teacher.excelGender")]: item.gender === true ? t("teacher.genderMale") : item.gender === false ? t("teacher.genderFemale") : "",
+          [t("teacher.excelAddress")]: item.address || "",
+          [t("teacher.excelStatus")]: item.status === 1 ? t("teacher.statusActive") : t("teacher.statusInactive"),
+          [t("teacher.excelDescription")]: item.description || ""
         }));
 
         const ws = XLSX.utils.json_to_sheet(sheetData);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Danh sách Giáo viên");
-        XLSX.writeFile(wb, "Danh_Sach_Giao_Vien.xlsx");
+        XLSX.utils.book_append_sheet(wb, ws, t("teacher.excelExportSheet"));
+        XLSX.writeFile(wb, `${t("teacher.excelExportFile")}.xlsx`);
         showToast(t("teacher.exportSuccess"));
       } else {
         showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("teacher.exportError"), "error");
@@ -292,15 +291,15 @@ export default function TeacherTable({
 
         const dtos: TeacherSaveDto[] = [];
         for (const row of rows as any[]) {
-          const name = row["Họ Tên"] || row["Name"] || row["name"];
-          const email = row["Email"] || row["email"];
-          const phone = row["Số điện thoại"] || row["SĐT"] || row["Phone"] || row["phone"];
-          const code = row["Mã GV"] || row["Mã giáo viên"] || row["Code"] || row["code"];
-          const dobStr = row["Ngày sinh"] || row["Dob"] || row["dob"];
-          const genderStr = row["Giới tính"] || row["Gender"] || row["gender"];
-          const address = row["Địa chỉ"] || row["Address"] || row["address"];
-          const statusStr = row["Trạng thái"] || row["Status"] || row["status"];
-          const description = row["Mô tả"] || row["Note"] || row["description"];
+          const name = row[t("teacher.excelName")] || row["Họ Tên"] || row["Name"] || row["name"];
+          const email = row[t("teacher.excelEmail")] || row["Email"] || row["email"];
+          const phone = row[t("teacher.excelPhone")] || row["Số điện thoại"] || row["SĐT"] || row["Phone"] || row["phone"];
+          const code = row[t("teacher.excelCode")] || row["Mã GV"] || row["Mã giáo viên"] || row["Code"] || row["code"];
+          const dobStr = row[t("teacher.excelDob")] || row["Ngày sinh"] || row["Dob"] || row["dob"];
+          const genderStr = row[t("teacher.excelGender")] || row["Giới tính"] || row["Gender"] || row["gender"];
+          const address = row[t("teacher.excelAddress")] || row["Địa chỉ"] || row["Address"] || row["address"];
+          const statusStr = row[t("teacher.excelStatus")] || row["Trạng thái"] || row["Status"] || row["status"];
+          const description = row[t("teacher.excelDescription")] || row["Mô tả"] || row["Note"] || row["description"];
 
           if (!name || !email) {
             continue;
@@ -319,12 +318,15 @@ export default function TeacherTable({
           let gender = null;
           if (genderStr) {
             const normalizedGender = String(genderStr).toLowerCase().trim();
-            if (normalizedGender === "nam" || normalizedGender === "true" || normalizedGender === "1") {
+            if (normalizedGender === "nam" || normalizedGender === "male" || normalizedGender === t("teacher.genderMale").toLowerCase() || normalizedGender === "true" || normalizedGender === "1") {
               gender = true;
-            } else if (normalizedGender === "nữ" || normalizedGender === "female" || normalizedGender === "false" || normalizedGender === "0") {
+            } else if (normalizedGender === "nữ" || normalizedGender === "female" || normalizedGender === t("teacher.genderFemale").toLowerCase() || normalizedGender === "false" || normalizedGender === "0") {
               gender = false;
             }
           }
+
+          const normalizedStatus = statusStr ? String(statusStr).toLowerCase().trim() : "";
+          const status = ["0", "false", "inactive", "ngưng hoạt động", t("teacher.statusInactive").toLowerCase()].includes(normalizedStatus) ? 0 : 1;
           
           dtos.push({
             code: code ? String(code).trim() : "",
@@ -335,7 +337,7 @@ export default function TeacherTable({
             gender,
             address: address ? String(address).trim() : null,
             description: description ? String(description).trim() : null,
-            status: statusStr ? Number(statusStr) : 1
+            status
           });
         }
 

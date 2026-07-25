@@ -76,12 +76,11 @@ const schoolItems: NavItem[] = [
     icon: <TableIcon />,
     name: "assessments",
     subItems: [
-      { name: "exams", path: "/exams", permission: ["Exam.View", "Exam.StudentView", "Exam.TeacherView"] },
-      { name: "homework", path: "/homework", permission: "Homework" },
+      { name: "exams", path: "/exams", permission: ["Exam.View", "Exam.TeacherView"] },
+      { name: "homework", path: "/homework", permission: "HomeworkManagement.View" },
       { name: "questionBank", path: "/question-bank", permission: "Question" },
       { name: "questionCategory", path: "/question-category", permission: "QuestionCategory" },
       { name: "scoreSettings", path: "/scores", permission: "StudentGrade.ViewSettings" },
-      { name: "myScores", path: "/my-scores", permission: "StudentGrade.ViewOwnGrades" },
     ],
   },
   {
@@ -89,7 +88,10 @@ const schoolItems: NavItem[] = [
     name: "learning",
     subItems: [
       { name: "learningMaterials", path: "/learning-materials", permission: "LearningMaterial.View" },
-      { name: "myAttendance", path: "/attendance", permission: "Attendance.StudentView" },
+      { name: "myHomework", path: "/my-homework", permission: "StudentHomework.View" },
+      { name: "myAttendance", path: "/attendance", permission: "Attendance.View" },
+      { name: "myExams", path: "/my-exams", permission: "Exam.StudentView" },
+      { name: "myScores", path: "/my-scores", permission: "StudentResult.View" },
       { name: "studentProgress", path: "/student-progress" },
     ],
   },
@@ -332,9 +334,9 @@ const AppSidebar: React.FC = () => {
       lowerRole === "ban chuyên môn" ||
       lowerRole === "ban vận hành"
     ) return true;
-    
+
     const permissionsToCheck = Array.isArray(permission) ? permission : [permission];
-    
+
     return permissionsToCheck.some((p) => {
       // Custom mapping: If check for ExamSchedule.View, student with ExamStudent.View can also pass
       if (p === "ExamSchedule.View" && lowerRole === "student") {
@@ -347,7 +349,7 @@ const AppSidebar: React.FC = () => {
   useEffect(() => {
     const currentRole = authApi.getRole().toLowerCase();
     setRole(currentRole);
-    
+
     // 1. Read from localStorage for immediate, non-blocking render
     const cachedPerms = authApi.getPermissions();
     setPermissions(cachedPerms);
@@ -420,13 +422,13 @@ const AppSidebar: React.FC = () => {
 
   useEffect(() => {
     if (typeof window === "undefined" || !("ResizeObserver" in window)) return;
-    
+
     const observers = new Map<string, ResizeObserver>();
-    
+
     const updateAllHeights = () => {
       Object.entries(subMenuRefs.current).forEach(([key, el]) => {
         if (!el) return;
-        
+
         if (!observers.has(key)) {
           const observer = new ResizeObserver(() => {
             const height = el.scrollHeight;
@@ -477,7 +479,7 @@ const AppSidebar: React.FC = () => {
       if (!canShowForRole(nav.roles)) return false;
       // Check permissions for the parent item (if any)
       if (menuType === "school" && !hasPermission(nav.permission)) return false;
-      
+
       // If it has subitems, at least one subitem must be visible
       if (nav.subItems) {
         const hasVisibleSubItem = nav.subItems.some((subItem) => {
@@ -487,7 +489,7 @@ const AppSidebar: React.FC = () => {
         });
         if (!hasVisibleSubItem) return false;
       }
-      
+
       return true;
     });
 

@@ -22,14 +22,14 @@ export function QuestionForm({ id }: QuestionFormProps) {
   const [formCode, setFormCode] = useState("");
   const [formName, setFormName] = useState(""); // Title
   const [formContent, setFormContent] = useState("");
-  const [formType, setFormType] = useState<number>(1); // 1 = Chọn một, 2 = Chọn nhiều, 3 = Nhập text, 4 = Đúng/Sai
+  const [formType, setFormType] = useState<number>(1); // 1 = Single, 2 = Multiple, 3 = Essay, 4 = True/False
   const [formPoint, setFormPoint] = useState<number>(1);
-  const [formDifficulty, setFormDifficulty] = useState<number>(2); // 2 = Trung bình
+  const [formDifficulty, setFormDifficulty] = useState<number>(2); // 2 = Medium
   const [formExplanation, setFormExplanation] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [formAnswers, setFormAnswers] = useState<QuestionAnswerDto[]>([
-    { content: "Đáp án A", isCorrect: true },
-    { content: "Đáp án B", isCorrect: false },
+    { content: "Option A", isCorrect: true },
+    { content: "Option B", isCorrect: false },
   ]);
 
   // ── Loading / Error states ──
@@ -77,41 +77,43 @@ export function QuestionForm({ id }: QuestionFormProps) {
           setFormDifficulty(data.difficultyLevel);
           setFormExplanation(data.explanation ?? "");
           setSelectedCategory(data.categoryId ?? null);
-          
+
           if (data.questionAnswers && data.questionAnswers.length > 0) {
-            setFormAnswers(data.questionAnswers.map(a => ({
-              id: a.id,
-              content: a.content,
-              isCorrect: a.isCorrect
-            })));
+            setFormAnswers(
+              data.questionAnswers.map((a) => ({
+                id: a.id,
+                content: a.content,
+                isCorrect: a.isCorrect,
+              }))
+            );
           }
         } else {
-          setFormError("Không thể tải thông tin câu hỏi.");
+          setFormError(t("question.errorLoadDetail"));
         }
       } catch {
-        setFormError("Lỗi hệ thống khi tải chi tiết câu hỏi.");
+        setFormError(t("question.errorLoadDetailSystem"));
       } finally {
         setIsLoading(false);
       }
     }
 
     loadDetail();
-  }, [id]);
+  }, [id, t]);
 
   // ── Handle change in Question Type ──
   const handleTypeChange = (type: number) => {
     setFormType(type);
     if (type === 4) {
-      // Đúng / Sai
+      // True / False
       setFormAnswers([
-        { content: "Đúng", isCorrect: true },
-        { content: "Sai", isCorrect: false }
+        { content: t("question.typeTrueFalseTrue", { defaultValue: "Đúng" }), isCorrect: true },
+        { content: t("question.typeTrueFalseFalse", { defaultValue: "Sai" }), isCorrect: false },
       ]);
     } else if (type === 3) {
-      // Nhập text
+      // Essay
       setFormAnswers([]);
     } else {
-      // Chọn một / Chọn nhiều
+      // Single / Multiple choice
       setFormAnswers([
         { content: "", isCorrect: true },
         { content: "", isCorrect: false },
@@ -129,8 +131,7 @@ export function QuestionForm({ id }: QuestionFormProps) {
     if (formAnswers.length <= 2) return;
     const newAnswers = [...formAnswers];
     newAnswers.splice(index, 1);
-    
-    // Ensure at least one option is correct if we removed the correct one
+
     if (formAnswers[index].isCorrect) {
       newAnswers[0].isCorrect = true;
     }
@@ -146,12 +147,10 @@ export function QuestionForm({ id }: QuestionFormProps) {
   const setCorrectAnswer = (index: number) => {
     const newAnswers = [...formAnswers];
     if (formType === 1 || formType === 4) {
-      // Single choice or True/False: only one is correct
       newAnswers.forEach((ans, i) => {
         ans.isCorrect = i === index;
       });
     } else if (formType === 2) {
-      // Multiple choice: toggle check
       newAnswers[index].isCorrect = !newAnswers[index].isCorrect;
     }
     setFormAnswers(newAnswers);
@@ -163,25 +162,25 @@ export function QuestionForm({ id }: QuestionFormProps) {
     setFormError(null);
 
     if (!formName.trim()) {
-      setFormError("Tiêu đề câu hỏi không được để trống.");
+      setFormError(t("question.valTitleRequired"));
       return;
     }
     if (!formContent.trim()) {
-      setFormError("Nội dung câu hỏi không được để trống.");
+      setFormError(t("question.valContentRequired"));
       return;
     }
 
     if (formType !== 3) {
       if (formAnswers.length < 2) {
-        setFormError("Phải điền tối thiểu 2 đáp án.");
+        setFormError(t("question.valMinAnswers"));
         return;
       }
-      if (formAnswers.length > 0 && formAnswers.some(a => !a.content.trim())) {
-        setFormError("Nội dung các đáp án không được để trống.");
+      if (formAnswers.length > 0 && formAnswers.some((a) => !a.content.trim())) {
+        setFormError(t("question.valAnswerContentRequired"));
         return;
       }
-      if (!formAnswers.some(a => a.isCorrect)) {
-        setFormError("Vui lòng chọn ít nhất một đáp án đúng.");
+      if (!formAnswers.some((a) => a.isCorrect)) {
+        setFormError(t("question.valNeedCorrectAnswer"));
         return;
       }
     }
@@ -197,11 +196,11 @@ export function QuestionForm({ id }: QuestionFormProps) {
         explanation: formExplanation.trim() || null,
         categoryId: selectedCategory,
         point: formPoint,
-        questionAnswers: formAnswers.map(a => ({
+        questionAnswers: formAnswers.map((a) => ({
           id: a.id,
           content: a.content.trim(),
-          isCorrect: a.isCorrect
-        }))
+          isCorrect: a.isCorrect,
+        })),
       };
 
       let res;
@@ -212,14 +211,21 @@ export function QuestionForm({ id }: QuestionFormProps) {
       }
 
       if (res.success) {
-        sessionStorage.setItem("questionToastMessage", isEdit ? "Cập nhật câu hỏi thành công!" : "Tạo câu hỏi thành công!");
+        sessionStorage.setItem(
+          "questionToastMessage",
+          isEdit ? t("question.successUpdate") : t("question.successCreate")
+        );
         sessionStorage.setItem("questionToastType", "success");
         router.push("/question-bank");
       } else {
-        setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : "Lỗi khi lưu câu hỏi.");
+        setFormError(
+          res.message
+            ? t(`backendMessages.${res.message}`, { defaultValue: res.message })
+            : t("question.errorSave")
+        );
       }
     } catch (err) {
-      setFormError("Lỗi kết nối mạng, vui lòng thử lại.");
+      setFormError(t("question.errorNetwork"));
     } finally {
       setIsSubmitting(false);
     }
@@ -229,32 +235,62 @@ export function QuestionForm({ id }: QuestionFormProps) {
     return (
       <div className="flex flex-col items-center justify-center py-20 animate-pulse">
         <div className="h-8 w-8 rounded-full border-4 border-brand-500 border-t-transparent animate-spin mb-4" />
-        <span className="text-sm font-medium text-gray-500">Đang tải thông tin câu hỏi...</span>
+        <span className="text-sm font-medium text-gray-500">{t("question.loadingDetail")}</span>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row gap-6">
-      {/* Left panel - Main info */}
-      <div className="flex-1 space-y-6">
-        {/* Card wrapper */}
-        <div className="p-6 bg-white dark:bg-white/[0.03] rounded-xl border border-gray-100 dark:border-white/[0.05] space-y-6">
-          <h3 className="text-base font-bold text-gray-900 dark:text-white pb-3 border-b border-gray-100 dark:border-white/[0.05]">
-            Thông tin câu hỏi
-          </h3>
+    <div className="space-y-6 w-full pb-10">
+      {/* ── Top Header Card ── */}
+      <div className="flex items-center justify-between p-5 sm:p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            {isEdit
+              ? t("question.editTitle", { defaultValue: "Chỉnh sửa câu hỏi" })
+              : t("question.createTitle", { defaultValue: "Tạo câu hỏi mới" })}
+          </h2>
+          <p className="text-xs text-gray-500 mt-1">
+            {t("question.formBreadcrumbHome", { defaultValue: "Trang chủ" })} -{" "}
+            {t("question.formBreadcrumbQuestions", { defaultValue: "Ngân hàng câu hỏi" })} -{" "}
+            {isEdit
+              ? t("question.formBreadcrumbEdit", { defaultValue: "Chỉnh sửa" })
+              : t("question.formBreadcrumbCreate", { defaultValue: "Tạo mới" })}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => router.push("/question-bank")}
+          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-gray-600 bg-white border border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg h-11"
+        >
+          <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+          </svg>
+          {t("question.formBackBtn", { defaultValue: "Quay lại" })}
+        </button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row gap-6">
+        {/* Left panel - Main info */}
+        <div className="flex-1 space-y-6">
+          {/* Card wrapper */}
+          <div className="p-6 bg-white dark:bg-white/[0.03] rounded-xl border border-gray-100 dark:border-white/[0.05] space-y-6">
+            <h3 className="text-base font-bold text-gray-900 dark:text-white pb-3 border-b border-gray-100 dark:border-white/[0.05]">
+              {t("question.formBasicInfo")}
+            </h3>
 
           {/* Title */}
           <div>
             <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-              Tiêu đề câu hỏi <span className="text-rose-500">*</span>
+              {t("question.formTitleLabel")} <span className="text-rose-500">*</span>
             </label>
             <input
               type="text"
               required
               value={formName}
               onChange={(e) => setFormName(e.target.value)}
-              placeholder="VD: [Listening Q1] Câu hỏi trắc nghiệm tiếng Anh"
+              placeholder={t("question.formTitlePlaceholder")}
               className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs"
             />
           </div>
@@ -262,14 +298,14 @@ export function QuestionForm({ id }: QuestionFormProps) {
           {/* Content */}
           <div>
             <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-              Nội dung câu hỏi <span className="text-rose-500">*</span>
+              {t("question.formContentLabel")} <span className="text-rose-500">*</span>
             </label>
             <textarea
               required
               rows={4}
               value={formContent}
               onChange={(e) => setFormContent(e.target.value)}
-              placeholder="Nhập nội dung câu hỏi hiển thị cho học sinh..."
+              placeholder={t("question.formContentPlaceholder")}
               className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs resize-y"
             />
           </div>
@@ -277,14 +313,14 @@ export function QuestionForm({ id }: QuestionFormProps) {
           {/* Type Select */}
           <div>
             <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-              Loại câu hỏi <span className="text-rose-500">*</span>
+              {t("question.formTypeLabel")} <span className="text-rose-500">*</span>
             </label>
             <div className="flex flex-wrap gap-2">
               {[
-                { type: 1, label: "Chọn một" },
-                { type: 2, label: "Chọn nhiều" },
-                { type: 3, label: "Nhập text" },
-                { type: 4, label: "Đúng / Sai" }
+                { type: 1, label: t("question.typeSingle") },
+                { type: 2, label: t("question.typeMultiple") },
+                { type: 3, label: t("question.typeEssay") },
+                { type: 4, label: t("question.typeTrueFalse") },
               ].map((item) => (
                 <button
                   key={item.type}
@@ -306,7 +342,7 @@ export function QuestionForm({ id }: QuestionFormProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Điểm số <span className="text-rose-500">*</span>
+                {t("question.formPointLabel")} <span className="text-rose-500">*</span>
               </label>
               <input
                 type="number"
@@ -321,16 +357,16 @@ export function QuestionForm({ id }: QuestionFormProps) {
             </div>
             <div>
               <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Độ khó <span className="text-rose-500">*</span>
+                {t("question.formDifficultyLabel")} <span className="text-rose-500">*</span>
               </label>
               <select
                 value={formDifficulty}
                 onChange={(e) => setFormDifficulty(Number(e.target.value))}
                 className="w-full rounded-lg border border-gray-300 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden dark:border-gray-700 dark:text-white/90 shadow-theme-xs"
               >
-                <option value="1">Dễ</option>
-                <option value="2">Trung bình</option>
-                <option value="3">Khó</option>
+                <option value="1">{t("question.difficultyEasy")}</option>
+                <option value="2">{t("question.difficultyMedium")}</option>
+                <option value="3">{t("question.difficultyHard")}</option>
               </select>
             </div>
           </div>
@@ -340,7 +376,7 @@ export function QuestionForm({ id }: QuestionFormProps) {
             <div className="space-y-4 pt-3 border-t border-gray-100 dark:border-white/[0.05]">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-bold text-gray-900 dark:text-white">
-                  Danh sách đáp án <span className="text-rose-500">*</span>
+                  {t("question.formAnswersLabel")} <span className="text-rose-500">*</span>
                 </label>
                 {(formType === 1 || formType === 2) && formAnswers.length < 6 && (
                   <button
@@ -348,16 +384,16 @@ export function QuestionForm({ id }: QuestionFormProps) {
                     onClick={addAnswerOption}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/20 rounded-lg hover:bg-brand-100/80 transition-colors"
                   >
-                    + Thêm đáp án
+                    {t("question.formAddAnswer")}
                   </button>
                 )}
               </div>
 
               {/* Guide notice */}
               <p className="text-xs text-gray-400">
-                {formType === 1 && "⚠️ Chọn ô tròn bên phải để đánh dấu đáp án đúng duy nhất."}
-                {formType === 2 && "⚠️ Chọn các checkbox bên phải để đánh dấu các đáp án đúng."}
-                {formType === 4 && "⚠️ Chọn ô tròn bên phải để chỉ ra mệnh đề này là Đúng hay Sai."}
+                {formType === 1 && t("question.formGuideSingle")}
+                {formType === 2 && t("question.formGuideMultiple")}
+                {formType === 4 && t("question.formGuideTrueFalse")}
               </p>
 
               <div className="space-y-3">
@@ -390,7 +426,7 @@ export function QuestionForm({ id }: QuestionFormProps) {
                         disabled={formType === 4} // Fixed for True/False
                         value={answer.content}
                         onChange={(e) => updateAnswerText(index, e.target.value)}
-                        placeholder={`Nhập nội dung cho đáp án ${optionLabel}...`}
+                        placeholder={t("question.formAnswerPlaceholder", { label: optionLabel })}
                         className="flex-1 bg-transparent border-0 px-2 py-1 text-sm text-gray-800 dark:text-white focus:outline-hidden focus:ring-0 placeholder:text-gray-400"
                       />
 
@@ -402,14 +438,14 @@ export function QuestionForm({ id }: QuestionFormProps) {
                             name="correct-answer-radio"
                             checked={answer.isCorrect}
                             onChange={() => setCorrectAnswer(index)}
-                            className="w-5 h-5 text-emerald-500 border-gray-300 focus:ring-emerald-500/20 focus:ring-offset-0 focus:outline-hidden"
+                            className="w-5 h-5 text-emerald-500 border-gray-300 focus:ring-emerald-500/20 focus:ring-offset-0 focus:outline-hidden cursor-pointer"
                           />
                         ) : (
                           <input
                             type="checkbox"
                             checked={answer.isCorrect}
                             onChange={() => setCorrectAnswer(index)}
-                            className="w-5 h-5 text-emerald-500 rounded border-gray-300 focus:ring-emerald-500/20 focus:ring-offset-0 focus:outline-hidden"
+                            className="w-5 h-5 text-emerald-500 rounded border-gray-300 focus:ring-emerald-500/20 focus:ring-offset-0 focus:outline-hidden cursor-pointer"
                           />
                         )}
 
@@ -419,7 +455,7 @@ export function QuestionForm({ id }: QuestionFormProps) {
                             type="button"
                             onClick={() => removeAnswerOption(index)}
                             className="p-1 text-gray-400 hover:text-rose-500 transition-colors ml-2"
-                            title="Xóa lựa chọn này"
+                            title={t("question.deleteTooltip")}
                           >
                             <TrashBinIcon className="w-4.5 h-4.5" />
                           </button>
@@ -435,13 +471,14 @@ export function QuestionForm({ id }: QuestionFormProps) {
           {/* Explanation */}
           <div className="pt-3 border-t border-gray-100 dark:border-white/[0.05]">
             <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-              Giải thích đáp án <span className="text-gray-400 font-normal">(Tùy chọn)</span>
+              {t("question.formExplanationLabel")}{" "}
+              <span className="text-gray-400 font-normal">{t("question.formExplanationOptional")}</span>
             </label>
             <textarea
               rows={3}
               value={formExplanation}
               onChange={(e) => setFormExplanation(e.target.value)}
-              placeholder="Giải thích lý do đáp án này đúng để giúp học sinh ôn tập tốt hơn..."
+              placeholder={t("question.formExplanationPlaceholder")}
               className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs resize-y"
             />
           </div>
@@ -450,14 +487,15 @@ export function QuestionForm({ id }: QuestionFormProps) {
           <div className="pt-3 border-t border-gray-100 dark:border-white/[0.05] grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Mã câu hỏi <span className="text-gray-400 font-normal">(Tự động phát sinh nếu trống)</span>
+                {t("question.formCodeLabel")}{" "}
+                <span className="text-gray-400 font-normal">{t("question.formCodeAutoHint")}</span>
               </label>
               <input
                 type="text"
                 maxLength={50}
                 value={formCode}
                 onChange={(e) => setFormCode(e.target.value)}
-                placeholder="VD: Q_MATH101"
+                placeholder={t("question.formCodePlaceholder")}
                 className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 shadow-theme-xs"
               />
             </div>
@@ -471,14 +509,18 @@ export function QuestionForm({ id }: QuestionFormProps) {
             onClick={() => router.push("/question-bank")}
             className="px-5 py-2.5 text-sm font-medium text-gray-750 bg-white dark:bg-gray-800 dark:text-gray-300 border border-gray-350 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs"
           >
-            Hủy bỏ
+            {t("question.formCancelBtn")}
           </button>
           <button
             type="submit"
             disabled={isSubmitting}
             className="px-5 py-2.5 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg shadow-theme-xs transition-colors"
           >
-            {isSubmitting ? "Đang xử lý..." : isEdit ? "Cập nhật câu hỏi" : "Tạo câu hỏi"}
+            {isSubmitting
+              ? t("question.formProcessingBtn")
+              : isEdit
+              ? t("question.formUpdateBtn")
+              : t("question.formCreateBtn")}
           </button>
         </div>
 
@@ -494,7 +536,7 @@ export function QuestionForm({ id }: QuestionFormProps) {
         {/* Category card */}
         <div className="p-6 bg-white dark:bg-white/[0.03] rounded-xl border border-gray-100 dark:border-white/[0.05] space-y-4">
           <label className="block text-sm font-bold text-gray-900 dark:text-white">
-            Danh mục câu hỏi
+            {t("question.formCategoryLabel")}
           </label>
           <SearchableSelect
             options={categories.map((c) => ({
@@ -503,7 +545,7 @@ export function QuestionForm({ id }: QuestionFormProps) {
             }))}
             value={selectedCategory || ""}
             onChange={(val) => setSelectedCategory(val ? Number(val) : null)}
-            placeholder="Không thuộc danh mục"
+            placeholder={t("question.formNoCategory")}
             onClear={() => setSelectedCategory(null)}
           />
         </div>
@@ -514,27 +556,28 @@ export function QuestionForm({ id }: QuestionFormProps) {
             <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span>Hướng dẫn tạo câu hỏi</span>
+            <span>{t("question.formGuideTitle")}</span>
           </div>
           <ul className="space-y-3.5 text-xs">
             <li>
-              <strong>Chọn một:</strong> Cho phép tạo danh sách đáp án dạng radio. Học sinh chọn 1 đáp án chính xác nhất.
+              <strong>{t("question.typeSingle")}:</strong> {t("question.formGuideSingleDesc")}
             </li>
             <li>
-              <strong>Chọn nhiều:</strong> Cho phép học sinh tích chọn nhiều đáp án đúng khác nhau.
+              <strong>{t("question.typeMultiple")}:</strong> {t("question.formGuideMultipleDesc")}
             </li>
             <li>
-              <strong>Nhập text:</strong> Dạng câu hỏi tự luận. Giáo viên sẽ chấm điểm thủ công sau khi học sinh nộp bài.
+              <strong>{t("question.typeEssay")}:</strong> {t("question.formGuideEssayDesc")}
             </li>
             <li>
-              <strong>Đúng / Sai:</strong> Chỉ gồm 2 lựa chọn Đúng hoặc Sai mặc định. Đánh dấu kết quả đúng chính xác.
+              <strong>{t("question.typeTrueFalse")}:</strong> {t("question.formGuideTrueFalseDesc")}
             </li>
             <li className="pt-2 border-t border-blue-200/30 dark:border-blue-500/10 font-medium text-blue-600 dark:text-blue-400">
-              💡 Hãy kiểm tra kỹ đáp án đúng trước khi tạo để tránh sai lệch kết quả thi!
+              {t("question.formGuideFooter")}
             </li>
           </ul>
         </div>
       </div>
     </form>
+    </div>
   );
 }

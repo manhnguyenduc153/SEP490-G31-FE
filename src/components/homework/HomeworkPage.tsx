@@ -13,7 +13,7 @@ import StudentSubmitForm from "./StudentSubmitForm";
 import { HomeworkDto } from "@/services/homework.api";
 import { useTranslation } from "react-i18next";
 
-export default function HomeworkPage() {
+export default function HomeworkPage({ studentMode = false }: { studentMode?: boolean }) {
   const { t } = useTranslation();
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
@@ -22,11 +22,6 @@ export default function HomeworkPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<"success" | "error">("success");
-  const [userRole, setUserRole] = useState<string>("");
-
-  useEffect(() => {
-    setUserRole(localStorage.getItem("role") || "");
-  }, []);
 
   useEffect(() => {
     if (!toastMessage) return;
@@ -54,7 +49,7 @@ export default function HomeworkPage() {
         if (res.success && res.data) {
           setClasses(res.data.items);
           if (res.data.items.length > 0) {
-            setSelectedClassId(res.data.items[0].id);
+            setSelectedClassId(studentMode ? res.data.items[0].id : 0);
           }
         }
       } catch (err) {
@@ -64,7 +59,7 @@ export default function HomeworkPage() {
     };
 
     fetchClasses();
-  }, [showToast, t]);
+  }, [showToast, studentMode, t]);
 
   const selectedClass = classes.find(c => c.id === selectedClassId);
 
@@ -84,14 +79,14 @@ export default function HomeworkPage() {
       <div className="mb-6 overflow-hidden rounded-xl border border-gray-100 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="flex flex-col gap-3 border-b border-gray-100 px-6 py-5 dark:border-white/[0.05] sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">{t("homework.title", { defaultValue: "Bài tập" })}</h2>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("homework.description", { defaultValue: "Quản lý bài tập theo lớp học." })}</p>
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">{studentMode ? t("homework.myHomework", { defaultValue: "Bài tập của tôi" }) : t("homework.title", { defaultValue: "Bài tập" })}</h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{studentMode ? t("homework.studentDescription", { defaultValue: "Xem và nộp bài tập của các lớp đang học." }) : t("homework.description", { defaultValue: "Quản lý toàn bộ bài tập." })}</p>
           </div>
-          <PermissionGuard requiredPermission="Homework.Create">
-            <button onClick={() => { setEditingItem(null); setActiveView("form"); }} disabled={!selectedClassId} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">
+          {!studentMode && <PermissionGuard requiredPermission="HomeworkManagement.Create">
+            <button onClick={() => { setEditingItem(null); setActiveView("form"); }} disabled={!selectedClassId || selectedClassId === 0} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">
               <Plus className="h-5 w-5" /> {t("homework.addHomework")}
             </button>
-          </PermissionGuard>
+          </PermissionGuard>}
         </div>
         <div className="p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -103,7 +98,7 @@ export default function HomeworkPage() {
               value={selectedClassId ?? ""}
               onChange={(value) => handleClassChange(Number(value))}
               disabled={classes.length === 0}
-              options={classes.map((cls) => ({ value: cls.id, label: `${cls.name} (${cls.code})${cls.teacherName ? ` - ${cls.teacherName}` : ""}` }))}
+              options={[...(!studentMode ? [{ value: 0, label: t("homework.allClasses", { defaultValue: "Tất cả lớp" }) }] : []), ...classes.map((cls) => ({ value: cls.id, label: `${cls.name} (${cls.code})${cls.teacherName ? ` - ${cls.teacherName}` : ""}` }))]}
               placeholder={classes.length === 0 ? t("homework.noClasses") : t("homework.selectClassLabel")}
               searchPlaceholder={t("common.searchPlaceholder", { defaultValue: "Tìm kiếm..." })}
               noResultsText={t("common.noResults", { defaultValue: "Không tìm thấy kết quả" })}
@@ -116,10 +111,11 @@ export default function HomeworkPage() {
         </div>
       </div>
 
-      {selectedClassId && activeView === "list" && (
+      {selectedClassId !== null && activeView === "list" && (
         <div className="bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
           <HomeworkList
             classId={selectedClassId}
+            allClassIds={classes.map(c => c.id)}
             showToast={showToast}
             refreshKey={refreshKey}
             onEditClick={(item) => {
@@ -130,12 +126,12 @@ export default function HomeworkPage() {
               setEditingItem(item);
               setActiveView("view");
             }}
-            userRole={userRole}
+            userRole={studentMode ? "Student" : "Management"}
           />
         </div>
       )}
 
-      {activeView === "form" && (
+      {!studentMode && activeView === "form" && selectedClassId !== 0 && (
         <div className="bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
           <HomeworkForm
             classId={selectedClassId!}
@@ -157,7 +153,7 @@ export default function HomeworkPage() {
 
       {activeView === "view" && editingItem && (
         <div className="bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
-          {userRole === "Student" ? (
+          {studentMode ? (
             <StudentSubmitForm
               homework={editingItem}
               onBack={() => {
