@@ -41,6 +41,7 @@ export function TeacherForm({
   });
 
   const [isUploading, setIsUploading] = useState(false);
+  const [clientError, setClientError] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [certFiles, setCertFiles] = useState<File[]>([]);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -208,6 +209,35 @@ export function TeacherForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setClientError(null);
+
+    const email = formData.email?.trim() || "";
+    const phone = formData.phone?.trim() || "";
+    if (!formData.name.trim() || !formData.code.trim()) {
+      setClientError(t("teacher.validationRequired"));
+      return;
+    }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setClientError(t("teacher.validationEmailInvalid"));
+      return;
+    }
+    if (phone && !/^\+?[0-9][0-9\s().-]{6,19}$/.test(phone)) {
+      setClientError(t("teacher.validationPhoneInvalid"));
+      return;
+    }
+    if (formData.dob && new Date(`${formData.dob}T00:00:00`) > new Date()) {
+      setClientError(t("teacher.validationDobFuture"));
+      return;
+    }
+    if ((formData.address?.length || 0) > 500) {
+      setClientError(t("teacher.validationAddressMax"));
+      return;
+    }
+    if (![0, 1, 2].includes(Number(formData.status))) {
+      setClientError(t("teacher.validationStatusInvalid"));
+      return;
+    }
+
     let finalFormData = { ...formData };
     
     // Clean up empty strings to null for backend optional fields
@@ -419,6 +449,7 @@ export function TeacherForm({
                   >
                     <option value={1}>{t("teacher.statusActive")}</option>
                     <option value={0}>{t("teacher.statusInactive")}</option>
+                    <option value={2}>{t("teacher.statusOnLeave")}</option>
                   </select>
                 </div>
               </div>
@@ -431,6 +462,7 @@ export function TeacherForm({
                 <input
                   type="text"
                   name="address"
+                  maxLength={500}
                   value={formData.address || ""}
                   onChange={handleChange}
                   placeholder={t("teacher.formAddressPlaceholder")}
@@ -647,9 +679,9 @@ export function TeacherForm({
           </div>
 
           {/* Form-level error */}
-          {formError && (
+          {(clientError || formError) && (
             <div className="mt-6 p-4 rounded-lg bg-error-50 dark:bg-error-500/10 border border-error-200 dark:border-error-500/20 text-sm text-error-600 dark:text-error-400">
-              {formError}
+              {clientError || formError}
             </div>
           )}
 

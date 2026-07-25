@@ -118,6 +118,16 @@ export default function HomeworkList({
           } else {
             setStudentSubmissions({});
           }
+        } else if (mounted) {
+          setItems([]);
+          showToast(
+            responses.find((response) => !response.success)?.message
+              ? t(`backendMessages.${responses.find((response) => !response.success)?.message}`, {
+                  defaultValue: responses.find((response) => !response.success)?.message,
+                })
+              : t("homework.loadListError"),
+            "error"
+          );
         }
       } catch (err) {
         console.error(err);

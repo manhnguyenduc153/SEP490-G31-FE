@@ -151,7 +151,7 @@ export default function HomeworkSubmissions({ homework, onBack, showToast }: Hom
         setGradingSubmissionId(null);
         fetchSubmissions();
       } else {
-        showToast(res.message || t("homework.gradeError"), "error");
+        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("homework.gradeError"), "error");
       }
     } catch (err) {
       console.error(err);

@@ -153,6 +153,18 @@ export default function ScoresPage() {
       showToast(t("class.gradeTotalWeightExceeded", { defaultValue: "Total weight cannot exceed 100%" }), "error");
       return;
     }
+    if (rules.some((rule) => !rule.name.trim())) {
+      showToast(t("class.gradeComponentNameRequired"), "error");
+      return;
+    }
+    if (rules.some((rule) => rule.name.trim().length > 200)) {
+      showToast(t("class.gradeComponentNameMax"), "error");
+      return;
+    }
+    if (rules.some((rule) => !Number.isFinite(Number(rule.weight)) || Number(rule.weight) < 0 || Number(rule.weight) > 100)) {
+      showToast(t("class.gradeWeightRange"), "error");
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -291,13 +303,13 @@ export default function ScoresPage() {
                             max={100}
                             step={1}
                             value={rule.weight}
-                            onChange={(event) => updateRule(rule.id, { weight: Math.max(0, Number(event.target.value) || 0) })}
+                            onChange={(event) => updateRule(rule.id, { weight: Number(event.target.value) })}
                             className="mx-auto h-9 w-24 rounded-lg border border-gray-200 bg-white px-2 text-center text-sm font-semibold text-gray-800 outline-none [appearance:textfield] focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                           />
                         </td>
                         <td className="px-4 py-3 text-center">
                           <PermissionGuard requiredPermission="StudentGrade.Delete">
-                            <button title={t("common.delete", { defaultValue: "Xóa" })} onClick={() => removeRule(rule.id)} disabled={rules.length <= 1} className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-40">
+                            <button title={t("common.delete", { defaultValue: "Xóa" })} onClick={() => removeRule(rule.id)} disabled={rules.length <= 1 || rule.isSystem} className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-40">
                               <Trash2 className="h-4 w-4" />
                             </button>
                           </PermissionGuard>
