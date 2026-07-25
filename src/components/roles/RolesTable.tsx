@@ -29,8 +29,8 @@ const buildPermissionTree = (data: Record<string, Record<string, string[]>>): Pe
     "assessments",
     "learning",
     "administration",
+    "reportsMenu",
     "parentServices",
-    "others",
   ];
 
   return groupOrder
