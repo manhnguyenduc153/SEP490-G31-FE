@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import TeacherClassTable from "@/components/class/TeacherClassTable";
 import ClassDetail from "@/components/class/ClassDetail";
-import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { useTranslation } from "react-i18next";
 import { ClassItem } from "@/services/class.api";
 import { CheckCircle, XCircle } from "lucide-react";
@@ -45,7 +44,6 @@ export default function TeachingClassesPage() {
           </div>
         )}
 
-        <PageBreadcrumb pageTitle="sidebar.teachingClasses" />
         <div className="space-y-6">
           {activeTab === "list" ? (
             <TeacherClassTable

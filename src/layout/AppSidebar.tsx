@@ -57,7 +57,6 @@ const schoolItems: NavItem[] = [
       { name: "registrations", path: "/registrations", permission: "StudentRegistration.View" },
       { name: "classes", path: "/classes", permission: "Class.View" },
       { name: "teachingClasses", path: "/teaching-classes", permission: "Class.TeacherView" },
-      { name: "myClasses", path: "/my-classes", permission: "Class.StudentView" },
       { name: "teachers", path: "/teachers", permission: "Teacher.View" },
       { name: "students", path: "/students", permission: "Student.View" },
       { name: "rooms", path: "/rooms", permission: "Room.View" },
@@ -87,6 +86,7 @@ const schoolItems: NavItem[] = [
     icon: <BoxCubeIcon />,
     name: "learning",
     subItems: [
+      { name: "myClasses", path: "/my-classes", permission: "Class.StudentView" },
       { name: "learningMaterials", path: "/learning-materials", permission: "LearningMaterial.View" },
       { name: "myHomework", path: "/my-homework", permission: "StudentHomework.View" },
       { name: "myAttendance", path: "/attendance", permission: "Attendance.View" },
