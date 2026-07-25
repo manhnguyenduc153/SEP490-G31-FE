@@ -3,6 +3,7 @@
 import React from "react";
 import { Download, ExternalLink, File, FileAudio, FileText, FileVideo, Image as ImageIcon } from "lucide-react";
 import { ENV } from "@/config/env";
+import { useTranslation } from "react-i18next";
 
 interface AttachmentPreviewProps {
   urls?: string[];
@@ -24,9 +25,9 @@ function formatUrl(url: string) {
   return url;
 }
 
-function getFileName(url: string) {
+function getFileName(url: string, fallback = "attachment") {
   const cleanUrl = url.split("?")[0].split("#")[0];
-  return decodeURIComponent(cleanUrl.split("/").pop() || "Tệp đính kèm");
+  return decodeURIComponent(cleanUrl.split("/").pop() || fallback);
 }
 
 function getExtension(url: string) {
@@ -55,11 +56,12 @@ function getIcon(kind: AttachmentKind) {
 }
 
 function AttachmentBody({ url, kind, fileName, compact }: { url: string; kind: AttachmentKind; fileName: string; compact?: boolean }) {
+  const { t } = useTranslation();
   if (kind === "audio") {
     return (
       <audio controls className="mt-3 w-full">
         <source src={url} />
-        Trình duyệt của bạn không hỗ trợ nghe audio trực tiếp.
+        {t("homework.audioUnsupported")}
       </audio>
     );
   }
@@ -68,7 +70,7 @@ function AttachmentBody({ url, kind, fileName, compact }: { url: string; kind: A
     return (
       <video controls preload="metadata" className="mt-3 max-h-[720px] w-full rounded-lg border border-gray-200 bg-black dark:border-gray-700">
         <source src={url} />
-        Trình duyệt của bạn không hỗ trợ xem video trực tiếp.
+        {t("homework.videoUnsupported")}
       </video>
     );
   }
@@ -102,7 +104,7 @@ function AttachmentBody({ url, kind, fileName, compact }: { url: string; kind: A
           className={`${compact ? "h-[520px]" : "h-[calc(100vh-140px)] min-h-[760px]"} w-full rounded-lg border border-gray-200 bg-white dark:border-gray-700`}
         />
         <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-          Nếu tài liệu Word không hiển thị, hãy dùng nút mở tệp vì Office viewer chỉ đọc được file có thể truy cập công khai.
+          {t("homework.wordPreviewHint")}
         </p>
       </div>
     );
@@ -110,20 +112,21 @@ function AttachmentBody({ url, kind, fileName, compact }: { url: string; kind: A
 
   return (
     <div className="mt-3 rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-      Không hỗ trợ xem trước định dạng này. Bạn vẫn có thể mở hoặc tải tệp.
+      {t("homework.previewUnsupported")}
     </div>
   );
 }
 
-export default function AttachmentPreview({ urls = [], title = "Tệp đính kèm", compact = false }: AttachmentPreviewProps) {
+export default function AttachmentPreview({ urls = [], title, compact = false }: AttachmentPreviewProps) {
+  const { t } = useTranslation();
   if (!urls.length) return null;
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{title}</h3>
+      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{title || t("homework.attachmentsLabel")}</h3>
       {urls.map((rawUrl, index) => {
         const url = formatUrl(rawUrl);
-        const fileName = getFileName(rawUrl);
+        const fileName = getFileName(rawUrl, t("homework.attachmentFallback"));
         const kind = getAttachmentKind(rawUrl);
 
         return (
@@ -139,7 +142,7 @@ export default function AttachmentPreview({ urls = [], title = "Tệp đính kè
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.06]"
-                  title="Mở tệp"
+                  title={t("homework.openFile")}
                 >
                   <ExternalLink className="h-4 w-4" />
                 </a>
@@ -147,7 +150,7 @@ export default function AttachmentPreview({ urls = [], title = "Tệp đính kè
                   href={url}
                   download
                   className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.06]"
-                  title="Tải xuống"
+                  title={t("homework.downloadFile")}
                 >
                   <Download className="h-4 w-4" />
                 </a>
