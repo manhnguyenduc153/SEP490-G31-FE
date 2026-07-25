@@ -56,8 +56,7 @@ const schoolItems: NavItem[] = [
       { name: "courses", path: "/courses", permission: "Course.View" },
       { name: "registrations", path: "/registrations", permission: "StudentRegistration.View" },
       { name: "classes", path: "/classes", permission: "Class.View" },
-      { name: "teachingClasses", path: "/teaching-classes", permission: "Class.TeacherView" },
-      { name: "myClasses", path: "/my-classes", permission: "Class.StudentView" },
+      { name: "teachingClasses", path: "/teaching-classes", permission: "TeachingClass" },
       { name: "teachers", path: "/teachers", permission: "Teacher.View" },
       { name: "students", path: "/students", permission: "Student.View" },
       { name: "rooms", path: "/rooms", permission: "Room.View" },
@@ -87,12 +86,13 @@ const schoolItems: NavItem[] = [
     icon: <BoxCubeIcon />,
     name: "learning",
     subItems: [
+      { name: "myClasses", path: "/my-classes", permission: "MyClass" },
       { name: "learningMaterials", path: "/learning-materials", permission: "LearningMaterial.View" },
       { name: "myHomework", path: "/my-homework", permission: "StudentHomework.View" },
       { name: "myAttendance", path: "/attendance", permission: "Attendance.View" },
       { name: "myExams", path: "/my-exams", permission: "Exam.StudentView" },
       { name: "myScores", path: "/my-scores", permission: "MyGrade" },
-      { name: "studentProgress", path: "/student-progress" },
+      { name: "studentProgress", path: "/student-progress", permission: "StudentProgress" },
     ],
   },
   {
@@ -106,20 +106,20 @@ const schoolItems: NavItem[] = [
   {
     icon: <PieChartIcon />,
     name: "reportsMenu",
-    permission: "User.View",
+    permission: ["ClassGradeReport", "AttendanceReport", "ExamReport"],
     subItems: [
-      { name: "classGradeReport", path: "/reports/class-grade" },
-      { name: "attendanceReport", path: "/reports/attendance" },
-      { name: "examReport", path: "/reports/exam" },
+      { name: "classGradeReport", path: "/reports/class-grade", permission: "ClassGradeReport" },
+      { name: "attendanceReport", path: "/reports/attendance", permission: "AttendanceReport" },
+      { name: "examReport", path: "/reports/exam", permission: "ExamReport" },
     ],
   },
   {
     icon: <GroupIcon />,
     name: "parentServices",
     subItems: [
-      { name: "parents", path: "/parent-student", permission: "ParentStudent.View", roles: ["admin", "academicstaff", "academic staff"] },
-      { name: "childProgress", path: "/child-progress", permission: "ParentStudent.View", roles: ["admin", "parent"] },
-      { name: "childSchedules", path: "/child-schedules", permission: "ParentStudent.View", roles: ["admin", "parent"] },
+      { name: "parents", path: "/parent-student", permission: "ParentStudent.View" },
+      { name: "childProgress", path: "/child-progress", permission: "ChildProgress" },
+      { name: "childSchedules", path: "/child-schedules", permission: "ChildSchedule" },
     ],
   },
 ];

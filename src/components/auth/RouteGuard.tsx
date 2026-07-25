@@ -13,6 +13,8 @@ const routePermissions: Record<string, string | string[]> = {
   "/schedules": "ClassSchedule",
   "/exams": ["Exam.View", "Exam.TeacherView"],
   "/my-exams": "Exam.StudentView",
+  "/my-classes": "MyClass",
+  "/teaching-classes": "TeachingClass",
   "/assignments": "Activity",
   "/question-bank": "Question",
   "/question-category": "QuestionCategory",

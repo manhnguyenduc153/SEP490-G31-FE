@@ -10,7 +10,7 @@ import HomeworkList from "./HomeworkList";
 import HomeworkForm from "./HomeworkForm";
 import HomeworkSubmissions from "./HomeworkSubmissions";
 import StudentSubmitForm from "./StudentSubmitForm";
-import { HomeworkDto } from "@/services/homework.api";
+import { homeworkApi, HomeworkDto } from "@/services/homework.api";
 import { useTranslation } from "react-i18next";
 
 export default function HomeworkPage({ studentMode = false }: { studentMode?: boolean }) {
@@ -48,7 +48,32 @@ export default function HomeworkPage({ studentMode = false }: { studentMode?: bo
         const res = await commonApi.getAccessibleClasses(1, 500);
         if (res.success && res.data) {
           setClasses(res.data.items);
-          if (res.data.items.length > 0) {
+          
+          // Check query parameters
+          const queryParams = new URLSearchParams(window.location.search);
+          const urlClassId = queryParams.get("classId");
+          const urlHomeworkId = queryParams.get("homeworkId");
+
+          if (urlClassId) {
+            const classIdNum = Number(urlClassId);
+            setSelectedClassId(classIdNum);
+            
+            if (urlHomeworkId && studentMode) {
+              const homeworkIdNum = Number(urlHomeworkId);
+              try {
+                const hwRes = await homeworkApi.getStudentHomeworkByClass(classIdNum);
+                if (hwRes.success && hwRes.data) {
+                  const targetHw = hwRes.data.find(h => h.id == homeworkIdNum);
+                  if (targetHw) {
+                    setEditingItem(targetHw);
+                    setActiveView("view");
+                  }
+                }
+              } catch (e) {
+                console.error("Failed to load target homework from URL", e);
+              }
+            }
+          } else if (res.data.items.length > 0) {
             setSelectedClassId(studentMode ? res.data.items[0].id : 0);
           }
         }

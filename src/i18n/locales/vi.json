@@ -2200,7 +2200,9 @@
       "Exam": "Bài kiểm tra",
       "ExamQuestion": "Câu hỏi bài thi",
       "ExamAttempt": "Lượt làm bài thi",
-      "ExamAnswer": "Đáp án bài thi"
+      "ExamAnswer": "Đáp án bài thi",
+      "MyClass": "Lớp học của tôi",
+      "TeachingClass": "Lớp giảng dạy"
     },
     "action": {
       "View": "Xem",

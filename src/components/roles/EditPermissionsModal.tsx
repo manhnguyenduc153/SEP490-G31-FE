@@ -42,6 +42,13 @@ const getFeatureDisplayName = (featureName: string, t: any) => {
     User: "users",
     Role: "roles",
     ParentStudent: "parents",
+    ClassGradeReport: "classGradeReport",
+    AttendanceReport: "attendanceReport",
+    ExamReport: "examReport",
+    ChildProgress: "childProgress",
+    ChildSchedule: "childSchedules",
+    MyGrade: "myScores",
+    StudentProgress: "studentProgress",
   };
 
   const key = sidebarMap[featureName];

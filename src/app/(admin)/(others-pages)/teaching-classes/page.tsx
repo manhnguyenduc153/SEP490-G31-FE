@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import TeacherClassTable from "@/components/class/TeacherClassTable";
 import ClassDetail from "@/components/class/ClassDetail";
-import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { useTranslation } from "react-i18next";
 import { ClassItem } from "@/services/class.api";
 import { CheckCircle, XCircle } from "lucide-react";
@@ -31,7 +30,7 @@ export default function TeachingClassesPage() {
   }, []);
 
   return (
-    <PermissionGuard requiredPermission="Class.TeacherView" fallback={<div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 text-center text-sm text-rose-500 font-medium">Bạn không có quyền truy cập chức năng này.</div>}>
+    <PermissionGuard requiredPermission="TeachingClass" fallback={<div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 text-center text-sm text-rose-500 font-medium">Bạn không có quyền truy cập chức năng này.</div>}>
       <div>
         {/* Toast */}
         {toastMessage && (
@@ -45,7 +44,6 @@ export default function TeachingClassesPage() {
           </div>
         )}
 
-        <PageBreadcrumb pageTitle="sidebar.teachingClasses" />
         <div className="space-y-6">
           {activeTab === "list" ? (
             <TeacherClassTable

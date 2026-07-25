@@ -66,6 +66,10 @@ export const homeworkApi = {
     return api.get<HomeworkDto[]>(`${API_URL}/class/${classId}`);
   },
 
+  getStudentHomeworkByClass: async (classId: number) => {
+    return api.get<HomeworkDto[]>(`${API_URL}/class/${classId}/student`);
+  },
+
   createHomework: async (data: HomeworkSaveDto) => {
     return api.post<HomeworkDto>(API_URL, data);
   },

@@ -80,6 +80,7 @@ export const roomApi = {
     pageIndex: number,
     pageSize: number,
     keyword: string = "",
+    status?: boolean | null,
     building?: string | null,
     minCapacity?: number | null
   ): Promise<ApiResponse<RoomPagingResponse>> {
@@ -88,6 +89,7 @@ export const roomApi = {
       pageSize: String(pageSize),
     };
     if (keyword) params.keyword = keyword;
+    if (status !== undefined && status !== null) params.status = String(status);
     if (building) params.building = building;
     if (minCapacity != null) params.minCapacity = String(minCapacity);
 
