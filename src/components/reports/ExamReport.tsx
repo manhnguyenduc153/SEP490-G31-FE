@@ -168,6 +168,10 @@ export default function ExamReport() {
     const el = document.getElementById("report-table-container");
     if (!el || !reportData) return;
     
+    const selectedClass = classes.find(c => c.id === Number(selectedClassId));
+    const className = selectedClass ? selectedClass.name : "";
+    const classCode = selectedClass ? selectedClass.code : "";
+    
     const iframe = document.createElement('iframe');
     iframe.style.display = 'none';
     document.body.appendChild(iframe);
@@ -194,7 +198,7 @@ export default function ExamReport() {
       </head>
       <body>
         <h2>Báo cáo kết quả thi</h2>
-        <p>Lớp: ${reportData.className} (${reportData.classCode})</p>
+        <p>Lớp: ${className} (${classCode})</p>
         ${el.outerHTML}
       </body>
       </html>

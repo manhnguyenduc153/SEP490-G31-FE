@@ -106,20 +106,20 @@ const schoolItems: NavItem[] = [
   {
     icon: <PieChartIcon />,
     name: "reportsMenu",
-    permission: "User.View",
+    permission: ["ClassGradeReport", "AttendanceReport", "ExamReport"],
     subItems: [
-      { name: "classGradeReport", path: "/reports/class-grade" },
-      { name: "attendanceReport", path: "/reports/attendance" },
-      { name: "examReport", path: "/reports/exam" },
+      { name: "classGradeReport", path: "/reports/class-grade", permission: "ClassGradeReport" },
+      { name: "attendanceReport", path: "/reports/attendance", permission: "AttendanceReport" },
+      { name: "examReport", path: "/reports/exam", permission: "ExamReport" },
     ],
   },
   {
     icon: <GroupIcon />,
     name: "parentServices",
     subItems: [
-      { name: "parents", path: "/parent-student", permission: "ParentStudent.View", roles: ["admin", "academicstaff", "academic staff"] },
-      { name: "childProgress", path: "/child-progress", permission: "ParentStudent.View", roles: ["admin", "parent"] },
-      { name: "childSchedules", path: "/child-schedules", permission: "ParentStudent.View", roles: ["admin", "parent"] },
+      { name: "parents", path: "/parent-student", permission: "ParentStudent.View" },
+      { name: "childProgress", path: "/child-progress", permission: "ChildProgress" },
+      { name: "childSchedules", path: "/child-schedules", permission: "ChildSchedule" },
     ],
   },
 ];
