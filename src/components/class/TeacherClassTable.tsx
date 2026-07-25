@@ -15,6 +15,7 @@ import { courseApi, CourseItem } from "@/services/course.api";
 import { semesterApi, SemesterItem } from "@/services/semester.api";
 import { commonApi } from "@/services/common.api";
 import { useTranslation } from "react-i18next";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 type TabType = "all" | "active" | "planning" | "completed";
 
@@ -242,62 +243,59 @@ export default function TeacherClassTable({ refreshKey: externalRefreshKey, onVi
 
       {/* Filter / Search Bar */}
       <div className="p-4 sm:p-5 border-b border-gray-150 dark:border-gray-800">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-4 w-full items-end">
-          {/* Text Search */}
-          <div className="relative md:col-span-4">
-            <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
-              {t("class.searchLabel", { defaultValue: "Tìm kiếm" })}
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                placeholder={t("class.searchPlaceholder")}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all placeholder:text-gray-400 h-11"
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 w-full">
+          {/* Left Filters */}
+          <div className="flex flex-col sm:flex-row gap-4 items-end flex-1 max-w-3xl">
+            {/* Text Search */}
+            <div className="relative w-full sm:w-72">
+              <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+                {t("class.searchLabel", { defaultValue: "Tìm kiếm" })}
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder={t("class.searchPlaceholder")}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all placeholder:text-gray-400 h-11"
+                />
+                <span className="absolute left-3 top-3.5 text-gray-400">
+                  <Search className="w-4 h-4" />
+                </span>
+              </div>
+            </div>
+
+            {/* Semester Selector */}
+            <div className="w-full sm:w-48">
+              <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+                {t("class.formSemesterLabel", { defaultValue: "Học kỳ" })}
+              </label>
+              <SearchableSelect
+                value={selectedSemester || ""}
+                onChange={(value) => { setSelectedSemester(value ? Number(value) : null); setCurrentPage(1); }}
+                options={semesters.map((s) => ({ value: s.id, label: s.name }))}
+                placeholder={t("class.filterSemesterAll", { defaultValue: "Tất cả học kỳ" })}
+                onClear={() => { setSelectedSemester(null); setCurrentPage(1); }}
               />
-              <span className="absolute left-3 top-3.5 text-gray-400">
-                <Search className="w-4 h-4" />
-              </span>
+            </div>
+
+            {/* Course Selector */}
+            <div className="w-full sm:w-56">
+              <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+                {t("class.formCourseLabel")}
+              </label>
+              <SearchableSelect
+                value={selectedCourse || ""}
+                onChange={(value) => { setSelectedCourse(value ? Number(value) : null); setCurrentPage(1); }}
+                options={courses.map((c) => ({ value: c.id, label: c.name }))}
+                placeholder={t("class.filterCourseAll", { defaultValue: "Tất cả khóa học" })}
+                onClear={() => { setSelectedCourse(null); setCurrentPage(1); }}
+              />
             </div>
           </div>
 
-          {/* Semester Selector */}
-          <div className="md:col-span-3">
-            <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
-              {t("class.formSemesterLabel", { defaultValue: "Học kỳ" })}
-            </label>
-            <select
-              value={selectedSemester || ""}
-              onChange={(e) => { setSelectedSemester(e.target.value ? Number(e.target.value) : null); setCurrentPage(1); }}
-              className="w-full px-3 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all h-11 cursor-pointer"
-            >
-              <option value="" className="dark:bg-gray-900">{t("class.filterSemesterAll", { defaultValue: "Tất cả học kỳ" })}</option>
-              {semesters.map((s) => (
-                <option key={s.id} value={s.id} className="dark:bg-gray-900">{s.name}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Course Selector */}
-          <div className="md:col-span-3">
-            <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
-              {t("class.formCourseLabel")}
-            </label>
-            <select
-              value={selectedCourse || ""}
-              onChange={(e) => { setSelectedCourse(e.target.value ? Number(e.target.value) : null); setCurrentPage(1); }}
-              className="w-full px-3 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all h-11 cursor-pointer"
-            >
-              <option value="" className="dark:bg-gray-900">{t("class.filterCourseAll", { defaultValue: "Tất cả khóa học" })}</option>
-              {courses.map((c) => (
-                <option key={c.id} value={c.id} className="dark:bg-gray-900">{c.name}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Clear Filters */}
-          <div className="flex items-center justify-end h-11 md:col-span-2">
+          {/* Right action button */}
+          <div className="shrink-0 w-full sm:w-auto">
             <button
               type="button"
               onClick={() => {
@@ -306,7 +304,7 @@ export default function TeacherClassTable({ refreshKey: externalRefreshKey, onVi
                 setSelectedSemester(null);
                 setCurrentPage(1);
               }}
-              className="inline-flex items-center justify-center px-4 h-11 text-sm font-medium text-gray-700 bg-white border border-gray-355 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors cursor-pointer w-full shadow-theme-xs"
+              className="inline-flex items-center justify-center px-4 h-11 text-sm font-medium text-gray-700 bg-white border border-gray-355 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors cursor-pointer w-full sm:w-32 shadow-theme-xs"
             >
               {t("class.clearFiltersBtn", { defaultValue: "Xóa bộ lọc" })}
             </button>

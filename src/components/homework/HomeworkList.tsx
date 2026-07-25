@@ -89,9 +89,13 @@ export default function HomeworkList({
     async function fetchHomeworks() {
       setIsLoading(true);
       try {
+        const fetchFunc = userRole === "Student"
+          ? homeworkApi.getStudentHomeworkByClass
+          : homeworkApi.getHomeworkByClass;
+
         const responses = classId === 0
-          ? await Promise.all(allClassIds.map((id) => homeworkApi.getHomeworkByClass(id)))
-          : [await homeworkApi.getHomeworkByClass(classId)];
+          ? await Promise.all(allClassIds.map((id) => fetchFunc(id)))
+          : [await fetchFunc(classId)];
         const res = {
           success: responses.every((response) => response.success),
           data: responses.filter((response) => response.success).flatMap((response) => response.data),
