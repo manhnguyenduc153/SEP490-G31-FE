@@ -226,6 +226,7 @@ export default function StudentClassDetail({
               <ClassDetailHomeworkTab
                 itemDetail={itemDetail}
                 t={t}
+                isStudentView={true}
               />
             )}
 
