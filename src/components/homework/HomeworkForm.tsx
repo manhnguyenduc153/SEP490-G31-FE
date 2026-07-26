@@ -162,7 +162,7 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
           showToast(t("homework.updateSuccess"), "success");
           onSuccess();
         } else {
-          showToast(res.message || t("homework.updateError"), "error");
+          showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("homework.updateError"), "error");
         }
       } else {
         const res = await homeworkApi.createHomework(formData);
@@ -170,7 +170,7 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
           showToast(t("homework.createSuccess"), "success");
           onSuccess();
         } else {
-          showToast(res.message || t("homework.createError"), "error");
+          showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("homework.createError"), "error");
         }
       }
     } catch (err) {

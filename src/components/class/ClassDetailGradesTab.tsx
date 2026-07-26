@@ -30,7 +30,6 @@ interface ScoreRule {
   isSystem: boolean;
 }
 
-const clampScore = (value: number) => Math.max(0, Math.min(10, value));
 const round1 = (value: number) => Math.round(value * 10) / 10;
 
 const componentToRule = (component: GradeComponentDto): ScoreRule => ({
@@ -132,7 +131,7 @@ export default function ClassDetailGradesTab({
   }, [loadScores]);
 
   const updateScore = (studentId: number, component: ScoreComponent, value: string) => {
-    const numericValue = value === "" ? undefined : clampScore(Number(value));
+    const numericValue = value === "" ? undefined : Number(value);
     const nextOverrides: ScoreOverrideMap = {
       ...overrides,
       [studentId]: {
@@ -167,6 +166,16 @@ export default function ClassDetailGradesTab({
 
   const saveOverrides = async () => {
     if (!classId) return;
+    const invalidScore = Object.values(overrides).some((componentScores) =>
+      (Object.values(componentScores) as Array<number | undefined>).some((score) =>
+        score !== undefined && (!Number.isFinite(score) || score < 0 || score > 10)
+      )
+    );
+    if (invalidScore) {
+      showToast?.(t("class.gradeScoreRange"), "error");
+      return;
+    }
+
     try {
       const componentIdByCode = new Map(rules.map((rule) => [rule.id, rule.backendId]));
       const rowByStudentId = new Map(rows.map((row) => [row.studentId, row]));
@@ -243,6 +252,7 @@ export default function ClassDetailGradesTab({
         const importedRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet);
         const nextOverrides: ScoreOverrideMap = { ...overrides };
         let updatedCount = 0;
+        let hasInvalidScore = false;
 
         importedRows.forEach((item) => {
           const studentCode = String(
@@ -271,12 +281,21 @@ export default function ClassDetailGradesTab({
           rules.forEach((rule) => {
             const score = Number(item[rule.name] ?? item[rule.id]);
             if (!Number.isNaN(score)) {
-              nextOverrides[matchedRow.studentId][rule.id] = clampScore(score);
+              if (score < 0 || score > 10) {
+                hasInvalidScore = true;
+              } else {
+                nextOverrides[matchedRow.studentId][rule.id] = score;
+              }
             }
           });
 
           updatedCount += 1;
         });
+
+        if (hasInvalidScore) {
+          showToast?.(t("class.gradeScoreRange"), "error");
+          return;
+        }
 
         setOverrides(nextOverrides);
         setRows((currentRows) => withAverages(currentRows.map((row) => ({
