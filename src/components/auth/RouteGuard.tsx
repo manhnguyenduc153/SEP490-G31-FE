@@ -24,9 +24,11 @@ const routePermissions: Record<string, string | string[]> = {
   "/attendance": "Attendance.View",
   "/homework": "HomeworkManagement.View",
   "/my-homework": "StudentHomework.View",
-  "/users": "User",
+   "/users": "User",
   "/roles": "Role",
   "/child-profile": "ParentStudent",
+  "/child-progress": "ChildProgress",
+  "/student-progress": "StudentProgress",
 };
 
 export const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {

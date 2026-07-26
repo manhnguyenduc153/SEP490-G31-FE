@@ -5,8 +5,9 @@ import { ApexOptions } from "apexcharts";
 import dynamic from "next/dynamic";
 import { parentStudentApi, ChildItem } from "@/services/parentStudent.api";
 import { studentGradeApi, MyGradeClassDto } from "@/services/score.api";
-import { homeworkApi, HomeworkDto, HomeworkSubmissionDto } from "@/services/homework.api";
-import { attendanceApi, AttendanceReportDto } from "@/services/attendance.api";
+import { HomeworkDto, HomeworkSubmissionDto } from "@/services/homework.api";
+import { MyAttendanceSessionDto } from "@/services/attendance.api";
+import { studentProgressApi } from "@/services/studentProgress.api";
 import { authApi } from "@/services/auth.api";
 import { useTranslation } from "react-i18next";
 import {
@@ -120,7 +121,7 @@ export default function ChildProgressPage() {
   const [homeworkList, setHomeworkList]     = useState<HomeworkWithSub[]>([]);
   const [isLoadingHw, setIsLoadingHw]       = useState(false);
 
-  const [attendanceReport, setAttendanceReport] = useState<AttendanceReportDto | null>(null);
+  const [sessions, setSessions]             = useState<SessionRow[]>([]);
   const [isLoadingAtt, setIsLoadingAtt]     = useState(false);
   const [attendanceError, setAttendanceError] = useState<string | null>(null);
 
@@ -178,46 +179,29 @@ export default function ChildProgressPage() {
   // ── 3. Load per-class data when class changes ────────────────────────────────
 
   const loadClassData = useCallback(async (classId: number, studentId: number) => {
-    // Homework
     setIsLoadingHw(true);
-    setHomeworkList([]);
-    try {
-      const hwRes = await homeworkApi.getHomeworkByClass(classId);
-      const hws: HomeworkDto[] = hwRes.success ? (hwRes.data || []) : [];
-      const withSubs = await Promise.all(
-        hws.map(async (hw) => {
-          try {
-            const allRes = await homeworkApi.getSubmissions(hw.id);
-            const sub = allRes.success
-              ? (allRes.data || []).find((s) => s.studentId === studentId) || null
-              : null;
-            return { ...hw, submission: sub } as HomeworkWithSub;
-          } catch {
-            return { ...hw, submission: null } as HomeworkWithSub;
-          }
-        })
-      );
-      setHomeworkList(withSubs);
-    } catch {
-      setHomeworkList([]);
-    } finally {
-      setIsLoadingHw(false);
-    }
-
-    // Attendance report
     setIsLoadingAtt(true);
-    setAttendanceReport(null);
+    setHomeworkList([]);
+    setSessions([]);
     setAttendanceError(null);
     try {
-      const attRes = await attendanceApi.getReportByClassId(classId);
-      if (attRes.success && attRes.data) {
-        setAttendanceReport(attRes.data);
+      const res = await studentProgressApi.getChildProgress(classId, studentId);
+      if (res.success && res.data) {
+        setHomeworkList(res.data.homeworks || []);
+        setSessions((res.data.attendanceSessions || []).map((s: MyAttendanceSessionDto) => ({
+          scheduleId: s.scheduleId,
+          lessonNo: s.lessonNo,
+          date: s.date ?? null,
+          status: s.status,
+          description: s.description ?? null,
+        })));
       } else {
-        setAttendanceError("Không thể tải dữ liệu chuyên cần.");
+        setAttendanceError("Không thể tải dữ liệu tiến độ.");
       }
     } catch {
-      setAttendanceError("Không thể tải dữ liệu chuyên cần.");
+      setAttendanceError("Không thể tải dữ liệu tiến độ.");
     } finally {
+      setIsLoadingHw(false);
       setIsLoadingAtt(false);
     }
   }, []);
@@ -237,23 +221,6 @@ export default function ChildProgressPage() {
   // Homework split: submitted vs not submitted
   const hwSubmitted = useMemo(() => homeworkList.filter((hw) => !!hw.submission), [homeworkList]);
   const hwNotSubmitted = useMemo(() => homeworkList.filter((hw) => !hw.submission), [homeworkList]);
-
-  // Attendance sessions for selected child
-  const sessions = useMemo((): SessionRow[] => {
-    if (!attendanceReport || !selectedChild) return [];
-    const studentData = attendanceReport.students.find((s) => s.studentId === selectedChild.studentId);
-    const attMap = new Map((studentData?.attendances || []).map((a) => [a.scheduleId, a]));
-    return attendanceReport.sessions.map((s) => {
-      const att = attMap.get(s.scheduleId);
-      return {
-        scheduleId: s.scheduleId,
-        lessonNo: s.lessonNo,
-        date: s.date || null,
-        status: att?.status ?? -1,
-        description: att?.description || null,
-      };
-    });
-  }, [attendanceReport, selectedChild]);
 
   const attStats = useMemo(() => {
     const recorded = sessions.filter((s) => s.status !== -1);
@@ -333,7 +300,7 @@ export default function ChildProgressPage() {
             show: true,
             total: {
               show: true, label: "Tổng buổi",
-              formatter: () => `${attStats.recorded}`,
+              formatter: () => `${sessions.length}`,
               fontSize: "14px", fontWeight: 700, fontFamily: "Outfit, sans-serif", color: "#374151",
             },
           },
@@ -344,7 +311,7 @@ export default function ChildProgressPage() {
     legend: { position: "bottom", fontFamily: "Outfit, sans-serif", fontSize: "12px" },
     stroke: { show: false },
     tooltip: { y: { formatter: (v: number) => `${v} buổi` } },
-  }), [attStats.recorded]);
+  }), [sessions.length]);
 
   // ── Render helpers ───────────────────────────────────────────────────────────
 
@@ -482,7 +449,7 @@ export default function ChildProgressPage() {
                   icon={<CalendarCheck className="w-5 h-5" />}
                   label="Chuyên cần"
                   value={isLoadingAtt ? "..." : `${attStats.rate}%`}
-                  sub={isLoadingAtt ? "" : `${attStats.present}/${attStats.recorded} buổi có mặt`}
+                  sub={isLoadingAtt ? "" : `${attStats.present}/${sessions.length} buổi có mặt`}
                   colorText={attStats.rate >= 80 ? "text-emerald-600 dark:text-emerald-400" : attStats.rate >= 60 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400"}
                   colorBg={attStats.rate >= 80 ? "bg-emerald-50 dark:bg-emerald-500/10" : attStats.rate >= 60 ? "bg-amber-50 dark:bg-amber-500/10" : "bg-rose-50 dark:bg-rose-500/10"}
                 />
@@ -740,7 +707,7 @@ export default function ChildProgressPage() {
                             <div className="grid grid-cols-3 gap-2">
                               <div className="rounded-xl bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.05] p-3 text-center">
                                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">Tổng buổi</p>
-                                <p className="text-xl font-extrabold text-gray-800 dark:text-gray-100 mt-1">{attStats.recorded}</p>
+                                <p className="text-xl font-extrabold text-gray-800 dark:text-gray-100 mt-1">{sessions.length}</p>
                               </div>
                               <div className="rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 p-3 text-center">
                                 <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wide">Có mặt</p>
@@ -764,7 +731,7 @@ export default function ChildProgressPage() {
                                 />
                               </div>
                               <p className="mt-1.5 text-[11px] text-gray-400">
-                                {attStats.present} buổi có mặt / {attStats.recorded} buổi đã điểm danh
+                                {attStats.present} buổi có mặt / {sessions.length} tổng số buổi
                               </p>
                             </div>
                           </div>
