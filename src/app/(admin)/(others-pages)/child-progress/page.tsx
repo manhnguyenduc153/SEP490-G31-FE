@@ -223,11 +223,12 @@ export default function ChildProgressPage() {
   const hwNotSubmitted = useMemo(() => homeworkList.filter((hw) => !hw.submission), [homeworkList]);
 
   const attStats = useMemo(() => {
-    const recorded = sessions.filter((s) => s.status !== -1);
-    const present  = recorded.filter((s) => s.status !== 0);
-    const absent   = recorded.filter((s) => s.status === 0);
-    const rate     = recorded.length ? Math.round((present.length / recorded.length) * 100) : 0;
-    return { total: sessions.length, recorded: recorded.length, present: present.length, absent: absent.length, rate };
+    const now = new Date();
+    const pastSessions = sessions.filter((s) => s.date && new Date(s.date) < now);
+    const present  = sessions.filter((s) => s.status === 1 || s.status === 2 || s.status === 3);
+    const absent   = sessions.filter((s) => s.status === 0);
+    const rate     = pastSessions.length ? Math.round((present.length / pastSessions.length) * 100) : 100;
+    return { total: sessions.length, recorded: pastSessions.length, present: present.length, absent: absent.length, rate };
   }, [sessions]);
 
   // Score bar chart (horizontal)
