@@ -36,9 +36,10 @@ export default function ClassDetailStudentsTab({
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-800 text-gray-450 dark:text-gray-400 font-semibold bg-gray-50/50 dark:bg-gray-800/40">
                 <th className="px-4 py-3 w-[8%] text-xs font-bold uppercase tracking-wider">#</th>
-                <th className="px-4 py-3 w-[25%] text-xs font-bold uppercase tracking-wider">{t("student.colCode", { defaultValue: "Mã học sinh" })}</th>
-                <th className="px-4 py-3 w-[35%] text-xs font-bold uppercase tracking-wider">{t("student.colName", { defaultValue: "Học sinh" })}</th>
-                <th className="px-4 py-3 w-[32%] text-xs font-bold uppercase tracking-wider">{t("student.colEmail", { defaultValue: "Email" })}</th>
+                <th className="px-4 py-3 w-[20%] text-xs font-bold uppercase tracking-wider">{t("student.colCode", { defaultValue: "Mã học sinh" })}</th>
+                <th className="px-4 py-3 w-[30%] text-xs font-bold uppercase tracking-wider">{t("student.colName", { defaultValue: "Học sinh" })}</th>
+                <th className="px-4 py-3 w-[25%] text-xs font-bold uppercase tracking-wider">{t("student.colEmail", { defaultValue: "Email" })}</th>
+                <th className="px-4 py-3 w-[17%] text-xs font-bold uppercase tracking-wider">Hình thức học</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -56,6 +57,15 @@ export default function ClassDetailStudentsTab({
                     </div>
                   </td>
                   <td className="px-4 py-3.5 text-gray-500 dark:text-gray-400">{sc.student?.email || t("class.noEmail")}</td>
+                  <td className="px-4 py-3.5">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                      sc.enrollType === 1
+                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400"
+                        : "bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400"
+                    }`}>
+                      {sc.enrollType === 1 ? "Online" : "Offline"}
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>

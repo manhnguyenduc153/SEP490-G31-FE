@@ -58,6 +58,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
   const [selectedCourse, setSelectedCourse] = useState<number | null>(null);
   const [selectedTeacher, setSelectedTeacher] = useState<number | null>(null);
   const [selectedSemester, setSelectedSemester] = useState<number | null>(null);
+  const [selectedType, setSelectedType] = useState<number | null>(null); // null = Tất cả, 0 = Offline, 1 = Online
 
   // ── Tab stats ──
   const [activeTab, setActiveTab] = useState<TabType>("all");
@@ -221,7 +222,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
       try {
         // Build search parameters
         // For counts, we query the main list with different statuses
-        const mainRes = await classApi.getAll(currentPage, itemsPerPage, debouncedSearchTerm, selectedCourse, selectedTeacher);
+        const mainRes = await classApi.getAll(currentPage, itemsPerPage, debouncedSearchTerm, selectedCourse, selectedTeacher, selectedType);
 
         if (!mounted) return;
 
@@ -230,7 +231,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
           // Status: Planning = 0, Active = 1, Completed = 2, Cancelled = 3
           
           // Let's fetch all items to calculate counts correctly
-          const allItemsRes = await classApi.getAll(1, 1000, debouncedSearchTerm, selectedCourse, selectedTeacher);
+          const allItemsRes = await classApi.getAll(1, 1000, debouncedSearchTerm, selectedCourse, selectedTeacher, selectedType);
           if (allItemsRes.success && allItemsRes.data) {
             let allList = allItemsRes.data.items || [];
             if (selectedSemester !== null) {
@@ -279,7 +280,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
       mounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, itemsPerPage, debouncedSearchTerm, selectedCourse, selectedTeacher, selectedSemester, activeTab, refreshKey]);
+  }, [currentPage, itemsPerPage, debouncedSearchTerm, selectedCourse, selectedTeacher, selectedSemester, selectedType, activeTab, refreshKey]);
 
   // ── Open create ──
   const openCreateModal = () => {
@@ -432,8 +433,8 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
       <div className="p-4 sm:p-5 border-b border-gray-150 dark:border-gray-800">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-4 w-full items-end">
           {/* Text Search */}
-          <div className="relative md:col-span-3">
-            <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+          <div className="relative md:col-span-2">
+            <label className="block mb-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
               {t("class.searchLabel", { defaultValue: "Tìm kiếm" })}
             </label>
             <div className="relative">
@@ -452,7 +453,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
 
           {/* Semester Selector */}
           <div className="md:col-span-2">
-            <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+            <label className="block mb-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
               {t("class.formSemesterLabel", { defaultValue: "Học kỳ" })}
             </label>
             <SearchableSelect
@@ -466,7 +467,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
 
           {/* Course Selector */}
           <div className="md:col-span-2">
-            <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+            <label className="block mb-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
               {t("class.formCourseLabel")}
             </label>
             <SearchableSelect
@@ -480,7 +481,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
 
           {/* Teacher Selector */}
           <div className="md:col-span-2">
-            <label className="block mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+            <label className="block mb-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
               {t("class.formTeacherLabel")}
             </label>
             <SearchableSelect
@@ -492,8 +493,25 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
             />
           </div>
 
+          {/* Type Selector (Offline/Online) */}
+          <div className="md:col-span-2">
+            <label className="block mb-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
+              Loại lớp học
+            </label>
+            <SearchableSelect
+              value={selectedType !== null ? selectedType : ""}
+              onChange={(value) => { setSelectedType(value !== "" ? Number(value) : null); setCurrentPage(1); }}
+              options={[
+                { value: 0, label: "Offline" },
+                { value: 1, label: "Online" }
+              ]}
+              placeholder="Tất cả loại lớp"
+              onClear={() => { setSelectedType(null); setCurrentPage(1); }}
+            />
+          </div>
+
           {/* Clear Filters Button */}
-          <div className="flex items-center justify-end h-11 md:col-span-3">
+          <div className="md:col-span-2 flex items-end h-11">
             <button
               type="button"
               onClick={() => {
@@ -501,9 +519,10 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
                 setSelectedCourse(null);
                 setSelectedTeacher(null);
                 setSelectedSemester(null);
+                setSelectedType(null);
                 setCurrentPage(1);
               }}
-              className="inline-flex items-center justify-center px-4 h-11 text-sm font-medium text-gray-700 bg-white border border-gray-355 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors cursor-pointer w-full md:w-auto shadow-theme-xs"
+              className="inline-flex items-center justify-center px-4 h-11 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-350 dark:border-gray-700 dark:hover:bg-gray-700 transition-colors cursor-pointer w-full shadow-theme-xs"
             >
               {t("class.clearFiltersBtn", { defaultValue: "Xóa bộ lọc" })}
             </button>
@@ -617,6 +636,13 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
                       <span className="text-sm font-semibold">{item.code}</span>
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(item.status)}`}>
                         {getStatusText(item.status)}
+                      </span>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                        item.type === 1
+                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400"
+                          : "bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400"
+                      }`}>
+                        {item.type === 1 ? "Online" : "Offline"}
                       </span>
                     </div>
                   </TableCell>

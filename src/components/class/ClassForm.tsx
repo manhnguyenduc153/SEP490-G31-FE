@@ -87,8 +87,12 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
   const [formExpectedLessons, setFormExpectedLessons] = useState<number>(30);
   const [formDesc, setFormDesc] = useState("");
   const [formStudentIds, setFormStudentIds] = useState<number[]>([]);
+  // Map studentId -> enrollType (0=Offline, 1=Online)
+  const [formStudentEnrollTypes, setFormStudentEnrollTypes] = useState<Record<number, number>>({});
   const [formStatus, setFormStatus] = useState<number>(0);
   const [formAutoRefund, setFormAutoRefund] = useState(false);
+  const [formType, setFormType] = useState<number>(0); // 0=Offline, 1=Online
+  const [formUrl, setFormUrl] = useState<string>("");
 
   // Filter dropdown states
   const [courses, setCourses] = useState<CourseItem[]>([]);
@@ -206,10 +210,11 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
           code: formCode || "TEMP",
           name: formName || "TEMP",
           status: formStatus,
+          type: formType,
           startDate: formStartDate,
           expectedLessons: formExpectedLessons,
           teacherId: formTeacherId,
-          studentIds: [],
+          students: [],
           weeklySchedules: selectedSchedules.map(([dayStr, config]) => ({
             dayOfWeek: Number(dayStr),
             startTime: config.startTime,
@@ -256,6 +261,8 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
       setFormStatus(editingItem.status);
       setFormAutoRefund(editingItem.autoRefund ?? false);
       setFormExpectedLessons(editingItem.expectedLessons ?? 30);
+      setFormType(editingItem.type ?? 0);
+      setFormUrl(editingItem.url ?? "");
 
       // Load full class details (including students and schedules)
       async function loadClassDetail() {
@@ -265,6 +272,12 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
             const detail = res.data;
             const studentIds = (detail.studentClasses || []).map((sc: any) => sc.studentId);
             setFormStudentIds(studentIds);
+            // Load enrollType per student
+            const enrollTypesMap: Record<number, number> = {};
+            (detail.studentClasses || []).forEach((sc: any) => {
+              enrollTypesMap[sc.studentId] = sc.enrollType ?? 0;
+            });
+            setFormStudentEnrollTypes(enrollTypesMap);
 
             // Populate selectedStudents list
             const loadedStudents = (detail.studentClasses || []).map((sc: any) => ({
@@ -344,7 +357,10 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
       setFormStatus(0);
       setFormAutoRefund(false);
       setFormExpectedLessons(30);
+      setFormType(0);
+      setFormUrl("");
       setFormStudentIds([]);
+      setFormStudentEnrollTypes({});
       setSelectedStudents([]);
       setFormNewStudents([]);
       setFormNewTeacherEmail(null);
@@ -386,6 +402,8 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
     if (!formStudentIds.includes(student.id)) {
       setFormStudentIds((prev) => [...prev, student.id]);
       setSelectedStudents((prev) => [...prev, student]);
+      // Default enrollType = class type
+      setFormStudentEnrollTypes((prev) => ({ ...prev, [student.id]: formType }));
     }
     setStudentSearchText("");
     setShowDropdown(false);
@@ -394,6 +412,15 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
   const handleRemoveStudent = (studentId: number) => {
     setFormStudentIds((prev) => prev.filter((id) => id !== studentId));
     setSelectedStudents((prev) => prev.filter((s) => s.id !== studentId));
+    setFormStudentEnrollTypes((prev) => {
+      const updated = { ...prev };
+      delete updated[studentId];
+      return updated;
+    });
+  };
+
+  const handleStudentEnrollTypeChange = (studentId: number, enrollType: number) => {
+    setFormStudentEnrollTypes((prev) => ({ ...prev, [studentId]: enrollType }));
   };
 
   const handleRemoveNewStudent = (email: string) => {
@@ -647,6 +674,8 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
       const payload = {
         code: finalCode,
         name: formName.trim(),
+        type: formType,
+        url: formUrl.trim() || null,
         description: formDesc.trim() || null,
         startDate: formStartDate || null,
         endDate: formEndDate || null,
@@ -656,7 +685,10 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
         status: formStatus,
         autoRefund: formAutoRefund,
         expectedLessons: formSemesterId ? null : formExpectedLessons,
-        studentIds: formStudentIds,
+        students: formStudentIds.map((id) => ({
+          studentId: id,
+          enrollType: formType,
+        })),
         newStudents: formNewStudents,
         newTeacherEmail: formNewTeacherEmail,
         newTeacherName: formNewTeacherName,
@@ -990,6 +1022,55 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                 )}
               </div>
 
+              {/* Loại lớp học & URL */}
+              <div className="col-span-1 sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-5">
+                {/* Loại lớp học: Offline / Online */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                    Loại lớp học <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    {[{ value: 0, label: "Offline", color: "brand" }, { value: 1, label: "Online", color: "emerald" }].map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        disabled={isStarted}
+                        onClick={() => setFormType(opt.value)}
+                        className={`flex-1 py-2 px-3 text-sm font-medium rounded-lg border transition-all ${
+                          formType === opt.value
+                            ? opt.value === 1
+                              ? "bg-emerald-50 border-emerald-400 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-600 dark:text-emerald-400"
+                              : "bg-brand-50 border-brand-400 text-brand-700 dark:bg-brand-950/20 dark:border-brand-600 dark:text-brand-400"
+                            : "bg-white border-gray-200 text-gray-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-400 hover:border-gray-300"
+                        } ${isStarted ? "opacity-60 cursor-not-allowed" : ""}`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                  {formType === 1 && (
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-1">
+                      <Info className="w-3 h-3 shrink-0" />
+                      Lớp Online không bị giới hạn bởi sức chứa phòng học
+                    </span>
+                  )}
+                </div>
+
+                {/* URL lớp học */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                    Link lớp học
+                    <span className="ml-1 text-[9px] text-gray-400 font-normal">(Google Meet, Zoom, ...)</span>
+                  </label>
+                  <input
+                    type="url"
+                    value={formUrl}
+                    onChange={(e) => setFormUrl(e.target.value)}
+                    placeholder="https://meet.google.com/..."
+                    className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white text-gray-805 placeholder:text-gray-400"
+                  />
+                </div>
+              </div>
 
               {/* Chọn học sinh */}
               <div className="col-span-1 sm:col-span-2 space-y-2">
@@ -1067,41 +1148,43 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                        {selectedStudents.map((student) => (
                          <div
                            key={student.id}
-                           className={`relative p-2.5 border rounded-xl flex items-center gap-2.5 shadow-theme-xs transition-colors duration-300 animate-fadeIn ${
+                           className={`relative p-2.5 border rounded-xl flex flex-col gap-1.5 shadow-theme-xs transition-colors duration-300 animate-fadeIn ${
                              conflictingEmails.includes(student.email || "")
                                ? "bg-white dark:bg-gray-900 border-red-300 dark:border-red-500/50"
                                : "bg-white dark:bg-gray-900 border-gray-150 dark:border-gray-800 hover:border-rose-300 dark:hover:border-rose-500/40"
                            }`}
                          >
-                           {/* Avatar Circle */}
-                           <div className="w-7 h-7 rounded-full bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center font-bold text-xs shrink-0">
-                             {student.name ? student.name.charAt(0).toUpperCase() : "?"}
-                           </div>
-                           
-                           {/* Student Details */}
-                           <div className="min-w-0 flex-1 pr-6">
-                             <div className="flex items-center justify-between gap-1">
-                               <span className="text-xs font-semibold text-gray-900 dark:text-white truncate">
-                                 {student.name}
-                               </span>
-                               <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 shrink-0">
-                                 {student.code}
+                           <div className="flex items-center gap-2.5">
+                             {/* Avatar Circle */}
+                             <div className="w-7 h-7 rounded-full bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center font-bold text-xs shrink-0">
+                               {student.name ? student.name.charAt(0).toUpperCase() : "?"}
+                             </div>
+                             
+                             {/* Student Details */}
+                             <div className="min-w-0 flex-1 pr-6">
+                               <div className="flex items-center justify-between gap-1">
+                                 <span className="text-xs font-semibold text-gray-900 dark:text-white truncate">
+                                   {student.name}
+                                 </span>
+                                 <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 shrink-0">
+                                   {student.code}
+                                 </span>
+                               </div>
+                               <span className="block text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                                 {student.email || t("class.noEmail")}
                                </span>
                              </div>
-                             <span className="block text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                               {student.email || t("class.noEmail")}
-                             </span>
-                           </div>
 
-                           {/* Remove Button */}
-                           <button
-                             type="button"
-                             onClick={() => handleRemoveStudent(student.id)}
-                             className="absolute right-1.5 top-1.5 text-gray-400 hover:text-rose-500 dark:text-gray-500 dark:hover:text-rose-450 transition-colors p-1"
-                             title={t("class.removeStudentTooltip")}
-                           >
-                             <X className="w-3 h-3" />
-                           </button>
+                             {/* Remove Button */}
+                             <button
+                               type="button"
+                               onClick={() => handleRemoveStudent(student.id)}
+                               className="absolute right-1.5 top-1.5 text-gray-400 hover:text-rose-500 dark:text-gray-500 dark:hover:text-rose-450 transition-colors p-1"
+                               title={t("class.removeStudentTooltip")}
+                             >
+                               <X className="w-3 h-3" />
+                             </button>
+                           </div>
                          </div>
                        ))}
                      </div>

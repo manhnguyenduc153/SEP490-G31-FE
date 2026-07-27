@@ -80,7 +80,36 @@ export default function ClassDetailInfoTab({
               </div>
             </div>
 
-            <div className="sm:col-span-2">
+            <div>
+              <span className="block text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+                Loại lớp
+              </span>
+              <div className="mt-1">
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
+                  itemDetail.type === 1
+                    ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-500 border border-emerald-200/50 dark:border-emerald-500/20"
+                    : "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-500 border border-blue-200/50 dark:border-blue-500/20"
+                }`}>
+                  {itemDetail.type === 1 ? "Online" : "Offline"}
+                </span>
+              </div>
+            </div>
+
+            {itemDetail.url && (
+              <div>
+                <span className="block text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+                  Link lớp học
+                </span>
+                <a
+                  href={itemDetail.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-brand-600 dark:text-brand-400 hover:underline mt-0.5 block truncate"
+                >
+                  {itemDetail.url}
+                </a>
+              </div>
+            )}            <div className="sm:col-span-2">
               <span className="block text-[10px] uppercase font-bold text-gray-400 tracking-wider">
                 {t("class.colName")}
               </span>
