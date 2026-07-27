@@ -1,6 +1,6 @@
 "use client";
 
-import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+
 import { attendanceApi, MyAttendanceClassDto, MyAttendanceSessionDto } from "@/services/attendance.api";
 import { BookOpen, CalendarCheck, CalendarDays, CheckCircle2, Clock3, GraduationCap, RefreshCw, ShieldCheck, UserRound, X, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -142,7 +142,6 @@ export default function MyAttendancePage() {
 
   return (
     <div>
-      <PageBreadcrumb pageTitle="sidebar.myAttendance" />
       <div className="space-y-6">
         <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-xs dark:border-gray-800 dark:bg-gray-900">
           <div className="relative p-6 sm:p-7">
