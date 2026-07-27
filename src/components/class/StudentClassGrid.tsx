@@ -23,7 +23,7 @@ export default function StudentClassGrid({ refreshKey: externalRefreshKey, onVie
 
   // Dynamic Page Title
   useEffect(() => {
-    document.title = `${t("sidebar.myClasses", { defaultValue: "Lớp học của tôi" })} | School Management System`;
+    document.title = `${t("sidebar.myClasses", { defaultValue: "Lớp học" })} | School Management System`;
   }, [t]);
 
   // Data states
@@ -187,7 +187,7 @@ export default function StudentClassGrid({ refreshKey: externalRefreshKey, onVie
         <div className="pb-4 border-b border-gray-100 dark:border-gray-800 mb-5">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-brand-500" />
-            {t("sidebar.myClasses", { defaultValue: "Lớp học của tôi" })}
+            {t("sidebar.myClasses", { defaultValue: "Lớp học" })}
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             {t("class.studentDesc", { defaultValue: "Xem thông tin, tài liệu học tập, bài tập về nhà và bảng điểm các lớp học bạn đang tham gia." })}

@@ -27,6 +27,9 @@ export interface ClassItem {
   name: string;
   status: number;
   statusName?: string;
+  type: number; // 0 = Offline, 1 = Online
+  typeName?: string; // "Offline" | "Online"
+  url?: string | null;
   description?: string | null;
   startDate?: string | null;
   endDate?: string | null;
@@ -41,6 +44,20 @@ export interface ClassItem {
   expectedLessons?: number | null;
   weeklySchedulesJson?: string | null;
   schedules?: ClassScheduleItem[];
+  studentClasses?: {
+    id: number;
+    studentId: number;
+    enrollType?: number | null; // 0 = Offline, 1 = Online
+    enrollTypeName?: string | null;
+    student?: {
+      id: number;
+      code: string;
+      name: string;
+      email?: string | null;
+      phone?: string | null;
+      avatar?: string | null;
+    } | null;
+  }[];
   semesterId?: number | null;
   semesterName?: string | null;
 }
@@ -58,13 +75,15 @@ export interface ClassSaveDto {
   code: string;
   name: string;
   status: number;
+  type: number; // 0 = Offline, 1 = Online
+  url?: string | null;
   description?: string | null;
   startDate?: string | null;
   endDate?: string | null;
   courseId?: number | null;
   teacherId?: number | null;
   scheduleDisplay?: string | null;
-  studentIds: number[];
+  students: { studentId: number; enrollType: number }[];
   autoRefund?: boolean | null;
   expectedLessons?: number | null;
   semesterId?: number | null;
@@ -97,7 +116,8 @@ export const classApi = {
     pageSize: number,
     keyword: string = "",
     courseId?: number | null,
-    teacherId?: number | null
+    teacherId?: number | null,
+    type?: number | null
   ): Promise<ApiResponse<ClassPagingResponse>> {
     const params: Record<string, string> = {
       pageIndex: String(pageIndex),
@@ -106,6 +126,7 @@ export const classApi = {
     if (keyword) params.keyword = keyword;
     if (courseId) params.courseId = String(courseId);
     if (teacherId) params.teacherId = String(teacherId);
+    if (type !== undefined && type !== null) params.type = String(type);
 
     const query = new URLSearchParams(params).toString();
     return api.get<ClassPagingResponse>(`${ENDPOINTS.CLASS.GET_ALL}?${query}`);

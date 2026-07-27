@@ -27,6 +27,7 @@ interface PreviewRow {
   courseId: number;
   courseResolved: boolean;
   preferredSlots: string[];
+  enrollType: number; // 0 = Offline, 1 = Online
   hasError: boolean;
   isAlreadyRegistered: boolean;
   errorMsg?: string;
@@ -59,6 +60,7 @@ export function StudentRegistrationModal({
     Evening: false,
   });
   const [formStatus, setFormStatus] = useState<number>(0);
+  const [formEnrollType, setFormEnrollType] = useState<number>(0); // 0 = Offline, 1 = Online
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
 
   // Excel Import States
@@ -110,6 +112,7 @@ export function StudentRegistrationModal({
         Evening: registrationToEdit.preferredSlots?.includes("Evening") || false,
       });
       setFormStatus(registrationToEdit.status ?? 0);
+      setFormEnrollType(registrationToEdit.enrollType ?? 0);
       setActiveTab("manual");
       setModalSemesterId(registrationToEdit.semesterId);
     } else {
@@ -117,6 +120,7 @@ export function StudentRegistrationModal({
       setFormCourseId("");
       setFormSlots({ Morning: false, Afternoon: false, Evening: false });
       setFormStatus(0);
+      setFormEnrollType(0);
       setActiveTab("excel");
       setModalSemesterId(defaultSemesterId || "");
     }
@@ -153,12 +157,13 @@ export function StudentRegistrationModal({
         t("registration.excelColEmail"),
         t("registration.excelColPhone"),
         t("registration.excelColCourse"),
-        t("registration.excelColPreferredSlots")
+        t("registration.excelColPreferredSlots"),
+        "Loại lớp (Online/Offline)"
       ],
-      ["Nguyen Van A", "vana@gmail.com", "0912345678", "IELTS 5.0 - 6.0", t("registration.slotMorning") + ", " + t("registration.slotAfternoon")],
-      ["Tran Thi B", "thib@gmail.com", "0987654321", "IELTS 5.0 - 6.0", t("registration.slotEvening")],
-      ["Le Van C", "vanc@gmail.com", "0934567890", "IELTS 5.0 - 6.0", t("registration.slotMorning")],
-      ["Pham Van D", "vand@gmail.com", "0945678901", "IELTS 4.0 - 5.0", t("registration.slotAfternoon")],
+      ["Nguyen Van A", "vana@gmail.com", "0912345678", "IELTS 5.0 - 6.0", t("registration.slotMorning") + ", " + t("registration.slotAfternoon"), "Offline"],
+      ["Tran Thi B", "thib@gmail.com", "0987654321", "IELTS 5.0 - 6.0", t("registration.slotEvening"), "Online"],
+      ["Le Van C", "vanc@gmail.com", "0934567890", "IELTS 5.0 - 6.0", t("registration.slotMorning"), "Offline"],
+      ["Pham Van D", "vand@gmail.com", "0945678901", "IELTS 4.0 - 5.0", t("registration.slotAfternoon"), "Online"],
     ];
     const ws = XLSX.utils.aoa_to_sheet(headers);
     const wb = XLSX.utils.book_new();
@@ -210,9 +215,18 @@ export function StudentRegistrationModal({
           const rawPhone = row["Số điện thoại"] || row["SĐT"] || row["Phone"] || row["phone"] || row["studentPhone"] || "";
           const rawCourse = row["Khóa học"] || row["Khóa"] || row["Course"] || row["course"] || row["courseName"] || "";
           const rawSlots = row["Ca mong muốn"] || row["Ca học"] || row["PreferredSlots"] || row["slots"] || "";
-
+          const rawEnrollType = row["Loại lớp"] || row["Loại lớp (Online/Offline)"] || row["EnrollType"] || row["type"] || "";
+ 
           const hasError = !rawName.toString().trim() || !rawEmail.toString().trim();
           const preferred = parsePreferredSlots(rawSlots);
+          
+          let parsedEnrollType = 0; // default to Offline (0)
+          if (rawEnrollType) {
+            const normalizedType = rawEnrollType.toString().trim().toLowerCase();
+            if (normalizedType.includes("online") || normalizedType === "1") {
+              parsedEnrollType = 1;
+            }
+          }
 
           // Find course in local list
           const matchedCourse = courses.find(
@@ -236,6 +250,7 @@ export function StudentRegistrationModal({
             courseId: matchedCourse ? matchedCourse.id : 0,
             courseResolved: !!matchedCourse,
             preferredSlots: preferred,
+            enrollType: parsedEnrollType,
             hasError,
             isAlreadyRegistered: isRegistered,
             errorMsg: hasError
@@ -281,6 +296,7 @@ export function StudentRegistrationModal({
         courseName: r.courseId === 0 ? r.rawCourseName : null,
         preferredSlots: r.preferredSlots,
         status: 0,
+        enrollType: r.enrollType,
       }));
 
       const res = await semesterApi.importStudentRegistrations(payload);
@@ -352,6 +368,7 @@ export function StudentRegistrationModal({
         courseId: Number(formCourseId),
         preferredSlots: slots,
         status: Number(formStatus),
+        enrollType: formEnrollType,
       };
 
       let res;
@@ -517,6 +534,7 @@ export function StudentRegistrationModal({
                         <th className="py-2.5 px-3 font-semibold">{t("registration.modalColEmail")}</th>
                         <th className="py-2.5 px-3 font-semibold">{t("registration.modalColCourse")}</th>
                         <th className="py-2.5 px-3 font-semibold">{t("registration.modalColSlots")}</th>
+                        <th className="py-2.5 px-3 font-semibold">Loại lớp</th>
                         <th className="py-2.5 px-3 font-semibold text-right">{t("registration.modalColStatus")}</th>
                       </tr>
                     </thead>
@@ -537,6 +555,15 @@ export function StudentRegistrationModal({
                           <td className={`py-2 px-3 ${r.isAlreadyRegistered ? "line-through opacity-70" : ""}`}>{r.rawCourseName}</td>
                           <td className="py-2 px-3 text-xs">
                             {r.preferredSlots.map((s) => (s === "Morning" ? t("registration.slotMorning") : s === "Afternoon" ? t("registration.slotAfternoon") : t("registration.slotEvening"))).join(", ")}
+                          </td>
+                          <td className="py-2 px-3 text-xs">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold ${
+                              r.enrollType === 1
+                                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400"
+                                : "bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400"
+                            }`}>
+                              {r.enrollType === 1 ? "Online" : "Offline"}
+                            </span>
                           </td>
                           <td className="py-2 px-3 text-right">
                             {r.hasError ? (
@@ -635,6 +662,31 @@ export function StudentRegistrationModal({
                     }))}
                     placeholder={t("registration.modalManualSelectCoursePlaceholder")}
                   />
+                </div>
+
+                {/* Select Enroll Type */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                    Hình thức học <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    {[{ value: 0, label: "Offline" }, { value: 1, label: "Online" }].map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setFormEnrollType(opt.value)}
+                        className={`flex-1 py-2 px-3 text-sm font-medium rounded-lg border transition-all ${
+                          formEnrollType === opt.value
+                            ? opt.value === 1
+                              ? "bg-emerald-50 border-emerald-400 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-600 dark:text-emerald-400"
+                              : "bg-brand-50 border-brand-400 text-brand-700 dark:bg-brand-950/20 dark:border-brand-600 dark:text-brand-400"
+                            : "bg-white border-gray-200 text-gray-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-400 hover:border-gray-300"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Preferred Slots */}
