@@ -53,6 +53,7 @@
     "registrations": "Registrations",
     "classes": "Classes",
     "teachingClasses": "Teaching Classes",
+    "teachingExams": "Teaching Exams",
     "myClasses": "My Classes",
     "teachers": "Teachers",
     "students": "Students",
@@ -89,6 +90,11 @@
     "childProgress": "Child Progress",
     "childSchedules": "Child Schedules",
     "schoolManagement": "IELTS Center Management"
+  },
+  "teachingExam": {
+    "pageTitle": "Teaching Exams",
+    "pageSubtitle": "List of exams assigned to the classes you are teaching.",
+    "noResults": "No exams found for the classes you are teaching."
   },
   "studentScores": {
     "title": "My scores",
@@ -2201,7 +2207,9 @@
       "ExamAttempt": "Exam Attempt",
       "ExamAnswer": "Exam Answer",
       "MyClass": "My Class",
-      "TeachingClass": "Teaching Class"
+      "TeachingClass": "Teaching Class",
+      "StudentExam": "Student Exam",
+      "TeachingExam": "Teaching Exam"
     },
     "action": {
       "View": "View",
