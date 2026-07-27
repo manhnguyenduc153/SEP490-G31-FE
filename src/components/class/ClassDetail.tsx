@@ -236,7 +236,7 @@ export default function ClassDetail({
                 {t("class.tabHomework", { defaultValue: "Bài tập" })}
               </button>
             )}
-            {hasPermission("Exam.View") && (
+            {(hasPermission("Exam.View") || hasPermission("StudentExam") || hasPermission("TeachingExam")) && (
               <button
                 onClick={() => setActiveDetailTab("exams")}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all ${
@@ -310,7 +310,7 @@ export default function ClassDetail({
             )}
 
             {/* TAB 6: BÀI KIỂM TRA (REAL DATA FROM CLASS) */}
-            {activeDetailTab === "exams" && hasPermission("Exam.View") && (
+            {activeDetailTab === "exams" && (hasPermission("Exam.View") || hasPermission("StudentExam") || hasPermission("TeachingExam")) && (
               <ClassDetailExamsTab
                 itemDetail={itemDetail}
                 t={t}
