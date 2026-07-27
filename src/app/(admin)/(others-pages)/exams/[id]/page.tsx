@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import { examApi, ExamItem, ExamAttemptDto } from "@/services/exam.api";
 import { StudentExamTaker } from "@/components/exam/StudentExamTaker";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { CheckCircle, XCircle, Clock, Eye, AlertTriangle, BarChart, Award } from "lucide-react";
 
 export default function ExamDetailPage() {
@@ -1239,14 +1240,16 @@ export default function ExamDetailPage() {
               </div>
             </div>
 
-            <div className="pt-2">
-              <button
-                onClick={() => router.push(`/exams/edit/${exam.id}`)}
-                className="w-full py-2.5 text-center text-xs font-semibold text-white bg-brand-500 hover:bg-brand-600 rounded-lg transition-colors shadow-theme-xs"
-              >
-                {t("exams.editExam")}
-              </button>
-            </div>
+            <PermissionGuard requiredPermission="Exam.Edit">
+              <div className="pt-2">
+                <button
+                  onClick={() => router.push(`/exams/edit/${exam.id}`)}
+                  className="w-full py-2.5 text-center text-xs font-semibold text-white bg-brand-500 hover:bg-brand-600 rounded-lg transition-colors shadow-theme-xs"
+                >
+                  {t("exams.editExam")}
+                </button>
+              </div>
+            </PermissionGuard>
 
           </div>
         </div>

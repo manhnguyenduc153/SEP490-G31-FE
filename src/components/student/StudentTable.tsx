@@ -521,6 +521,20 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          {selectedIds.length > 0 && (
+            <button
+              onClick={handleProvisionAccounts}
+              disabled={isProvisioning || selectedUnprovisionedIds.length === 0}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-theme-xs transition-colors h-11"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+              </svg>
+              {isProvisioning
+                ? t("student.provisioning", { defaultValue: "Đang cấp..." })
+                : t("student.provisionAccountsBtn", { count: selectedIds.length, defaultValue: `Cấp tài khoản (${selectedIds.length})` })}
+            </button>
+          )}
           <button
             onClick={handleExportExcel}
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg cursor-pointer h-11"
@@ -687,6 +701,17 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
                 isHeader
                 className="px-6 py-4 border-r border-gray-100 dark:border-white/[0.05] text-center w-12"
               >
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 text-brand-600 border-gray-300 rounded focus:ring-brand-500 cursor-pointer"
+                  checked={items.length > 0 && selectedIds.length === items.length}
+                  onChange={handleSelectAll}
+                />
+              </TableCell>
+              <TableCell
+                isHeader
+                className="px-6 py-4 border-r border-gray-100 dark:border-white/[0.05] text-center w-12"
+              >
                 <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">#</p>
               </TableCell>
               {columns.map(({ key, label }) => (
@@ -735,6 +760,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
               Array.from({ length: itemsPerPage }).map((_, idx) => (
                 <TableRow key={idx} className="animate-pulse">
                   <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-6" /></TableCell>
+                  <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-6" /></TableCell>
                   <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-16" /></TableCell>
                   <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-32" /></TableCell>
                   <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-40" /></TableCell>
@@ -752,7 +778,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
             ) : error ? (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={9}
                   className="px-6 py-10 text-center text-error-500 dark:text-error-400 font-medium"
                 >
                   {error}
@@ -764,6 +790,14 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
                   key={item.id}
                   className="hover:bg-gray-50/50 dark:hover:bg-white/[0.01] transition-colors"
                 >
+                  <TableCell className="px-6 py-4 border-r border-gray-100 dark:border-white/[0.05] text-center w-12">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 text-brand-600 border-gray-300 rounded focus:ring-brand-500 cursor-pointer"
+                      checked={selectedIds.includes(item.id)}
+                      onChange={(e) => handleSelectItem(item.id, e.target.checked)}
+                    />
+                  </TableCell>
                   <TableCell className="px-6 py-4 text-gray-500 dark:text-gray-400 whitespace-nowrap w-12 text-center">
                     {startIndex + index + 1}
                   </TableCell>

@@ -53,6 +53,7 @@
     "registrations": "Đăng ký học viên",
     "classes": "Lớp học",
     "teachingClasses": "Lớp giảng dạy",
+    "teachingExams": "Bài kiểm tra",
     "myClasses": "Lớp học",
     "teachers": "Giáo viên",
     "students": "Học sinh",
@@ -90,6 +91,11 @@
     "childSchedules": "Lịch học của con",
     "parents": "Danh sách phụ huynh",
     "schoolManagement": "Quản lý trung tâm IELTS"
+  },
+  "teachingExam": {
+    "pageTitle": "Bài kiểm tra lớp giảng dạy",
+    "pageSubtitle": "Danh sách bài kiểm tra được giao cho các lớp bạn đang giảng dạy.",
+    "noResults": "Không có bài kiểm tra nào cho lớp bạn đang dạy."
   },
   "studentScores": {
     "title": "Điểm của tôi",
@@ -2202,7 +2208,9 @@
       "ExamAttempt": "Lượt làm bài thi",
       "ExamAnswer": "Đáp án bài thi",
       "MyClass": "Lớp học của tôi",
-      "TeachingClass": "Lớp giảng dạy"
+      "TeachingClass": "Lớp giảng dạy",
+      "StudentExam": "Bài kiểm tra",
+      "TeachingExam": "Bài kiểm tra lớp dạy"
     },
     "action": {
       "View": "Xem",

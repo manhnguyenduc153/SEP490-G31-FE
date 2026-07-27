@@ -58,6 +58,15 @@ export interface ExamSaveDto {
   questionIds: number[];
 }
 
+export interface ExamSearchParams {
+  pageNumber?: number;
+  pageSize?: number;
+  keyword?: string;
+  classId?: number | null;
+  status?: number | null;
+  type?: number | null;
+}
+
 // ─── API ─────────────────────────────────────────────────────────────────────
 
 export const examApi = {
@@ -82,6 +91,21 @@ export const examApi = {
 
     const queryString = new URLSearchParams(queryParams).toString();
     return api.get<ExamPagingResponse>(`/api/Exam?${queryString}`);
+  },
+
+  async getTeacherExams(params: ExamSearchParams): Promise<ApiResponse<ExamPagingResponse>> {
+    const queryParams: Record<string, string> = {
+      pageNumber: (params.pageNumber || 1).toString(),
+      pageSize: (params.pageSize || 10).toString(),
+    };
+
+    if (params.keyword) queryParams.keyword = params.keyword;
+    if (params.classId) queryParams.classId = params.classId.toString();
+    if (params.status !== undefined && params.status !== null) queryParams.status = params.status.toString();
+    if (params.type !== undefined && params.type !== null) queryParams.type = params.type.toString();
+
+    const queryString = new URLSearchParams(queryParams).toString();
+    return api.get<ExamPagingResponse>(`/api/Exam/teacher?${queryString}`);
   },
 
   async getById(id: number): Promise<ApiResponse<ExamItem>> {
