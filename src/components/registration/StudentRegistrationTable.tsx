@@ -536,21 +536,35 @@ export default function StudentRegistrationTable() {
                     <div className="flex items-center justify-center gap-2">
                       {hasPermission("StudentRegistration.Edit") && (
                         <button
+                          disabled={item.status === 1}
                           onClick={() => {
+                            if (item.status === 1) return;
                             setRegistrationToEdit(item);
                             setIsModalOpen(true);
                           }}
-                          className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md transition-colors cursor-pointer"
-                          title={t("common.edit", { defaultValue: "Sửa" })}
+                          className={`p-1.5 rounded-md transition-colors ${
+                            item.status === 1
+                              ? "text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-50"
+                              : "text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30 cursor-pointer"
+                          }`}
+                          title={item.status === 1 ? "Không thể chỉnh sửa đăng ký đã xếp lớp" : t("common.edit", { defaultValue: "Sửa" })}
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                       )}
                       {hasPermission("StudentRegistration.Delete") && (
                         <button
-                          onClick={() => handleDelete(item.id)}
-                          className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors cursor-pointer"
-                          title={t("common.delete", { defaultValue: "Xóa" })}
+                          disabled={item.status === 1}
+                          onClick={() => {
+                            if (item.status === 1) return;
+                            handleDelete(item.id);
+                          }}
+                          className={`p-1.5 rounded-md transition-colors ${
+                            item.status === 1
+                              ? "text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-50"
+                              : "text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 cursor-pointer"
+                          }`}
+                          title={item.status === 1 ? "Không thể xóa đăng ký đã xếp lớp" : t("common.delete", { defaultValue: "Xóa" })}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
