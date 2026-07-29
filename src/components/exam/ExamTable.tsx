@@ -71,9 +71,14 @@ export function ExamTable() {
 
   // ─── Read sessionStorage toast (after redirect from ExamForm) ───────────────
   useEffect(() => {
+    const key = sessionStorage.getItem("examToastKey");
     const msg = sessionStorage.getItem("examToastMessage");
     const type = sessionStorage.getItem("examToastType") as "success" | "error" | null;
-    if (msg) {
+    if (key) {
+      showToast(t(`exams.${key}`), type || "success");
+      sessionStorage.removeItem("examToastKey");
+      sessionStorage.removeItem("examToastType");
+    } else if (msg) {
       showToast(msg, type || "success");
       sessionStorage.removeItem("examToastMessage");
       sessionStorage.removeItem("examToastType");
@@ -143,13 +148,13 @@ export function ExamTable() {
     try {
       const res = await examApi.copy(item.id);
       if (res.success) {
-        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : "Sao chép bài kiểm tra thành công!");
+        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: t("exams.successCopy") }) : t("exams.successCopy"));
         triggerRefresh();
       } else {
-        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : "Lỗi khi sao chép", "error");
+        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: t("exams.errorCopy") }) : t("exams.errorCopy"), "error");
       }
     } catch {
-      showToast("Lỗi hệ thống khi sao chép bài kiểm tra", "error");
+      showToast(t("exams.systemErrorCopy"), "error");
     }
   };
 
@@ -159,14 +164,24 @@ export function ExamTable() {
     try {
       const res = await examApi.delete(deleteTarget.id);
       if (res.success) {
-        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : "Xóa bài kiểm tra thành công!");
+        showToast(
+          res.message
+            ? t(`backendMessages.${res.message}`, { defaultValue: t("exams.successDelete") })
+            : t("exams.successDelete")
+        );
         setDeleteTarget(null);
         triggerRefresh();
       } else {
-        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : "Lỗi khi xóa bài kiểm tra", "error");
+        const errorKey = res.message || "ERR_DELETE_FAILED";
+        const translatedError = t(`backendMessages.${errorKey}`, {
+          defaultValue: errorKey === "ERR_EXAM_IN_USE"
+            ? t("backendMessages.ERR_EXAM_IN_USE")
+            : errorKey,
+        });
+        showToast(translatedError, "error");
       }
     } catch {
-      showToast("Lỗi hệ thống khi thực hiện xóa", "error");
+      showToast(t("exams.systemErrorDelete"), "error");
     } finally {
       setIsDeleting(false);
     }

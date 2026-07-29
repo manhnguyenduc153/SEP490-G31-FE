@@ -16,16 +16,21 @@ export interface QuestionItem {
   content: string;
   questionType: number;
   questionTypeName: string;
+  skillType?: number;
+  skillTypeName?: string;
   difficultyLevel: number;
   difficultyLevelName: string;
   explanation?: string | null;
+  mediaUrl?: string | null;
   status: number;
   categoryId?: number | null;
   categoryName?: string | null;
+  passageId?: number | null;
   point?: number | null;
   createdAt: string;
   createdBy?: string | null;
   questionAnswers: QuestionAnswerDto[];
+  answers?: QuestionAnswerDto[];
 }
 
 export interface QuestionPagingResponse {
@@ -39,14 +44,17 @@ export interface QuestionPagingResponse {
 export interface QuestionSaveDto {
   id?: number;
   code?: string;
-  name: string; // Title
+  name?: string; // Title
   content: string;
   questionType: number;
+  skillType?: number;
   difficultyLevel: number;
   explanation?: string | null;
+  mediaUrl?: string | null;
   categoryId?: number | null;
   point?: number | null;
-  questionAnswers: QuestionAnswerDto[];
+  questionAnswers?: QuestionAnswerDto[];
+  answers?: QuestionAnswerDto[];
 }
 
 // ─── API ─────────────────────────────────────────────────────────────────────
@@ -60,6 +68,7 @@ export const questionApi = {
       categoryId?: number;
       difficultyLevel?: number;
       questionType?: number;
+      skillType?: number;
     } = {}
   ): Promise<ApiResponse<QuestionPagingResponse>> {
     const queryParams: Record<string, string> = {
@@ -71,6 +80,7 @@ export const questionApi = {
     if (params.categoryId) queryParams.categoryId = String(params.categoryId);
     if (params.difficultyLevel) queryParams.difficultyLevel = String(params.difficultyLevel);
     if (params.questionType) queryParams.questionType = String(params.questionType);
+    if (params.skillType) queryParams.skillType = String(params.skillType);
 
     const query = new URLSearchParams(queryParams).toString();
     return api.get<QuestionPagingResponse>(
