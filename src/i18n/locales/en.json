@@ -2322,7 +2322,7 @@
     "ERR_QUESTION_IN_USE": "This question is currently used in an exam and cannot be deleted!",
     "ERR_PASSAGE_NOT_FOUND": "Question passage not found.",
     "DELETE_PASSAGE_SUCCESS": "Question passage deleted successfully!",
-    "ERR_EXAM_IN_USE": "This exam already has student submissions and cannot be deleted!",
+    "ERR_EXAM_IN_USE": "This exam already has student submissions and cannot be deleted!"
   },
   "permissions": {
     "category": {
