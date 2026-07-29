@@ -5,7 +5,7 @@ import ExamReport from "@/components/reports/ExamReport";
 export default function ExamReportPage() {
   return (
     <div className="flex flex-col gap-6 w-full max-w-full animate-fadeIn">
-      <PageBreadcrumb pageTitle="Kết quả thi" />
+      <PageBreadcrumb pageTitle="sidebar.examReport" />
       <div className="mt-2">
         <ExamReport />
       </div>

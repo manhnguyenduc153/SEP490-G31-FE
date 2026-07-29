@@ -361,7 +361,14 @@ export default function ParentStudentTable({
                     </TableCell>
 
                     <TableCell className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">
-                      {item.name}
+                      <div>
+                        <span>{item.name}</span>
+                        {item.code && (
+                          <span className="block text-xs font-mono text-gray-400 mt-0.5">
+                            {item.code}
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="px-6 py-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">
                       {item.parentPhone || "—"}

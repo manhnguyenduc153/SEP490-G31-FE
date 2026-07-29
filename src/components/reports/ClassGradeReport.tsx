@@ -51,7 +51,7 @@ export default function ClassGradeReport() {
           setReportData(null);
         }
       } catch (err: any) {
-        setError(err?.message || "Lỗi hệ thống");
+        setError(err?.message || t("classGradeReport.systemError"));
         setReportData(null);
       } finally {
         setIsLoading(false);
@@ -77,9 +77,9 @@ export default function ClassGradeReport() {
 
     const dataToExport = reportData.students.map((student, index) => {
       const rowData: any = {
-        "STT": index + 1,
-        "Mã học viên": student.studentCode,
-        "Tên học viên": student.studentName,
+        [t("classGradeReport.index")]: index + 1,
+        [t("classGradeReport.studentCode")]: student.studentCode,
+        [t("classGradeReport.studentName")]: student.studentName,
       };
 
       reportData.components.forEach((comp) => {
@@ -87,9 +87,9 @@ export default function ClassGradeReport() {
         rowData[`${comp.name} (${comp.weight}%)`] = score !== null && score !== undefined ? score : "-";
       });
 
-      rowData["Điểm tổng kết"] = student.finalScore !== null && student.finalScore !== undefined ? student.finalScore : "-";
-      rowData["Đánh giá"] = student.finalScore !== null && student.finalScore !== undefined 
-        ? (student.isPassed ? "Đạt" : "Trượt") 
+      rowData[t("classGradeReport.finalScore")] = student.finalScore !== null && student.finalScore !== undefined ? student.finalScore : "-";
+      rowData[t("classGradeReport.evaluation")] = student.finalScore !== null && student.finalScore !== undefined 
+        ? (student.isPassed ? t("classGradeReport.statusPassed") : t("classGradeReport.statusFailed")) 
         : "-";
 
       return rowData;
@@ -102,7 +102,7 @@ export default function ClassGradeReport() {
     worksheet["!cols"] = wscols;
 
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Bảng điểm");
+    XLSX.utils.book_append_sheet(workbook, worksheet, t("classGradeReport.sheetName"));
 
     const dateStr = new Date().toISOString().slice(0, 10);
     const fileName = `Bang_Diem_${reportData.classCode}_${dateStr}.xlsx`;
@@ -125,8 +125,8 @@ export default function ClassGradeReport() {
           th { background-color: #f3f4f6; color: #374151; }
         </style>
       </head><body>
-      <h2>Bảng điểm tổng hợp</h2>
-      <p>Lớp: ${reportData.className} (${reportData.classCode})</p>
+      <h2>${t("classGradeReport.exportTitle")}</h2>
+      <p>${t("classGradeReport.classPrefix")}${reportData.className} (${reportData.classCode})</p>
       ${el.outerHTML}
       </body></html>`;
     const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
@@ -170,8 +170,8 @@ export default function ClassGradeReport() {
         </style>
       </head>
       <body>
-        <h2>Báo cáo Bảng điểm tổng hợp</h2>
-        <p>Lớp: ${reportData.className} (${reportData.classCode})</p>
+        <h2>${t("classGradeReport.exportPdfTitle")}</h2>
+        <p>${t("classGradeReport.classPrefix")}${reportData.className} (${reportData.classCode})</p>
         ${el.outerHTML}
       </body>
       </html>
@@ -233,10 +233,10 @@ export default function ClassGradeReport() {
             <div className="flex justify-between items-center">
               <div>
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                  Danh sách Bảng điểm
+                  {t("classGradeReport.gradeList")}
                 </h3>
                 <p className="text-sm text-gray-500">
-                  Lớp: <span className="font-semibold text-gray-700 dark:text-gray-300">{reportData.classCode}</span> - {reportData.className}
+                  {t("classGradeReport.classPrefix")}<span className="font-semibold text-gray-700 dark:text-gray-300">{reportData.classCode}</span> - {reportData.className}
                 </p>
               </div>
               <div className="relative" onMouseLeave={() => setIsExportOpen(false)}>
@@ -245,7 +245,7 @@ export default function ClassGradeReport() {
                   className="flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm font-semibold transition-all shadow-sm border border-brand-500 hover:border-brand-600"
                 >
                   <Download className="w-4 h-4" />
-                  Xuất dữ liệu <ChevronDown className="w-3 h-3 ml-1" />
+                  {t("classGradeReport.exportData")} <ChevronDown className="w-3 h-3 ml-1" />
                 </button>
 
                 {isExportOpen && (
@@ -268,8 +268,8 @@ export default function ClassGradeReport() {
 
             {reportData.components.length === 0 ? (
               <div className="text-center py-10 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl border border-yellow-200 dark:border-yellow-800">
-                <p className="text-yellow-600 dark:text-yellow-400 font-medium">Khóa học này chưa được cấu hình các cột điểm (Grade Components).</p>
-                <p className="text-sm text-yellow-500 mt-1">Vui lòng thiết lập cấu hình điểm cho khóa học trước khi xem báo cáo.</p>
+                <p className="text-yellow-600 dark:text-yellow-400 font-medium">{t("classGradeReport.noGradeConfigTitle")}</p>
+                <p className="text-sm text-yellow-500 mt-1">{t("classGradeReport.noGradeConfigDesc")}</p>
               </div>
             ) : (
               <div id="report-table-container" className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-theme-sm">
@@ -297,7 +297,7 @@ export default function ClassGradeReport() {
                       {reportData.students.length === 0 ? (
                         <tr>
                           <td colSpan={5 + reportData.components.length} className="px-6 py-8 text-center text-gray-500">
-                            Chưa có dữ liệu học sinh trong lớp học này.
+                            {t("classGradeReport.noStudentsData")}
                           </td>
                         </tr>
                       ) : (

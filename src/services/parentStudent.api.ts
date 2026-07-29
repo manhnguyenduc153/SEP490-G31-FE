@@ -75,7 +75,7 @@ export const parentStudentApi = {
 
   /**
    * Tạo phụ huynh mới → backend tự động tạo IdentityUser với role "Parent"
-   * Password mặc định: Parent@123456
+   * Password mặc định: 123456
    */
   async create(
     dto: ParentStudentSaveDto
