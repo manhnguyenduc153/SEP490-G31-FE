@@ -2296,7 +2296,18 @@
     "ERR_NO_ACTIVE_TEACHERS": "Không có giáo viên hoạt động nào trong hệ thống!",
     "ERR_NO_ACTIVE_ROOMS": "Không có phòng học hoạt động nào trong hệ thống!",
     "ERR_NO_TIMESLOTS": "Không có ca học nào trong hệ thống!",
-    "ERR_NO_FEASIBLE_SCHEDULE_FOUND": "Không tìm thấy phương án xếp lịch khả thi (vui lòng bổ sung thêm phòng học, giáo viên hoặc kiểm tra trùng lặp ca học)!"
+    "ERR_NO_FEASIBLE_SCHEDULE_FOUND": "Không tìm thấy phương án xếp lịch khả thi (vui lòng bổ sung thêm phòng học, giáo viên hoặc kiểm tra trùng lặp ca học)!",
+    "AUTO_SCHEDULING_SEMESTER_DRAFT_GENERATED": "Tạo lịch nháp học kỳ thành công! Hãy kiểm tra trên lịch.",
+    "SCHEDULE_DRAFT_SAVED": "Lưu chính thức thời khóa biểu thành công!",
+    "ERR_NO_PENDING_REGISTRATIONS_FOUND": "Không tìm thấy học sinh đăng ký đang chờ xếp lớp trong học kỳ này.",
+    "ERR_NO_DRAFT_CLASSES_GENERATED": "Không thể gom học sinh thành bất kỳ lớp nháp nào.",
+    "ERR_NO_DRAFT_CLASSES_MATCH_TIME_PREFERENCES": "Không có lớp nháp nào phù hợp với ưu tiên ca học đã chọn.",
+    "ERR_INVALID_DRAFT_REQUEST": "Yêu cầu lưu lịch nháp không hợp lệ.",
+    "ERR_PASSAGE_IN_USE": "Bộ đề bài này (hoặc các câu hỏi con) đang được sử dụng trong bài kiểm tra, không thể xóa!",
+    "ERR_QUESTION_IN_USE": "Câu hỏi này đang được sử dụng trong bài kiểm tra, không thể xóa!",
+    "ERR_PASSAGE_NOT_FOUND": "Không tìm thấy bộ đề bài.",
+    "DELETE_PASSAGE_SUCCESS": "Xóa bộ đề bài thành công!",
+    "ERR_EXAM_IN_USE": "Bài kiểm tra này đã có học sinh làm bài, không thể xóa!"
   },
   "permissions": {
     "category": {
@@ -2564,13 +2575,39 @@
     "empty": "Con hiện chưa tham gia lớp học nào có điểm số.",
     "averageScore": "Điểm trung bình"
   },
-  "backendMessages": {
-    "ERR_PASSAGE_IN_USE": "Bộ đề bài này (hoặc các câu hỏi con) đang được sử dụng trong bài kiểm tra, không thể xóa!",
-    "ERR_QUESTION_IN_USE": "Câu hỏi này đang được sử dụng trong bài kiểm tra, không thể xóa!",
-    "ERR_PASSAGE_NOT_FOUND": "Không tìm thấy bộ đề bài.",
-    "DELETE_PASSAGE_SUCCESS": "Xóa bộ đề bài thành công!",
-    "ERR_EXAM_IN_USE": "Bài kiểm tra này đã có học sinh làm bài, không thể xóa!",
-    "ERR_EXAM_NOT_FOUND": "Không tìm thấy bài kiểm tra.",
-    "DELETE_EXAM_SUCCESS": "Xóa bài kiểm tra thành công!"
+  "classSchedules": {
+    "draftPendingTitle": "Bản nháp lịch học đang chờ xác nhận",
+    "draftSemesterPrefix": "Học kỳ: ",
+    "draftClassesCreated": "{{count}} lớp được tạo. Kiểm tra lịch trên Calendar rồi bấm Lưu nếu hài lòng.",
+    "cancelDraft": "Hủy bản nháp",
+    "saveOfficial": "Lưu chính thức",
+    "classFilterLabel": "Lớp học:",
+    "allClassesPlaceholder": "Tất cả các lớp",
+    "unassigned": "Chưa phân công",
+    "lessonsCount": "{{count}} buổi",
+    "autoScheduleBtn": "Xếp lịch tự động",
+    "legendDraft": "Lịch màu vàng viền nét đứt = lịch nháp chưa lưu",
+    "legendSaved": "Lịch màu khác = lịch đã lưu trong hệ thống",
+    "weekLabel": "Tuần: ",
+    "slotDayLabel": "Ca / Ngày",
+    "draftSessionTitle": "📋 Lịch Nháp — Chi Tiết Buổi Học {{lessonNo}}",
+    "sessionTitle": "Chi Tiết Buổi Học {{lessonNo}}",
+    "draftStatusLabel": "Chưa lưu",
+    "classPrefix": "Lớp: ",
+    "dateLabel": "Ngày học",
+    "timeLabel": "Khung giờ",
+    "roomLabel": "Phòng học",
+    "teacherLabel": "Giáo viên",
+    "btnClose": "Đóng",
+    "noScheduleConfig": "Chưa cấu hình lịch",
+    "toastCancelDraftSuccess": "Đã hủy bản nháp lịch học hiện tại.",
+    "today": "Hôm nay",
+    "week": "Tuần",
+    "month": "Tháng",
+    "ca1": "Ca 1",
+    "ca2": "Ca 2",
+    "ca3": "Ca 3",
+    "ca4": "Ca 4",
+    "ca5": "Ca 5"
   }
 }
