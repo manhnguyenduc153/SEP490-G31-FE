@@ -68,18 +68,47 @@ export function StudentExamList({ t }: StudentExamListProps) {
     return matchesKeyword && matchesClass;
   });
 
+  const isAttemptPassed = (exam: ExamItem) => {
+    if (exam.latestScore === null || exam.latestScore === undefined) return false;
+    return exam.latestScore >= (exam.passingScore || 5);
+  };
+
   const getStatusText = (exam: ExamItem) => {
     if (exam.submissionCount && exam.submissionCount > 0) {
-      return t("exams.statusCompleted");
+      if (exam.isGraded || (exam.latestScore !== null && exam.latestScore !== undefined)) {
+        return isAttemptPassed(exam) ? t("exams.statusCompleted") : t("exams.attemptFailed");
+      }
+      return t("exams.statusPendingGrade");
     }
     return t("exams.statusNotStarted");
   };
 
   const getStatusColor = (exam: ExamItem) => {
     if (exam.submissionCount && exam.submissionCount > 0) {
-      return "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400";
+      if (exam.isGraded || (exam.latestScore !== null && exam.latestScore !== undefined)) {
+        return isAttemptPassed(exam)
+          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200/60"
+          : "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400 border border-rose-200/60";
+      }
+      return "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-200/60";
     }
     return "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400";
+  };
+
+  const isManualGradedExam = (examItem: ExamItem) => {
+    const typeStr = String(examItem.type || "").toLowerCase();
+    const titleStr = String(examItem.title || "").toLowerCase();
+    const skillType = (examItem as any).skillType;
+    return (
+      typeStr.includes("speaking") ||
+      typeStr.includes("writing") ||
+      titleStr.includes("speaking") ||
+      titleStr.includes("writing") ||
+      skillType === 3 ||
+      skillType === 4 ||
+      examItem.type === 3 ||
+      examItem.type === 4
+    );
   };
 
   if (loading) {
@@ -187,9 +216,15 @@ export function StudentExamList({ t }: StudentExamListProps) {
                       {getStatusText(exam)}
                     </span>
                     {exam.submissionCount && exam.submissionCount > 0 ? (
-                      <span className="text-xs font-black text-brand-650 dark:text-brand-400">
-                        {exam.totalScore || 10} {t("exams.points").toLowerCase()}
-                      </span>
+                      exam.isGraded || (exam.latestScore !== null && exam.latestScore !== undefined) ? (
+                        <span className={`text-xs font-black ${isAttemptPassed(exam) ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                          {exam.latestScore} / {exam.totalScore || 10} {t("exams.points").toLowerCase()}
+                        </span>
+                      ) : (
+                        <span className="text-xs font-bold text-amber-600 dark:text-amber-400 font-mono">
+                          {t("exams.statusPendingGrade")}
+                        </span>
+                      )
                     ) : (
                       <span className="text-[10px] text-gray-400 font-semibold">{t("exams.noScore")}</span>
                     )}

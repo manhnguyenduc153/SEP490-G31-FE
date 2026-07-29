@@ -4,18 +4,22 @@ import React, { useState, useEffect } from "react";
 import { FileText, Download, Clock, AlertTriangle, Trophy, Target } from "lucide-react";
 import { homeworkApi, HomeworkDto } from "@/services/homework.api";
 import { ENV } from "@/config/env";
+import { useRouter } from "next/navigation";
 
 interface ClassDetailHomeworkTabProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   itemDetail: any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   t: any;
+  isStudentView?: boolean;
 }
 
 export default function ClassDetailHomeworkTab({
   itemDetail,
   t,
+  isStudentView = false,
 }: ClassDetailHomeworkTabProps) {
+  const router = useRouter();
   const [homeworks, setHomeworks] = useState<HomeworkDto[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -27,7 +31,9 @@ export default function ClassDetailHomeworkTab({
     async function loadHomeworks() {
       setIsLoading(true);
       try {
-        const res = await homeworkApi.getHomeworkByClass(classId);
+        const res = isStudentView
+          ? await homeworkApi.getStudentHomeworkByClass(classId)
+          : await homeworkApi.getHomeworkByClass(classId);
         if (active && res.success && res.data) {
           setHomeworks(res.data);
         }
@@ -132,24 +138,35 @@ export default function ClassDetailHomeworkTab({
                     )}
                   </div>
 
-                  {hw.attachmentUrls && hw.attachmentUrls.length > 0 && (
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-400">{t("class.attachments", { defaultValue: "Tài liệu đính kèm" })}:</span>
-                      {hw.attachmentUrls.map((url, idx) => (
-                        <a
-                          key={idx}
-                          href={getFullFileUrl(url)}
-                          download
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-bold text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 dark:text-brand-400 dark:bg-brand-500/10 dark:hover:bg-brand-500/20 border border-brand-200/50 dark:border-brand-900/30 rounded-lg transition-colors cursor-pointer"
-                        >
-                          <Download className="w-3 h-3" />
-                          File {idx + 1}
-                        </a>
-                      ))}
-                    </div>
-                  )}
+                  <div className="flex flex-wrap items-center gap-4">
+                    {hw.attachmentUrls && hw.attachmentUrls.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-400">{t("class.attachments", { defaultValue: "Tài liệu đính kèm" })}:</span>
+                        {hw.attachmentUrls.map((url, idx) => (
+                          <a
+                            key={idx}
+                            href={getFullFileUrl(url)}
+                            download
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-bold text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 dark:text-brand-400 dark:bg-brand-500/10 dark:hover:bg-brand-500/20 border border-brand-200/50 dark:border-brand-900/30 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <Download className="w-3 h-3" />
+                            File {idx + 1}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+
+                    {isStudentView && !expired && (
+                      <button
+                        onClick={() => router.push(`/my-homework?classId=${itemDetail?.id}&homeworkId=${hw.id}`)}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-sm transition-colors cursor-pointer"
+                      >
+                        {t("class.btnSubmitHomework", { defaultValue: "Nộp bài" })}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );

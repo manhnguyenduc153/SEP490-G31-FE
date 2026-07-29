@@ -2,41 +2,87 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { questionApi, QuestionAnswerDto } from "@/services/question.api";
 import { questionCategoryApi, QuestionCategoryItem } from "@/services/questionCategory.api";
+import { questionPassageApi, QuestionPassageSaveDto } from "@/services/questionPassage.api";
+import { questionApi, QuestionSaveDto, QuestionAnswerDto } from "@/services/question.api";
 import { CodeHelper } from "@/helpers/CodeHelper";
 import { useTranslation } from "react-i18next";
-import { TrashBinIcon } from "@/icons";
-import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { Plus, Trash2, Volume2, BookOpen, PenTool, Mic, Save, ArrowLeft, HelpCircle, CheckSquare, Upload } from "lucide-react";
+
+import { ENV } from "@/config/env";
 
 interface QuestionFormProps {
   id?: number; // If provided, we are in Edit mode
 }
+
+const getFileUrl = (url?: string) => {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("blob:") || url.startsWith("data:")) {
+    return url;
+  }
+  return `${ENV.API_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
+};
 
 export function QuestionForm({ id }: QuestionFormProps) {
   const { t } = useTranslation();
   const router = useRouter();
   const isEdit = !!id;
 
-  // ── Form States ──
-  const [formCode, setFormCode] = useState("");
-  const [formName, setFormName] = useState(""); // Title
-  const [formContent, setFormContent] = useState("");
-  const [formType, setFormType] = useState<number>(1); // 1 = Single, 2 = Multiple, 3 = Essay, 4 = True/False
-  const [formPoint, setFormPoint] = useState<number>(1);
-  const [formDifficulty, setFormDifficulty] = useState<number>(2); // 2 = Medium
-  const [formExplanation, setFormExplanation] = useState("");
+  // ── Passage States ──
+  const [passageCode, setPassageCode] = useState("");
+  const [passageTitle, setPassageTitle] = useState("");
+  const [passageContent, setPassageContent] = useState("");
+  const [passageAudioUrl, setPassageAudioUrl] = useState("");
+  const [passageAttachmentUrl, setPassageAttachmentUrl] = useState("");
+  // Backend SkillType Enum: 1 = Listening, 2 = Reading, 3 = Speaking, 4 = Writing
+  const [skillType, setSkillType] = useState<number>(2);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-  const [formAnswers, setFormAnswers] = useState<QuestionAnswerDto[]>([
-    { content: "Option A", isCorrect: true },
-    { content: "Option B", isCorrect: false },
+
+  // ── Child Questions List ──
+  const [childQuestions, setChildQuestions] = useState<QuestionSaveDto[]>([
+    {
+      code: "Q_1",
+      name: "Question 1",
+      content: "",
+      questionType: 1, // 1 = Single Choice
+      difficultyLevel: 2, // Medium
+      point: 1,
+      explanation: "",
+      answers: [
+        { content: "Option A", isCorrect: true },
+        { content: "Option B", isCorrect: false },
+        { content: "Option C", isCorrect: false },
+        { content: "Option D", isCorrect: false },
+      ],
+    },
   ]);
 
-  // ── Loading / Error states ──
+  // ── Options / Category loading ──
   const [categories, setCategories] = useState<QuestionCategoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingAudio, setIsUploadingAudio] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // ── Upload Audio Handler ──
+  const handleAudioFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingAudio(true);
+    try {
+      const res = await questionPassageApi.uploadFile(file);
+      if (res.success && res.data) {
+        setPassageAudioUrl(res.data);
+      } else {
+        alert(res.message || t("questionPassage.uploadError"));
+      }
+    } catch {
+      alert(t("questionPassage.uploadError"));
+    } finally {
+      setIsUploadingAudio(false);
+    }
+  };
 
   // ── Load Categories ──
   useEffect(() => {
@@ -56,176 +102,278 @@ export function QuestionForm({ id }: QuestionFormProps) {
     loadCategories();
   }, [isEdit]);
 
-  // ── Load Question Detail for Edit ──
+  // ── Load Detail for Edit ──
   useEffect(() => {
     if (!id) {
-      setFormCode(CodeHelper.generate("Q"));
+      setPassageCode(CodeHelper.generate("QP"));
       return;
     }
 
     async function loadDetail() {
       setIsLoading(true);
       try {
-        const res = await questionApi.getById(id!);
+        // 1. Try loading as QuestionPassage first
+        const res = await questionPassageApi.getById(id!);
         if (res.success && res.data) {
           const data = res.data;
-          setFormCode(data.code);
-          setFormName(data.name);
-          setFormContent(data.content);
-          setFormType(data.questionType);
-          setFormPoint(data.point ?? 1);
-          setFormDifficulty(data.difficultyLevel);
-          setFormExplanation(data.explanation ?? "");
+          setPassageCode(data.code);
+          setPassageTitle(data.title);
+          setPassageContent(data.content ?? "");
+          setPassageAudioUrl(data.audioUrl ?? "");
+          setPassageAttachmentUrl(data.attachmentUrl ?? "");
+          setSkillType(data.skillType ?? 2);
           setSelectedCategory(data.categoryId ?? null);
 
-          if (data.questionAnswers && data.questionAnswers.length > 0) {
-            setFormAnswers(
-              data.questionAnswers.map((a) => ({
-                id: a.id,
-                content: a.content,
-                isCorrect: a.isCorrect,
+          if (data.questions && data.questions.length > 0) {
+            setChildQuestions(
+              data.questions.map((q, idx) => ({
+                id: q.id,
+                code: q.code || `Q_${idx + 1}`,
+                name: q.name || `Question ${idx + 1}`,
+                content: q.content,
+                questionType: q.questionType,
+                difficultyLevel: q.difficultyLevel,
+                point: 1,
+                explanation: q.explanation ?? "",
+                mediaUrl: q.mediaUrl ?? "",
+                answers: (q.answers || q.questionAnswers || []).map((a) => ({
+                  id: a.id,
+                  content: a.content,
+                  isCorrect: a.isCorrect,
+                })),
               }))
             );
           }
-        } else {
-          setFormError(t("question.errorLoadDetail"));
+          return;
         }
+
+        // 2. Fallback: Try loading as standalone Question if QuestionPassage not found
+        const qRes = await questionApi.getById(id!);
+        if (qRes.success && qRes.data) {
+          const qData = qRes.data;
+          setPassageCode(qData.code || CodeHelper.generate("QP"));
+          setPassageTitle(qData.name || qData.content);
+          setPassageContent(qData.content ?? "");
+          setPassageAudioUrl(qData.mediaUrl ?? "");
+          setSkillType(qData.skillType ?? 2);
+          setSelectedCategory(qData.categoryId ?? null);
+          setChildQuestions([
+            {
+              id: qData.id,
+              code: qData.code,
+              name: qData.name,
+              content: qData.content,
+              questionType: qData.questionType,
+              difficultyLevel: qData.difficultyLevel,
+              point: 1,
+              explanation: qData.explanation ?? "",
+              mediaUrl: qData.mediaUrl ?? "",
+              answers: (qData.answers || qData.questionAnswers || []).map((a) => ({
+                id: a.id,
+                content: a.content,
+                isCorrect: a.isCorrect,
+              })),
+            },
+          ]);
+          return;
+        }
+
+        setFormError(t("questionPassage.errLoadDetail"));
       } catch {
-        setFormError(t("question.errorLoadDetailSystem"));
+        setFormError(t("questionPassage.errNetwork"));
       } finally {
         setIsLoading(false);
       }
     }
-
     loadDetail();
   }, [id, t]);
 
-  // ── Handle change in Question Type ──
-  const handleTypeChange = (type: number) => {
-    setFormType(type);
-    if (type === 4) {
-      // True / False
-      setFormAnswers([
-        { content: t("question.typeTrueFalseTrue", { defaultValue: "Đúng" }), isCorrect: true },
-        { content: t("question.typeTrueFalseFalse", { defaultValue: "Sai" }), isCorrect: false },
-      ]);
-    } else if (type === 3) {
-      // Essay
-      setFormAnswers([]);
-    } else {
-      // Single / Multiple choice
-      setFormAnswers([
-        { content: "", isCorrect: true },
-        { content: "", isCorrect: false },
-      ]);
+  // ── Add/Remove Question ──
+  const handleAddQuestion = () => {
+    const defaultQType = 1;
+    setChildQuestions((prev) => [
+      ...prev,
+      {
+        code: `Q_${prev.length + 1}`,
+        name: `Question ${prev.length + 1}`,
+        content: "",
+        questionType: defaultQType,
+        difficultyLevel: 2,
+        point: 1,
+        explanation: "",
+        answers: [
+          { content: `${t("questionPassage.answerPlaceholder", { label: "A" })}`, isCorrect: true },
+          { content: `${t("questionPassage.answerPlaceholder", { label: "B" })}`, isCorrect: false },
+        ],
+      },
+    ]);
+  };
+
+  const handleRemoveQuestion = (qIndex: number) => {
+    if (childQuestions.length <= 1) {
+      alert(t("questionPassage.errChildEmpty"));
+      return;
     }
+    setChildQuestions((prev) => prev.filter((_, idx) => idx !== qIndex));
   };
 
-  // ── Answer option actions ──
-  const addAnswerOption = () => {
-    if (formAnswers.length >= 6) return;
-    setFormAnswers([...formAnswers, { content: "", isCorrect: false }]);
+  // ── Update Question Property ──
+  const handleUpdateQuestion = (qIndex: number, field: keyof QuestionSaveDto, value: any) => {
+    setChildQuestions((prev) =>
+      prev.map((q, idx) => (idx === qIndex ? { ...q, [field]: value } : q))
+    );
   };
 
-  const removeAnswerOption = (index: number) => {
-    if (formAnswers.length <= 2) return;
-    const newAnswers = [...formAnswers];
-    newAnswers.splice(index, 1);
-
-    if (formAnswers[index].isCorrect) {
-      newAnswers[0].isCorrect = true;
-    }
-    setFormAnswers(newAnswers);
+  // ── Answer Actions for Child Question ──
+  const handleAddAnswer = (qIndex: number) => {
+    setChildQuestions((prev) =>
+      prev.map((q, idx) => {
+        if (idx !== qIndex) return q;
+        const currentAns = q.answers || [];
+        const label = String.fromCharCode(65 + currentAns.length);
+        return {
+          ...q,
+          answers: [
+            ...currentAns,
+            { content: t("questionPassage.answerPlaceholder", { label }), isCorrect: false },
+          ],
+        };
+      })
+    );
   };
 
-  const updateAnswerText = (index: number, val: string) => {
-    const newAnswers = [...formAnswers];
-    newAnswers[index].content = val;
-    setFormAnswers(newAnswers);
+  const handleRemoveAnswer = (qIndex: number, aIndex: number) => {
+    setChildQuestions((prev) =>
+      prev.map((q, idx) => {
+        if (idx !== qIndex) return q;
+        const currentAns = q.answers || [];
+        if (currentAns.length <= 2) {
+          alert(t("question.valMinAnswers"));
+          return q;
+        }
+        return {
+          ...q,
+          answers: currentAns.filter((_, ai) => ai !== aIndex),
+        };
+      })
+    );
   };
 
-  const setCorrectAnswer = (index: number) => {
-    const newAnswers = [...formAnswers];
-    if (formType === 1 || formType === 4) {
-      newAnswers.forEach((ans, i) => {
-        ans.isCorrect = i === index;
-      });
-    } else if (formType === 2) {
-      newAnswers[index].isCorrect = !newAnswers[index].isCorrect;
-    }
-    setFormAnswers(newAnswers);
+  const handleUpdateAnswerText = (qIndex: number, aIndex: number, text: string) => {
+    setChildQuestions((prev) =>
+      prev.map((q, idx) => {
+        if (idx !== qIndex) return q;
+        const currentAns = q.answers || [];
+        return {
+          ...q,
+          answers: currentAns.map((a, ai) => (ai === aIndex ? { ...a, content: text } : a)),
+        };
+      })
+    );
   };
 
-  // ── Submit logic ──
+  const handleToggleAnswerCorrect = (qIndex: number, aIndex: number) => {
+    setChildQuestions((prev) =>
+      prev.map((q, idx) => {
+        if (idx !== qIndex) return q;
+        const currentAns = q.answers || [];
+        const isSingleChoice = q.questionType === 1;
+
+        return {
+          ...q,
+          answers: currentAns.map((a, ai) => {
+            if (ai === aIndex) return { ...a, isCorrect: !a.isCorrect };
+            if (isSingleChoice) return { ...a, isCorrect: false };
+            return a;
+          }),
+        };
+      })
+    );
+  };
+
+  // ── Submit Form ──
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
-    if (!formName.trim()) {
-      setFormError(t("question.valTitleRequired"));
-      return;
-    }
-    if (!formContent.trim()) {
-      setFormError(t("question.valContentRequired"));
+    if (!passageTitle.trim()) {
+      setFormError(t("questionPassage.errTitleEmpty"));
       return;
     }
 
-    if (formType !== 3) {
-      if (formAnswers.length < 2) {
-        setFormError(t("question.valMinAnswers"));
+    let questionsToSubmit: QuestionSaveDto[] = [];
+
+    // Backend SkillType Enum: 1 = Listening, 2 = Reading, 3 = Speaking, 4 = Writing
+    if (skillType === 1 || skillType === 2) {
+      if (childQuestions.length === 0) {
+        setFormError(t("questionPassage.errChildEmpty"));
         return;
       }
-      if (formAnswers.length > 0 && formAnswers.some((a) => !a.content.trim())) {
-        setFormError(t("question.valAnswerContentRequired"));
-        return;
+
+      // Validate child questions for Listening & Reading
+      for (let i = 0; i < childQuestions.length; i++) {
+        const q = childQuestions[i];
+        if (!q.content.trim()) {
+          setFormError(t("questionPassage.errQuestionContentEmpty", { index: i + 1 }));
+          return;
+        }
+        if ((q.questionType === 1 || q.questionType === 2) && (!q.answers || q.answers.length === 0)) {
+          setFormError(t("questionPassage.errAnswersEmpty", { index: i + 1 }));
+          return;
+        }
+        if ((q.questionType === 1 || q.questionType === 2) && !q.answers?.some((a) => a.isCorrect)) {
+          setFormError(t("questionPassage.errNoCorrectAnswer", { index: i + 1 }));
+          return;
+        }
       }
-      if (!formAnswers.some((a) => a.isCorrect)) {
-        setFormError(t("question.valNeedCorrectAnswer"));
-        return;
-      }
+      questionsToSubmit = childQuestions;
+    } else {
+      // Speaking (skillType = 3) or Writing (skillType = 4)
+      // In BE QuestionType: 3 = Essay (Text), 5 = AudioRecord (Ghi âm)
+      questionsToSubmit = [
+        {
+          code: `${passageCode}_Q1`,
+          name: passageTitle,
+          content: passageContent || passageTitle,
+          questionType: skillType === 3 ? 5 : 3, // 5 = Audio Record (Speaking), 3 = Essay Text (Writing)
+          skillType: skillType,
+          difficultyLevel: 2,
+          point: 1,
+          answers: [],
+        },
+      ];
     }
 
     setIsSubmitting(true);
     try {
-      const payload = {
-        code: formCode,
-        name: formName.trim(),
-        content: formContent.trim(),
-        questionType: formType,
-        difficultyLevel: formDifficulty,
-        explanation: formExplanation.trim() || null,
+      const payload: QuestionPassageSaveDto = {
+        id: id || 0,
+        code: passageCode.trim(),
+        title: passageTitle.trim(),
+        content: passageContent.trim(),
+        audioUrl: passageAudioUrl.trim(),
+        attachmentUrl: passageAttachmentUrl.trim(),
+        skillType: skillType,
         categoryId: selectedCategory,
-        point: formPoint,
-        questionAnswers: formAnswers.map((a) => ({
-          id: a.id,
-          content: a.content.trim(),
-          isCorrect: a.isCorrect,
-        })),
+        questions: questionsToSubmit,
       };
 
       let res;
       if (isEdit) {
-        res = await questionApi.update(id!, payload);
+        res = await questionPassageApi.update(id!, payload);
       } else {
-        res = await questionApi.create(payload);
+        res = await questionPassageApi.create(payload);
       }
 
       if (res.success) {
-        sessionStorage.setItem(
-          "questionToastMessage",
-          isEdit ? t("question.successUpdate") : t("question.successCreate")
-        );
+        sessionStorage.setItem("questionToastMessage", isEdit ? "Cập nhật bộ câu hỏi thành công!" : "Tạo mới bộ câu hỏi thành công!");
         sessionStorage.setItem("questionToastType", "success");
         router.push("/question-bank");
       } else {
-        setFormError(
-          res.message
-            ? t(`backendMessages.${res.message}`, { defaultValue: res.message })
-            : t("question.errorSave")
-        );
+        setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("questionPassage.errSaveFail"));
       }
-    } catch (err) {
-      setFormError(t("question.errorNetwork"));
+    } catch {
+      setFormError(t("questionPassage.errNetwork"));
     } finally {
       setIsSubmitting(false);
     }
@@ -233,351 +381,479 @@ export function QuestionForm({ id }: QuestionFormProps) {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 animate-pulse">
-        <div className="h-8 w-8 rounded-full border-4 border-brand-500 border-t-transparent animate-spin mb-4" />
-        <span className="text-sm font-medium text-gray-500">{t("question.loadingDetail")}</span>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
+  const getSkillName = () => {
+    switch (skillType) {
+      case 1: return t("questionPassage.skillListening");
+      case 2: return t("questionPassage.skillReading");
+      case 3: return t("questionPassage.skillSpeaking");
+      case 4: return t("questionPassage.skillWriting");
+      default: return t("questionPassage.skillReading");
+    }
+  };
+
   return (
-    <div className="space-y-6 w-full pb-10">
-      {/* ── Top Header Card ── */}
-      <div className="flex items-center justify-between p-5 sm:p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs">
-        <div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-            {isEdit
-              ? t("question.editTitle", { defaultValue: "Chỉnh sửa câu hỏi" })
-              : t("question.createTitle", { defaultValue: "Tạo câu hỏi mới" })}
-          </h2>
-          <p className="text-xs text-gray-500 mt-1">
-            {t("question.formBreadcrumbHome", { defaultValue: "Trang chủ" })} -{" "}
-            {t("question.formBreadcrumbQuestions", { defaultValue: "Ngân hàng câu hỏi" })} -{" "}
-            {isEdit
-              ? t("question.formBreadcrumbEdit", { defaultValue: "Chỉnh sửa" })
-              : t("question.formBreadcrumbCreate", { defaultValue: "Tạo mới" })}
-          </p>
+    <div className="max-w-5xl mx-auto pb-16 space-y-6">
+      {/* Header Bar */}
+      <div className="flex items-center justify-between bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => router.push("/question-bank")}
+            className="p-2.5 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+              {isEdit ? t("questionPassage.titleEdit") : t("questionPassage.titleCreate")}
+            </h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              {t("questionPassage.descHeader")}
+            </p>
+          </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => router.push("/question-bank")}
-          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-gray-600 bg-white border border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg h-11"
-        >
-          <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-          </svg>
-          {t("question.formBackBtn", { defaultValue: "Quay lại" })}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => router.push("/question-bank")}
+            className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 transition-colors"
+          >
+            {t("questionPassage.btnCancel")}
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-xl shadow-theme-xs transition-colors cursor-pointer disabled:opacity-60"
+          >
+            <Save className="w-4 h-4" />
+            {isSubmitting ? t("questionPassage.btnSaving") : isEdit ? t("questionPassage.btnUpdate") : t("questionPassage.btnSave")}
+          </button>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row gap-6">
-        {/* Left panel - Main info */}
-        <div className="flex-1 space-y-6">
-          {/* Card wrapper */}
-          <div className="p-6 bg-white dark:bg-white/[0.03] rounded-xl border border-gray-100 dark:border-white/[0.05] space-y-6">
-            <h3 className="text-base font-bold text-gray-900 dark:text-white pb-3 border-b border-gray-100 dark:border-white/[0.05]">
-              {t("question.formBasicInfo")}
-            </h3>
+      {formError && (
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 dark:bg-rose-950/30 dark:border-rose-900 dark:text-rose-400 text-sm font-medium">
+          ⚠️ {formError}
+        </div>
+      )}
 
-          {/* Title */}
+      {/* Step 1: Selection & Settings */}
+      <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-6">
+        <h2 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+          <HelpCircle className="w-5 h-5 text-brand-500" />
+          {t("questionPassage.step1Title")}
+        </h2>
+
+        {/* Skill Selection Tabs (BE Enum: 1=Listening, 2=Reading, 3=Speaking, 4=Writing) */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+            {t("questionPassage.skillLabel")} <span className="text-rose-500">*</span>
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { type: 2, name: t("questionPassage.skillReading"), icon: BookOpen },
+              { type: 1, name: t("questionPassage.skillListening"), icon: Volume2 },
+              { type: 4, name: t("questionPassage.skillWriting"), icon: PenTool },
+              { type: 3, name: t("questionPassage.skillSpeaking"), icon: Mic },
+            ]
+              .filter((s) => !isEdit || s.type === skillType)
+              .map((s) => {
+                const Icon = s.icon;
+                const isSelected = skillType === s.type;
+                return (
+                  <button
+                    key={s.type}
+                    type="button"
+                    disabled={isEdit}
+                    onClick={() => !isEdit && setSkillType(s.type)}
+                    className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 font-medium transition-all ${
+                      isSelected
+                        ? "border-brand-500 bg-brand-50/40 text-brand-600 dark:bg-brand-950/20 dark:text-brand-400 shadow-sm"
+                        : "border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-700"
+                    } ${isEdit ? "cursor-default" : ""}`}
+                  >
+                    <Icon className={`w-6 h-6 mb-2 ${isSelected ? "text-brand-500" : "text-gray-400"}`} />
+                    <span className="text-sm font-semibold">{s.name}</span>
+                  </button>
+                );
+              })}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+          {/* Category */}
           <div>
-            <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t("question.formTitleLabel")} <span className="text-rose-500">*</span>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {t("questionPassage.categoryLabel")} <span className="text-rose-500">*</span>
+            </label>
+            <select
+              value={selectedCategory ?? ""}
+              onChange={(e) => setSelectedCategory(e.target.value ? Number(e.target.value) : null)}
+              className="w-full rounded-xl border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+            >
+              <option value="" className="dark:bg-gray-900">{t("questionPassage.categorySelectPlaceholder")}</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id} className="dark:bg-gray-900">
+                  {cat.name} ({cat.code})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Passage Code */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {t("questionPassage.codeLabel")} <span className="text-rose-500">*</span>
             </label>
             <input
               type="text"
               required
-              value={formName}
-              onChange={(e) => setFormName(e.target.value)}
-              placeholder={t("question.formTitlePlaceholder")}
-              className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs"
+              value={passageCode}
+              onChange={(e) => setPassageCode(e.target.value)}
+              placeholder={t("questionPassage.codePlaceholder")}
+              className="w-full rounded-xl border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white"
             />
           </div>
+        </div>
+      </div>
 
-          {/* Content */}
-          <div>
-            <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t("question.formContentLabel")} <span className="text-rose-500">*</span>
-            </label>
-            <textarea
-              required
-              rows={4}
-              value={formContent}
-              onChange={(e) => setFormContent(e.target.value)}
-              placeholder={t("question.formContentPlaceholder")}
-              className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs resize-y"
-            />
-          </div>
+      {/* Step 2: Passage / Prompt Details */}
+      <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-5">
+        <h2 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+          {skillType === 1 && <Volume2 className="w-5 h-5 text-blue-500" />}
+          {skillType === 2 && <BookOpen className="w-5 h-5 text-emerald-500" />}
+          {skillType === 4 && <PenTool className="w-5 h-5 text-purple-500" />}
+          {skillType === 3 && <Mic className="w-5 h-5 text-amber-500" />}
+          {t("questionPassage.step2Title", { skillName: getSkillName() })}
+        </h2>
 
-          {/* Type Select */}
-          <div>
-            <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t("question.formTypeLabel")} <span className="text-rose-500">*</span>
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { type: 1, label: t("question.typeSingle") },
-                { type: 2, label: t("question.typeMultiple") },
-                { type: 3, label: t("question.typeEssay") },
-                { type: 4, label: t("question.typeTrueFalse") },
-              ].map((item) => (
-                <button
-                  key={item.type}
-                  type="button"
-                  onClick={() => handleTypeChange(item.type)}
-                  className={`px-4 py-2 text-sm font-semibold rounded-lg border transition-all ${
-                    formType === item.type
-                      ? "bg-brand-500 text-white border-brand-500 shadow-md"
-                      : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-white/5"
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
+        {/* Title */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            {t("questionPassage.passageTitleLabel")} <span className="text-rose-500">*</span>
+          </label>
+          <input
+            type="text"
+            required
+            value={passageTitle}
+            onChange={(e) => setPassageTitle(e.target.value)}
+            placeholder={
+              skillType === 2
+                ? t("questionPassage.passageTitlePlaceholderReading")
+                : skillType === 1
+                ? t("questionPassage.passageTitlePlaceholderListening")
+                : t("questionPassage.passageTitlePlaceholderWriting")
+            }
+            className="w-full rounded-xl border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white font-medium"
+          />
+        </div>
 
-          {/* Point and Difficulty */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Skill Specific Input Fields */}
+        {skillType === 1 && (
+          <div className="space-y-4">
             <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                {t("question.formPointLabel")} <span className="text-rose-500">*</span>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {t("questionPassage.passageAudioUrlLabel")} <span className="text-rose-500">*</span>
               </label>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                step={0.25}
-                required
-                value={formPoint}
-                onChange={(e) => setFormPoint(Number(e.target.value))}
-                className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800 shadow-theme-xs"
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                {t("question.formDifficultyLabel")} <span className="text-rose-500">*</span>
-              </label>
-              <select
-                value={formDifficulty}
-                onChange={(e) => setFormDifficulty(Number(e.target.value))}
-                className="w-full rounded-lg border border-gray-300 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden dark:border-gray-700 dark:text-white/90 shadow-theme-xs"
-              >
-                <option value="1">{t("question.difficultyEasy")}</option>
-                <option value="2">{t("question.difficultyMedium")}</option>
-                <option value="3">{t("question.difficultyHard")}</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Options / Answers Section */}
-          {formType !== 3 && (
-            <div className="space-y-4 pt-3 border-t border-gray-100 dark:border-white/[0.05]">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-bold text-gray-900 dark:text-white">
-                  {t("question.formAnswersLabel")} <span className="text-rose-500">*</span>
-                </label>
-                {(formType === 1 || formType === 2) && formAnswers.length < 6 && (
-                  <button
-                    type="button"
-                    onClick={addAnswerOption}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/20 rounded-lg hover:bg-brand-100/80 transition-colors"
-                  >
-                    {t("question.formAddAnswer")}
-                  </button>
-                )}
-              </div>
-
-              {/* Guide notice */}
-              <p className="text-xs text-gray-400">
-                {formType === 1 && t("question.formGuideSingle")}
-                {formType === 2 && t("question.formGuideMultiple")}
-                {formType === 4 && t("question.formGuideTrueFalse")}
-              </p>
 
               <div className="space-y-3">
-                {formAnswers.map((answer, index) => {
-                  const optionLabel = String.fromCharCode(65 + index); // A, B, C, D...
-                  return (
-                    <div
-                      key={index}
-                      className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
-                        answer.isCorrect
-                          ? "bg-emerald-50/50 dark:bg-emerald-500/5 border-emerald-200 dark:border-emerald-500/20"
-                          : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800"
-                      }`}
-                    >
-                      {/* Label badge */}
-                      <span
-                        className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold shrink-0 ${
-                          answer.isCorrect
-                            ? "bg-emerald-500 text-white"
-                            : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
-                        }`}
-                      >
-                        {optionLabel}
-                      </span>
+                {/* File Upload Button */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand-50 hover:bg-brand-100 text-brand-600 dark:bg-brand-950/40 dark:text-brand-300 rounded-xl cursor-pointer text-sm font-medium border border-brand-200 dark:border-brand-800 transition-colors shadow-xs">
+                    <Upload className="w-4 h-4" />
+                    {isUploadingAudio ? t("questionPassage.uploadingAudio") : t("questionPassage.uploadAudioBtn")}
+                    <input
+                      type="file"
+                      accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.flac"
+                      className="hidden"
+                      onChange={handleAudioFileUpload}
+                      disabled={isUploadingAudio}
+                    />
+                  </label>
+                  <span className="text-xs text-gray-400 font-medium">
+                    {t("questionPassage.uploadOrPaste")}
+                  </span>
+                </div>
 
-                      {/* Content input */}
-                      <input
-                        type="text"
-                        required
-                        disabled={formType === 4} // Fixed for True/False
-                        value={answer.content}
-                        onChange={(e) => updateAnswerText(index, e.target.value)}
-                        placeholder={t("question.formAnswerPlaceholder", { label: optionLabel })}
-                        className="flex-1 bg-transparent border-0 px-2 py-1 text-sm text-gray-800 dark:text-white focus:outline-hidden focus:ring-0 placeholder:text-gray-400"
-                      />
+                {/* Audio URL Input */}
+                <input
+                  type="text"
+                  value={passageAudioUrl}
+                  onChange={(e) => setPassageAudioUrl(e.target.value)}
+                  placeholder="https://example.com/audio/section1.mp3"
+                  className="w-full rounded-xl border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                />
 
-                      {/* Correct indicator checkbox/radio */}
-                      <div className="flex items-center gap-2 pr-1">
-                        {formType === 1 || formType === 4 ? (
-                          <input
-                            type="radio"
-                            name="correct-answer-radio"
-                            checked={answer.isCorrect}
-                            onChange={() => setCorrectAnswer(index)}
-                            className="w-5 h-5 text-emerald-500 border-gray-300 focus:ring-emerald-500/20 focus:ring-offset-0 focus:outline-hidden cursor-pointer"
-                          />
-                        ) : (
-                          <input
-                            type="checkbox"
-                            checked={answer.isCorrect}
-                            onChange={() => setCorrectAnswer(index)}
-                            className="w-5 h-5 text-emerald-500 rounded border-gray-300 focus:ring-emerald-500/20 focus:ring-offset-0 focus:outline-hidden cursor-pointer"
-                          />
-                        )}
-
-                        {/* Delete button (minimum 2 options) */}
-                        {formType !== 4 && formAnswers.length > 2 && (
-                          <button
-                            type="button"
-                            onClick={() => removeAnswerOption(index)}
-                            className="p-1 text-gray-400 hover:text-rose-500 transition-colors ml-2"
-                            title={t("question.deleteTooltip")}
-                          >
-                            <TrashBinIcon className="w-4.5 h-4.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                {/* Audio Player Preview */}
+                {passageAudioUrl && (
+                  <div className="p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-xl border border-blue-200 dark:border-blue-900 space-y-1.5">
+                    <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
+                      🎧 {t("questionPassage.audioPreviewLabel")}
+                    </span>
+                    <audio controls src={getFileUrl(passageAudioUrl)} className="w-full h-10 rounded-lg" />
+                  </div>
+                )}
               </div>
             </div>
-          )}
-
-          {/* Explanation */}
-          <div className="pt-3 border-t border-gray-100 dark:border-white/[0.05]">
-            <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t("question.formExplanationLabel")}{" "}
-              <span className="text-gray-400 font-normal">{t("question.formExplanationOptional")}</span>
-            </label>
-            <textarea
-              rows={3}
-              value={formExplanation}
-              onChange={(e) => setFormExplanation(e.target.value)}
-              placeholder={t("question.formExplanationPlaceholder")}
-              className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs resize-y"
-            />
-          </div>
-
-          {/* Code */}
-          <div className="pt-3 border-t border-gray-100 dark:border-white/[0.05] grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                {t("question.formCodeLabel")}{" "}
-                <span className="text-gray-400 font-normal">{t("question.formCodeAutoHint")}</span>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {t("questionPassage.passageTranscriptLabel")}
               </label>
-              <input
-                type="text"
-                maxLength={50}
-                value={formCode}
-                onChange={(e) => setFormCode(e.target.value)}
-                placeholder={t("question.formCodePlaceholder")}
-                className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 shadow-theme-xs"
+              <textarea
+                value={passageContent}
+                onChange={(e) => setPassageContent(e.target.value)}
+                rows={4}
+                placeholder={t("questionPassage.passageTranscriptPlaceholder")}
+                className="w-full rounded-xl border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white resize-none"
               />
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={() => router.push("/question-bank")}
-            className="px-5 py-2.5 text-sm font-medium text-gray-750 bg-white dark:bg-gray-800 dark:text-gray-300 border border-gray-350 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs"
-          >
-            {t("question.formCancelBtn")}
-          </button>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="px-5 py-2.5 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg shadow-theme-xs transition-colors"
-          >
-            {isSubmitting
-              ? t("question.formProcessingBtn")
-              : isEdit
-              ? t("question.formUpdateBtn")
-              : t("question.formCreateBtn")}
-          </button>
-        </div>
+        {skillType === 2 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {t("questionPassage.passageReadingContentLabel")} <span className="text-rose-500">*</span>
+            </label>
+            <textarea
+              value={passageContent}
+              onChange={(e) => setPassageContent(e.target.value)}
+              rows={8}
+              placeholder={t("questionPassage.passageReadingContentPlaceholder")}
+              className="w-full rounded-xl border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white font-serif leading-relaxed"
+            />
+          </div>
+        )}
 
-        {formError && (
-          <div className="p-4 bg-rose-50 dark:bg-rose-550/10 text-rose-600 dark:text-rose-400 text-sm font-semibold rounded-lg border border-rose-100 dark:border-rose-550/20">
-            ⚠ {formError}
+        {skillType === 4 && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {t("questionPassage.passageWritingPromptLabel")} <span className="text-rose-500">*</span>
+              </label>
+              <textarea
+                value={passageContent}
+                onChange={(e) => setPassageContent(e.target.value)}
+                rows={5}
+                placeholder={t("questionPassage.passageWritingPromptPlaceholder")}
+                className="w-full rounded-xl border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+              />
+            </div>
+            <div className="p-3 bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900 rounded-xl text-xs text-purple-700 dark:text-purple-300">
+              {t("questionPassage.passageWritingNote")}
+            </div>
+          </div>
+        )}
+
+        {skillType === 3 && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {t("questionPassage.passageSpeakingPromptLabel")} <span className="text-rose-500">*</span>
+              </label>
+              <textarea
+                value={passageContent}
+                onChange={(e) => setPassageContent(e.target.value)}
+                rows={4}
+                placeholder={t("questionPassage.passageSpeakingPromptPlaceholder")}
+                className="w-full rounded-xl border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {t("questionPassage.passageSpeakingAudioLabel")}
+              </label>
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 rounded-xl cursor-pointer text-sm font-medium border border-amber-200 dark:border-amber-800 transition-colors shadow-xs">
+                    <Upload className="w-4 h-4" />
+                    {isUploadingAudio ? t("questionPassage.uploadingAudio") : t("questionPassage.uploadAudioBtn")}
+                    <input
+                      type="file"
+                      accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.flac"
+                      className="hidden"
+                      onChange={handleAudioFileUpload}
+                      disabled={isUploadingAudio}
+                    />
+                  </label>
+                  <span className="text-xs text-gray-400 font-medium">
+                    {t("questionPassage.uploadOrPaste")}
+                  </span>
+                </div>
+
+                <input
+                  type="text"
+                  value={passageAudioUrl}
+                  onChange={(e) => setPassageAudioUrl(e.target.value)}
+                  placeholder="https://example.com/audio/speaking-prompt.mp3"
+                  className="w-full rounded-xl border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                />
+
+                {passageAudioUrl && (
+                  <div className="p-3 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-900 space-y-1.5">
+                    <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                      🎧 {t("questionPassage.audioPreviewLabel")}
+                    </span>
+                    <audio controls src={getFileUrl(passageAudioUrl)} className="w-full h-10 rounded-lg" />
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-xl text-xs text-amber-700 dark:text-amber-300">
+              {t("questionPassage.passageSpeakingNote")}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Right panel - Sidebars & Guides */}
-      <div className="w-full lg:w-80 shrink-0 space-y-6">
-        {/* Category card */}
-        <div className="p-6 bg-white dark:bg-white/[0.03] rounded-xl border border-gray-100 dark:border-white/[0.05] space-y-4">
-          <label className="block text-sm font-bold text-gray-900 dark:text-white">
-            {t("question.formCategoryLabel")}
-          </label>
-          <SearchableSelect
-            options={categories.map((c) => ({
-              value: c.id,
-              label: c.name,
-            }))}
-            value={selectedCategory || ""}
-            onChange={(val) => setSelectedCategory(val ? Number(val) : null)}
-            placeholder={t("question.formNoCategory")}
-            onClear={() => setSelectedCategory(null)}
-          />
-        </div>
-
-        {/* Guide box */}
-        <div className="p-6 bg-blue-50/40 dark:bg-blue-950/10 rounded-xl border border-blue-100/50 dark:border-blue-500/10 space-y-4 text-sm leading-relaxed text-gray-600 dark:text-gray-300 shadow-theme-xs">
-          <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold">
-            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>{t("question.formGuideTitle")}</span>
+      {/* Step 3: Child Questions List (Only for Listening & Reading skills) */}
+      {(skillType === 1 || skillType === 2) && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <CheckSquare className="w-5 h-5 text-brand-500" />
+              {t("questionPassage.step3Title", { count: childQuestions.length })}
+            </h2>
+            <button
+              type="button"
+              onClick={handleAddQuestion}
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-xl transition-colors dark:bg-brand-950/40 dark:text-brand-300"
+            >
+              <Plus className="w-4 h-4" />
+              {t("questionPassage.btnAddChildQuestion")}
+            </button>
           </div>
-          <ul className="space-y-3.5 text-xs">
-            <li>
-              <strong>{t("question.typeSingle")}:</strong> {t("question.formGuideSingleDesc")}
-            </li>
-            <li>
-              <strong>{t("question.typeMultiple")}:</strong> {t("question.formGuideMultipleDesc")}
-            </li>
-            <li>
-              <strong>{t("question.typeEssay")}:</strong> {t("question.formGuideEssayDesc")}
-            </li>
-            <li>
-              <strong>{t("question.typeTrueFalse")}:</strong> {t("question.formGuideTrueFalseDesc")}
-            </li>
-            <li className="pt-2 border-t border-blue-200/30 dark:border-blue-500/10 font-medium text-blue-600 dark:text-blue-400">
-              {t("question.formGuideFooter")}
-            </li>
-          </ul>
+
+          {childQuestions.map((q, qIdx) => (
+            <div
+              key={qIdx}
+              className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-4 relative"
+            >
+              <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
+                <span className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-brand-500 text-white text-xs font-bold">
+                    {qIdx + 1}
+                  </span>
+                  {t("questionPassage.childQuestionTitle", { index: qIdx + 1 })}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => handleRemoveQuestion(qIdx)}
+                  className="p-1.5 text-gray-400 hover:text-rose-500 transition-colors"
+                  title={t("question.deleteTooltip")}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                {/* Question Content */}
+                <div className="md:col-span-8">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {t("questionPassage.colQuestionContent")} <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={q.content}
+                    onChange={(e) => handleUpdateQuestion(qIdx, "content", e.target.value)}
+                    placeholder="e.g. What is the main idea of paragraph 1?"
+                    className="w-full rounded-xl border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  />
+                </div>
+
+                {/* Question Type */}
+                <div className="md:col-span-4">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {t("questionPassage.colQuestionType")}
+                  </label>
+                  <select
+                    value={q.questionType}
+                    onChange={(e) => handleUpdateQuestion(qIdx, "questionType", Number(e.target.value))}
+                    className="w-full rounded-xl border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  >
+                    <option value={1} className="dark:bg-gray-900">{t("questionPassage.typeSingleChoice")}</option>
+                    <option value={2} className="dark:bg-gray-900">{t("questionPassage.typeMultipleChoice")}</option>
+                    <option value={3} className="dark:bg-gray-900">{t("questionPassage.typeEssayText")}</option>
+                    <option value={4} className="dark:bg-gray-900">{t("questionPassage.typeAudioRecord")}</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Answer Options for Choice Questions */}
+              {(q.questionType === 1 || q.questionType === 2) && (
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      {t("questionPassage.answersTitle")}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => handleAddAnswer(qIdx)}
+                      className="text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400"
+                    >
+                      {t("questionPassage.btnAddAnswer")}
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {(q.answers || []).map((ans, aIdx) => (
+                      <div key={aIdx} className="flex items-center gap-3">
+                        <input
+                          type={q.questionType === 1 ? "radio" : "checkbox"}
+                          checked={ans.isCorrect}
+                          onChange={() => handleToggleAnswerCorrect(qIdx, aIdx)}
+                          className="w-4 h-4 text-brand-500 rounded focus:ring-brand-500 cursor-pointer"
+                        />
+                        <span className="text-xs font-semibold text-gray-500 w-6">
+                          {String.fromCharCode(65 + aIdx)}.
+                        </span>
+                        <input
+                          type="text"
+                          value={ans.content}
+                          onChange={(e) => handleUpdateAnswerText(qIdx, aIdx, e.target.value)}
+                          placeholder={t("questionPassage.answerPlaceholder", { label: String.fromCharCode(65 + aIdx) })}
+                          className="flex-1 rounded-xl border border-gray-300 bg-transparent px-3 py-1.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAnswer(qIdx, aIdx)}
+                          className="p-1 text-gray-400 hover:text-rose-500"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Explanation */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t("questionPassage.colExplanation")}
+                </label>
+                <textarea
+                  value={q.explanation ?? ""}
+                  onChange={(e) => handleUpdateQuestion(qIdx, "explanation", e.target.value)}
+                  rows={2}
+                  placeholder={t("questionPassage.colExplanationPlaceholder")}
+                  className="w-full rounded-xl border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white resize-none"
+                />
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
-    </form>
+      )}
     </div>
   );
 }

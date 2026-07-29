@@ -46,6 +46,8 @@ export interface StudentRegistrationDto {
   preferredSlotsJson?: string | null;
   preferredSlots?: string[];
   status: number;
+  enrollType: number; // 0 = Offline, 1 = Online
+  enrollTypeName?: string | null;
 }
 
 export interface StudentRegistrationSaveDto {
@@ -60,6 +62,7 @@ export interface StudentRegistrationSaveDto {
   courseName?: string | null;
   preferredSlots: string[];
   status?: number;
+  enrollType: number; // 0 = Offline, 1 = Online
 }
 
 export interface StudentRegistrationPagingResponse {

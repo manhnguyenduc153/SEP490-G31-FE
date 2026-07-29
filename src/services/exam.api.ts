@@ -26,6 +26,8 @@ export interface ExamItem {
   createdAt: string;
   questionCount: number;
   submissionCount: number;
+  latestScore?: number | null;
+  isGraded?: boolean;
   questionIds: number[];
   questions?: QuestionItem[];
 }
@@ -58,6 +60,15 @@ export interface ExamSaveDto {
   questionIds: number[];
 }
 
+export interface ExamSearchParams {
+  pageNumber?: number;
+  pageSize?: number;
+  keyword?: string;
+  classId?: number | null;
+  status?: number | null;
+  type?: number | null;
+}
+
 // ─── API ─────────────────────────────────────────────────────────────────────
 
 export const examApi = {
@@ -82,6 +93,21 @@ export const examApi = {
 
     const queryString = new URLSearchParams(queryParams).toString();
     return api.get<ExamPagingResponse>(`/api/Exam?${queryString}`);
+  },
+
+  async getTeacherExams(params: ExamSearchParams): Promise<ApiResponse<ExamPagingResponse>> {
+    const queryParams: Record<string, string> = {
+      pageNumber: (params.pageNumber || 1).toString(),
+      pageSize: (params.pageSize || 10).toString(),
+    };
+
+    if (params.keyword) queryParams.keyword = params.keyword;
+    if (params.classId) queryParams.classId = params.classId.toString();
+    if (params.status !== undefined && params.status !== null) queryParams.status = params.status.toString();
+    if (params.type !== undefined && params.type !== null) queryParams.type = params.type.toString();
+
+    const queryString = new URLSearchParams(queryParams).toString();
+    return api.get<ExamPagingResponse>(`/api/Exam/teacher?${queryString}`);
   },
 
   async getById(id: number): Promise<ApiResponse<ExamItem>> {
@@ -127,6 +153,10 @@ export const examApi = {
   async submitAttempt(examId: number, dto: ExamSubmitDto): Promise<ApiResponse<ExamAttemptDto>> {
     return api.post<ExamAttemptDto>(`/api/Exam/${examId}/submit`, dto);
   },
+
+  async gradeAttempt(attemptId: number, dto: { score: number; teacherComment?: string }): Promise<ApiResponse<ExamAttemptDto>> {
+    return api.put<ExamAttemptDto>(`/api/Exam/attempt/${attemptId}/grade`, dto);
+  },
 };
 
 export interface ExamAnswerDto {
@@ -153,6 +183,7 @@ export interface ExamAttemptDto {
   duration?: number | null;
   tabExitsCount?: number;
   log?: string | null;
+  teacherComment?: string | null;
   answers: ExamAnswerDto[];
 }
 

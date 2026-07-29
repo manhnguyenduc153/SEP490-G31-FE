@@ -17,7 +17,6 @@ import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
 
 interface HomeworkListProps {
   classId: number;
-  allClassIds?: number[];
   showToast: (msg: string, type?: "success" | "error") => void;
   onEditClick: (item: HomeworkDto) => void;
   onViewClick: (item: HomeworkDto) => void;
@@ -27,7 +26,6 @@ interface HomeworkListProps {
 
 export default function HomeworkList({
   classId,
-  allClassIds = [],
   showToast,
   onEditClick,
   onViewClick,
@@ -89,9 +87,11 @@ export default function HomeworkList({
     async function fetchHomeworks() {
       setIsLoading(true);
       try {
-        const responses = classId === 0
-          ? await Promise.all(allClassIds.map((id) => homeworkApi.getHomeworkByClass(id)))
-          : [await homeworkApi.getHomeworkByClass(classId)];
+        const fetchFunc = userRole === "Student"
+          ? homeworkApi.getStudentHomeworkByClass
+          : homeworkApi.getHomeworkByClass;
+
+        const responses = [await fetchFunc(classId)];
         const res = {
           success: responses.every((response) => response.success),
           data: responses.filter((response) => response.success).flatMap((response) => response.data),
@@ -118,6 +118,16 @@ export default function HomeworkList({
           } else {
             setStudentSubmissions({});
           }
+        } else if (mounted) {
+          setItems([]);
+          showToast(
+            responses.find((response) => !response.success)?.message
+              ? t(`backendMessages.${responses.find((response) => !response.success)?.message}`, {
+                  defaultValue: responses.find((response) => !response.success)?.message,
+                })
+              : t("homework.loadListError"),
+            "error"
+          );
         }
       } catch (err) {
         console.error(err);
@@ -128,7 +138,7 @@ export default function HomeworkList({
     }
     fetchHomeworks();
     return () => { mounted = false; };
-  }, [classId, allClassIds.join(","), refreshKey, showToast, userRole, t]);
+  }, [classId, refreshKey, showToast, userRole, t]);
 
   const getStudentGradingStatus = (homeworkId: number) => {
     const submission = studentSubmissions[homeworkId];

@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { examApi, ExamItem, ExamAttemptDto, ExamAnswerDto } from "@/services/exam.api";
+import { questionPassageApi, QuestionPassageItem } from "@/services/questionPassage.api";
+import { ENV } from "@/config/env";
 import {
   Rocket,
   Clock,
@@ -16,8 +18,17 @@ import {
   History,
   Award,
   AlertTriangle,
-  FileText
+  FileText,
+  Volume2
 } from "lucide-react";
+
+const getFileUrl = (url?: string) => {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("blob:") || url.startsWith("data:")) {
+    return url;
+  }
+  return `${ENV.API_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
+};
 
 interface StudentExamTakerProps {
   examId: number;
@@ -44,7 +55,22 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadingAudioQId, setUploadingAudioQId] = useState<number | null>(null);
   const [viewState, setViewState] = useState<"ready" | "taking" | "result">("ready");
+
+  const checkIfPendingGrading = (att?: ExamAttemptDto | null) => {
+    if (!att || !exam) return false;
+    const typeStr = String(exam.type || "").toLowerCase();
+    const titleStr = String(exam.title || "").toLowerCase();
+    const isManualGradedExam =
+      typeStr.includes("speaking") ||
+      typeStr.includes("writing") ||
+      titleStr.includes("speaking") ||
+      titleStr.includes("writing") ||
+      exam.questions?.some((q) => q.skillType === 3 || q.skillType === 4 || q.questionType === 3);
+
+    return isManualGradedExam && (att.score === null || att.score === undefined || att.score === 0);
+  };
   
   // Right side panel tab for Results view
   const [resultTab, setResultTab] = useState<"result" | "history">("result");
@@ -66,17 +92,23 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
   });
   const closeConfirm = () => setConfirmModal(prev => ({ ...prev, open: false }));
 
+  const [questionPassages, setQuestionPassages] = useState<QuestionPassageItem[]>([]);
+
   // Load Exam Details and Past Attempts
   const loadExamAndAttempts = async () => {
     setIsLoading(true);
     try {
-      const [examRes, attemptsRes] = await Promise.all([
+      const [examRes, attemptsRes, passRes] = await Promise.all([
         examApi.getStudentExamDetail(examId),
-        examApi.getStudentAttempts(examId)
+        examApi.getStudentAttempts(examId),
+        questionPassageApi.getAll(1, 1000)
       ]);
 
       if (examRes.success && examRes.data) {
         setExam(examRes.data);
+      }
+      if (passRes.success && passRes.data) {
+        setQuestionPassages(passRes.data.items || []);
       }
       if (attemptsRes.success && attemptsRes.data) {
         setAttempts(attemptsRes.data);
@@ -111,6 +143,34 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [examId]);
+
+  // Group exam questions by QuestionPassage
+  const groupedPassageMap = React.useMemo(() => {
+    if (!exam || !exam.questions || exam.questions.length === 0) {
+      return { passageGroups: [], standaloneQs: [] };
+    }
+
+    const passageMap = new Map<number, { passage: QuestionPassageItem; questions: any[] }>();
+    const assignedQIds = new Set<number>();
+
+    questionPassages.forEach((p) => {
+      const matchingQs = (exam?.questions || []).filter(
+        (q) => q.passageId === p.id || (q.code && p.code && q.code.startsWith(p.code))
+      );
+
+      if (matchingQs.length > 0) {
+        passageMap.set(p.id, { passage: p, questions: matchingQs });
+        matchingQs.forEach((q) => assignedQIds.add(q.id));
+      }
+    });
+
+    const standaloneQs = (exam?.questions || []).filter((q) => !assignedQIds.has(q.id));
+
+    return {
+      passageGroups: Array.from(passageMap.values()),
+      standaloneQs,
+    };
+  }, [exam, questionPassages]);
 
   // Timer Logic
   const startTimer = (startTimeStr: string, durationMinutes: number | null | undefined) => {
@@ -325,10 +385,44 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
       message: t("exams.leaveExamRoomConfirm"),
       confirmLabel: t("exams.btnLeave"),
       cancelLabel: t("exams.btnBackToExam"),
-      onConfirm: () => {
+      onConfirm: async () => {
         closeConfirm();
         if (timerRef.current) clearInterval(timerRef.current);
-        loadExamAndAttempts();
+        // Auto-submit whatever answers the student has so far
+        if (exam && currentAttempt) {
+          try {
+            const answersPayload = Object.entries(chosenAnswers).map(([qId, content]) => ({
+              questionId: Number(qId),
+              answerContent: content
+            }));
+            const logKey = `examLogs_${currentAttempt.id}`;
+            const exitsKey = `tabExits_${currentAttempt.id}`;
+            const exitsCount = Number(localStorage.getItem(exitsKey) || "0");
+            let logs: any[] = [];
+            try { logs = JSON.parse(localStorage.getItem(logKey) || "[]"); } catch {}
+            logs.push({ type: "submit", time: new Date().toISOString() });
+            localStorage.setItem(logKey, JSON.stringify(logs));
+            const payload = {
+              attemptId: currentAttempt.id,
+              tabExitsCount: exitsCount,
+              log: JSON.stringify(logs),
+              answers: answersPayload
+            };
+            const res = await examApi.submitAttempt(exam.id, payload);
+            if (res.success && res.data) {
+              setSelectedPastAttempt(res.data);
+              // Reload attempts list before going back to ready
+              try {
+                const r = await examApi.getStudentAttempts(exam.id);
+                if (r.success && r.data) setAttempts(r.data);
+              } catch {}
+            }
+          } catch (err) {
+            console.error("Auto-submit on leave failed:", err);
+          }
+        }
+        setCurrentAttempt(null);
+        setChosenAnswers({});
         setViewState("ready");
       }
     });
@@ -490,9 +584,15 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                       </span>
                     </div>
                     <div className="text-right">
-                      <span className="text-sm font-black text-brand-650 dark:text-brand-400">
-                        {att.score || 0}/{exam.totalScore || 10}
-                      </span>
+                      {checkIfPendingGrading(att) ? (
+                        <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                          {t("exams.statusPendingGrade")}
+                        </span>
+                      ) : (
+                        <span className={`text-sm font-black ${(att.score ?? 0) >= (exam.passingScore || 5) ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                          {att.score ?? 0}/{exam.totalScore || 10}
+                        </span>
+                      )}
                       <span className="block text-[8px] text-gray-400 uppercase font-black tracking-wider">{t("exams.gradeScore")}</span>
                     </div>
                   </div>
@@ -542,9 +642,196 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
 
             {/* Left: scrollable question list */}
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
-              {questions.map((q, idx) => {
+              {groupedPassageMap.passageGroups.map(({ passage, questions: groupQs }) => (
+                <div
+                  key={passage.id}
+                  className="p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm space-y-4"
+                >
+                  {/* Passage Header */}
+                  <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
+                    <div>
+                      <span className="text-xs font-mono font-bold text-gray-400">({passage.code})</span>
+                      <h3 className="text-base font-bold text-gray-900 dark:text-white mt-0.5">{passage.title}</h3>
+                    </div>
+                    <span className="text-xs font-semibold text-gray-500">({t("exams.questionsCount", { count: groupQs.length })})</span>
+                  </div>
+
+                  {/* Reading Passage Text */}
+                  {passage.content && (
+                    <div className="p-4 bg-gray-50 dark:bg-gray-950/40 rounded-xl text-gray-800 dark:text-gray-200 text-sm font-serif leading-relaxed whitespace-pre-wrap border border-gray-150 dark:border-gray-800">
+                      <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 font-sans">
+                        📖 {t("exams.passageContentTitle").toUpperCase()}
+                      </span>
+                      {passage.content}
+                    </div>
+                  )}
+
+                  {/* Listening Audio File */}
+                  {passage.audioUrl && (
+                    <div className="p-3.5 bg-blue-50/60 dark:bg-blue-950/30 rounded-xl border border-blue-100 dark:border-blue-900/50 space-y-2">
+                      <span className="text-xs font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1.5 font-sans">
+                        <Volume2 className="w-4 h-4" /> {t("exams.listeningAudioTitle")}
+                      </span>
+                      <audio controls src={getFileUrl(passage.audioUrl)} className="w-full h-9 rounded-lg" />
+                    </div>
+                  )}
+
+                  {/* Group Questions */}
+                  <div className="space-y-4 pt-2">
+                    {groupQs.map((q) => {
+                      const globalIdx = questions.findIndex((x) => x.id === q.id);
+                      const chosenValue = chosenAnswers[q.id] || "";
+                      const isMultiple = q.questionType === 2;
+                      const isSpeakingQ = q.skillType === 3 || (passage as any)?.skillType === 3 ||
+                        String(exam?.type || "").toLowerCase().includes("speaking") ||
+                        String(exam?.title || "").toLowerCase().includes("speaking");
+
+                      return (
+                        <div
+                          key={q.id}
+                          id={`question-${q.id}`}
+                          className="p-5 bg-gray-50/50 dark:bg-gray-950/30 border border-gray-200/80 dark:border-gray-800 rounded-xl shadow-xs space-y-3 scroll-mt-6"
+                        >
+                          <div className="flex items-start justify-between gap-3 border-b border-gray-200/60 dark:border-gray-800 pb-2.5">
+                            <h4 className="text-sm font-bold text-brand-600 dark:text-brand-400 flex items-center gap-2">
+                              {t("exams.question")} {globalIdx + 1}
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 dark:bg-brand-950/20 text-brand-600 font-black border border-brand-100 dark:border-brand-900/30">
+                                {q.point || 1} {t("exams.points")}
+                              </span>
+                            </h4>
+                            {isMultiple && (
+                              <span className="text-[9px] px-2 py-0.5 rounded bg-purple-50 text-purple-600 font-bold border border-purple-100">
+                                {t("exams.multipleSelectLabel")}
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="text-sm font-semibold text-gray-855 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
+                            {q.content}
+                          </p>
+
+                          {/* Speaking: always show audio upload regardless of questionType */}
+                          {isSpeakingQ && (
+                            <div className="p-4 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-3">
+                              <div className="flex items-center justify-between">
+                                <label className="text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5 font-sans">
+                                  <Volume2 className="w-4 h-4 text-amber-600" />
+                                  {t("exams.uploadSpeakingAudioLabel")}
+                                </label>
+                                {uploadingAudioQId === q.id && (
+                                  <span className="text-xs text-amber-600 animate-pulse font-semibold">
+                                    {t("exams.uploadingAudio")}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex flex-col sm:flex-row items-center gap-3">
+                                <input
+                                  type="file"
+                                  accept="audio/*"
+                                  id={`speaking-file-${q.id}`}
+                                  className="hidden"
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      setUploadingAudioQId(q.id);
+                                      try {
+                                        const res = await questionPassageApi.uploadFile(file);
+                                        if (res.success && res.data) {
+                                          setChosenAnswers(prev => ({ ...prev, [q.id]: res.data }));
+                                          showToast(t("exams.audioFileAttached"), "success");
+                                        } else {
+                                          showToast(res.message || "Không thể tải file audio", "error");
+                                        }
+                                      } catch (err: any) {
+                                        showToast(err.message || "Lỗi upload file", "error");
+                                      } finally {
+                                        setUploadingAudioQId(null);
+                                      }
+                                    }
+                                  }}
+                                />
+                                <label
+                                  htmlFor={`speaking-file-${q.id}`}
+                                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs rounded-xl cursor-pointer transition-colors shadow-xs inline-flex items-center gap-2"
+                                >
+                                  <Volume2 className="w-4 h-4" />
+                                  {uploadingAudioQId === q.id ? t("exams.uploadingAudio") : t("exams.selectAudioFileBtn")}
+                                </label>
+                              </div>
+
+                              {chosenValue && (chosenValue.startsWith("/uploads") || chosenValue.startsWith("http") || chosenValue.startsWith("data:")) && (
+                                <div className="space-y-1.5 pt-2 border-t border-amber-200/50">
+                                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                    <CheckCircle className="w-3.5 h-3.5" /> {t("exams.audioFileAttached")}:
+                                  </span>
+                                  <audio controls src={getFileUrl(chosenValue)} className="w-full h-9 rounded-lg" />
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {q.questionType === 3 && !isSpeakingQ ? (
+                            <div className="space-y-1.5 mt-3">
+                              <label className="text-xs text-gray-400 font-bold uppercase tracking-wider block">{t("exams.studentSelectYourAnswer")}</label>
+                              <textarea
+                                value={chosenValue}
+                                onChange={(e) => handleTextAnswerChange(q.id, e.target.value)}
+                                placeholder={t("exams.studentAnswerPlaceholder")}
+                                rows={4}
+                                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-900 dark:text-white"
+                              />
+                            </div>
+                          ) : !isSpeakingQ ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                              {q.questionAnswers.map((option: any, optIdx: number) => {
+                                const optLabel = String.fromCharCode(65 + optIdx);
+                                const isSelected = isMultiple
+                                  ? chosenValue.split(",").map(s => s.trim()).includes(option.content)
+                                  : chosenValue === option.content;
+
+                                return (
+                                  <div
+                                    key={option.id}
+                                    onClick={() => handleSelectChoice(q.id, option.content, isMultiple)}
+                                    className={`p-3.5 rounded-xl border flex items-center gap-3 cursor-pointer transition-all duration-200 select-none ${
+                                      isSelected
+                                        ? "bg-brand-50 border-brand-500 dark:bg-brand-950/20 dark:border-brand-500 ring-2 ring-brand-500/10"
+                                        : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 hover:bg-gray-50 hover:border-brand-300"
+                                    }`}
+                                  >
+                                    <div
+                                      className={`w-7 h-7 rounded-lg font-black text-xs flex items-center justify-center shrink-0 transition-colors ${
+                                        isSelected
+                                          ? "bg-brand-500 text-white"
+                                          : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                                      }`}
+                                    >
+                                      {optLabel}
+                                    </div>
+                                    <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                                      {option.content}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+
+              {/* Render Standalone Questions */}
+              {groupedPassageMap.standaloneQs.map((q) => {
+                const globalIdx = questions.findIndex((x) => x.id === q.id);
                 const chosenValue = chosenAnswers[q.id] || "";
                 const isMultiple = q.questionType === 2;
+                const isSpeakingQ = q.skillType === 3 ||
+                  String(exam?.type || "").toLowerCase().includes("speaking") ||
+                  String(exam?.title || "").toLowerCase().includes("speaking");
 
                 return (
                   <div
@@ -554,7 +841,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                   >
                     <div className="flex items-start justify-between gap-3 border-b border-gray-100 dark:border-gray-800 pb-3">
                       <h4 className="text-sm font-bold text-brand-600 dark:text-brand-400 flex items-center gap-2">
-                        {t("exams.question")} {idx + 1}
+                        {t("exams.question")} {globalIdx + 1}
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 dark:bg-brand-950/20 text-brand-600 font-black border border-brand-100 dark:border-brand-900/30">
                           {q.point || 1} {t("exams.points")}
                         </span>
@@ -570,7 +857,68 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                       {q.content}
                     </p>
 
-                    {q.questionType === 3 ? (
+                    {/* Speaking: always show audio upload regardless of questionType */}
+                    {isSpeakingQ && (
+                      <div className="p-4 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5 font-sans">
+                            <Volume2 className="w-4 h-4 text-amber-600" />
+                            {t("exams.uploadSpeakingAudioLabel")}
+                          </label>
+                          {uploadingAudioQId === q.id && (
+                            <span className="text-xs text-amber-600 animate-pulse font-semibold">
+                              {t("exams.uploadingAudio")}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row items-center gap-3">
+                          <input
+                            type="file"
+                            accept="audio/*"
+                            id={`speaking-file-${q.id}`}
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                setUploadingAudioQId(q.id);
+                                try {
+                                  const res = await questionPassageApi.uploadFile(file);
+                                  if (res.success && res.data) {
+                                    setChosenAnswers(prev => ({ ...prev, [q.id]: res.data }));
+                                    showToast(t("exams.audioFileAttached"), "success");
+                                  } else {
+                                    showToast(res.message || "Không thể tải file audio", "error");
+                                  }
+                                } catch (err: any) {
+                                  showToast(err.message || "Lỗi upload file", "error");
+                                } finally {
+                                  setUploadingAudioQId(null);
+                                }
+                              }
+                            }}
+                          />
+                          <label
+                            htmlFor={`speaking-file-${q.id}`}
+                            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs rounded-xl cursor-pointer transition-colors shadow-xs inline-flex items-center gap-2"
+                          >
+                            <Volume2 className="w-4 h-4" />
+                            {uploadingAudioQId === q.id ? t("exams.uploadingAudio") : t("exams.selectAudioFileBtn")}
+                          </label>
+                        </div>
+
+                        {chosenValue && (chosenValue.startsWith("/uploads") || chosenValue.startsWith("http") || chosenValue.startsWith("data:")) && (
+                          <div className="space-y-1.5 pt-2 border-t border-amber-200/50">
+                            <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                              <CheckCircle className="w-3.5 h-3.5" /> {t("exams.audioFileAttached")}:
+                            </span>
+                            <audio controls src={getFileUrl(chosenValue)} className="w-full h-9 rounded-lg" />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {q.questionType === 3 && !isSpeakingQ ? (
                       <div className="space-y-1.5 mt-3">
                         <label className="text-xs text-gray-400 font-bold uppercase tracking-wider block">{t("exams.studentSelectYourAnswer")}</label>
                         <textarea
@@ -581,7 +929,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                           className="w-full rounded-xl border border-gray-200 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                         />
                       </div>
-                    ) : (
+                    ) : !isSpeakingQ ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                         {q.questionAnswers.map((option, optIdx) => {
                           const optLabel = String.fromCharCode(65 + optIdx);
@@ -609,7 +957,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                           );
                         })}
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 );
               })}
@@ -743,8 +1091,171 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Side: Question Review */}
           <div className="lg:col-span-8 space-y-6">
-            {questions.map((q, idx) => {
-              const attemptAns = attempt.answers.find(a => a.questionId === q.id);
+            {groupedPassageMap.passageGroups.map(({ passage, questions: groupQs }) => (
+              <div
+                key={passage.id}
+                className="p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-theme-xs space-y-4"
+              >
+                {/* Passage Header */}
+                <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
+                  <div>
+                    <span className="text-xs font-mono font-bold text-gray-400">({passage.code})</span>
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white mt-0.5">{passage.title}</h3>
+                  </div>
+                  <span className="text-xs font-semibold text-gray-500">({groupQs.length} câu hỏi)</span>
+                </div>
+
+                {/* Reading Passage Text */}
+                {passage.content && (
+                  <div className="p-4 bg-gray-50 dark:bg-gray-950/40 rounded-xl text-gray-800 dark:text-gray-200 text-sm font-serif leading-relaxed whitespace-pre-wrap border border-gray-150 dark:border-gray-800">
+                    <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 font-sans">
+                      📖 NỘI DUNG ĐOẠN VĂN (READING PASSAGE)
+                    </span>
+                    {passage.content}
+                  </div>
+                )}
+
+                {/* Listening Audio File */}
+                {passage.audioUrl && (
+                  <div className="p-3.5 bg-blue-50/60 dark:bg-blue-950/30 rounded-xl border border-blue-100 dark:border-blue-900/50 space-y-2">
+                    <span className="text-xs font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1.5 font-sans">
+                      <Volume2 className="w-4 h-4" /> File âm thanh bài nghe (Listening Audio)
+                    </span>
+                    <audio controls src={getFileUrl(passage.audioUrl)} className="w-full h-9 rounded-lg" />
+                  </div>
+                )}
+
+                {/* Questions under this passage */}
+                <div className="space-y-4 pt-2">
+                  {groupQs.map((q) => {
+                    const globalIdx = (exam.questions || []).findIndex((x) => x.id === q.id);
+                    const attemptAns = attempt.answers.find((a) => a.questionId === q.id);
+                    const studentAnswer = attemptAns?.answerContent || "";
+                    const isCorrect = attemptAns?.isCorrect;
+                    const questionPoints = q.point || 1;
+                    const isMultiple = q.questionType === 2;
+
+                    return (
+                      <div
+                        key={q.id}
+                        className={`p-5 bg-white dark:bg-gray-900 border rounded-xl shadow-xs space-y-3 ${
+                          !studentAnswer
+                            ? "border-gray-200 dark:border-gray-800"
+                            : isCorrect
+                            ? "border-emerald-250 dark:border-emerald-500/20"
+                            : "border-rose-205 dark:border-rose-500/20"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-800 pb-2.5">
+                          <h4 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
+                            {t("exams.question")} {globalIdx + 1}
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-black">
+                              {questionPoints} {t("exams.points")}
+                            </span>
+                          </h4>
+
+                          {!studentAnswer ? (
+                            <span className="text-[9px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-bold uppercase">
+                              {t("exams.attemptUnanswered")}
+                            </span>
+                          ) : (checkIfPendingGrading(attempt) || q.questionType === 3 || q.skillType === 3 || q.skillType === 4) ? (
+                            <span className="inline-flex items-center gap-1 text-[9px] px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400 font-bold uppercase border border-amber-200 dark:border-amber-900/40">
+                              <Clock className="w-3 h-3 text-amber-500" />
+                              {t("exams.statusPendingGrade")}
+                            </span>
+                          ) : isCorrect ? (
+                            <span className="inline-flex items-center gap-1 text-[9px] px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-bold uppercase">
+                              <CheckCircle className="w-3 h-3" />
+                              {t("exams.statsCorrect")}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[9px] px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-600 font-bold uppercase">
+                              <XCircle className="w-3 h-3" />
+                              {t("exams.statsIncorrect")}
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-sm font-bold text-gray-855 dark:text-gray-250 leading-relaxed whitespace-pre-wrap">
+                          {q.content}
+                        </p>
+
+                        {studentAnswer && (studentAnswer.startsWith("/uploads") || studentAnswer.startsWith("http") || studentAnswer.startsWith("data:") || studentAnswer.includes(".mp3") || studentAnswer.includes(".wav") || studentAnswer.includes(".m4a")) ? (
+                          <div className="p-3 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-900/40 space-y-2 mt-3">
+                            <span className="text-xs font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5 font-sans">
+                              <Volume2 className="w-4 h-4 text-amber-600" /> {t("exams.audioFileAttached")}
+                            </span>
+                            <audio controls src={getFileUrl(studentAnswer)} className="w-full h-9 rounded-lg" />
+                          </div>
+                        ) : q.questionType === 3 ? (
+                          <div className="space-y-1.5 mt-3">
+                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">{t("exams.studentSelectYourAnswer")}</span>
+                            <p className="text-sm bg-gray-50 dark:bg-gray-950 p-3 rounded-xl border border-gray-150 dark:border-gray-850 font-semibold whitespace-pre-line text-gray-800 dark:text-gray-200">
+                              {studentAnswer || <span className="italic text-gray-400">{t("exams.attemptUnanswered")}</span>}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                            {q.questionAnswers.map((option: any, optIdx: number) => {
+                              const optLabel = String.fromCharCode(65 + optIdx);
+                              const isStudentSelect = isMultiple
+                                ? studentAnswer.split(",").map((s: string) => s.trim()).includes(option.content)
+                                : studentAnswer === option.content;
+
+                              const isCorrectOption = option.isCorrect;
+
+                              let borderStyle = "border-gray-200 dark:border-gray-855 hover:bg-gray-50/50";
+                              let pillStyle = "bg-gray-50 border-gray-200 text-gray-600";
+
+                              if (isStudentSelect) {
+                                if (isCorrectOption) {
+                                  borderStyle = "border-emerald-500 bg-emerald-50/10";
+                                  pillStyle = "bg-emerald-500 border-emerald-500 text-white";
+                                } else {
+                                  borderStyle = "border-rose-500 bg-rose-50/10";
+                                  pillStyle = "bg-rose-500 border-rose-500 text-white";
+                                }
+                              } else if (isCorrectOption && canShowAnswers) {
+                                borderStyle = "border-emerald-500/50 bg-emerald-50/5";
+                                pillStyle = "border-emerald-500/50 text-emerald-600 bg-emerald-50/10";
+                              }
+
+                              return (
+                                <div
+                                  key={option.id}
+                                  className={`p-4 rounded-xl border flex items-center gap-3 transition-colors ${borderStyle}`}
+                                >
+                                  <div className={`w-7 h-7 rounded-lg font-bold text-xs flex items-center justify-center shrink-0 border ${pillStyle}`}>
+                                    {optLabel}
+                                  </div>
+                                  <span className="text-sm font-semibold text-gray-855 dark:text-gray-200">
+                                    {option.content}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {canShowAnswers && q.explanation && (
+                          <div className="p-3 bg-blue-50/20 dark:bg-blue-950/10 border border-blue-100 dark:border-blue-900/30 rounded-xl mt-4">
+                            <span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider block mb-1">{t("exams.explanationTitle")}</span>
+                            <p className="text-xs text-gray-655 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+                              {q.explanation}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+
+            {/* Standalone Questions */}
+            {groupedPassageMap.standaloneQs.map((q) => {
+              const globalIdx = (exam.questions || []).findIndex((x) => x.id === q.id);
+              const attemptAns = attempt.answers.find((a) => a.questionId === q.id);
               const studentAnswer = attemptAns?.answerContent || "";
               const isCorrect = attemptAns?.isCorrect;
               const questionPoints = q.point || 1;
@@ -761,16 +1272,14 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                       : "border-rose-205 dark:border-rose-500/20"
                   }`}
                 >
-                  {/* Status header */}
                   <div className="flex items-center justify-between gap-3 border-b border-gray-50 pb-3">
                     <h4 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                      {t("exams.question")} {idx + 1}
+                      {t("exams.question")} {globalIdx + 1}
                       <span className="text-[10px] px-2 py-0.5 rounded bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-black">
                         {questionPoints} {t("exams.points")}
                       </span>
                     </h4>
 
-                    {/* Correctness label */}
                     {!studentAnswer ? (
                       <span className="text-[9px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-bold uppercase">
                         {t("exams.attemptUnanswered")}
@@ -788,14 +1297,18 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                     )}
                   </div>
 
-                  {/* Question Content */}
                   <p className="text-sm font-bold text-gray-855 dark:text-gray-250 leading-relaxed whitespace-pre-wrap">
                     {q.content}
                   </p>
 
-                  {/* Options review */}
-                  {q.questionType === 3 ? (
-                    // Written response text
+                  {studentAnswer && (studentAnswer.startsWith("/uploads") || studentAnswer.startsWith("http") || studentAnswer.startsWith("data:") || studentAnswer.includes(".mp3") || studentAnswer.includes(".wav") || studentAnswer.includes(".m4a")) ? (
+                    <div className="p-3 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-900/40 space-y-2 mt-3">
+                      <span className="text-xs font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5 font-sans">
+                        <Volume2 className="w-4 h-4 text-amber-600" /> {t("exams.audioFileAttached")}
+                      </span>
+                      <audio controls src={getFileUrl(studentAnswer)} className="w-full h-9 rounded-lg" />
+                    </div>
+                  ) : q.questionType === 3 ? (
                     <div className="space-y-1 mt-3">
                       <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">{t("exams.studentSelectYourAnswer")}</span>
                       <p className="text-sm bg-gray-50 dark:bg-gray-950 p-3 rounded-xl border border-gray-150 dark:border-gray-850 font-semibold whitespace-pre-line text-gray-800 dark:text-gray-200">
@@ -803,20 +1316,18 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                       </p>
                     </div>
                   ) : (
-                    // Choice list review
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                       {q.questionAnswers.map((option, optIdx) => {
                         const optLabel = String.fromCharCode(65 + optIdx);
                         const isStudentSelect = isMultiple
-                          ? studentAnswer.split(",").map(s => s.trim()).includes(option.content)
+                          ? studentAnswer.split(",").map((s) => s.trim()).includes(option.content)
                           : studentAnswer === option.content;
 
                         const isCorrectOption = option.isCorrect;
 
-                        // Styling logic
                         let borderStyle = "border-gray-200 dark:border-gray-855 hover:bg-gray-50/50";
                         let pillStyle = "bg-gray-50 border-gray-200 text-gray-600";
-                        
+
                         if (isStudentSelect) {
                           if (isCorrectOption) {
                             borderStyle = "border-emerald-500 bg-emerald-50/10";
@@ -826,7 +1337,6 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                             pillStyle = "bg-rose-500 border-rose-500 text-white";
                           }
                         } else if (isCorrectOption && canShowAnswers) {
-                          // Outline correct answers
                           borderStyle = "border-emerald-500/50 bg-emerald-50/5";
                           pillStyle = "border-emerald-500/50 text-emerald-600 bg-emerald-50/10";
                         }
@@ -848,7 +1358,6 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                     </div>
                   )}
 
-                  {/* Explanation if correct answers are visible and explanation is set */}
                   {canShowAnswers && q.explanation && (
                     <div className="p-3 bg-blue-50/20 dark:bg-blue-950/10 border border-blue-100 dark:border-blue-900/30 rounded-xl mt-4">
                       <span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider block mb-1">{t("exams.explanationTitle")}</span>
@@ -866,188 +1375,123 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
           <div className="lg:col-span-4 space-y-5 sticky top-24">
             
             {/* score card */}
-            <div className="p-5 bg-brand-500 text-white rounded-2xl shadow-theme-xs text-center space-y-1">
-              <span className="text-[10px] uppercase font-black tracking-widest block opacity-70">{t("exams.gradeScore")}</span>
-              <span className="text-4xl font-black tracking-tight mt-1 block">
-                {attempt.score || 0}/{exam.totalScore || 10}
-              </span>
-              <span className="text-[10px] font-bold block pt-2 opacity-80 border-t border-white/20 mt-3">
-                {attempt.score !== null && attempt.score !== undefined && attempt.score >= (exam.passingScore || 5) ? t("exams.attemptPassed") : t("exams.attemptFailed")}
-              </span>
-            </div>
+            {(() => {
+              const isPending = checkIfPendingGrading(attempt);
+              return (
+                <div className={`p-5 text-white rounded-2xl shadow-theme-xs text-center space-y-1 ${
+                  isPending ? "bg-amber-500" : "bg-brand-500"
+                }`}>
+                  <span className="text-[10px] uppercase font-black tracking-widest block opacity-70">{t("exams.gradeScore")}</span>
+                  <span className="text-3xl font-black tracking-tight mt-1 block">
+                    {isPending ? `-- / ${exam.totalScore || 10}` : `${attempt.score || 0}/${exam.totalScore || 10}`}
+                  </span>
+                  <span className="text-[10px] font-bold block pt-2 opacity-90 border-t border-white/20 mt-3 uppercase tracking-wider">
+                    {isPending
+                      ? `⏳ ${t("exams.statusPendingGrade")}`
+                      : attempt.score !== null && attempt.score !== undefined && attempt.score >= (exam.passingScore || 5)
+                      ? t("exams.attemptPassed")
+                      : t("exams.attemptFailed")}
+                  </span>
+                </div>
+              );
+            })()}
 
             {/* Results metadata/tabs card */}
             <div className="p-5 bg-white dark:bg-gray-900 border border-gray-150 dark:border-gray-800 rounded-2xl shadow-theme-xs space-y-4">
               
-              {/* Tab switcher */}
-              <div className="flex border-b border-gray-100 dark:border-gray-850 pb-2">
-                <button
-                  onClick={() => setResultTab("result")}
-                  className={`flex-1 pb-1.5 text-xs font-bold text-center border-b-2 transition-all ${
-                    resultTab === "result"
-                      ? "border-brand-500 text-brand-600 dark:text-brand-450"
-                      : "border-transparent text-gray-400 hover:text-gray-500"
-                  }`}
-                >
+              {/* Results metadata card */}
+              <div className="border-b border-gray-100 dark:border-gray-850 pb-2">
+                <span className="text-xs font-bold text-brand-600 dark:text-brand-450 border-b-2 border-brand-500 pb-1.5 inline-block">
                   {t("exams.tabResult")}
-                </button>
-                <button
-                  onClick={() => setResultTab("history")}
-                  className={`flex-1 pb-1.5 text-xs font-bold text-center border-b-2 transition-all ${
-                    resultTab === "history"
-                      ? "border-brand-500 text-brand-600 dark:text-brand-450"
-                      : "border-transparent text-gray-400 hover:text-gray-500"
-                  }`}
-                >
-                  {t("exams.tabHistory")}
-                </button>
+                </span>
               </div>
 
-              {resultTab === "result" ? (
-                // Results tab contents
-                <div className="space-y-4">
-                  {/* Detailed Statistics list */}
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center text-xs font-semibold">
-                      <span className="text-gray-500 flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5" />
-                        {t("exams.gradeSubmitTime")}
-                      </span>
-                      <span className="text-gray-800 dark:text-gray-200">
-                        {attempt.submitTime ? new Date(attempt.submitTime).toLocaleString("vi-VN") : ""}
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between items-center text-xs font-semibold">
-                      <span className="text-gray-500 flex items-center gap-1.5">
-                        <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-                        {t("exams.attemptCorrectCount")}
-                      </span>
-                      <span className="text-emerald-600 font-bold">
-                        {stats.correctCount} {t("exams.question").toLowerCase()}
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between items-center text-xs font-semibold">
-                      <span className="text-gray-500 flex items-center gap-1.5">
-                        <XCircle className="w-3.5 h-3.5 text-rose-500" />
-                        {t("exams.attemptIncorrectCount")}
-                      </span>
-                      <span className="text-rose-600 font-bold">
-                        {stats.incorrectCount} {t("exams.question").toLowerCase()}
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between items-center text-xs font-semibold">
-                      <span className="text-gray-500 flex items-center gap-1.5">
-                        <HelpCircle className="w-3.5 h-3.5 text-gray-400" />
-                        {t("exams.attemptUnanswered")}
-                      </span>
-                      <span className="text-gray-655 dark:text-gray-300 font-bold">
-                        {stats.unattemptedCount} {t("exams.question").toLowerCase()}
-                      </span>
-                    </div>
+              {/* Results tab contents */}
+              <div className="space-y-4">
+                {/* Detailed Statistics list */}
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center text-xs font-semibold">
+                    <span className="text-gray-500 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" />
+                      {t("exams.gradeSubmitTime")}
+                    </span>
+                    <span className="text-gray-800 dark:text-gray-200 font-bold">
+                      {attempt.submitTime ? new Date(attempt.submitTime).toLocaleString("vi-VN") : "—"}
+                    </span>
                   </div>
 
-                  {/* Warning message if answers are hidden */}
-                  {!canShowAnswers && (
-                    <div className="flex gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 rounded-xl mt-3 text-left">
-                      <AlertTriangle className="w-4.5 h-4.5 text-amber-500 shrink-0 mt-0.5" />
-                      <p className="text-[10px] text-amber-850 dark:text-amber-450 leading-relaxed font-semibold">
-                        {t("exams.answersHiddenWarning")}
-                      </p>
+                  {checkIfPendingGrading(attempt) ? (
+                    <div className="flex justify-between items-center text-xs font-semibold pt-1 border-t border-gray-100 dark:border-gray-800">
+                      <span className="text-gray-500 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-amber-500" />
+                        {t("registration.colStatus", { defaultValue: "Trạng thái" })}
+                      </span>
+                      <span className="text-amber-600 dark:text-amber-400 font-bold">
+                        {t("exams.statusPendingGrade")}
+                      </span>
                     </div>
+                  ) : (
+                    <>
+                      <div className="flex justify-between items-center text-xs font-semibold">
+                        <span className="text-gray-500 flex items-center gap-1.5">
+                          <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+                          {t("exams.attemptCorrectCount")}
+                        </span>
+                        <span className="text-emerald-600 font-bold">
+                          {stats.correctCount} {t("exams.question").toLowerCase()}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center text-xs font-semibold">
+                        <span className="text-gray-500 flex items-center gap-1.5">
+                          <XCircle className="w-3.5 h-3.5 text-rose-500" />
+                          {t("exams.attemptIncorrectCount")}
+                        </span>
+                        <span className="text-rose-600 font-bold">
+                          {stats.incorrectCount} {t("exams.question").toLowerCase()}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center text-xs font-semibold">
+                        <span className="text-gray-500 flex items-center gap-1.5">
+                          <HelpCircle className="w-3.5 h-3.5 text-gray-400" />
+                          {t("exams.attemptUnanswered")}
+                        </span>
+                        <span className="text-gray-655 dark:text-gray-300 font-bold">
+                          {stats.unattemptedCount} {t("exams.question").toLowerCase()}
+                        </span>
+                      </div>
+                    </>
                   )}
                 </div>
-              ) : (
-                // History tab contents (Attempt events timeline)
-                <div className="space-y-4">
-                  {/* Overview panel */}
-                  <div className="p-4 bg-gray-50 dark:bg-white/[0.02] border border-gray-150 dark:border-white/[0.05] rounded-xl space-y-2 text-xs">
-                    <p className="font-bold text-gray-800 dark:text-gray-200">{t("exams.processOverview")}</p>
-                    <div className="space-y-1.5 text-gray-550 dark:text-gray-400 font-semibold font-semibold">
-                      <div className="flex justify-between">
-                        <span>{t("exams.tabExitsCountLabel")}:</span>
-                        <span className="font-bold text-red-655 dark:text-red-400">{attempt.tabExitsCount || 0}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>{t("exams.editsCountLabel")}:</span>
-                        <span className="font-semibold text-gray-700 dark:text-gray-300 font-bold">0</span>
-                      </div>
+
+                {/* Teacher Feedback Box for Student */}
+                {(() => {
+                  const comment = attempt.teacherComment || attempt.answers?.find((a: any) => a.teacherComment)?.teacherComment;
+                  if (!comment) return null;
+                  return (
+                    <div className="p-3.5 bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-1.5 mt-3">
+                      <span className="text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5 font-sans">
+                        <Award className="w-4 h-4 text-amber-600" />
+                        {t("exams.teacherCommentTitle")}
+                      </span>
+                      <p className="text-xs text-gray-800 dark:text-gray-200 font-medium whitespace-pre-wrap leading-relaxed">
+                        {comment}
+                      </p>
                     </div>
+                  );
+                })()}
+
+                {/* Warning message if answers are hidden */}
+                {!canShowAnswers && (
+                  <div className="flex gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 rounded-xl mt-3 text-left">
+                    <AlertTriangle className="w-4.5 h-4.5 text-amber-500 shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-amber-850 dark:text-amber-450 leading-relaxed font-semibold">
+                      {t("exams.answersHiddenWarning")}
+                    </p>
                   </div>
-
-                  <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block mt-2">{t("exams.attemptHistory")}</span>
-
-                  {/* Timeline */}
-                  <div className="relative border-l border-gray-100 dark:border-gray-800 pl-4 space-y-4 py-2 ml-1">
-                    {(() => {
-                      let exitLogs: Array<{ type: string; time: string }> = [];
-                      if (attempt.log) {
-                        try {
-                          exitLogs = JSON.parse(attempt.log);
-                        } catch {}
-                      }
-
-                      if (exitLogs.length === 0 && typeof window !== "undefined") {
-                        const exitsKey = `tabExits_${attempt.id}`;
-                        const logKey = `examLogs_${attempt.id}`;
-                        try {
-                          const storedLogs = localStorage.getItem(logKey);
-                          if (storedLogs) {
-                            exitLogs = JSON.parse(storedLogs);
-                          }
-                        } catch {}
-                      }
-
-                      if (exitLogs.length === 0) {
-                        exitLogs = [
-                          { type: "start", time: attempt.startTime },
-                          ...(attempt.submitTime ? [{ type: "submit", time: attempt.submitTime }] : [])
-                        ];
-                      }
-
-                      return exitLogs.map((log, idx) => {
-                        let title = "";
-                        let dotColor = "bg-gray-400";
-                        let bgColor = "bg-gray-100 dark:bg-gray-800";
-
-                        if (log.type === "start") {
-                          title = t("exams.startExam");
-                          dotColor = "bg-emerald-500";
-                          bgColor = "bg-emerald-100 dark:bg-emerald-950/40";
-                        } else if (log.type === "exit") {
-                          title = t("exams.exitScreen");
-                          dotColor = "bg-red-500";
-                          bgColor = "bg-red-100 dark:bg-red-950/40";
-                        } else if (log.type === "enter") {
-                          title = t("exams.enterScreen");
-                          dotColor = "bg-blue-500";
-                          bgColor = "bg-blue-100 dark:bg-blue-950/40";
-                        } else if (log.type === "submit") {
-                          title = t("exams.btnSubmit");
-                          dotColor = "bg-brand-500";
-                          bgColor = "bg-brand-100 dark:bg-brand-950/40";
-                        }
-
-                        return (
-                          <div key={idx} className="relative">
-                            <span className={`absolute -left-6.5 top-1 flex h-4 w-4 items-center justify-center rounded-full ${bgColor}`}>
-                              <span className={`h-2 w-2 rounded-full ${dotColor}`} />
-                            </span>
-                            <span className="block text-[10px] font-bold text-gray-800 dark:text-gray-200">
-                              {title}
-                            </span>
-                            <span className="text-[9px] text-gray-400 block mt-0.5">
-                              {log.time ? new Date(log.time).toLocaleString("vi-VN") : ""}
-                            </span>
-                          </div>
-                        );
-                      });
-                    })()}
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Close / Return Button */}
               <button

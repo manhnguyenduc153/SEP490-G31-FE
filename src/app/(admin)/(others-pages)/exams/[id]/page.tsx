@@ -4,7 +4,58 @@ import { useParams, useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import { examApi, ExamItem, ExamAttemptDto } from "@/services/exam.api";
 import { StudentExamTaker } from "@/components/exam/StudentExamTaker";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { CheckCircle, XCircle, Clock, Eye, AlertTriangle, BarChart, Award } from "lucide-react";
+
+import { questionPassageApi, QuestionPassageItem } from "@/services/questionPassage.api";
+import { ENV } from "@/config/env";
+import { Volume2, BookOpen } from "lucide-react";
+
+const getFileUrl = (url?: string) => {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("blob:") || url.startsWith("data:")) {
+    return url;
+  }
+  return `${ENV.API_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
+};
+
+const getSkillBadgeClass = (skillType?: number) => {
+  switch (skillType) {
+    case 1: return "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800";
+    case 2: return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800";
+    case 3: return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800";
+    case 4: return "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800";
+    default: return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300";
+  }
+};
+
+const getSkillName = (skillType?: number, t?: any) => {
+  switch (skillType) {
+    case 1: return t ? t("exams.skillListening") : "Listening";
+    case 2: return t ? t("exams.skillReading") : "Reading";
+    case 3: return t ? t("exams.skillSpeaking") : "Speaking";
+    case 4: return t ? t("exams.skillWriting") : "Writing";
+    default: return "Skill";
+  }
+};
+
+const isManualGradedExam = (examData?: ExamItem | null) => {
+  if (!examData) return false;
+  const typeStr = String(examData.type || "").toLowerCase();
+  const titleStr = String(examData.title || "").toLowerCase();
+  return (
+    typeStr.includes("speaking") ||
+    typeStr.includes("writing") ||
+    titleStr.includes("speaking") ||
+    titleStr.includes("writing") ||
+    examData.questions?.some((q: any) => q.skillType === 3 || q.skillType === 4 || q.questionType === 3)
+  );
+};
+
+const checkIfPendingGrading = (att?: ExamAttemptDto | null, examData?: ExamItem | null) => {
+  if (!att || !examData) return false;
+  return isManualGradedExam(examData) && (att.score === null || att.score === undefined || att.score === 0);
+};
 
 export default function ExamDetailPage() {
   const params = useParams();
@@ -14,6 +65,7 @@ export default function ExamDetailPage() {
 
   const [exam, setExam] = useState<ExamItem | null>(null);
   const [attempts, setAttempts] = useState<ExamAttemptDto[]>([]);
+  const [questionPassages, setQuestionPassages] = useState<QuestionPassageItem[]>([]);
   const [selectedAttempt, setSelectedAttempt] = useState<ExamAttemptDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +80,12 @@ export default function ExamDetailPage() {
   const [showExplanations, setShowExplanations] = useState(true);
   const [examViewMode, setExamViewMode] = useState<"student" | "original">("student");
 
+  // Grading states
+  const [gradingAttemptId, setGradingAttemptId] = useState<number | null>(null);
+  const [gradeScoreInput, setGradeScoreInput] = useState<string>("");
+  const [gradeCommentInput, setGradeCommentInput] = useState<string>("");
+  const [isSubmittingGrade, setIsSubmittingGrade] = useState(false);
+
   // Read role first
   useEffect(() => {
     setUserRole(localStorage.getItem("role") || "");
@@ -36,6 +94,43 @@ export default function ExamDetailPage() {
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setToastMessage(msg);
     setToastType(type);
+  };
+
+  // Sync grading input when selectedAttempt changes
+  useEffect(() => {
+    if (selectedAttempt) {
+      setGradeScoreInput(selectedAttempt.score !== null && selectedAttempt.score !== undefined ? String(selectedAttempt.score) : "");
+      const existingComment = selectedAttempt.teacherComment || selectedAttempt.answers?.find(a => a.teacherComment)?.teacherComment || "";
+      setGradeCommentInput(existingComment);
+    }
+  }, [selectedAttempt]);
+
+  const handleSaveGrade = async (attemptId: number, scoreVal: number, commentVal: string) => {
+    if (!id) return;
+    setIsSubmittingGrade(true);
+    try {
+      const res = await examApi.gradeAttempt(attemptId, {
+        score: scoreVal,
+        teacherComment: commentVal,
+      });
+      if (res.success && res.data) {
+        showToast(t("exams.gradeSuccess"), "success");
+        if (selectedAttempt && selectedAttempt.id === attemptId) {
+          setSelectedAttempt(res.data);
+        }
+        const r = await examApi.getAttemptsByExam(id);
+        if (r.success && r.data) {
+          setAttempts(r.data);
+        }
+        setGradingAttemptId(null);
+      } else {
+        showToast(res.message || t("exams.formErrorSaveFailed"), "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || t("exams.formErrorSaveSystem"), "error");
+    } finally {
+      setIsSubmittingGrade(false);
+    }
   };
 
   useEffect(() => {
@@ -116,6 +211,17 @@ export default function ExamDetailPage() {
     document.body.removeChild(element);
   };
 
+  const handleBack = () => {
+    const role = (localStorage.getItem("role") || "").toLowerCase();
+    if (role === "teacher") {
+      router.push("/teaching-exams");
+    } else if (role === "student") {
+      router.push("/my-exams");
+    } else {
+      router.push("/exams");
+    }
+  };
+
   // Only load exam via teacher API when user is NOT a student
   useEffect(() => {
     if (userRole === null) return; // wait until role is determined
@@ -125,10 +231,15 @@ export default function ExamDetailPage() {
       setLoading(true);
       setError(null);
       try {
-        const [examRes, attemptsRes] = await Promise.all([
+        const [examRes, attemptsRes, passRes] = await Promise.all([
           examApi.getById(id!),
-          examApi.getAttemptsByExam(id!)
+          examApi.getAttemptsByExam(id!),
+          questionPassageApi.getAll(1, 1000)
         ]);
+
+        if (passRes.success && passRes.data) {
+          setQuestionPassages(passRes.data.items || []);
+        }
 
         let examData = null;
         if (examRes.success && examRes.data) {
@@ -167,6 +278,34 @@ export default function ExamDetailPage() {
     loadData();
   }, [id, userRole]);
 
+  // Group exam questions by QuestionPassage
+  const groupedPassageMap = React.useMemo(() => {
+    if (!exam || !exam.questions || exam.questions.length === 0) {
+      return { passageGroups: [], standaloneQs: [] };
+    }
+
+    const passageMap = new Map<number, { passage: QuestionPassageItem; questions: any[] }>();
+    const assignedQIds = new Set<number>();
+
+    questionPassages.forEach((p) => {
+      const matchingQs = (exam?.questions || []).filter(
+        (q) => q.passageId === p.id || (q.code && p.code && q.code.startsWith(p.code))
+      );
+
+      if (matchingQs.length > 0) {
+        passageMap.set(p.id, { passage: p, questions: matchingQs });
+        matchingQs.forEach((q) => assignedQIds.add(q.id));
+      }
+    });
+
+    const standaloneQs = (exam?.questions || []).filter((q) => !assignedQIds.has(q.id));
+
+    return {
+      passageGroups: Array.from(passageMap.values()),
+      standaloneQs,
+    };
+  }, [exam, questionPassages]);
+
   // ─── Role not yet determined — render nothing to avoid flash ───
   if (userRole === null) return null;
 
@@ -181,7 +320,7 @@ export default function ExamDetailPage() {
         )}
         <StudentExamTaker
           examId={id!}
-          onBack={() => router.push("/exams")}
+          onBack={handleBack}
           showToast={showToast}
         />
       </div>
@@ -450,6 +589,18 @@ export default function ExamDetailPage() {
                           <span className="text-[9px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-550 font-bold uppercase border border-gray-200/20">
                             {t("exams.attemptUnanswered")}
                           </span>
+                        ) : isManualGradedExam(exam) ? (
+                          checkIfPendingGrading(attempt, exam) ? (
+                            <span className="inline-flex items-center gap-1 text-[9px] px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 font-bold uppercase border border-amber-200 dark:border-amber-900/50">
+                              <Clock className="w-3 h-3 text-amber-500" />
+                              {t("exams.statusPendingGrade")}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[9px] px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-bold uppercase border border-emerald-100">
+                              <CheckCircle className="w-3 h-3 text-emerald-500" />
+                              {t("exams.statusGraded", { defaultValue: "Đã chấm điểm" })}
+                            </span>
+                          )
                         ) : isCorrect ? (
                           <span className="inline-flex items-center gap-1 text-[9px] px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-bold uppercase border border-emerald-100">
                             {t("exams.statsCorrect")}
@@ -469,8 +620,15 @@ export default function ExamDetailPage() {
                   </p>
 
                   {/* Choices review */}
-                  {q.questionType === 3 ? (
-                    <div className="space-y-1">
+                  {showStudentResult && studentAnswer && (studentAnswer.startsWith("/uploads") || studentAnswer.startsWith("http") || studentAnswer.startsWith("data:") || studentAnswer.includes(".mp3") || studentAnswer.includes(".wav") || studentAnswer.includes(".m4a")) ? (
+                    <div className="p-3.5 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-900/40 space-y-2">
+                      <span className="text-xs font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5 font-sans">
+                        <Volume2 className="w-4 h-4 text-amber-600" /> {t("exams.audioFileAttached")}
+                      </span>
+                      <audio controls src={getFileUrl(studentAnswer)} className="w-full h-9 rounded-lg" />
+                    </div>
+                  ) : q.questionType === 3 ? (
+                    <div className="space-y-1.5">
                       <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
                         {showStudentResult ? t("exams.studentSelectYourAnswer") : t("exams.tabQuestions")}
                       </span>
@@ -592,15 +750,26 @@ export default function ExamDetailPage() {
               {reviewTab === "result" ? (
                 <div className="space-y-5">
                   {/* Score Box */}
-                  <div className="p-5 bg-brand-500 text-white rounded-2xl shadow-theme-xs text-center space-y-1.5">
-                    <span className="text-[10px] uppercase font-black tracking-widest block opacity-70">{t("exams.gradeScore")}</span>
-                    <span className="text-4xl font-black tracking-tight block">
-                      {attempt.score ?? 0} / {exam.totalScore || 10}đ
-                    </span>
-                    <span className="inline-block text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-white/20">
-                      {isPassed ? t("exams.attemptPassed") : t("exams.attemptFailed")}
-                    </span>
-                  </div>
+                  {(() => {
+                    const isPending = checkIfPendingGrading(attempt, exam);
+                    return (
+                      <div className={`p-5 text-white rounded-2xl shadow-theme-xs text-center space-y-1.5 ${
+                        isPending ? "bg-amber-500" : "bg-brand-500"
+                      }`}>
+                        <span className="text-[10px] uppercase font-black tracking-widest block opacity-70">{t("exams.gradeScore")}</span>
+                        <span className="text-3xl font-black tracking-tight block">
+                          {isPending ? `-- / ${exam.totalScore || 10}đ` : `${attempt.score ?? 0} / ${exam.totalScore || 10}đ`}
+                        </span>
+                        <span className="inline-block text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-white/20 uppercase tracking-wider">
+                          {isPending
+                            ? `⏳ ${t("exams.statusPendingGrade")}`
+                            : isPassed
+                            ? t("exams.attemptPassed")
+                            : t("exams.attemptFailed")}
+                        </span>
+                      </div>
+                    );
+                  })()}
 
                   {/* Metrics List */}
                   <div className="space-y-2.5 text-xs border-b border-gray-100 dark:border-gray-800 pb-4">
@@ -624,33 +793,91 @@ export default function ExamDetailPage() {
                         {attempt.submitTime ? new Date(attempt.submitTime).toLocaleString("vi-VN") : "—"}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center py-1">
-                      <span className="text-gray-500 flex items-center gap-1.5">
-                        <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-                        {t("exams.attemptCorrectCount")}
-                      </span>
-                      <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                        {correctCount} / {totalQuestions}
-                      </span>
+                    {!isManualGradedExam(exam) && (
+                      <>
+                        <div className="flex justify-between items-center py-1">
+                          <span className="text-gray-500 flex items-center gap-1.5">
+                            <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+                            {t("exams.attemptCorrectCount")}
+                          </span>
+                          <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                            {correctCount} / {totalQuestions}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center py-1">
+                          <span className="text-gray-500 flex items-center gap-1.5">
+                            <XCircle className="w-3.5 h-3.5 text-red-500" />
+                            {t("exams.attemptIncorrectCount")}
+                          </span>
+                          <span className="font-bold text-red-600 dark:text-red-400">
+                            {incorrectCount} / {totalQuestions}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center py-1">
+                          <span className="text-gray-500 flex items-center gap-1.5">
+                            <Eye className="w-3.5 h-3.5 text-gray-400" />
+                            {t("exams.attemptUnanswered")}
+                          </span>
+                          <span className="font-semibold text-gray-655 dark:text-gray-300">
+                            {unansweredCount} / {totalQuestions}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Grading & Feedback Form in Review Modal */}
+                  <div className="p-4 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-3">
+                    <h5 className="text-xs font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5 font-sans">
+                      <Award className="w-4 h-4 text-amber-600" />
+                      {t("exams.gradeAndFeedbackTitle")}
+                    </h5>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                        {t("exams.gradeScore")} (0 - {exam.totalScore || 10}đ)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min={0}
+                        max={exam.totalScore || 10}
+                        value={gradeScoreInput}
+                        onChange={(e) => setGradeScoreInput(e.target.value)}
+                        placeholder="Nhập điểm..."
+                        className="w-full px-3 py-2 text-xs font-bold border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-lg text-gray-800 dark:text-white focus:border-brand-500 focus:outline-hidden"
+                      />
                     </div>
-                    <div className="flex justify-between items-center py-1">
-                      <span className="text-gray-500 flex items-center gap-1.5">
-                        <XCircle className="w-3.5 h-3.5 text-red-500" />
-                        {t("exams.attemptIncorrectCount")}
-                      </span>
-                      <span className="font-bold text-red-600 dark:text-red-400">
-                        {incorrectCount} / {totalQuestions}
-                      </span>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                        {t("exams.teacherCommentTitle")}
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={gradeCommentInput}
+                        onChange={(e) => setGradeCommentInput(e.target.value)}
+                        placeholder={t("exams.gradeCommentPlaceholder")}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-lg text-gray-800 dark:text-white focus:border-brand-500 focus:outline-hidden"
+                      />
                     </div>
-                    <div className="flex justify-between items-center py-1">
-                      <span className="text-gray-500 flex items-center gap-1.5">
-                        <Eye className="w-3.5 h-3.5 text-gray-400" />
-                        {t("exams.attemptUnanswered")}
-                      </span>
-                      <span className="font-semibold text-gray-655 dark:text-gray-300">
-                        {unansweredCount} / {totalQuestions}
-                      </span>
-                    </div>
+
+                    <button
+                      type="button"
+                      disabled={isSubmittingGrade}
+                      onClick={() => {
+                        const s = parseFloat(gradeScoreInput);
+                        if (isNaN(s)) {
+                          showToast("Vui lòng nhập điểm hợp lệ!", "error");
+                          return;
+                        }
+                        handleSaveGrade(attempt.id, s, gradeCommentInput);
+                      }}
+                      className="w-full py-2 px-3 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition-colors shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      {isSubmittingGrade ? "Đang lưu..." : t("exams.btnSaveGrade")}
+                    </button>
                   </div>
 
                   {/* Compact Answer Sheet Table */}
@@ -671,22 +898,29 @@ export default function ExamDetailPage() {
                             const ans = attempt.answers?.find((a: any) => a.questionId === q.id);
                             const studentAns = ans?.answerContent || "";
                             const isAnsCorrect = ans?.isCorrect;
-                            const studentLabel = getOptionLabel(q, studentAns);
+                            const isAudioAns = studentAns && (studentAns.startsWith("/uploads") || studentAns.startsWith("http") || studentAns.startsWith("data:") || studentAns.includes(".mp3") || studentAns.includes(".wav") || studentAns.includes(".m4a"));
+                            const studentLabel = isAudioAns ? "🔊 File ghi âm" : getOptionLabel(q, studentAns);
                             const correctLabel = getCorrectOptionLabel(q);
 
                             return (
                               <tr key={q.id} className="hover:bg-gray-50/50 dark:hover:bg-white/[0.01]">
                                 <td className="px-3 py-2 text-center font-bold text-gray-500">{idx + 1}</td>
                                 <td className="px-3 py-2 text-center">
-                                  <span className={`px-1.5 py-0.5 rounded-md font-bold ${
-                                    !studentAns
-                                      ? "text-gray-400"
-                                      : isAnsCorrect
-                                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
-                                      : "bg-red-50 text-red-750 dark:bg-red-500/10 dark:text-red-400"
-                                  }`}>
-                                    {studentLabel}
-                                  </span>
+                                  {isAudioAns ? (
+                                    <div className="flex flex-col items-center gap-1 py-0.5">
+                                      <audio controls src={getFileUrl(studentAns)} className="h-7 w-36 rounded" />
+                                    </div>
+                                  ) : (
+                                    <span className={`px-1.5 py-0.5 rounded-md font-bold ${
+                                      !studentAns
+                                        ? "text-gray-400"
+                                        : isAnsCorrect
+                                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+                                        : "bg-red-50 text-red-750 dark:bg-red-500/10 dark:text-red-400"
+                                    }`}>
+                                      {studentLabel}
+                                    </span>
+                                  )}
                                 </td>
                                 <td className="px-3 py-2 text-center font-bold text-emerald-600 dark:text-emerald-400">{correctLabel}</td>
                                 <td className="px-3 py-2 text-center font-semibold text-gray-700 dark:text-gray-300">
@@ -785,7 +1019,7 @@ export default function ExamDetailPage() {
         {error || t("exams.examNotFound")}
         <div className="mt-4">
           <button
-            onClick={() => router.push("/exams")}
+            onClick={handleBack}
             className="px-4 py-2 text-sm text-white bg-brand-500 rounded-lg hover:bg-brand-600 transition-colors"
           >
             {t("exams.btnBack")}
@@ -802,7 +1036,7 @@ export default function ExamDetailPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-gray-100 dark:border-white/[0.05]">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => router.push("/exams")}
+            onClick={handleBack}
             className="p-2 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 rounded-xl transition-colors shrink-0"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
@@ -843,16 +1077,18 @@ export default function ExamDetailPage() {
           >
             {t("exams.tabGrades")}
           </button>
-          <button
-            onClick={() => setActiveTab("stats")}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
-              activeTab === "stats"
-                ? "bg-white text-gray-900 shadow-sm dark:bg-gray-900 dark:text-white"
-                : "text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
-            }`}
-          >
-            {t("exams.tabStats")}
-          </button>
+          {!isManualGradedExam(exam) && (
+            <button
+              onClick={() => setActiveTab("stats")}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
+                activeTab === "stats"
+                  ? "bg-white text-gray-900 shadow-sm dark:bg-gray-900 dark:text-white"
+                  : "text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
+              }`}
+            >
+              {t("exams.tabStats")}
+            </button>
+          )}
           <button
             onClick={() => setActiveTab("questions")}
             className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
@@ -907,77 +1143,210 @@ export default function ExamDetailPage() {
                   {t("exams.noExamsFound")}
                 </div>
               ) : (
-                exam.questions.map((q, idx) => (
-                  <div
-                    key={q.id}
-                    className="p-6 bg-white dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.05] rounded-2xl shadow-theme-xs space-y-4"
-                  >
-                    {/* Header */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-brand-500">
-                        {t("exams.question")} {idx + 1}
-                      </span>
-                      <div className="flex gap-2">
-                        <span className="text-[11px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full dark:bg-gray-800 dark:text-gray-400">
-                          {q.code}
-                        </span>
-                        <span className="text-[11px] font-bold text-brand-500 bg-brand-50 px-2 py-0.5 rounded-full dark:bg-brand-500/10">
-                          {q.point || 1} {t("exams.points")}
+                <div className="space-y-6">
+                  {/* Render Question Passages Groups */}
+                  {groupedPassageMap.passageGroups.map(({ passage, questions: groupQs }) => (
+                    <div
+                      key={passage.id}
+                      className="p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-theme-xs space-y-4"
+                    >
+                      {/* Passage Top Header */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-gray-100 dark:border-gray-800">
+                        <div className="flex items-center gap-2.5">
+                          <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full uppercase tracking-wider ${getSkillBadgeClass(passage.skillType)}`}>
+                            {getSkillName(passage.skillType, t)}
+                          </span>
+                          {passage.categoryName && (
+                            <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                              {passage.categoryName}
+                            </span>
+                          )}
+                          <span className="text-xs font-mono font-bold text-gray-400">
+                            ({passage.code})
+                          </span>
+                        </div>
+                        <span className="text-xs font-semibold text-gray-500">
+                          ({t("exams.questionsCount", { count: groupQs.length })})
                         </span>
                       </div>
+
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                        {passage.title}
+                      </h3>
+
+                      {/* Reading Passage Text */}
+                      {passage.content && (
+                        <div className="p-4 bg-gray-50 dark:bg-gray-950/40 rounded-xl text-gray-800 dark:text-gray-200 text-sm font-serif leading-relaxed whitespace-pre-wrap border border-gray-150 dark:border-gray-800">
+                          <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 font-sans">
+                            📖 {t("exams.passageContentTitle").toUpperCase()}
+                          </span>
+                          {passage.content}
+                        </div>
+                      )}
+
+                      {/* Listening Audio File */}
+                      {passage.audioUrl && (
+                        <div className="p-3.5 bg-blue-50/60 dark:bg-blue-950/30 rounded-xl border border-blue-100 dark:border-blue-900/50 space-y-2">
+                          <span className="text-xs font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1.5 font-sans">
+                            <Volume2 className="w-4 h-4" /> {t("exams.listeningAudioTitle")}
+                          </span>
+                          <audio controls src={getFileUrl(passage.audioUrl)} className="w-full h-9 rounded-lg" />
+                        </div>
+                      )}
+
+                      {/* Questions inside this passage */}
+                      <div className="space-y-4 pt-2">
+                        {groupQs.map((q) => {
+                          const globalIdx = (exam.questions || []).findIndex((x) => x.id === q.id);
+                          return (
+                            <div key={q.id} className="p-4 bg-gray-50/60 dark:bg-gray-950/30 rounded-xl border border-gray-200/80 dark:border-gray-800 space-y-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-bold text-brand-500">
+                                  {t("exams.question")} {globalIdx + 1}
+                                </span>
+                                <div className="flex gap-2">
+                                  <span className="text-[11px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full dark:bg-gray-800 dark:text-gray-400">
+                                    {q.code}
+                                  </span>
+                                  <span className="text-[11px] font-bold text-brand-500 bg-brand-50 px-2 py-0.5 rounded-full dark:bg-brand-500/10">
+                                    {q.point || 1} {t("exams.points")}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white leading-relaxed">
+                                {q.content}
+                              </p>
+
+                              {/* Question Audio File (if mediaUrl is present on question) */}
+                              {q.mediaUrl && (
+                                <div className="p-3 bg-blue-50/60 dark:bg-blue-950/30 rounded-xl border border-blue-100 dark:border-blue-900/50 space-y-1.5 my-2">
+                                  <span className="text-xs font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1.5 font-sans">
+                                    <Volume2 className="w-3.5 h-3.5" /> {t("exams.questionAudioTitle")}
+                                  </span>
+                                  <audio controls src={getFileUrl(q.mediaUrl)} className="w-full h-8 rounded-lg" />
+                                </div>
+                              )}
+
+                              <div className="grid grid-cols-1 gap-2.5 pt-1">
+                                {q.questionAnswers.map((ans: any, oIdx: number) => {
+                                  const optionLetters = ["A", "B", "C", "D", "E", "F"];
+                                  const letter = optionLetters[oIdx] || String(oIdx + 1);
+                                  const isCorrect = ans.isCorrect;
+
+                                  return (
+                                    <div
+                                      key={ans.id}
+                                      className={`p-3 rounded-xl border transition-all flex items-center justify-between ${
+                                        isCorrect
+                                          ? "bg-emerald-500/5 border-emerald-500 dark:border-emerald-600"
+                                          : "border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900"
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <span
+                                          className={`w-7 h-7 rounded-full font-bold text-xs flex items-center justify-center shrink-0 border ${
+                                            isCorrect
+                                              ? "bg-emerald-500 text-white border-emerald-500"
+                                              : "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
+                                          }`}
+                                        >
+                                          {letter}
+                                        </span>
+                                        <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                                          {ans.content}
+                                        </span>
+                                      </div>
+
+                                      {isCorrect && (
+                                        <span className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
+                                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                          </svg>
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
+                  ))}
 
-                    {/* Question Content */}
-                    <p className="text-base font-semibold text-gray-900 dark:text-white leading-relaxed">
-                      {q.content}
-                    </p>
+                  {/* Render Standalone Questions if any */}
+                  {groupedPassageMap.standaloneQs.map((q) => {
+                    const globalIdx = (exam.questions || []).findIndex((x) => x.id === q.id);
+                    return (
+                      <div
+                        key={q.id}
+                        className="p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-theme-xs space-y-4"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-bold text-brand-500">
+                            {t("exams.question")} {globalIdx + 1}
+                          </span>
+                          <div className="flex gap-2">
+                            <span className="text-[11px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full dark:bg-gray-800 dark:text-gray-400">
+                              {q.code}
+                            </span>
+                            <span className="text-[11px] font-bold text-brand-500 bg-brand-50 px-2 py-0.5 rounded-full dark:bg-brand-500/10">
+                              {q.point || 1} {t("exams.points")}
+                            </span>
+                          </div>
+                        </div>
 
-                    {/* Option Choices */}
-                    <div className="grid grid-cols-1 gap-3 pt-2">
-                      {q.questionAnswers.map((ans, oIdx) => {
-                        const optionLetters = ["A", "B", "C", "D", "E", "F"];
-                        const letter = optionLetters[oIdx] || String(oIdx + 1);
-                        const isCorrect = ans.isCorrect;
+                        <p className="text-base font-semibold text-gray-900 dark:text-white leading-relaxed">
+                          {q.content}
+                        </p>
 
-                        return (
-                          <div
-                            key={ans.id}
-                            className={`p-3.5 rounded-xl border transition-all flex items-center justify-between ${
-                              isCorrect
-                                ? "bg-emerald-500/5 border-emerald-500 dark:border-emerald-600"
-                                : "border-gray-100 dark:border-gray-800/80 bg-white dark:bg-transparent"
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              {/* Circle Badge letter */}
-                              <span
-                                className={`w-8 h-8 rounded-full font-bold text-xs flex items-center justify-center shrink-0 border ${
+                        <div className="grid grid-cols-1 gap-3 pt-2">
+                          {q.questionAnswers.map((ans: any, oIdx: number) => {
+                            const optionLetters = ["A", "B", "C", "D", "E", "F"];
+                            const letter = optionLetters[oIdx] || String(oIdx + 1);
+                            const isCorrect = ans.isCorrect;
+
+                            return (
+                              <div
+                                key={ans.id}
+                                className={`p-3.5 rounded-xl border transition-all flex items-center justify-between ${
                                   isCorrect
-                                    ? "bg-emerald-500 text-white border-emerald-500"
-                                    : "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
+                                    ? "bg-emerald-500/5 border-emerald-500 dark:border-emerald-600"
+                                    : "border-gray-100 dark:border-gray-800/80 bg-white dark:bg-transparent"
                                 }`}
                               >
-                                {letter}
-                              </span>
-                              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                                {ans.content}
-                              </span>
-                            </div>
+                                <div className="flex items-center gap-3">
+                                  <span
+                                    className={`w-8 h-8 rounded-full font-bold text-xs flex items-center justify-center shrink-0 border ${
+                                      isCorrect
+                                        ? "bg-emerald-500 text-white border-emerald-500"
+                                        : "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
+                                    }`}
+                                  >
+                                    {letter}
+                                  </span>
+                                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                                    {ans.content}
+                                  </span>
+                                </div>
 
-                            {/* Green checkmark badge on correct option row end */}
-                            {isCorrect && (
-                              <span className="w-5.5 h-5.5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-xs shadow-emerald-500/10">
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                                </svg>
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))
+                                {isCorrect && (
+                                  <span className="w-5.5 h-5.5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-xs shadow-emerald-500/10">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                    </svg>
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
           )}
@@ -1053,18 +1422,30 @@ export default function ExamDetailPage() {
                               </td>
                               <td className="px-6 py-4 text-center">
                                 {att.status === 2 ? (
-                                  <span className={`text-base font-black tracking-tight ${isPassed ? "text-emerald-500" : "text-rose-500"}`}>
-                                    {att.score}đ
-                                  </span>
+                                  checkIfPendingGrading(att, exam) ? (
+                                    <span className="text-sm font-bold text-amber-600 dark:text-amber-400 font-mono">
+                                      {t("exams.statusPendingGrade")}
+                                    </span>
+                                  ) : (
+                                    <span className={`text-base font-black tracking-tight ${isPassed ? "text-emerald-500" : "text-rose-500"}`}>
+                                      {att.score}đ
+                                    </span>
+                                  )
                                 ) : (
                                   <span className="text-gray-400 font-medium">—</span>
                                 )}
                               </td>
                               <td className="px-6 py-4 text-center">
                                 {att.status === 2 ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
-                                    {t("exams.statusCompleted")}
-                                  </span>
+                                  checkIfPendingGrading(att, exam) ? (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-200 dark:border-amber-900/40">
+                                      ⏳ {t("exams.statusPendingGrade")}
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
+                                      {t("exams.statusCompleted")}
+                                    </span>
+                                  )
                                 ) : (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
                                     {t("exams.statusNotStarted")}
@@ -1120,7 +1501,7 @@ export default function ExamDetailPage() {
             </div>
           )}
 
-          {activeTab === "stats" && (
+          {activeTab === "stats" && !isManualGradedExam(exam) && (
             <div className="space-y-6">
               {attempts.filter(a => a.status === 2).length === 0 ? (
                 <div className="p-8 text-center text-gray-500 bg-white dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.05] rounded-2xl">
@@ -1239,14 +1620,16 @@ export default function ExamDetailPage() {
               </div>
             </div>
 
-            <div className="pt-2">
-              <button
-                onClick={() => router.push(`/exams/edit/${exam.id}`)}
-                className="w-full py-2.5 text-center text-xs font-semibold text-white bg-brand-500 hover:bg-brand-600 rounded-lg transition-colors shadow-theme-xs"
-              >
-                {t("exams.editExam")}
-              </button>
-            </div>
+            <PermissionGuard requiredPermission="Exam.Edit">
+              <div className="pt-2">
+                <button
+                  onClick={() => router.push(`/exams/edit/${exam.id}`)}
+                  className="w-full py-2.5 text-center text-xs font-semibold text-white bg-brand-500 hover:bg-brand-600 rounded-lg transition-colors shadow-theme-xs"
+                >
+                  {t("exams.editExam")}
+                </button>
+              </div>
+            </PermissionGuard>
 
           </div>
         </div>

@@ -396,6 +396,7 @@ export default function StudentRegistrationTable() {
                 <TableCell isHeader className="px-6 py-4 text-left">{t("registration.colContact")}</TableCell>
                 <TableCell isHeader className="px-6 py-4 text-left">{t("registration.colCourse")}</TableCell>
                 <TableCell isHeader className="px-6 py-4 text-left">{t("registration.colPreferredSlots")}</TableCell>
+                <TableCell isHeader className="px-6 py-4 text-left">Hình thức học</TableCell>
                 <TableCell isHeader className="px-6 py-4 text-left">{t("registration.colStatus")}</TableCell>
                 <TableCell isHeader className="px-6 py-4 text-center">{t("registration.colActions", { defaultValue: "Thao tác" })}</TableCell>
               </TableRow>
@@ -468,6 +469,9 @@ export default function StudentRegistrationTable() {
                 <TableCell isHeader className="px-6 py-4 text-left">
                   <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">{t("registration.colPreferredSlots")}</p>
                 </TableCell>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider">
+                  Hình thức học
+                </th>
                 <TableCell isHeader className="px-6 py-4 text-left">
                   <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => handleSort("status")}>
                     <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">{t("registration.colStatus")}</p>
@@ -514,6 +518,15 @@ export default function StudentRegistrationTable() {
                       )}
                     </div>
                   </TableCell>
+                  <td className="px-6 py-4 whitespace-nowrap text-theme-sm">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
+                      item.enrollType === 1
+                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400"
+                        : "bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400"
+                    }`}>
+                      {item.enrollType === 1 ? "Online" : "Offline"}
+                    </span>
+                  </td>
                   <TableCell className="px-6 py-4 whitespace-nowrap text-theme-sm">
                     <span className={`inline-flex items-center text-xs font-semibold px-2.5 py-0.5 rounded-full ${getStatusBadgeClass(item.status)}`}>
                       {getStatusText(item.status)}
@@ -523,21 +536,35 @@ export default function StudentRegistrationTable() {
                     <div className="flex items-center justify-center gap-2">
                       {hasPermission("StudentRegistration.Edit") && (
                         <button
+                          disabled={item.status === 1}
                           onClick={() => {
+                            if (item.status === 1) return;
                             setRegistrationToEdit(item);
                             setIsModalOpen(true);
                           }}
-                          className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md transition-colors cursor-pointer"
-                          title={t("common.edit", { defaultValue: "Sửa" })}
+                          className={`p-1.5 rounded-md transition-colors ${
+                            item.status === 1
+                              ? "text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-50"
+                              : "text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30 cursor-pointer"
+                          }`}
+                          title={item.status === 1 ? "Không thể chỉnh sửa đăng ký đã xếp lớp" : t("common.edit", { defaultValue: "Sửa" })}
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                       )}
                       {hasPermission("StudentRegistration.Delete") && (
                         <button
-                          onClick={() => handleDelete(item.id)}
-                          className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors cursor-pointer"
-                          title={t("common.delete", { defaultValue: "Xóa" })}
+                          disabled={item.status === 1}
+                          onClick={() => {
+                            if (item.status === 1) return;
+                            handleDelete(item.id);
+                          }}
+                          className={`p-1.5 rounded-md transition-colors ${
+                            item.status === 1
+                              ? "text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-50"
+                              : "text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 cursor-pointer"
+                          }`}
+                          title={item.status === 1 ? "Không thể xóa đăng ký đã xếp lớp" : t("common.delete", { defaultValue: "Xóa" })}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
