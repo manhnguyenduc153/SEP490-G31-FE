@@ -243,6 +243,7 @@ export function StudentImportModal({
       courseId: r.courseId,
       courseName: r.courseResolved ? null : r.rawCourseName,
       preferredSlots: r.preferredSlots,
+      enrollType: (r as any).enrollType || 1,
     }));
 
     try {

@@ -26,6 +26,8 @@ export interface ExamItem {
   createdAt: string;
   questionCount: number;
   submissionCount: number;
+  latestScore?: number | null;
+  isGraded?: boolean;
   questionIds: number[];
   questions?: QuestionItem[];
 }
@@ -151,6 +153,10 @@ export const examApi = {
   async submitAttempt(examId: number, dto: ExamSubmitDto): Promise<ApiResponse<ExamAttemptDto>> {
     return api.post<ExamAttemptDto>(`/api/Exam/${examId}/submit`, dto);
   },
+
+  async gradeAttempt(attemptId: number, dto: { score: number; teacherComment?: string }): Promise<ApiResponse<ExamAttemptDto>> {
+    return api.put<ExamAttemptDto>(`/api/Exam/attempt/${attemptId}/grade`, dto);
+  },
 };
 
 export interface ExamAnswerDto {
@@ -177,6 +183,7 @@ export interface ExamAttemptDto {
   duration?: number | null;
   tabExitsCount?: number;
   log?: string | null;
+  teacherComment?: string | null;
   answers: ExamAnswerDto[];
 }
 
