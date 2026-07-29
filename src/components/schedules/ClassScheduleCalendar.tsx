@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -122,7 +123,7 @@ interface WeekGridProps {
 }
 
 function WeekGrid({ events, weekStart, onEventClick }: WeekGridProps) {
-  // Build lookup: dateISO -> slotIndex -> events[]
+  const { t } = useTranslation();
   const lookup: Record<string, Record<number, ScheduleEvent[]>> = {};
   for (const ev of events) {
     if (!lookup[ev.scheduleDate]) lookup[ev.scheduleDate] = {};
@@ -170,7 +171,9 @@ function WeekGrid({ events, weekStart, onEventClick }: WeekGridProps) {
             <tr key={slot.index} className="group">
               {/* Slot header cell */}
               <td className="border border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-850/60 px-3 py-5 align-top" style={{ height: "120px" }}>
-                <p className="font-bold text-xs text-gray-700 dark:text-gray-300">{slot.label}</p>
+                <p className="font-bold text-xs text-gray-700 dark:text-gray-300">
+                  {t("schedules.slotNumber", { index: slot.index + 1, defaultValue: slot.label })}
+                </p>
                 <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{slot.time}</p>
               </td>
               {/* Day cells */}
@@ -210,6 +213,7 @@ function WeekGrid({ events, weekStart, onEventClick }: WeekGridProps) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function ClassScheduleCalendar() {
+  const { t } = useTranslation();
   const { isOpen, openModal, closeModal } = useModal();
 
   const [classes, setClasses] = useState<ClassItem[]>([]);
@@ -389,7 +393,7 @@ export default function ClassScheduleCalendar() {
             <div className="flex flex-wrap gap-2 px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30">
               {FIXED_SLOTS.map((s) => (
                 <span key={s.index} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${SLOT_COLORS[s.index]}`}>
-                  {s.label} · {s.time}
+                  {t("schedules.slotNumber", { index: s.index + 1, defaultValue: s.label })} · {s.time}
                 </span>
               ))}
             </div>
@@ -439,22 +443,22 @@ export default function ClassScheduleCalendar() {
               {[
                 {
                   icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
-                  label: "Ngày học",
+                  label: t("schedules.dateLabel", { defaultValue: "Ngày học" }),
                   value: selectedEvent.scheduleDate,
                 },
                 {
                   icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
-                  label: "Khung giờ",
-                  value: `${FIXED_SLOTS[selectedEvent.slotIndex]?.label ?? ""} · ${selectedEvent.startTime} – ${selectedEvent.endTime}`,
+                  label: t("schedules.timeLabel", { defaultValue: "Khung giờ" }),
+                  value: `${t("schedules.slotNumber", { index: selectedEvent.slotIndex + 1, defaultValue: FIXED_SLOTS[selectedEvent.slotIndex]?.label })} · ${selectedEvent.startTime} – ${selectedEvent.endTime}`,
                 },
                 {
                   icon: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4",
-                  label: "Phòng học",
+                  label: t("schedules.roomLabel", { defaultValue: "Phòng học" }),
                   value: selectedEvent.roomName,
                 },
                 {
                   icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z",
-                  label: "Giáo viên",
+                  label: t("schedules.teacherLabel", { defaultValue: "Giáo viên" }),
                   value: selectedEvent.teacherName,
                 },
               ].map(({ icon, label, value }) => (
