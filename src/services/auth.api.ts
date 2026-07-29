@@ -124,15 +124,6 @@ export const authApi = {
 
   hasPermission(permission: string): boolean {
     if (!permission) return true;
-    const role = this.getRole().toLowerCase();
-    if (
-      role === "admin" ||
-      role === "academic staff" ||
-      role === "ban chuyên môn" ||
-      role === "ban vận hành"
-    ) {
-      return true;
-    }
     const permissions = this.getPermissions();
     return permissions.includes(permission);
   },

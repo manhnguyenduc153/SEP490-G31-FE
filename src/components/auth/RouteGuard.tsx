@@ -4,25 +4,32 @@ import { usePathname, useRouter } from "next/navigation";
 import { authApi } from "@/services/auth.api";
 
 // Mapping từ URL route sang Permission tương ứng
-const routePermissions: Record<string, string> = {
+const routePermissions: Record<string, string | string[]> = {
   "/courses": "Course",
   "/classes": "Class",
   "/teachers": "Teacher",
   "/students": "Student",
   "/rooms": "Room",
   "/schedules": "ClassSchedule",
-  "/exams": "ExamSchedule",
+  "/exams": "Exam.View",
+  "/my-exams": "StudentExam",
+  "/my-classes": "MyClass",
+  "/teaching-classes": "TeachingClass",
+  "/teaching-exams": "TeachingExam",
   "/assignments": "Activity",
   "/question-bank": "Question",
   "/question-category": "QuestionCategory",
   "/scores": "StudentGrade.ViewSettings",
-  "/my-scores": "StudentGrade.ViewOwnGrades",
-  "/learning-materials": "LearningMaterial",
-  "/attendance": "Attendance",
-  "/homework": "Homework",
-  "/users": "User",
+  "/my-scores": "MyGrade",
+  "/learning-materials": "LearningMaterial.View",
+  "/attendance": "Attendance.View",
+  "/homework": "HomeworkManagement.View",
+  "/my-homework": "StudentHomework.View",
+   "/users": "User",
   "/roles": "Role",
   "/child-profile": "ParentStudent",
+  "/child-progress": "ChildProgress",
+  "/student-progress": "StudentProgress",
 };
 
 export const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {

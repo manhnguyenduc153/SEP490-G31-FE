@@ -8,7 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Edit, Eye, Trash2 } from "lucide-react";
+import { Edit, Eye, Search, Trash2 } from "lucide-react";
 import { homeworkApi, HomeworkDto, HomeworkSubmissionDto } from "@/services/homework.api";
 import { useTranslation } from "react-i18next";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
@@ -40,9 +40,24 @@ export default function HomeworkList({
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [deleteTarget, setDeleteTarget] = useState<HomeworkDto | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [keyword, setKeyword] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
-  const totalPages = Math.max(1, Math.ceil(items.length / itemsPerPage));
-  const pageItems = items.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const normalizedKeyword = keyword.trim().toLocaleLowerCase("vi");
+  const filteredItems = items.filter((item) => {
+    const matchesKeyword = !normalizedKeyword || [
+      item.title, item.skill, item.className, item.teacherName,
+      item.dueDate ? new Date(item.dueDate).toLocaleDateString("vi-VN") : "",
+    ].some((value) => value?.toLocaleLowerCase("vi").includes(normalizedKeyword));
+    const submission = studentSubmissions[item.id];
+    const isGraded = submission?.status === 2 || (submission?.score !== null && submission?.score !== undefined);
+    const matchesStatus = userRole === "Student"
+      ? statusFilter === "all" || statusFilter === (isGraded ? "graded" : "ungraded")
+      : statusFilter === "all" || String(item.status) === statusFilter;
+    return matchesKeyword && matchesStatus;
+  });
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / itemsPerPage));
+  const pageItems = filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -72,7 +87,15 @@ export default function HomeworkList({
     async function fetchHomeworks() {
       setIsLoading(true);
       try {
-        const res = await homeworkApi.getHomeworkByClass(classId);
+        const fetchFunc = userRole === "Student"
+          ? homeworkApi.getStudentHomeworkByClass
+          : homeworkApi.getHomeworkByClass;
+
+        const responses = [await fetchFunc(classId)];
+        const res = {
+          success: responses.every((response) => response.success),
+          data: responses.filter((response) => response.success).flatMap((response) => response.data),
+        };
         if (mounted && res.success) {
           setItems(res.data);
 
@@ -95,6 +118,16 @@ export default function HomeworkList({
           } else {
             setStudentSubmissions({});
           }
+        } else if (mounted) {
+          setItems([]);
+          showToast(
+            responses.find((response) => !response.success)?.message
+              ? t(`backendMessages.${responses.find((response) => !response.success)?.message}`, {
+                  defaultValue: responses.find((response) => !response.success)?.message,
+                })
+              : t("homework.loadListError"),
+            "error"
+          );
         }
       } catch (err) {
         console.error(err);
@@ -119,11 +152,32 @@ export default function HomeworkList({
 
   return (
     <div className="w-full bg-white dark:bg-gray-900 rounded-2xl shadow-xs overflow-hidden">
+      <div className="grid gap-3 border-b border-gray-100 p-4 dark:border-gray-800 md:grid-cols-[1fr_220px]">
+        <div className="relative">
+          <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+          <input value={keyword} onChange={(event) => { setKeyword(event.target.value); setCurrentPage(1); }} placeholder={t("homework.searchPlaceholder", { defaultValue: "Tìm theo tiêu đề, lớp, giáo viên, kỹ năng, hạn nộp..." })} className="h-11 w-full rounded-lg border border-gray-300 bg-white pl-10 pr-4 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
+        </div>
+        <select value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value); setCurrentPage(1); }} className="h-11 rounded-lg border border-gray-300 bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+          <option value="all">{t("common.all", { defaultValue: "Tất cả trạng thái" })}</option>
+          {userRole === "Student" ? (
+            <>
+              <option value="graded">{t("homework.submissionGraded")}</option>
+              <option value="ungraded">{t("homework.submissionUngraded")}</option>
+            </>
+          ) : (
+            <>
+              <option value="1">{t("homework.statusActive")}</option>
+              <option value="0">{t("homework.statusInactive")}</option>
+            </>
+          )}
+        </select>
+      </div>
       <div className="overflow-x-auto">
         <Table>
           <TableHeader className="bg-gray-50/70 dark:bg-gray-800/40">
             <TableRow>
               <TableCell className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("homework.colTitle")}</TableCell>
+              {userRole !== "Student" && <TableCell className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("homework.colClass", { defaultValue: "Lớp / Giáo viên" })}</TableCell>}
               <TableCell className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("homework.colSkill")}</TableCell>
               <TableCell className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("homework.colDueDate")}</TableCell>
               <TableCell className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">{t("homework.colStatus")}</TableCell>
@@ -133,11 +187,11 @@ export default function HomeworkList({
           <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-10 text-sm text-gray-500">{t("common.loading", { defaultValue: "Đang tải..." })}</TableCell>
+                <TableCell colSpan={userRole === "Student" ? 5 : 6} className="text-center py-10 text-sm text-gray-500">{t("common.loading", { defaultValue: "Đang tải..." })}</TableCell>
               </TableRow>
             ) : items.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-10 text-sm text-gray-500">{t("homework.noHomework")}</TableCell>
+                <TableCell colSpan={userRole === "Student" ? 5 : 6} className="text-center py-10 text-sm text-gray-500">{t("homework.noHomework")}</TableCell>
               </TableRow>
             ) : (
               pageItems.map((item) => (
@@ -145,6 +199,10 @@ export default function HomeworkList({
                   <TableCell className="px-5 py-4 font-medium text-gray-900 dark:text-white">
                     {item.title}
                   </TableCell>
+                  {userRole !== "Student" && <TableCell className="px-5 py-4 text-sm text-gray-600 dark:text-gray-300">
+                    <div>{item.className || "-"}</div>
+                    <div className="text-xs text-gray-400">{item.teacherName || "-"}</div>
+                  </TableCell>}
                   <TableCell className="px-5 py-4 text-sm text-gray-600 dark:text-gray-300">
                     {item.skill || "-"}
                   </TableCell>
@@ -171,12 +229,12 @@ export default function HomeworkList({
                       <button onClick={() => onViewClick(item)} className="p-1 text-gray-400 hover:text-brand-500">
                         <Eye className="w-4 h-4" />
                       </button>
-                      <PermissionGuard requiredPermission="Homework.Edit">
+                      <PermissionGuard requiredPermission="HomeworkManagement.Edit">
                         <button title={t("common.edit", { defaultValue: "Sửa" })} onClick={() => onEditClick(item)} className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md transition-colors">
                           <Edit className="w-4 h-4" />
                         </button>
                       </PermissionGuard>
-                      <PermissionGuard requiredPermission="Homework.Delete">
+                      <PermissionGuard requiredPermission="HomeworkManagement.Delete">
                         <button title={t("common.delete", { defaultValue: "Xóa" })} onClick={() => setDeleteTarget(item)} className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors">
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -196,7 +254,7 @@ export default function HomeworkList({
             {[5, 10, 15, 20].map((value) => <option key={value} value={value}>{value}</option>)}
           </select>
           <span>{t("common.entries")}</span>
-          <span>{t("homework.showing", { start: items.length ? (currentPage - 1) * itemsPerPage + 1 : 0, end: Math.min(currentPage * itemsPerPage, items.length), total: items.length, defaultValue: "{{start}}-{{end}} / {{total}}" })}</span>
+          <span>{t("homework.showing", { start: filteredItems.length ? (currentPage - 1) * itemsPerPage + 1 : 0, end: Math.min(currentPage * itemsPerPage, filteredItems.length), total: filteredItems.length, defaultValue: "{{start}}-{{end}} / {{total}}" })}</span>
         </div>
         {totalPages > 1 && <PaginationWithIcon totalPages={totalPages} initialPage={currentPage} onPageChange={setCurrentPage} />}
       </div>

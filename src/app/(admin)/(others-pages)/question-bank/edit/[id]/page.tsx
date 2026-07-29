@@ -1,5 +1,4 @@
 import { QuestionForm } from "@/components/question-bank/QuestionForm";
-import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { Metadata } from "next";
 import React from "react";
 
@@ -19,8 +18,7 @@ export default async function EditQuestionPage({ params }: EditQuestionPageProps
   const questionId = Number(resolvedParams.id);
 
   return (
-    <div className="space-y-6">
-      <PageBreadcrumb pageTitle="question.editTitle" />
+    <div>
       <QuestionForm id={questionId} />
     </div>
   );

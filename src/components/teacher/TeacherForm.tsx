@@ -36,12 +36,12 @@ export function TeacherForm({
     address: "",
     status: 1, // 1: Active
     description: "",
-    gradeLevel: null,
     avatar: null,
     certificates: [],
   });
 
   const [isUploading, setIsUploading] = useState(false);
+  const [clientError, setClientError] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [certFiles, setCertFiles] = useState<File[]>([]);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -65,7 +65,6 @@ export function TeacherForm({
         address: editingItem.address || "",
         status: editingItem.status ?? 1,
         description: editingItem.description || "",
-        gradeLevel: editingItem.gradeLevel ?? null,
         avatar: editingItem.avatar || null,
         certificates: editingItem.certificates || [],
       });
@@ -86,7 +85,6 @@ export function TeacherForm({
         address: "",
         status: 1,
         description: "",
-        gradeLevel: null,
         avatar: null,
         certificates: [],
       });
@@ -211,6 +209,35 @@ export function TeacherForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setClientError(null);
+
+    const email = formData.email?.trim() || "";
+    const phone = formData.phone?.trim() || "";
+    if (!formData.name.trim() || !formData.code.trim()) {
+      setClientError(t("teacher.validationRequired"));
+      return;
+    }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setClientError(t("teacher.validationEmailInvalid"));
+      return;
+    }
+    if (phone && !/^\+?[0-9][0-9\s().-]{6,19}$/.test(phone)) {
+      setClientError(t("teacher.validationPhoneInvalid"));
+      return;
+    }
+    if (formData.dob && new Date(`${formData.dob}T00:00:00`) > new Date()) {
+      setClientError(t("teacher.validationDobFuture"));
+      return;
+    }
+    if ((formData.address?.length || 0) > 500) {
+      setClientError(t("teacher.validationAddressMax"));
+      return;
+    }
+    if (![0, 1, 2].includes(Number(formData.status))) {
+      setClientError(t("teacher.validationStatusInvalid"));
+      return;
+    }
+
     let finalFormData = { ...formData };
     
     // Clean up empty strings to null for backend optional fields
@@ -422,6 +449,7 @@ export function TeacherForm({
                   >
                     <option value={1}>{t("teacher.statusActive")}</option>
                     <option value={0}>{t("teacher.statusInactive")}</option>
+                    <option value={2}>{t("teacher.statusOnLeave")}</option>
                   </select>
                 </div>
               </div>
@@ -434,6 +462,7 @@ export function TeacherForm({
                 <input
                   type="text"
                   name="address"
+                  maxLength={500}
                   value={formData.address || ""}
                   onChange={handleChange}
                   placeholder={t("teacher.formAddressPlaceholder")}
@@ -481,14 +510,14 @@ export function TeacherForm({
                   {isUploading ? (
                     <div className="flex flex-col items-center py-6">
                       <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
-                      <span className="mt-2 text-xs text-gray-500">Đang lưu...</span>
+                      <span className="mt-2 text-xs text-gray-500">{t("common.btnSaving")}</span>
                     </div>
                   ) : avatarPreview ? (
                     <div className="group relative h-full w-full overflow-hidden rounded-lg">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={avatarPreview}
-                        alt="Avatar preview"
+                        alt={t("teacher.avatarPreviewAlt")}
                         className="object-cover w-full h-full"
                       />
                       <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
@@ -496,12 +525,12 @@ export function TeacherForm({
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setPreviewImage(avatarPreview); }}
                           className="p-2 bg-white/20 hover:bg-white/40 rounded-full text-white transition-colors"
-                          title="Xem ảnh phóng to"
+                          title={t("teacher.viewFullImage")}
                         >
                           <EyeIcon className="w-5 h-5" />
                         </button>
                         <span className="text-white text-xs font-medium px-3 py-1.5 bg-white/20 rounded-full hover:bg-white/30 transition-colors">
-                          Thay đổi ảnh
+                          {t("teacher.changeImage")}
                         </span>
                       </div>
                     </div>
@@ -513,7 +542,7 @@ export function TeacherForm({
                         </svg>
                       </div>
                       <p className="text-xs font-medium text-brand-600 dark:text-brand-400 mb-1">
-                        Tải ảnh lên
+                        {t("teacher.uploadImage")}
                       </p>
                     </div>
                   )}
@@ -541,7 +570,7 @@ export function TeacherForm({
                   {isUploading ? (
                     <div className="flex flex-col items-center py-6">
                       <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
-                      <span className="mt-2 text-xs text-gray-500">Đang lưu...</span>
+                      <span className="mt-2 text-xs text-gray-500">{t("common.btnSaving")}</span>
                     </div>
                   ) : certFile || existingCertificate ? (
                     <div className="group relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
@@ -550,7 +579,7 @@ export function TeacherForm({
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={selectedCertificateUrl as string}
-                            alt="Certificate preview"
+                            alt={t("teacher.certificatePreviewAlt")}
                             className="object-cover w-full h-full"
                           />
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
@@ -558,12 +587,12 @@ export function TeacherForm({
                               type="button"
                               onClick={(e) => { e.stopPropagation(); setPreviewImage(selectedCertificateUrl); }}
                               className="p-2 bg-white/20 hover:bg-white/40 rounded-full text-white transition-colors"
-                              title="Xem ảnh phóng to"
+                              title={t("teacher.viewFullImage")}
                             >
                               <EyeIcon className="w-5 h-5" />
                             </button>
                             <span className="text-white text-xs font-medium px-3 py-1.5 bg-white/20 rounded-full hover:bg-white/30 transition-colors">
-                              Thay đổi
+                              {t("teacher.changeFile")}
                             </span>
                           </div>
                         </>
@@ -578,7 +607,7 @@ export function TeacherForm({
                             </p>
                           </div>
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <span className="text-white text-xs font-medium px-3 py-1.5 bg-white/20 rounded-full hover:bg-white/30 transition-colors">Thay đổi</span>
+                            <span className="text-white text-xs font-medium px-3 py-1.5 bg-white/20 rounded-full hover:bg-white/30 transition-colors">{t("teacher.changeFile")}</span>
                           </div>
                         </>
                       )}
@@ -650,9 +679,9 @@ export function TeacherForm({
           </div>
 
           {/* Form-level error */}
-          {formError && (
+          {(clientError || formError) && (
             <div className="mt-6 p-4 rounded-lg bg-error-50 dark:bg-error-500/10 border border-error-200 dark:border-error-500/20 text-sm text-error-600 dark:text-error-400">
-              {formError}
+              {clientError || formError}
             </div>
           )}
 
@@ -691,13 +720,13 @@ export function TeacherForm({
           type="button"
           onClick={() => setPreviewImage(null)}
           className="fixed right-5 top-5 z-[100000] p-2 text-white transition-colors hover:text-gray-200"
-          aria-label="Close image preview"
+          aria-label={t("teacher.closeImagePreview")}
         >
           <X className="h-7 w-7 stroke-[3]" />
         </button>
         <div className="relative max-w-4xl w-full" onClick={(e) => e.stopPropagation()}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={previewImage} alt="Preview" className="max-h-[85vh] object-contain rounded-lg mx-auto" />
+          <img src={previewImage} alt={t("teacher.imagePreviewAlt")} className="max-h-[85vh] object-contain rounded-lg mx-auto" />
         </div>
       </div>
     )}

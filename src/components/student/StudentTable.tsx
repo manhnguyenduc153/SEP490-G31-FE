@@ -27,7 +27,7 @@ import { StudentViewModal } from "./StudentViewModal";
 
 type SortKey = "code" | "name" | "email" | "phone" | "status" | "gradeLevel" | "hasAccount";
 type SortOrder = "asc" | "desc";
-type TabType = "all" | "active" | "inactive" | "suspended" | "graduated";
+type TabType = "all" | "active" | "suspended" | "graduated";
 
 interface StudentTableProps {
   refreshKey?: number;
@@ -73,7 +73,6 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
   const [activeTab, setActiveTab] = useState<TabType>("all");
   const [countAll, setCountAll] = useState(0);
   const [countActive, setCountActive] = useState(0);
-  const [countInactive, setCountInactive] = useState(0);
   const [countSuspended, setCountSuspended] = useState(0);
   const [countGraduated, setCountGraduated] = useState(0);
 
@@ -182,14 +181,12 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
           const allList = allItemsRes.data.items || [];
           setCountAll(allList.length);
           setCountActive(allList.filter(s => s.status === 1).length);
-          setCountInactive(allList.filter(s => s.status === 0).length);
           setCountSuspended(allList.filter(s => s.status === 2).length);
           setCountGraduated(allList.filter(s => s.status === 3).length);
 
           // Filter main list items by activeTab
           let displayList = allList;
           if (activeTab === "active") displayList = allList.filter(s => s.status === 1);
-          else if (activeTab === "inactive") displayList = allList.filter(s => s.status === 0);
           else if (activeTab === "suspended") displayList = allList.filter(s => s.status === 2);
           else if (activeTab === "graduated") displayList = allList.filter(s => s.status === 3);
 
@@ -467,13 +464,13 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
   const endIndex = Math.min(startIndex + items.length, totalRecords);
 
   const columns: { key: SortKey; label: string }[] = [
-    { key: "code", label: t("student.colCode", { defaultValue: "Mã HS" }) },
-    { key: "name", label: t("student.colName", { defaultValue: "Họ và tên" }) },
-    { key: "email", label: t("student.colEmail", { defaultValue: "Email" }) },
-    { key: "phone", label: t("student.colPhone", { defaultValue: "Số điện thoại" }) },
-    { key: "gradeLevel", label: t("student.colGradeLevel", { defaultValue: "Khối lớp" }) },
-    { key: "status", label: t("student.colStatus", { defaultValue: "Trạng thái" }) },
-    { key: "hasAccount", label: t("student.colAccount", { defaultValue: "Tài khoản" }) },
+    { key: "code", label: t("student.colCode") },
+    { key: "name", label: t("student.colName") },
+    { key: "email", label: t("student.colEmail") },
+    { key: "phone", label: t("student.colPhone") },
+    { key: "gradeLevel", label: t("student.colGradeLevel") },
+    { key: "status", label: t("student.colStatus") },
+    { key: "hasAccount", label: t("student.colAccount") },
   ];
 
   const getStatusLabel = (status: number) => {
@@ -511,7 +508,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
   };
 
   return (
-    <div className="w-full bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs overflow-hidden">
+    <div className="w-full bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs overflow-visible">
 
       {/* Header with Title & Action Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 sm:p-6 border-b border-gray-100 dark:border-gray-800">
@@ -524,6 +521,20 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          {selectedIds.length > 0 && (
+            <button
+              onClick={handleProvisionAccounts}
+              disabled={isProvisioning || selectedUnprovisionedIds.length === 0}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-theme-xs transition-colors h-11"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+              </svg>
+              {isProvisioning
+                ? t("student.provisioning", { defaultValue: "Đang cấp..." })
+                : t("student.provisionAccountsBtn", { count: selectedIds.length, defaultValue: `Cấp tài khoản (${selectedIds.length})` })}
+            </button>
+          )}
           <button
             onClick={handleExportExcel}
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-theme-xs rounded-lg cursor-pointer h-11"
@@ -584,7 +595,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
               : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           }`}
         >
-          {t("student.tabAll", { defaultValue: "Tất cả" })} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countAll}</span>
+          {t("student.tabAll")} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countAll}</span>
         </button>
         <button
           onClick={() => { setActiveTab("active"); setCurrentPage(1); }}
@@ -594,17 +605,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
               : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           }`}
         >
-          {t("student.tabActive", { defaultValue: "Hoạt động" })} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countActive}</span>
-        </button>
-        <button
-          onClick={() => { setActiveTab("inactive"); setCurrentPage(1); }}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${
-            activeTab === "inactive"
-              ? "border-brand-500 text-brand-500 dark:border-brand-400 dark:text-brand-400"
-              : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-          }`}
-        >
-          {t("student.tabInactive", { defaultValue: "Ngưng hoạt động" })} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countInactive}</span>
+          {t("student.tabActive")} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countActive}</span>
         </button>
         <button
           onClick={() => { setActiveTab("suspended"); setCurrentPage(1); }}
@@ -614,7 +615,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
               : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           }`}
         >
-          {t("student.tabSuspended", { defaultValue: "Bị đình chỉ" })} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countSuspended}</span>
+          {t("student.tabSuspended")} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countSuspended}</span>
         </button>
         <button
           onClick={() => { setActiveTab("graduated"); setCurrentPage(1); }}
@@ -624,7 +625,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
               : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           }`}
         >
-          {t("student.tabGraduated", { defaultValue: "Đã tốt nghiệp" })} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countGraduated}</span>
+          {t("student.tabGraduated")} <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">{countGraduated}</span>
         </button>
       </div>
 
@@ -692,7 +693,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
       </div>
 
       {/* Table */}
-      <div className="max-w-full overflow-x-auto custom-scrollbar">
+      <div className="max-w-full overflow-visible custom-scrollbar">
         <Table>
           <TableHeader className="border-b border-gray-100 dark:border-white/[0.05] bg-gray-50 dark:bg-white/[0.02]">
             <TableRow>
@@ -841,7 +842,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
                     {item.phone || <span className="text-gray-300 dark:text-gray-700">-</span>}
                   </TableCell>
                   <TableCell className="px-6 py-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                    {item.gradeLevel ? `${t("student.colGradeLevel")} ${item.gradeLevel}` : <span className="text-gray-300 dark:text-gray-700">-</span>}
+                    {item.gradeLevel ? t("student.gradeText", { level: item.gradeLevel }) : <span className="text-gray-300 dark:text-gray-700">-</span>}
                   </TableCell>
                   <TableCell className="px-6 py-4 whitespace-nowrap">
                     {renderStatusBadge(item.status, getStatusLabel(item.status))}
@@ -909,7 +910,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
       <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between px-6 py-5 bg-gray-50/50 dark:bg-white/[0.01] border-t border-gray-100 dark:border-gray-800/40">
         <div className="flex flex-wrap items-center gap-4 pb-3 xl:pb-0 justify-center xl:justify-start">
           <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
-            <span>{t("student.show", { defaultValue: "Hiển thị" })}</span>
+            <span>{t("student.show")}</span>
             <select
               value={itemsPerPage}
               onChange={(e) => {
@@ -923,14 +924,13 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
               <option value="15" className="dark:bg-gray-900">15</option>
               <option value="20" className="dark:bg-gray-900">20</option>
             </select>
-            <span>{t("student.entriesPerPage", { defaultValue: "mục mỗi trang" })}</span>
+            <span>{t("student.entriesPerPage")}</span>
           </div>
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
             {t("student.showing", {
               start: totalRecords === 0 ? 0 : startIndex + 1,
               end: endIndex,
               total: totalRecords,
-              defaultValue: `Hiển thị ${totalRecords === 0 ? 0 : startIndex + 1} đến ${endIndex} trong tổng số ${totalRecords} mục`
             })}
           </p>
         </div>

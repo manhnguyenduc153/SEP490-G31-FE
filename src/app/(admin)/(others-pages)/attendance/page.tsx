@@ -1,6 +1,6 @@
 "use client";
 
-import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+
 import { attendanceApi, MyAttendanceClassDto, MyAttendanceSessionDto } from "@/services/attendance.api";
 import { BookOpen, CalendarCheck, CalendarDays, CheckCircle2, Clock3, GraduationCap, RefreshCw, ShieldCheck, UserRound, X, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -111,6 +111,11 @@ export default function MyAttendancePage() {
   };
 
   const sessionStatus = (status: number) => {
+    if (status === -1) return {
+      label: t("myAttendance.notMarked", { defaultValue: "Chưa điểm danh" }),
+      className: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
+      icon: <Clock3 className="h-4 w-4" />,
+    };
     if (status === 0) return {
       label: t("myAttendance.absent", { defaultValue: "Nghỉ học" }),
       className: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400",
@@ -137,7 +142,6 @@ export default function MyAttendancePage() {
 
   return (
     <div>
-      <PageBreadcrumb pageTitle="sidebar.myAttendance" />
       <div className="space-y-6">
         <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-xs dark:border-gray-800 dark:bg-gray-900">
           <div className="relative p-6 sm:p-7">

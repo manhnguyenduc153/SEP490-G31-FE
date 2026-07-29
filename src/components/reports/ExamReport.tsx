@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { GraduationCap, FileText, CheckCircle, Search, TrendingUp } from "lucide-react";
+import { GraduationCap, FileText, CheckCircle, Search, TrendingUp, Download, ChevronDown, File as FilePdf } from "lucide-react";
 import { classApi, ClassItem } from "@/services/class.api";
 import { examApi, ExamItem } from "@/services/exam.api";
 import { reportApi, ExamResultReportDto } from "@/services/report.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import * as XLSX from "xlsx";
-import { Download } from "lucide-react";
+
 export default function ExamReport() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<number | "">("");
@@ -16,6 +16,7 @@ export default function ExamReport() {
   const [selectedExamId, setSelectedExamId] = useState<number | "">("");
 
   const [reportData, setReportData] = useState<ExamResultReportDto | null>(null);
+  const [isExportOpen, setIsExportOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -131,11 +132,92 @@ export default function ExamReport() {
     const examObj = exams.find(e => e.id === selectedExamId);
     const title = examObj ? examObj.title.replace(/[^a-zA-Z0-9]/g, '_') : "Ket_Qua_Thi";
     XLSX.writeFile(workbook, `Ket_Qua_${title}_${dateStr}.xlsx`);
+    setIsExportOpen(false);
+  };
+
+  const handleExportWord = () => {
+    const el = document.getElementById("report-table-container");
+    if (!el || !reportData) return;
+    const html = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8">
+        <title>Export</title>
+        <style>
+          table { width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 14px; }
+          th { background-color: #f3f4f6; color: #374151; }
+        </style>
+      </head><body>
+      <h2>Báo cáo kết quả thi</h2>
+      ${el.outerHTML}
+      </body></html>`;
+    const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const dateStr = new Date().toISOString().slice(0, 10);
+    link.download = `Ket_Qua_Thi_${dateStr}.doc`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setIsExportOpen(false);
+  };
+
+  const handleExportPdf = () => {
+    const el = document.getElementById("report-table-container");
+    if (!el || !reportData) return;
+    
+    const selectedClass = classes.find(c => c.id === Number(selectedClassId));
+    const className = selectedClass ? selectedClass.name : "";
+    const classCode = selectedClass ? selectedClass.code : "";
+    
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    
+    const doc = iframe.contentWindow?.document;
+    if (!doc) return;
+    
+    doc.open();
+    doc.write(`
+      <html>
+      <head>
+        <title>Export PDF</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 13px; }
+          th { background-color: #f8f9fa; color: #111; font-weight: bold; }
+          h2 { margin-bottom: 5px; font-size: 20px; color: #111; }
+          p { margin-top: 0; color: #555; font-size: 14px; margin-bottom: 20px; }
+          @media print {
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          }
+        </style>
+      </head>
+      <body>
+        <h2>Báo cáo kết quả thi</h2>
+        <p>Lớp: ${className} (${classCode})</p>
+        ${el.outerHTML}
+      </body>
+      </html>
+    `);
+    doc.close();
+    
+    iframe.onload = () => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    };
+    
+    setIsExportOpen(false);
   };
 
   return (
     <div className="bg-white dark:bg-gray-900 border border-gray-150 dark:border-gray-800 rounded-2xl shadow-theme-sm overflow-hidden flex flex-col min-h-[600px] animate-fadeIn">
-      {/* Header section with class and exam selector */}
       <div className="p-6 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex flex-col xl:flex-row items-start xl:items-center gap-6">
         <div>
           <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -173,7 +255,6 @@ export default function ExamReport() {
         </div>
       </div>
 
-      {/* Main Content Body */}
       <div className="p-6 flex-1">
         {!selectedExamId ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400 py-20">
@@ -203,7 +284,6 @@ export default function ExamReport() {
               </div>
             </div>
 
-            {/* Summary Stats Cards */}
             <div className="flex flex-wrap items-center gap-4">
               <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl flex items-center justify-between shadow-xs w-full sm:w-[260px] h-[88px]">
                 <div>
@@ -238,19 +318,38 @@ export default function ExamReport() {
                 </div>
               </div>
 
-              <button 
-                onClick={handleExportExcel}
-                className="flex flex-col items-center justify-center gap-1.5 p-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xs w-full sm:w-[140px] h-[88px] transition-colors group"
-              >
-                <div className="w-8 h-8 rounded-full bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center text-brand-600 dark:text-brand-400 group-hover:scale-110 transition-transform">
-                  <Download className="w-4 h-4" />
-                </div>
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Xuất Excel</span>
-              </button>
+              <div className="relative" onMouseLeave={() => setIsExportOpen(false)}>
+                <button 
+                  onClick={() => setIsExportOpen(!isExportOpen)}
+                  className="flex flex-col items-center justify-center gap-1.5 p-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xs w-full sm:w-[140px] h-[88px] transition-colors group"
+                >
+                  <div className="w-8 h-8 rounded-full bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center text-brand-600 dark:text-brand-400 group-hover:scale-110 transition-transform">
+                    <Download className="w-4 h-4" />
+                  </div>
+                  <div className="flex items-center gap-1 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    Xuất dữ liệu <ChevronDown className="w-3 h-3" />
+                  </div>
+                </button>
+
+                {isExportOpen && (
+                  <div className="absolute top-full right-0 pt-2 z-50">
+                    <div className="w-[160px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden">
+                       <button onClick={handleExportExcel} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-left text-gray-700 dark:text-gray-200">
+                          <Download className="w-4 h-4 text-green-600" /> Excel (.xlsx)
+                       </button>
+                       <button onClick={handleExportWord} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-left text-gray-700 dark:text-gray-200">
+                          <FileText className="w-4 h-4 text-blue-600" /> Word (.doc)
+                       </button>
+                       <button onClick={handleExportPdf} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-left text-gray-700 dark:text-gray-200">
+                          <FilePdf className="w-4 h-4 text-red-600" /> PDF (.pdf)
+                       </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Exam Results Table */}
-            <div className="overflow-x-auto border border-gray-150 dark:border-gray-800 rounded-xl bg-gray-50/20 shadow-xs">
+            <div id="report-table-container" className="overflow-x-auto border border-gray-150 dark:border-gray-800 rounded-xl bg-gray-50/20 shadow-xs">
               <table className="w-full text-left text-sm border-collapse">
                 <thead>
                   <tr className="border-b border-gray-205 dark:border-gray-800 text-gray-500 dark:text-gray-400 font-semibold bg-gray-100/80 dark:bg-gray-800/60 sticky top-0 z-10">

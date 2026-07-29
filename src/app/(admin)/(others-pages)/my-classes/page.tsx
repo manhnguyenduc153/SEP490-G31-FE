@@ -2,8 +2,7 @@
 
 import React, { useState } from "react";
 import StudentClassGrid from "@/components/class/StudentClassGrid";
-import ClassDetail from "@/components/class/ClassDetail";
-import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+import StudentClassDetail from "@/components/class/StudentClassDetail";
 import { useTranslation } from "react-i18next";
 import { ClassItem } from "@/services/class.api";
 import { CheckCircle, XCircle } from "lucide-react";
@@ -31,7 +30,7 @@ export default function MyClassesPage() {
   }, []);
 
   return (
-    <PermissionGuard requiredPermission="Class.StudentView" fallback={<div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 text-center text-sm text-rose-500 font-medium">Bạn không có quyền truy cập chức năng này.</div>}>
+    <PermissionGuard requiredPermission="MyClass" fallback={<div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 text-center text-sm text-rose-500 font-medium">Bạn không có quyền truy cập chức năng này.</div>}>
       <div>
         {/* Toast */}
         {toastMessage && (
@@ -45,7 +44,6 @@ export default function MyClassesPage() {
           </div>
         )}
 
-        <PageBreadcrumb pageTitle="sidebar.myClasses" />
         <div className="space-y-6">
           {activeTab === "list" ? (
             <StudentClassGrid
@@ -57,7 +55,7 @@ export default function MyClassesPage() {
               }}
             />
           ) : (
-            <ClassDetail
+            <StudentClassDetail
               t={t}
               itemId={viewingItemId!}
               onBack={() => {

@@ -12,6 +12,7 @@ import {
   FileSpreadsheet,
   Eye,
   X,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 
 interface StudentFormProps {
@@ -57,6 +58,7 @@ export default function StudentForm({
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const excelInputRef = useRef<HTMLInputElement>(null);
+  const dobInputRef = useRef<HTMLInputElement>(null);
 
   // ── Populate form when editing ──
   useEffect(() => {
@@ -126,9 +128,17 @@ export default function StudentForm({
 
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    if (value === "") {
+      setFormData((prev) => ({ ...prev, [name]: null }));
+      return;
+    }
+    const parsed = Number(value);
+    if (name === "gradeLevel" && parsed < 1) {
+      return;
+    }
     setFormData((prev) => ({
       ...prev,
-      [name]: value === "" ? null : Number(value),
+      [name]: parsed,
     }));
   };
 
@@ -202,11 +212,11 @@ export default function StudentForm({
             name: name ? String(name).trim() : prev.name,
             email: email ? String(email).trim() : prev.email,
             phone: phone ? String(phone).trim() : prev.phone,
-            dob,
-            gender,
+            dob: dob || prev.dob,
+            gender: gender !== null ? gender : prev.gender,
             address: address ? String(address).trim() : prev.address,
             schoolName: schoolName ? String(schoolName).trim() : prev.schoolName,
-            gradeLevel,
+            gradeLevel: gradeLevel !== null ? gradeLevel : prev.gradeLevel,
             parentName: parentName ? String(parentName).trim() : prev.parentName,
             parentPhone: parentPhone ? String(parentPhone).trim() : prev.parentPhone,
             description: description ? String(description).trim() : prev.description,
@@ -224,13 +234,46 @@ export default function StudentForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.code?.trim()) {
-      const err = t("student.formCodeRequired", { defaultValue: "Mã học sinh không được để trống" });
+      const err = t("student.valCodeRequired");
       setFormError(err);
       showToast(err, "error");
       return;
     }
     if (!formData.name?.trim()) {
-      const err = t("student.formNameRequired", { defaultValue: "Họ và tên không được để trống" });
+      const err = t("student.valNameRequired");
+      setFormError(err);
+      showToast(err, "error");
+      return;
+    }
+    if (!formData.phone?.trim()) {
+      const err = t("student.valPhoneRequired");
+      setFormError(err);
+      showToast(err, "error");
+      return;
+    }
+    if (!formData.dob) {
+      const err = t("student.valDobRequired");
+      setFormError(err);
+      showToast(err, "error");
+      return;
+    }
+    const selectedDob = new Date(formData.dob);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    if (selectedDob > today) {
+      const err = t("student.valDobFuture");
+      setFormError(err);
+      showToast(err, "error");
+      return;
+    }
+    if (formData.gender === null) {
+      const err = t("student.valGenderRequired");
+      setFormError(err);
+      showToast(err, "error");
+      return;
+    }
+    if (typeof formData.gradeLevel === "number" && (formData.gradeLevel < 1 || formData.gradeLevel > 12)) {
+      const err = t("student.valGradeLevelInvalid");
       setFormError(err);
       showToast(err, "error");
       return;
@@ -238,7 +281,7 @@ export default function StudentForm({
 
     setIsSubmitting(true);
     setFormError(null);
-    let finalFormData = { ...formData };
+    const finalFormData = { ...formData };
 
     try {
       setIsUploading(true);
@@ -247,7 +290,7 @@ export default function StudentForm({
         if (res.success && res.data) {
           finalFormData.avatar = res.data;
         } else {
-          const err = res.message || t("student.uploadError", { defaultValue: "Lỗi tải ảnh đại diện" });
+          const err = res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("student.uploadError", { defaultValue: "Lỗi tải ảnh đại diện" });
           setFormError(err);
           showToast(err, "error");
           setIsSubmitting(false);
@@ -259,7 +302,7 @@ export default function StudentForm({
       if (isEdit && editingItem) {
         const res = await studentApi.update(editingItem.id, finalFormData);
         if (res.success && res.data) {
-          onSuccess(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("student.updateSuccess", { name: res.data.name }));
+          onSuccess(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("student.updateSuccessMsg"));
         } else {
           const err = res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("student.updateError", { defaultValue: "Lỗi khi cập nhật học sinh" });
           setFormError(err);
@@ -268,7 +311,7 @@ export default function StudentForm({
       } else {
         const res = await studentApi.create(finalFormData);
         if (res.success && res.data) {
-          onSuccess(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("student.createSuccess", { name: res.data.name }));
+          onSuccess(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("student.createSuccessMsg"));
         } else {
           const err = res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("student.createError", { defaultValue: "Lỗi khi tạo học sinh" });
           setFormError(err);
@@ -276,7 +319,7 @@ export default function StudentForm({
         }
       }
     } catch {
-      const err = t("student.systemError", { defaultValue: "Lỗi hệ thống" });
+      const err = t("student.systemError");
       setFormError(err);
       showToast(err, "error");
     } finally {
@@ -292,16 +335,10 @@ export default function StudentForm({
         <div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <UserCircle className="w-5 h-5 text-brand-500" />
-            {isEdit
-              ? t("student.editTitle", { defaultValue: "Chỉnh sửa thông tin học sinh" })
-              : t("student.createTitle", { defaultValue: "Thêm học sinh mới" })}
+            {isEdit ? t("student.editTitle") : t("student.createTitle")}
           </h2>
           <p className="text-xs text-gray-500 mt-1">
-            {t("sidebar.home", { defaultValue: "Trang Chủ" })} -{" "}
-            {t("sidebar.students", { defaultValue: "Học sinh" })} -{" "}
-            {isEdit
-              ? t("student.editBreadcrumb", { defaultValue: "Chỉnh Sửa" })
-              : t("student.createBreadcrumb", { defaultValue: "Tạo Mới" })}
+            {t("student.breadcrumbHome")} - {t("student.breadcrumbStudents")} - {isEdit ? t("student.breadcrumbEdit") : t("student.breadcrumbCreate")}
           </p>
         </div>
 
@@ -313,7 +350,7 @@ export default function StudentForm({
             className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950/20 dark:border-emerald-900/30 dark:hover:bg-emerald-950/40 transition-colors"
           >
             <FileSpreadsheet className="w-4 h-4" />
-            {t("student.importExcel", { defaultValue: "Import Excel" })}
+            {t("student.importExcel")}
           </button>
           <input
             type="file"
@@ -329,7 +366,7 @@ export default function StudentForm({
             download
             className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 transition-colors"
           >
-            {t("student.downloadTemplate", { defaultValue: "Tải file mẫu (.xlsx)" })}
+            {t("student.downloadTemplate")}
           </a>
 
           {/* Back button */}
@@ -339,7 +376,7 @@ export default function StudentForm({
             className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-850 dark:border-gray-700 dark:hover:bg-gray-800 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            {t("student.btnCancel", { defaultValue: "Quay lại" })}
+            {t("student.btnBack")}
           </button>
 
           {/* Submit button */}
@@ -351,10 +388,10 @@ export default function StudentForm({
           >
             {isEdit ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
             {isSubmitting || isUploading
-              ? t("student.btnSaving", { defaultValue: "Đang lưu..." })
+              ? t("student.btnSaving")
               : isEdit
-              ? t("student.btnUpdate", { defaultValue: "Lưu thay đổi" })
-              : t("student.addStudent", { defaultValue: "Tạo học sinh" })}
+              ? t("student.btnUpdate")
+              : t("student.btnCreate")}
           </button>
         </div>
       </div>
@@ -368,14 +405,14 @@ export default function StudentForm({
             {/* Card: Thông tin cơ bản */}
             <div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs space-y-5">
               <h3 className="text-md font-bold text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-800/80 pb-3">
-                {t("student.basicInfo", { defaultValue: "Thông tin cơ bản" })}
+                {t("student.basicInfo")}
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 {/* Code */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    {t("student.formCodeLabel", { defaultValue: "Mã học sinh" })} <span className="text-rose-500">*</span>
+                    {t("student.formCodeLabel")} <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -384,7 +421,7 @@ export default function StudentForm({
                     maxLength={50}
                     value={formData.code || ""}
                     onChange={handleChange}
-                    placeholder={t("student.formCodePlaceholder", { defaultValue: "Mã học sinh..." })}
+                    placeholder={t("student.formCodePlaceholder")}
                     className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                   />
                 </div>
@@ -392,7 +429,7 @@ export default function StudentForm({
                 {/* Name */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    {t("student.formNameLabel", { defaultValue: "Họ và tên" })} <span className="text-rose-500">*</span>
+                    {t("student.formNameLabel")} <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -401,7 +438,7 @@ export default function StudentForm({
                     maxLength={200}
                     value={formData.name || ""}
                     onChange={handleChange}
-                    placeholder={t("student.formNamePlaceholder", { defaultValue: "Họ và tên..." })}
+                    placeholder={t("student.formNamePlaceholder")}
                     className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                   />
                 </div>
@@ -409,7 +446,7 @@ export default function StudentForm({
                 {/* Email */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    {t("student.formEmailLabel", { defaultValue: "Email" })} <span className="text-rose-500">*</span>
+                    {t("student.formEmailLabel")} <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="email"
@@ -417,7 +454,7 @@ export default function StudentForm({
                     maxLength={150}
                     value={formData.email || ""}
                     onChange={handleChange}
-                    placeholder={t("student.formEmailPlaceholder", { defaultValue: "example@email.com" })}
+                    placeholder={t("student.formEmailPlaceholder")}
                     className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                   />
                 </div>
@@ -425,15 +462,16 @@ export default function StudentForm({
                 {/* Phone */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    {t("student.formPhoneLabel", { defaultValue: "Số điện thoại" })}
+                    {t("student.formPhoneLabel")} <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
                     name="phone"
+                    required
                     maxLength={20}
                     value={formData.phone || ""}
                     onChange={handleChange}
-                    placeholder={t("student.formPhonePlaceholder", { defaultValue: "Số điện thoại..." })}
+                    placeholder={t("student.formPhonePlaceholder")}
                     className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                   />
                 </div>
@@ -441,38 +479,60 @@ export default function StudentForm({
                 {/* Date of Birth */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    {t("student.formDobLabel", { defaultValue: "Ngày sinh" })}
+                    {t("student.formDobLabel")} <span className="text-rose-500">*</span>
                   </label>
-                  <input
-                    type="date"
-                    name="dob"
-                    value={formData.dob || ""}
-                    onChange={handleChange}
-                    className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
-                  />
+                  <div className="relative flex items-center">
+                    <input
+                      ref={dobInputRef}
+                      type="date"
+                      name="dob"
+                      required
+                      max={new Date().toISOString().split("T")[0]}
+                      value={formData.dob || ""}
+                      onChange={handleChange}
+                      className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 pr-10 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white dark:[color-scheme:dark] cursor-pointer"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (dobInputRef.current) {
+                          if (typeof dobInputRef.current.showPicker === "function") {
+                            dobInputRef.current.showPicker();
+                          } else {
+                            dobInputRef.current.focus();
+                          }
+                        }
+                      }}
+                      className="absolute right-3 text-gray-400 hover:text-brand-500 transition-colors p-1 cursor-pointer"
+                      title={t("student.formDobLabel")}
+                    >
+                      <CalendarIcon className="w-4.5 h-4.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Gender */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    {t("student.formGenderLabel", { defaultValue: "Giới tính" })}
+                    {t("student.formGenderLabel")} <span className="text-rose-500">*</span>
                   </label>
                   <select
                     name="gender"
+                    required
                     value={formData.gender === null ? "" : String(formData.gender)}
                     onChange={handleGenderChange}
                     className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                   >
-                    <option value="" className="dark:bg-gray-900">{t("student.selectGender", { defaultValue: "Chọn giới tính" })}</option>
-                    <option value="true" className="dark:bg-gray-900">{t("student.formGenderMale", { defaultValue: "Nam" })}</option>
-                    <option value="false" className="dark:bg-gray-900">{t("student.formGenderFemale", { defaultValue: "Nữ" })}</option>
+                    <option value="" className="dark:bg-gray-900">{t("student.selectGender")}</option>
+                    <option value="true" className="dark:bg-gray-900">{t("student.formGenderMale")}</option>
+                    <option value="false" className="dark:bg-gray-900">{t("student.formGenderFemale")}</option>
                   </select>
                 </div>
 
                 {/* School */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    {t("student.formSchoolNameLabel", { defaultValue: "Trường học cũ/hiện tại" })}
+                    {t("student.formSchoolNameLabel")}
                   </label>
                   <input
                     type="text"
@@ -480,7 +540,7 @@ export default function StudentForm({
                     maxLength={200}
                     value={formData.schoolName || ""}
                     onChange={handleChange}
-                    placeholder={t("student.formSchoolNamePlaceholder", { defaultValue: "Nhập tên trường học..." })}
+                    placeholder={t("student.formSchoolNamePlaceholder")}
                     className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                   />
                 </div>
@@ -488,7 +548,7 @@ export default function StudentForm({
                 {/* Grade Level */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    {t("student.formGradeLevelLabel", { defaultValue: "Khối lớp" })}
+                    {t("student.formGradeLevelLabel")}
                   </label>
                   <input
                     type="number"
@@ -497,7 +557,12 @@ export default function StudentForm({
                     max={12}
                     value={formData.gradeLevel === null ? "" : formData.gradeLevel}
                     onChange={handleNumberChange}
-                    placeholder={t("student.formGradeLevelPlaceholder", { defaultValue: "Nhập khối lớp (1-12)..." })}
+                    onKeyDown={(e) => {
+                      if (e.key === "-" || e.key === "e" || e.key === "E" || e.key === "+" || e.key === ".") {
+                        e.preventDefault();
+                      }
+                    }}
+                    placeholder={t("student.formGradeLevelPlaceholder")}
                     className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                   />
                 </div>
@@ -505,7 +570,7 @@ export default function StudentForm({
                 {/* Status */}
                 <div className="space-y-1.5 sm:col-span-2">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    {t("student.formStatusLabel", { defaultValue: "Trạng thái" })}
+                    {t("student.formStatusLabel")}
                   </label>
                   <select
                     name="status"
@@ -513,10 +578,9 @@ export default function StudentForm({
                     onChange={handleNumberChange}
                     className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                   >
-                    <option value={1} className="dark:bg-gray-900">{t("student.formStatusActive", { defaultValue: "Hoạt động" })}</option>
-                    <option value={0} className="dark:bg-gray-900">{t("student.formStatusInactive", { defaultValue: "Ngưng hoạt động" })}</option>
-                    <option value={2} className="dark:bg-gray-900">{t("student.formStatusSuspended", { defaultValue: "Bị đình chỉ" })}</option>
-                    <option value={3} className="dark:bg-gray-900">{t("student.formStatusGraduated", { defaultValue: "Đã tốt nghiệp" })}</option>
+                    <option value={1} className="dark:bg-gray-900">{t("student.formStatusActive")}</option>
+                    <option value={2} className="dark:bg-gray-900">{t("student.formStatusSuspended")}</option>
+                    <option value={3} className="dark:bg-gray-900">{t("student.formStatusGraduated")}</option>
                   </select>
                 </div>
               </div>
@@ -524,7 +588,7 @@ export default function StudentForm({
               {/* Address */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                  {t("student.colAddress", { defaultValue: "Địa chỉ" })}
+                  {t("student.colAddress")}
                 </label>
                 <input
                   type="text"
@@ -532,7 +596,7 @@ export default function StudentForm({
                   maxLength={500}
                   value={formData.address || ""}
                   onChange={handleChange}
-                  placeholder={t("student.formAddressPlaceholder", { defaultValue: "Nhập địa chỉ..." })}
+                  placeholder={t("student.formAddressPlaceholder")}
                   className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                 />
               </div>
@@ -540,13 +604,13 @@ export default function StudentForm({
               {/* Description */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                  {t("student.formDescLabel", { defaultValue: "Ghi chú/Mô tả" })}
+                  {t("student.formDescLabel")}
                 </label>
                 <textarea
                   name="description"
                   value={formData.description || ""}
                   onChange={handleChange}
-                  placeholder={t("student.formDescPlaceholder", { defaultValue: "Ghi chú bổ sung (không bắt buộc)..." })}
+                  placeholder={t("student.formDescPlaceholder")}
                   rows={3}
                   maxLength={500}
                   className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white resize-none"
@@ -557,13 +621,13 @@ export default function StudentForm({
             {/* Card: Thông tin phụ huynh */}
             <div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs space-y-5">
               <h3 className="text-md font-bold text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-800/80 pb-3">
-                {t("student.parentInfo", { defaultValue: "Thông tin phụ huynh" })}
+                {t("student.parentInfo")}
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 {/* Parent Name */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    {t("student.formParentNameLabel", { defaultValue: "Họ tên phụ huynh" })}
+                    {t("student.formParentNameLabel")}
                   </label>
                   <input
                     type="text"
@@ -571,7 +635,7 @@ export default function StudentForm({
                     maxLength={200}
                     value={formData.parentName || ""}
                     onChange={handleChange}
-                    placeholder={t("student.formParentNamePlaceholder", { defaultValue: "Nhập tên phụ huynh..." })}
+                    placeholder={t("student.formParentNamePlaceholder")}
                     className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                   />
                 </div>
@@ -579,7 +643,7 @@ export default function StudentForm({
                 {/* Parent Phone */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    {t("student.formParentPhoneLabel", { defaultValue: "SĐT phụ huynh" })}
+                    {t("student.formParentPhoneLabel")}
                   </label>
                   <input
                     type="text"
@@ -587,7 +651,7 @@ export default function StudentForm({
                     maxLength={20}
                     value={formData.parentPhone || ""}
                     onChange={handleChange}
-                    placeholder={t("student.formParentPhonePlaceholder", { defaultValue: "Nhập SĐT phụ huynh..." })}
+                    placeholder={t("student.formParentPhonePlaceholder")}
                     className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                   />
                 </div>
@@ -599,7 +663,7 @@ export default function StudentForm({
           <div className="lg:col-span-1">
             <div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs">
               <h3 className="text-md font-bold text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-800/80 pb-3 mb-4">
-                {t("student.avatarLabel", { defaultValue: "Ảnh đại diện" })}
+                {t("student.avatarLabel")}
               </h3>
               <div
                 className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer group"
@@ -635,7 +699,7 @@ export default function StudentForm({
                         <Eye className="w-5 h-5" />
                       </button>
                       <span className="text-white text-xs font-medium px-3 py-1.5 bg-white/20 rounded-full">
-                        {t("student.changeImage", { defaultValue: "Thay đổi ảnh" })}
+                        {t("student.changeImage")}
                       </span>
                     </div>
                   </div>
@@ -647,7 +711,7 @@ export default function StudentForm({
                       </svg>
                     </div>
                     <p className="text-xs font-medium text-brand-600 dark:text-brand-400 mb-1">
-                      {t("student.uploadImage", { defaultValue: "Tải ảnh lên" })}
+                      {t("student.uploadImage")}
                     </p>
                     <p className="text-[10px] text-gray-400 px-2 text-center leading-normal">
                       {t("student.uploadPlaceholder")}

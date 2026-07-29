@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+
 import { MyGradeClassDto, studentGradeApi } from "@/services/score.api";
 import { Award, ChevronDown, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -51,7 +51,6 @@ export default function MyScoresPage() {
 
   return (
     <div>
-      <PageBreadcrumb pageTitle="sidebar.myScores" />
 
       <div className="space-y-5">
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-xs dark:border-gray-800 dark:bg-gray-900">
