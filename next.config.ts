@@ -1,6 +1,5 @@
 const nextConfig = {
   /* config options here */
-  turbopack: {},
   devIndicators: false,
   eslint: {
     ignoreDuringBuilds: true,
