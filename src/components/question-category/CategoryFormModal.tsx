@@ -15,6 +15,9 @@ interface CategoryFormModalProps {
   setFormName: (val: string) => void;
   formDesc: string;
   setFormDesc: (val: string) => void;
+  formCourseId?: number | null;
+  setFormCourseId: (val: number | null) => void;
+  courses: { id: number; code: string; name: string }[];
   formError: string | null;
   isSubmitting: boolean;
   handleSubmit: (e: React.FormEvent) => void;
@@ -31,6 +34,9 @@ export function CategoryFormModal({
   setFormName,
   formDesc,
   setFormDesc,
+  formCourseId,
+  setFormCourseId,
+  courses,
   formError,
   isSubmitting,
   handleSubmit,
@@ -65,7 +71,7 @@ export function CategoryFormModal({
               maxLength={50}
               value={formCode}
               onChange={(e) => setFormCode(e.target.value)}
-              placeholder={t("questionCategory.formCodePlaceholder", { defaultValue: "VD: MATH, LITERATURE..." })}
+              placeholder={t("questionCategory.formCodePlaceholder", { defaultValue: "VD: QC-001..." })}
               className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs"
             />
           </div>
@@ -81,9 +87,30 @@ export function CategoryFormModal({
               maxLength={200}
               value={formName}
               onChange={(e) => setFormName(e.target.value)}
-              placeholder={t("questionCategory.formNamePlaceholder", { defaultValue: "VD: Toán học, Ngữ văn..." })}
+              placeholder={t("questionCategory.formNamePlaceholder", { defaultValue: "VD: IELTS Reading Task 1..." })}
               className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs"
             />
+          </div>
+
+          {/* CourseId */}
+          <div>
+            <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t("questionCategory.courseLabel", { defaultValue: "Khóa học" })}
+            </label>
+            <select
+              value={formCourseId ?? ""}
+              onChange={(e) => setFormCourseId(e.target.value ? Number(e.target.value) : null)}
+              className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800 shadow-theme-xs"
+            >
+              <option value="" className="dark:bg-gray-900">
+                {t("questionCategory.allCoursesOption", { defaultValue: "-- Chọn khóa học (Tất cả) --" })}
+              </option>
+              {courses.map((c) => (
+                <option key={c.id} value={c.id} className="dark:bg-gray-900">
+                  {c.name} ({c.code})
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Description */}
