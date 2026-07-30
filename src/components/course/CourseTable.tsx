@@ -123,9 +123,15 @@ export default function CourseTable() {
         );
         if (!mounted) return;
         if (res.success && res.data) {
-          setItems(res.data.items || []);
-          setTotalRecords(res.data.totalRecords || 0);
-          setTotalPages(res.data.totalPages || 0);
+          const fetchedItems = res.data.items || [];
+          const fetchedTotalPages = res.data.totalPages || 0;
+          if (currentPage > 1 && fetchedItems.length === 0 && fetchedTotalPages > 0) {
+            setCurrentPage(fetchedTotalPages);
+          } else {
+            setItems(fetchedItems);
+            setTotalRecords(res.data.totalRecords || 0);
+            setTotalPages(fetchedTotalPages);
+          }
         } else {
           setError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("course.systemError"));
         }
@@ -314,8 +320,6 @@ export default function CourseTable() {
   const columns: { key: SortKey; label: string }[] = [
     { key: "code", label: t("course.colCode") },
     { key: "name", label: t("course.colName") },
-    { key: "duration", label: t("course.colDuration") },
-    { key: "price", label: t("course.colPrice") },
     { key: "status", label: t("course.colStatus") },
   ];
 
@@ -496,12 +500,6 @@ export default function CourseTable() {
                     <div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-40" />
                   </TableCell>
                   <TableCell className="px-6 py-4">
-                    <div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-16" />
-                  </TableCell>
-                  <TableCell className="px-6 py-4">
-                    <div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-24" />
-                  </TableCell>
-                  <TableCell className="px-6 py-4">
                     <div className="h-5 bg-gray-200 dark:bg-white/10 rounded-full w-20" />
                   </TableCell>
                   <TableCell className="px-6 py-4">
@@ -518,7 +516,7 @@ export default function CourseTable() {
             ) : error ? (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={6}
                   className="px-6 py-10 text-center text-error-500 dark:text-error-400 font-medium"
                 >
                   {error}
@@ -538,12 +536,6 @@ export default function CourseTable() {
                   </TableCell>
                   <TableCell className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">
                     {item.name}
-                  </TableCell>
-                  <TableCell className="px-6 py-4 text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                    {item.duration !== null && item.duration !== undefined ? `${item.duration} ${t("course.entries").substring(0, 1) === "e" ? "months" : "tháng"}` : "-"}
-                  </TableCell>
-                  <TableCell className="px-6 py-4 text-gray-600 dark:text-gray-300 whitespace-nowrap font-medium text-left">
-                    {formatPrice(item.price)}
                   </TableCell>
                   <TableCell className="px-6 py-4 whitespace-nowrap">
                     <span
@@ -591,7 +583,7 @@ export default function CourseTable() {
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={6}
                   className="px-6 py-10 text-center text-gray-500 dark:text-gray-400"
                 >
                   {t("course.noResults", { defaultValue: "Không tìm thấy khóa học nào." })}
