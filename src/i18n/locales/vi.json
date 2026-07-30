@@ -2711,9 +2711,7 @@
     "colDate": "Ngày",
     "colStatus": "Trạng thái",
     "colNote": "Ghi chú"
-  }
-}
-{
+  },
   "dashboardPage": {
     "totalStudents": "Tổng số học viên",
     "totalClasses": "Tổng số lớp học",
