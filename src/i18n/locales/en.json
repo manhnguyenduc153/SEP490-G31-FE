@@ -2719,6 +2719,7 @@
     "colDate": "Date",
     "colStatus": "Status",
     "colNote": "Note"
+  },
   "classSchedules": {
     "draftPendingTitle": "Draft schedule waiting for confirmation",
     "draftSemesterPrefix": "Semester: ",
