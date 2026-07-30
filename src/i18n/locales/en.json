@@ -2313,7 +2313,18 @@
     "ERR_NO_ACTIVE_TEACHERS": "No active teachers found in the system!",
     "ERR_NO_ACTIVE_ROOMS": "No active rooms found in the system!",
     "ERR_NO_TIMESLOTS": "No timeslots found in the system!",
-    "ERR_NO_FEASIBLE_SCHEDULE_FOUND": "Could not find a feasible schedule (please add more rooms, teachers, or timeslots)!"
+    "ERR_NO_FEASIBLE_SCHEDULE_FOUND": "Could not find a feasible schedule (please add more rooms, teachers, or timeslots)!",
+    "AUTO_SCHEDULING_SEMESTER_DRAFT_GENERATED": "Successfully generated semester draft schedule! Please check on the calendar.",
+    "SCHEDULE_DRAFT_SAVED": "Successfully saved official class schedule!",
+    "ERR_NO_PENDING_REGISTRATIONS_FOUND": "No pending student registrations found in this semester.",
+    "ERR_NO_DRAFT_CLASSES_GENERATED": "Could not group students into any draft classes.",
+    "ERR_NO_DRAFT_CLASSES_MATCH_TIME_PREFERENCES": "No draft classes match the selected slot preferences.",
+    "ERR_INVALID_DRAFT_REQUEST": "Invalid draft schedule save request.",
+    "ERR_PASSAGE_IN_USE": "This question passage (or its child questions) is currently used in an exam and cannot be deleted!",
+    "ERR_QUESTION_IN_USE": "This question is currently used in an exam and cannot be deleted!",
+    "ERR_PASSAGE_NOT_FOUND": "Question passage not found.",
+    "DELETE_PASSAGE_SUCCESS": "Question passage deleted successfully!",
+    "ERR_EXAM_IN_USE": "This exam already has student submissions and cannot be deleted!"
   },
   "permissions": {
     "category": {
@@ -2553,15 +2564,66 @@
     "statusActive": "In session",
     "statusCompleted": "Completed",
     "statusCancelled": "Cancelled",
-    "statusUnknown": "Unknown"
+    "statusUnknown": "Unknown",
+    "slotNumber": "Slot {{index}}"
   },
   "childProgress": {
-    "title": "Child Progress",
-    "selectChild": "Select child to view progress:",
-    "viewingProgressOf": "Viewing progress of child:",
+    "title": "Child's Learning Progress",
+    "selectChild": "Select a child to view progress:",
+    "viewingProgressOf": "Viewing learning progress of:",
     "loadingGrades": "Loading learning progress...",
-    "empty": "Your child has not participated in any classes with grades yet.",
-    "averageScore": "Average Score"
+    "empty": "This child has not participated in any graded classes yet.",
+    "averageScore": "Average Score",
+    "loadingChildren": "Loading student list...",
+    "notLinked": "No linked students",
+    "notLinkedDesc": "This parent account is not linked to any student.",
+    "headerDesc": "Track scores, homework and attendance by class",
+    "selectChildTitle": "Select Student",
+    "viewingProgressShort": "Viewing progress of",
+    "loadingData": "Loading data...",
+    "noClassData": "This child has no class with grade data yet.",
+    "selectClassTitle": "Select a class to view details",
+    "attendance": "Attendance",
+    "homeworkSubmitted": "Submitted",
+    "homeworkNotSubmitted": "Not submitted",
+    "scores": "Scores",
+    "homework": "Homework",
+    "class": "Class:",
+    "totalSessions": "Total Sessions",
+    "sessionsPresent": "sessions present",
+    "totalHomeworks": "homeworks in total",
+    "homeworkMissing": "missing homeworks",
+    "sessionUnit": "sessions",
+    "outOf10": "/ 10 score",
+    "loadChildrenError": "Failed to load student list.",
+    "loadGradesError": "Failed to load learning progress.",
+    "noGradeComponents": "No grade components yet.",
+    "colComponent": "Component",
+    "colWeight": "Weight",
+    "colScore": "Score",
+    "loadingHomework": "Loading homework...",
+    "noHomework": "This class has no homework yet.",
+    "homeworkUnit": "hw",
+    "homeworkSubmittedList": "Submitted Homework ({{count}})",
+    "dueDate": "Due date:",
+    "submittedAt": "Submitted:",
+    "homeworkNotSubmittedList": "Not Submitted Homework ({{count}})",
+    "overdue": "⚠ Overdue: ",
+    "loadingAttendance": "Loading attendance data...",
+    "noAttendance": "No class sessions recorded yet.",
+    "statusPresent": "Present",
+    "statusAbsent": "Absent",
+    "statusAbsentShort": "Absent",
+    "statusLate": "Late",
+    "statusAuthorizedAbsence": "Excused",
+    "statusNotRecorded": "Not recorded",
+    "attendanceRate": "Attendance Rate",
+    "totalSessionsCount": "total sessions",
+    "sessionDetailsTitle": "Session Details",
+    "noDate": "No date",
+    "scoreName": "Score",
+    "totalHomeworkShort": "Total HW",
+    "totalSessionsShort": "Total Sessions"
   },
   "backendMessages": {
     "ERR_PASSAGE_IN_USE": "This question passage (or its child questions) is currently used in an exam and cannot be deleted!",
@@ -2571,8 +2633,6 @@
     "ERR_EXAM_IN_USE": "This exam already has student submissions and cannot be deleted!",
     "ERR_EXAM_NOT_FOUND": "Exam not found.",
     "DELETE_EXAM_SUCCESS": "Exam deleted successfully!"
-<<<<<<< HEAD
-=======
   },
   "profile": {
     "updateSuccess": "Profile updated successfully!",
@@ -2694,6 +2754,5 @@
     "ca3": "Slot 3",
     "ca4": "Slot 4",
     "ca5": "Slot 5"
->>>>>>> 82c6c580b4708d84b5cf3522fbd8510b5e2a7981
   }
 }
