@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -131,9 +130,9 @@ function mapDraftClass(cls: ClassItem): ScheduleEvent[] {
 function getStatus(s: number, t: any) {
   const configs: Record<number, { text: string; color: string; dot: string }> = {
     0: { text: t("schedules.statusNotStarted", { defaultValue: "Chưa diễn ra" }), color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800", dot: "bg-blue-400" },
-    1: { text: t("schedules.statusActive", { defaultValue: "Đang học" }),     color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800", dot: "bg-amber-400" },
+    1: { text: t("schedules.statusActive", { defaultValue: "Đang học" }), color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800", dot: "bg-amber-400" },
     2: { text: t("schedules.statusCompleted", { defaultValue: "Đã hoàn thành" }), color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-800", dot: "bg-green-400" },
-    3: { text: t("schedules.statusCancelled", { defaultValue: "Đã hủy" }),       color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800", dot: "bg-red-400" },
+    3: { text: t("schedules.statusCancelled", { defaultValue: "Đã hủy" }), color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800", dot: "bg-red-400" },
   };
   return configs[s] ?? { text: t("schedules.statusUnknown", { defaultValue: "Không xác định" }), color: "bg-gray-100 text-gray-800 border-gray-200", dot: "bg-gray-400" };
 }
@@ -428,11 +427,10 @@ function AutoScheduleModal({ isOpen, onClose, semesters, onGenerate, loading, sh
                         type="button"
                         key={p}
                         onClick={() => togglePref(p)}
-                        className={`flex-1 py-2 px-3 border text-xs font-semibold rounded-lg transition-all ${
-                          active
-                            ? "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-950/40 dark:border-blue-900 dark:text-blue-400"
-                            : "bg-white border-gray-200 text-gray-500 dark:bg-gray-900 dark:border-gray-800"
-                        }`}
+                        className={`flex-1 py-2 px-3 border text-xs font-semibold rounded-lg transition-all ${active
+                          ? "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-950/40 dark:border-blue-900 dark:text-blue-400"
+                          : "bg-white border-gray-200 text-gray-500 dark:bg-gray-900 dark:border-gray-800"
+                          }`}
                       >
                         {label}
                       </button>
@@ -900,7 +898,7 @@ export default function ClassScheduleCalendar() {
             <div className="flex flex-wrap gap-2 px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30">
               {FIXED_SLOTS.map((s) => (
                 <span key={s.index} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${SLOT_COLORS[s.index]}`}>
-                  {t("schedules.slotNumber", { index: s.index + 1, defaultValue: s.label })} · {s.time}
+                  {s.label} · {s.time}
                 </span>
               ))}
             </div>
@@ -934,7 +932,7 @@ export default function ClassScheduleCalendar() {
             <div className="border-b border-gray-100 dark:border-gray-800 pb-4">
               <div className="flex items-center justify-between gap-3">
                 <h5 className="font-bold text-gray-900 dark:text-white text-lg sm:text-xl">
-                  {selectedEvent.isDraft 
+                  {selectedEvent.isDraft
                     ? t("classSchedules.draftSessionTitle", { lessonNo: selectedEvent.lessonNo, defaultValue: `📋 Lịch Nháp — Chi Tiết Buổi Học ${selectedEvent.lessonNo}` })
                     : t("classSchedules.sessionTitle", { lessonNo: selectedEvent.lessonNo, defaultValue: `Chi Tiết Buổi Học ${selectedEvent.lessonNo}` })}
                 </h5>
