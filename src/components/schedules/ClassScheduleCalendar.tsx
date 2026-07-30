@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -899,7 +900,7 @@ export default function ClassScheduleCalendar() {
             <div className="flex flex-wrap gap-2 px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30">
               {FIXED_SLOTS.map((s) => (
                 <span key={s.index} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${SLOT_COLORS[s.index]}`}>
-                  {s.label} · {s.time}
+                  {t("schedules.slotNumber", { index: s.index + 1, defaultValue: s.label })} · {s.time}
                 </span>
               ))}
             </div>
