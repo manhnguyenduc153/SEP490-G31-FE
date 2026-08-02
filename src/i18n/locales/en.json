@@ -2626,12 +2626,22 @@
     "totalSessionsShort": "Total Sessions"
   },
   "backendMessages": {
+    "ERR_SCORE_INVALID": "Passing score cannot exceed total score and both scores must be greater than 0.",
+    "ERR_DURATION_INVALID": "Invalid exam duration (must be greater than 0 minutes).",
+    "ERR_EXAM_NOT_FOUND": "Exam not found.",
+    "ERR_EXAM_IN_USE": "This exam already has student submissions and cannot be deleted!",
+    "ERR_QUESTION_COURSE_MISMATCH": "Some selected questions do not belong to this class's course.",
+    "ERR_STUDENT_NOT_FOUND": "Student not found.",
+    "ERR_EXAM_NOT_PUBLISHED": "Exam is not published.",
+    "ERR_MAX_ATTEMPTS_EXCEEDED": "Student has exceeded the maximum number of attempts allowed.",
+    "ERR_ATTEMPT_NOT_FOUND": "Exam attempt not found.",
+    "ERR_ATTEMPT_ALREADY_SUBMITTED": "This exam attempt has already been submitted.",
+    "ERR_EXAM_NOT_STARTED": "Exam is not currently open for submission.",
+    "ERR_EXAM_CLOSED": "Exam is closed and no longer accepting new submissions.",
     "ERR_PASSAGE_IN_USE": "This question passage (or its child questions) is currently used in an exam and cannot be deleted!",
     "ERR_QUESTION_IN_USE": "This question is currently used in an exam and cannot be deleted!",
     "ERR_PASSAGE_NOT_FOUND": "Question passage not found.",
     "DELETE_PASSAGE_SUCCESS": "Question passage deleted successfully!",
-    "ERR_EXAM_IN_USE": "This exam already has student submissions and cannot be deleted!",
-    "ERR_EXAM_NOT_FOUND": "Exam not found.",
     "DELETE_EXAM_SUCCESS": "Exam deleted successfully!"
   },
   "profile": {

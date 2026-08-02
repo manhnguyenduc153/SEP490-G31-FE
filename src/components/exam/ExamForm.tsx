@@ -320,6 +320,36 @@ export function ExamForm({ id }: ExamFormProps) {
       return;
     }
 
+    if (duration !== null && duration !== undefined && duration <= 0) {
+      setFormError(t("backendMessages.ERR_DURATION_INVALID", { defaultValue: "Thời lượng bài kiểm tra phải lớn hơn 0 phút." }));
+      return;
+    }
+
+    if (totalScore !== null && totalScore !== undefined && totalScore <= 0) {
+      setFormError(t("backendMessages.ERR_SCORE_INVALID", { defaultValue: "Tổng điểm phải lớn hơn 0." }));
+      return;
+    }
+
+    if (passingScore !== null && passingScore !== undefined && passingScore < 0) {
+      setFormError(t("backendMessages.ERR_SCORE_INVALID", { defaultValue: "Điểm đạt không được nhỏ hơn 0." }));
+      return;
+    }
+
+    if (
+      passingScore !== null &&
+      passingScore !== undefined &&
+      totalScore !== null &&
+      totalScore !== undefined &&
+      passingScore > totalScore
+    ) {
+      setFormError(
+        t("backendMessages.ERR_SCORE_INVALID", {
+          defaultValue: "Điểm đạt không được lớn hơn tổng điểm của bài kiểm tra.",
+        })
+      );
+      return;
+    }
+
     if (selectedClass && selectedClass.courseId !== null && selectedClass.courseId !== undefined) {
       const invalidQIds = selectedQuestionIds.filter((qid) => {
         const q = questions.find((x) => x.id === qid);
@@ -363,7 +393,7 @@ export function ExamForm({ id }: ExamFormProps) {
       const examStart = new Date(startTime);
       const examEnd = new Date(endTime);
       if (examEnd <= examStart) {
-        setFormError(t("exams.formValidationEndBeforeStart", { defaultValue: "Thời gian kết thúc không được trước thời gian bắt đầu." }));
+        setFormError(t("exams.formValidationEndBeforeStart", { defaultValue: "Thời gian kết thúc không được trước hoặc bằng thời gian bắt đầu." }));
         return;
       }
     }
