@@ -1,8 +1,13 @@
 const nextConfig = {
   /* config options here */
   devIndicators: false,
-  eslint: {
-    ignoreDuringBuilds: true,
+  turbopack: {
+    rules: {
+      "*.svg": {
+        loaders: ["@svgr/webpack"],
+        as: "*.js",
+      },
+    },
   },
   async rewrites() {
     return [
