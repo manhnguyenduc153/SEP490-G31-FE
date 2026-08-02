@@ -151,10 +151,13 @@ interface WeekGridProps {
   events: ScheduleEvent[];
   weekStart: Date;
   onEventClick: (ev: ScheduleEvent) => void;
+  onEventDrop?: (ev: ScheduleEvent, dateStr: string, slotIdx: number) => void;
 }
 
-function WeekGrid({ events, weekStart, onEventClick }: WeekGridProps) {
+function WeekGrid({ events, weekStart, onEventClick, onEventDrop }: WeekGridProps) {
   const { t } = useTranslation();
+  const [dragOverCell, setDragOverCell] = useState<{ date: string; slotIdx: number } | null>(null);
+
   const lookup: Record<string, Record<number, ScheduleEvent[]>> = {};
   for (const ev of events) {
     if (!lookup[ev.scheduleDate]) lookup[ev.scheduleDate] = {};
@@ -170,6 +173,29 @@ function WeekGrid({ events, weekStart, onEventClick }: WeekGridProps) {
   }
 
   const todayISO = toISO(new Date());
+
+  const handleDragStart = (e: React.DragEvent, ev: ScheduleEvent) => {
+    e.dataTransfer.setData("text/plain", ev.id);
+  };
+
+  const handleDragOver = (e: React.DragEvent, date: string, slotIdx: number) => {
+    e.preventDefault();
+    setDragOverCell({ date, slotIdx });
+  };
+
+  const handleDragLeave = () => {
+    setDragOverCell(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, date: string, slotIdx: number) => {
+    e.preventDefault();
+    setDragOverCell(null);
+    const evId = e.dataTransfer.getData("text/plain");
+    const ev = events.find((x) => x.id === evId);
+    if (ev && onEventDrop) {
+      onEventDrop(ev, date, slotIdx);
+    }
+  };
 
   return (
     <div className="overflow-x-auto">
@@ -204,12 +230,17 @@ function WeekGrid({ events, weekStart, onEventClick }: WeekGridProps) {
               </td>
               {days.map((d) => {
                 const cellEvents = lookup[d.iso]?.[slot.index] ?? [];
+                const isDraggingOver = dragOverCell?.date === d.iso && dragOverCell?.slotIdx === slot.index;
                 return (
                   <td
                     key={d.iso}
                     style={{ height: "120px" }}
-                    className={`border border-gray-200 dark:border-gray-700 p-1.5 align-top min-w-[90px]
-                      ${d.iso === todayISO ? "bg-brand-500/5 dark:bg-brand-950/10" : "bg-white dark:bg-gray-900"}`}
+                    onDragOver={(e) => handleDragOver(e, d.iso, slot.index)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, d.iso, slot.index)}
+                    className={`border border-gray-200 dark:border-gray-700 p-1.5 align-top min-w-[90px] transition-colors duration-150
+                      ${d.iso === todayISO ? "bg-brand-500/5 dark:bg-brand-950/10" : "bg-white dark:bg-gray-900"}
+                      ${isDraggingOver ? "bg-brand-500/10 ring-2 ring-brand-500 ring-inset" : ""}`}
                   >
                     <div className="flex flex-col gap-1 h-full">
                       {cellEvents.map((ev) => (
@@ -217,8 +248,12 @@ function WeekGrid({ events, weekStart, onEventClick }: WeekGridProps) {
                           key={ev.id}
                           type="button"
                           onClick={() => onEventClick(ev)}
-                          className={`w-full text-left rounded-lg border px-2 py-1.5 text-[11px] font-semibold leading-tight transition-all duration-150 cursor-pointer shadow-xs hover:shadow-md hover:-translate-y-px
-                            ${ev.isDraft ? DRAFT_COLOR : SLOT_COLORS[slot.index]}`}
+                          draggable={ev.isDraft}
+                          onDragStart={(e) => handleDragStart(e, ev)}
+                          className={`w-full text-left rounded-lg border px-2 py-1.5 text-[11px] font-semibold leading-tight transition-all duration-150 shadow-xs hover:shadow-md hover:-translate-y-px
+                            ${ev.isDraft
+                              ? DRAFT_COLOR + " cursor-grab active:cursor-grabbing hover:border-amber-500"
+                              : SLOT_COLORS[slot.index] + " cursor-pointer"}`}
                         >
                           <span className="flex items-center gap-1">
                             <span className="block truncate font-bold">{ev.classCode}</span>
@@ -580,6 +615,148 @@ export default function ClassScheduleCalendar() {
     load();
   }, [selectedClassId]);
 
+  const regenerateSchedulesForClass = (cls: ClassItem, semesterStartStr: string, semesterEndStr: string): ClassScheduleItem[] => {
+    const start = new Date(semesterStartStr);
+    const end = new Date(semesterEndStr);
+    let weeklySchedules = [];
+    try {
+      weeklySchedules = cls.weeklySchedulesJson ? JSON.parse(cls.weeklySchedulesJson) : [];
+    } catch {
+      weeklySchedules = [];
+    }
+    
+    const schedules: ClassScheduleItem[] = [];
+    let lessonNo = 1;
+    const cur = new Date(start);
+    
+    while (cur <= end) {
+      const dayOfWeek = cur.getDay();
+      const match = weeklySchedules.find((w: any) => w.dayOfWeek === dayOfWeek);
+      if (match) {
+        const slotIdx = resolveSlotIndex(match.startTime);
+        schedules.push({
+          id: 0,
+          classId: cls.id,
+          classCode: cls.code,
+          className: cls.name,
+          lessonNo: lessonNo,
+          scheduleDate: toISO(cur),
+          startTime: match.startTime,
+          endTime: match.endTime,
+          roomId: match.roomId || null,
+          roomName: match.roomId ? (cls.schedules?.[0]?.roomName || "Phòng học") : undefined,
+          teacherId: cls.teacherId,
+          teacherName: cls.teacherName,
+          status: 0,
+        });
+        lessonNo++;
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    return schedules;
+  };
+
+  const handleMoveEvent = (draggedEvent: ScheduleEvent, targetDate: string, targetSlotIdx: number): boolean => {
+    if (!draftClasses) return false;
+
+    // Check conflict
+    const teacherConflict = allDisplayEvents.some(ev => 
+      ev.id !== draggedEvent.id &&
+      ev.scheduleDate === targetDate &&
+      ev.slotIndex === targetSlotIdx &&
+      ev.teacherName === draggedEvent.teacherName &&
+      draggedEvent.teacherName !== "—" &&
+      draggedEvent.teacherName !== "Chưa phân công"
+    );
+
+    const roomConflict = allDisplayEvents.some(ev => 
+      ev.id !== draggedEvent.id &&
+      ev.scheduleDate === targetDate &&
+      ev.slotIndex === targetSlotIdx &&
+      ev.roomName === draggedEvent.roomName &&
+      draggedEvent.roomName !== "—" &&
+      draggedEvent.roomName !== "N/A"
+    );
+
+    if (teacherConflict) {
+      showToast(t("classSchedules.teacherConflictWarning", { 
+        teacher: draggedEvent.teacherName, 
+        slot: FIXED_SLOTS[targetSlotIdx].label, 
+        date: targetDate, 
+        defaultValue: `Giáo viên ${draggedEvent.teacherName} đã có lịch dạy vào ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!` 
+      }), "error");
+      return false;
+    }
+
+    if (roomConflict) {
+      showToast(t("classSchedules.roomConflictWarning", { 
+        room: draggedEvent.roomName, 
+        slot: FIXED_SLOTS[targetSlotIdx].label, 
+        date: targetDate, 
+        defaultValue: `Phòng ${draggedEvent.roomName} đã được sử dụng vào ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!` 
+      }), "error");
+      return false;
+    }
+
+    // Find class
+    const clsIndex = draftClasses.findIndex(c => c.code === draggedEvent.classCode);
+    if (clsIndex < 0) return false;
+
+    const cls = { ...draftClasses[clsIndex] };
+    let weeklySchedules = [];
+    try {
+      weeklySchedules = cls.weeklySchedulesJson ? JSON.parse(cls.weeklySchedulesJson) : [];
+    } catch {
+      weeklySchedules = [];
+    }
+
+    const originalDateObj = new Date(draggedEvent.scheduleDate);
+    const originalDayOfWeek = originalDateObj.getDay();
+
+    const targetDateObj = new Date(targetDate);
+    const targetDayOfWeek = targetDateObj.getDay();
+
+    // Find the weekly schedule entry to change
+    const wsIdx = weeklySchedules.findIndex((w: any) => w.dayOfWeek === originalDayOfWeek && w.startTime === draggedEvent.startTime);
+    if (wsIdx < 0) {
+      const wsIdxFallback = weeklySchedules.findIndex((w: any) => w.dayOfWeek === originalDayOfWeek);
+      if (wsIdxFallback < 0) return false;
+      weeklySchedules[wsIdxFallback].dayOfWeek = targetDayOfWeek;
+      weeklySchedules[wsIdxFallback].startTime = FIXED_SLOTS[targetSlotIdx].start;
+      weeklySchedules[wsIdxFallback].endTime = FIXED_SLOTS[targetSlotIdx].end;
+    } else {
+      weeklySchedules[wsIdx].dayOfWeek = targetDayOfWeek;
+      weeklySchedules[wsIdx].startTime = FIXED_SLOTS[targetSlotIdx].start;
+      weeklySchedules[wsIdx].endTime = FIXED_SLOTS[targetSlotIdx].end;
+    }
+
+    cls.weeklySchedulesJson = JSON.stringify(weeklySchedules);
+
+    cls.scheduleDisplay = weeklySchedules
+      .sort((a: any, b: any) => a.dayOfWeek - b.dayOfWeek)
+      .map((w: any) => `${DAY_LABELS[w.dayOfWeek]} ${w.startTime}-${w.endTime}`)
+      .join(", ");
+
+    const newSchedules = regenerateSchedulesForClass(cls, cls.startDate || targetDate, cls.endDate || targetDate);
+    cls.schedules = newSchedules;
+
+    const updatedDraftClasses = [...draftClasses];
+    updatedDraftClasses[clsIndex] = cls;
+    setDraftClasses(updatedDraftClasses);
+
+    const newDraftEvents = updatedDraftClasses.flatMap((c) => mapDraftClass(c));
+    setDraftEvents(newDraftEvents);
+
+    showToast(t("classSchedules.toastMoveSuccess", {
+      classCode: draggedEvent.classCode,
+      slot: FIXED_SLOTS[targetSlotIdx].label,
+      date: targetDate,
+      defaultValue: `Đã đổi lịch lớp ${draggedEvent.classCode} sang ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!`
+    }), "success");
+
+    return true;
+  };
+
   // Combined events = real DB events + draft overlay
   const allDisplayEvents = [...events, ...draftEvents];
 
@@ -709,6 +886,7 @@ export default function ClassScheduleCalendar() {
     extendedProps: ev,
     backgroundColor: ev.isDraft ? "#fef3c7" : undefined,
     borderColor: ev.isDraft ? "#f59e0b" : undefined,
+    editable: ev.isDraft,
   }));
 
   const renderMonthEvent = (info: { event: { extendedProps: Record<string, unknown> } }) => {
@@ -727,6 +905,34 @@ export default function ClassScheduleCalendar() {
     const ev = clickInfo.event.extendedProps as unknown as ScheduleEvent;
     setSelectedEvent(ev);
     openModal();
+  };
+
+  const handleFcEventDrop = (info: any) => {
+    const ev = info.event.extendedProps as ScheduleEvent;
+    if (!ev.isDraft) {
+      info.revert();
+      return;
+    }
+    
+    const newStart = info.event.start;
+    if (!newStart) {
+      info.revert();
+      return;
+    }
+    
+    const targetDate = toISO(newStart);
+    const hours = String(newStart.getHours()).padStart(2, "0");
+    const minutes = String(newStart.getMinutes()).padStart(2, "0");
+    const timeStr = `${hours}:${minutes}`;
+    let targetSlotIdx = resolveSlotIndex(timeStr);
+    if (targetSlotIdx < 0) {
+      targetSlotIdx = ev.slotIndex;
+    }
+    
+    const success = handleMoveEvent(ev, targetDate, targetSlotIdx);
+    if (!success) {
+      info.revert();
+    }
   };
 
   const classOptions = classes.map((cls) => ({
@@ -904,7 +1110,7 @@ export default function ClassScheduleCalendar() {
             </div>
 
             <div className="p-4">
-              <WeekGrid events={allDisplayEvents} weekStart={weekStart} onEventClick={handleEventClick} />
+              <WeekGrid events={allDisplayEvents} weekStart={weekStart} onEventClick={handleEventClick} onEventDrop={handleMoveEvent} />
             </div>
           </div>
         ) : (
@@ -917,6 +1123,10 @@ export default function ClassScheduleCalendar() {
               headerToolbar={{ left: "prev,next today", center: "title", right: "" }}
               events={fcEvents}
               selectable={false}
+              editable={true}
+              eventStartEditable={true}
+              eventDurationEditable={false}
+              eventDrop={handleFcEventDrop}
               eventClick={handleFcEventClick}
               eventContent={renderMonthEvent}
               height="auto"
