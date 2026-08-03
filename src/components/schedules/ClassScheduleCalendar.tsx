@@ -14,6 +14,7 @@ import { ChevronLeft, ChevronRight, CalendarClock, Save, X, Loader2, AlertTriang
 import { roomApi, RoomItem } from "@/services/room.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useTranslation } from "react-i18next";
+import { commonApi } from "@/services/common.api";
 
 // ── Fixed time slots (must stay in sync with backend FixedTimeSlot.All) ──────
 const FIXED_SLOTS = [
@@ -677,6 +678,9 @@ export default function ClassScheduleCalendar() {
   const [editRoomTarget, setEditRoomTarget] = useState<ScheduleEvent | null>(null);
   const [editRoomSaving, setEditRoomSaving] = useState(false);
 
+  // Semester filter state
+  const [selectedSemesterId, setSelectedSemesterId] = useState<number | null>(null);
+
   // Toast State
   const [toasts, setToasts] = useState<{ id: number; message: string; type: "success" | "error" }[]>([]);
   const [mounted, setMounted] = useState(false);
@@ -717,7 +721,7 @@ export default function ClassScheduleCalendar() {
     classApi.getAll(1, 1000).then((res) => {
       if (res.success && res.data) setClasses(res.data.items || []);
     });
-    semesterApi.getAll().then((res) => {
+    commonApi.getSemesters().then((res) => {
       if (res.success && res.data) setSemesters(res.data);
     });
     roomApi.getAll(1, 500).then((res) => {
@@ -1039,6 +1043,26 @@ export default function ClassScheduleCalendar() {
     setIsEditMode(prev => !prev);
   };
 
+  const handleSemesterChange = (semesterId: any) => {
+    const semId = semesterId ? Number(semesterId) : null;
+    setSelectedSemesterId(semId);
+
+    // If a semester is selected, move the calendar's weekStart to its startDate
+    if (semId !== null) {
+      const selectedSem = semesters.find((s) => s.id === semId);
+      if (selectedSem && selectedSem.startDate) {
+        setWeekStart(getWeekStart(new Date(selectedSem.startDate)));
+      }
+    }
+
+    if (selectedClassId !== null) {
+      const currentClass = classes.find(c => c.id === Number(selectedClassId));
+      if (currentClass && semId !== null && currentClass.semesterId !== semId) {
+        setSelectedClassId(null);
+      }
+    }
+  };
+
   // Parse backend room-specific error codes into user-friendly messages.
   // Mirrors the same logic used in ClassForm.getFriendlyErrorMessage.
   const getFriendlyRoomError = (msg: string): string => {
@@ -1153,7 +1177,13 @@ export default function ClassScheduleCalendar() {
   }, [classes, events, t]);
 
   // Combined events = real DB events + draft overlay
-  const allDisplayEvents = [...events, ...draftEvents];
+  const rawDisplayEvents = [...events, ...draftEvents];
+  const allDisplayEvents = selectedSemesterId === null
+    ? rawDisplayEvents
+    : rawDisplayEvents.filter(ev => {
+        const cls = classes.find(c => c.code === ev.classCode);
+        return cls?.semesterId === selectedSemesterId;
+      });
 
   const handleEventClick = (ev: ScheduleEvent) => {
     // In Edit Mode, clicking a non-draft DB event opens the Room Edit modal
@@ -1340,9 +1370,16 @@ export default function ClassScheduleCalendar() {
     }
   };
 
-  const classOptions = classes.map((cls) => ({
-    value: cls.id,
-    label: `${cls.code} - ${cls.name} (${cls.scheduleDisplay || t("classSchedules.noScheduleConfig", { defaultValue: "Chưa cấu hình lịch" })})`,
+  const classOptions = classes
+    .filter((cls) => selectedSemesterId === null || cls.semesterId === selectedSemesterId)
+    .map((cls) => ({
+      value: cls.id,
+      label: `${cls.code} - ${cls.name} (${cls.scheduleDisplay || t("classSchedules.noScheduleConfig", { defaultValue: "Chưa cấu hình lịch" })})`,
+    }));
+
+  const semesterOptions = semesters.map((sem) => ({
+    value: sem.id,
+    label: sem.name,
   }));
 
   const draftSemesterName = draftSemesterId
@@ -1442,15 +1479,30 @@ export default function ClassScheduleCalendar() {
 
       {/* Top bar: class filter + view toggle + schedule button */}
       <div className="p-5 sm:p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-5">
-        <div className="flex flex-col gap-1.5 w-full md:max-w-md">
-          <label className="text-sm font-semibold text-gray-750 dark:text-gray-300">{t("classSchedules.classFilterLabel", { defaultValue: "Lớp học:" })}</label>
-          <SearchableSelect
-            options={classOptions}
-            value={selectedClassId || ""}
-            onChange={(val) => setSelectedClassId(val)}
-            placeholder={t("classSchedules.allClassesPlaceholder", { defaultValue: "Tất cả các lớp" })}
-            onClear={() => setSelectedClassId(null)}
-          />
+        <div className="flex flex-col sm:flex-row gap-4 w-full md:max-w-2xl">
+          {/* Semester Filter */}
+          <div className="flex flex-col gap-1.5 w-full sm:w-1/2">
+            <label className="text-sm font-semibold text-gray-750 dark:text-gray-300">{t("classSchedules.semesterFilterLabel", { defaultValue: "Học kỳ:" })}</label>
+            <SearchableSelect
+              options={semesterOptions}
+              value={selectedSemesterId || ""}
+              onChange={handleSemesterChange}
+              placeholder={t("classSchedules.allSemestersPlaceholder", { defaultValue: "Tất cả học kỳ" })}
+              onClear={() => handleSemesterChange(null)}
+            />
+          </div>
+
+          {/* Class Filter */}
+          <div className="flex flex-col gap-1.5 w-full sm:w-1/2">
+            <label className="text-sm font-semibold text-gray-750 dark:text-gray-300">{t("classSchedules.classFilterLabel", { defaultValue: "Lớp học:" })}</label>
+            <SearchableSelect
+              options={classOptions}
+              value={selectedClassId || ""}
+              onChange={(val) => setSelectedClassId(val)}
+              placeholder={t("classSchedules.allClassesPlaceholder", { defaultValue: "Tất cả các lớp" })}
+              onClear={() => setSelectedClassId(null)}
+            />
+          </div>
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">

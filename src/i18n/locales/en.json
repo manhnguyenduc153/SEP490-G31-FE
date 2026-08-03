@@ -2738,6 +2738,8 @@
     "saveOfficial": "Save Schedule",
     "classFilterLabel": "Class:",
     "allClassesPlaceholder": "All classes",
+    "semesterFilterLabel": "Semester:",
+    "allSemestersPlaceholder": "All semesters",
     "unassigned": "Unassigned",
     "lessonsCount": "{{count}} lessons",
     "autoScheduleBtn": "Auto Schedule",
