@@ -10,7 +10,8 @@ import { useModal } from "@/hooks/useModal";
 import { Modal } from "@/components/ui/modal";
 import { classApi, ClassItem, ClassScheduleItem, ClassSaveDto } from "@/services/class.api";
 import { semesterApi, SemesterItem } from "@/services/semester.api";
-import { ChevronLeft, ChevronRight, CalendarClock, Save, X, Loader2, AlertTriangle, Cpu, Check, AlertCircle, Edit } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarClock, Save, X, Loader2, AlertTriangle, Cpu, Check, AlertCircle, Edit, DoorOpen } from "lucide-react";
+import { roomApi, RoomItem } from "@/services/room.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useTranslation } from "react-i18next";
 
@@ -59,6 +60,7 @@ interface ScheduleEvent {
   className: string;
   lessonNo: number;
   roomName: string;
+  roomId?: number | null;
   teacherName: string;
   teacherAvatar: string | null;
   startTime: string;
@@ -88,6 +90,7 @@ function mapApiItem(s: ClassScheduleItem, fallbackClass?: ClassItem, isDraft = f
     className: s.className || fallbackClass?.name || "N/A",
     lessonNo: s.lessonNo || 0,
     roomName: s.roomName || "N/A",
+    roomId: s.roomId ?? null,
     teacherName: s.teacherName || fallbackClass?.teacherName || "Chưa phân công",
     teacherAvatar: s.teacherAvatar || fallbackClass?.teacherAvatar || null,
     startTime: st,
@@ -545,6 +548,115 @@ function AutoScheduleModal({ isOpen, onClose, semesters, onGenerate, loading, sh
   );
 }
 
+// ── Edit Room Modal ──────────────────────────────────────────────────────────
+interface EditRoomModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  event: ScheduleEvent | null;
+  rooms: RoomItem[];
+  onSave: (event: ScheduleEvent, newRoomId: number | null, newRoomName: string) => void;
+  saving: boolean;
+}
+
+function EditRoomModal({ isOpen, onClose, event, rooms, onSave, saving }: EditRoomModalProps) {
+  const { t } = useTranslation();
+  const [selectedRoomId, setSelectedRoomId] = useState<number | null>(event?.roomId ?? null);
+
+  useEffect(() => {
+    if (event) setSelectedRoomId(event.roomId ?? null);
+  }, [event]);
+
+  if (!isOpen || !event) return null;
+
+  const roomOptions = [
+    { value: "", label: t("classSchedules.noRoom", { defaultValue: "— Chưa phân phòng —" }) },
+    ...rooms.filter(r => r.status === 1).map(r => ({
+      value: String(r.id), // Stringify for Select compatibility
+      label: `${r.name}${r.building ? ` (${r.building}${r.floor ? ` - T${r.floor}` : ""})` : ""}${r.capacity ? ` · ${r.capacity} chỗ` : ""}`,
+    }))
+  ];
+
+  const selectedRoom = rooms.find(r => r.id === Number(selectedRoomId));
+
+  const handleConfirm = () => {
+    const roomName = selectedRoom?.name ?? "N/A";
+    onSave(event, selectedRoomId ? Number(selectedRoomId) : null, roomName);
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} showCloseButton={!saving} className="max-w-[480px] p-6">
+      <div className="flex flex-col gap-4">
+        <div>
+          <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <DoorOpen className="w-5 h-5 text-violet-500" />
+            {t("classSchedules.editRoomTitle", { defaultValue: "Đổi phòng học" })}
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {t("classSchedules.editRoomSubtitle", {
+              classCode: event.classCode,
+              defaultValue: `Lớp: ${event.classCode} — ${event.className}`
+            })}
+          </p>
+        </div>
+
+        <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-850 border border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 space-y-1">
+          <div className="flex gap-2">
+            <span className="font-semibold text-gray-700 dark:text-gray-300">{t("classSchedules.currentRoom", { defaultValue: "Phòng hiện tại:" })}</span>
+            <span>{event.roomName}</span>
+          </div>
+          <div className="flex gap-2">
+            <span className="font-semibold text-gray-700 dark:text-gray-300">{t("classSchedules.slotLabel", { defaultValue: "Ca học:" })}</span>
+            <span>{FIXED_SLOTS[event.slotIndex]?.label} · {event.startTime}–{event.endTime}</span>
+          </div>
+          <div className="flex gap-2">
+            <span className="font-semibold text-gray-700 dark:text-gray-300">{t("classSchedules.scheduleDay", { defaultValue: "Lịch hàng tuần:" })}</span>
+            <span>{DAY_LABELS[new Date(event.scheduleDate).getDay()]}</span>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            {t("classSchedules.newRoomLabel", { defaultValue: "Phòng mới" })}
+          </label>
+          <SearchableSelect
+            options={roomOptions}
+            value={selectedRoomId !== null ? String(selectedRoomId) : ""}
+            onChange={(val) => setSelectedRoomId(val ? Number(val) : null)}
+            placeholder={t("classSchedules.selectRoom", { defaultValue: "Chọn phòng học..." })}
+            onClear={() => setSelectedRoomId(null)}
+          />
+          {selectedRoom && (
+            <p className="text-xs text-violet-600 dark:text-violet-400">
+              {selectedRoom.building && `${selectedRoom.building}${selectedRoom.floor ? ` · Tầng ${selectedRoom.floor}` : ""} · `}
+              {selectedRoom.capacity ? `${selectedRoom.capacity} chỗ ngồi` : ""}
+            </p>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-3 pt-2 border-t border-gray-100 dark:border-gray-800">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 disabled:opacity-50"
+          >
+            {t("classSchedules.btnCancel", { defaultValue: "Hủy" })}
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={saving || (selectedRoomId === null ? event.roomId === null : Number(selectedRoomId) === Number(event.roomId))}
+            className="px-4 py-2 text-sm font-semibold text-white bg-violet-600 rounded-lg hover:bg-violet-700 disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {t("classSchedules.btnSaveRoom", { defaultValue: "Lưu phòng" })}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function ClassScheduleCalendar() {
   const { t } = useTranslation();
@@ -552,6 +664,7 @@ export default function ClassScheduleCalendar() {
 
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [semesters, setSemesters] = useState<SemesterItem[]>([]);
+  const [rooms, setRooms] = useState<RoomItem[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
   const [classDetail, setClassDetail] = useState<ClassItem | null>(null);
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
@@ -559,6 +672,10 @@ export default function ClassScheduleCalendar() {
   const [view, setView] = useState<"week" | "month">("week");
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
+
+  // Edit Room state
+  const [editRoomTarget, setEditRoomTarget] = useState<ScheduleEvent | null>(null);
+  const [editRoomSaving, setEditRoomSaving] = useState(false);
 
   // Toast State
   const [toasts, setToasts] = useState<{ id: number; message: string; type: "success" | "error" }[]>([]);
@@ -602,6 +719,9 @@ export default function ClassScheduleCalendar() {
     });
     semesterApi.getAll().then((res) => {
       if (res.success && res.data) setSemesters(res.data);
+    });
+    roomApi.getAll(1, 500).then((res) => {
+      if (res.success && res.data) setRooms(res.data.items || []);
     });
   }, [reloadTrigger]);
 
@@ -829,11 +949,12 @@ export default function ClassScheduleCalendar() {
               defaultValue: `Đã đổi lịch lớp ${draggedEvent.classCode} sang ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!`
             }), "success");
           } else {
-            // API rejected (e.g. backend conflict) → revert optimistic change
+            // API rejected (room/teacher conflict from backend) → revert optimistic change
             setEvents(prevEvents);
-            showToast(updateRes.message
-              ? t(`backendMessages.${updateRes.message}`, { defaultValue: updateRes.message })
-              : t("classSchedules.toastUpdateError", { defaultValue: "Lỗi khi cập nhật lịch lớp học." }), "error");
+            const errMsg = updateRes.message
+              ? getFriendlyRoomError(updateRes.message)
+              : t("classSchedules.toastUpdateError", { defaultValue: "Lỗi khi cập nhật lịch lớp học." });
+            showToast(errMsg, "error");
           }
         }).catch(() => {
           setEvents(prevEvents); // revert on network error
@@ -918,13 +1039,131 @@ export default function ClassScheduleCalendar() {
     setIsEditMode(prev => !prev);
   };
 
+  // Parse backend room-specific error codes into user-friendly messages.
+  // Mirrors the same logic used in ClassForm.getFriendlyErrorMessage.
+  const getFriendlyRoomError = (msg: string): string => {
+    if (msg.startsWith("ERR_ROOM_CONFLICT_")) {
+      const classCode = msg.replace("ERR_ROOM_CONFLICT_", "");
+      return t("class.errRoomConflict", {
+        classCode,
+        defaultValue: `Phòng đã được sử dụng bởi lớp ${classCode} trong cùng khung giờ này.`,
+      });
+    }
+    if (msg.startsWith("ERR_ROOM_CAPACITY_EXCEEDED_")) {
+      const roomName = msg.replace("ERR_ROOM_CAPACITY_EXCEEDED_", "");
+      return t("class.errRoomCapacityExceeded", {
+        roomName,
+        defaultValue: `Sức chứa phòng ${roomName} không đủ cho số lượng học viên của lớp.`,
+      });
+    }
+    if (msg.startsWith("ERR_TEACHER_CONFLICT_")) {
+      const classCode = msg.replace("ERR_TEACHER_CONFLICT_", "");
+      return t("class.errTeacherConflict", {
+        classCode,
+        defaultValue: `Giáo viên đã có lịch dạy lớp ${classCode} trong cùng khung giờ này.`,
+      });
+    }
+    if (msg.startsWith("ERR_STUDENT_CONFLICT_")) {
+      const parts = msg.replace("ERR_STUDENT_CONFLICT_", "").split("__");
+      const emailsStr = parts[1] || "";
+      return t("class.errStudentConflict", {
+        emails: emailsStr,
+        defaultValue: `Học viên (${emailsStr}) bị trùng lịch học ở lớp khác vào khung giờ này.`,
+      });
+    }
+    return t(`backendMessages.${msg}`, { defaultValue: msg });
+  };
+
+  // ── Room edit handler (Edit Mode only) ────────────────────────────────────
+  const handleSaveRoom = useCallback(async (event: ScheduleEvent, newRoomId: number | null, newRoomName: string) => {
+    const targetClass = classes.find(c => c.code === event.classCode);
+    if (!targetClass) return;
+
+    setEditRoomSaving(true);
+
+    // Optimistic update: update roomName/roomId on all events of this class
+    const prevEvents = [...events];
+    const optimisticEvents = events.map(ev =>
+      ev.classCode === event.classCode
+        ? { ...ev, roomName: newRoomName, roomId: newRoomId }
+        : ev
+    );
+    setEvents(optimisticEvents);
+    setEditRoomTarget(null);
+
+    try {
+      const detailRes = await classApi.getById(targetClass.id);
+      if (!detailRes.success || !detailRes.data) {
+        setEvents(prevEvents);
+        showToast(t("classSchedules.toastFetchDetailError", { defaultValue: "Không thể lấy thông tin chi tiết lớp học để cập nhật." }), "error");
+        return;
+      }
+
+      const cls = detailRes.data;
+      let weeklySchedules: any[] = [];
+      try {
+        weeklySchedules = cls.weeklySchedulesJson ? JSON.parse(cls.weeklySchedulesJson) : [];
+      } catch { weeklySchedules = []; }
+
+      // Apply new roomId to all weekly schedule entries
+      weeklySchedules = weeklySchedules.map((w: any) => ({ ...w, roomId: newRoomId }));
+
+      const saveDto: ClassSaveDto = {
+        id: cls.id,
+        code: cls.code,
+        name: cls.name,
+        status: cls.status,
+        type: cls.type,
+        url: cls.url,
+        description: cls.description,
+        startDate: cls.startDate,
+        endDate: cls.endDate,
+        courseId: cls.courseId,
+        teacherId: cls.teacherId,
+        semesterId: cls.semesterId,
+        expectedLessons: cls.expectedLessons,
+        weeklySchedules,
+        students: (cls.studentClasses || []).map((sc: any) => ({
+          studentId: sc.studentId,
+          enrollType: sc.enrollType ?? 0,
+        })),
+      };
+
+      const updateRes = await classApi.update(cls.id, saveDto);
+      if (updateRes.success) {
+        showToast(t("classSchedules.toastRoomSaveSuccess", {
+          classCode: event.classCode,
+          room: newRoomName,
+          defaultValue: `Đã đổi phòng lớp ${event.classCode} sang ${newRoomName}!`
+        }), "success");
+      } else {
+        setEvents(prevEvents); // revert
+        // Parse backend-specific room/capacity error codes (same as ClassForm)
+        const errMsg = updateRes.message
+          ? getFriendlyRoomError(updateRes.message)
+          : t("classSchedules.toastUpdateError", { defaultValue: "Lỗi khi cập nhật phòng học." });
+        showToast(errMsg, "error");
+      }
+    } catch {
+      setEvents(prevEvents); // revert
+      showToast(t("classSchedules.toastUpdateError", { defaultValue: "Có lỗi xảy ra khi cập nhật phòng." }), "error");
+    } finally {
+      setEditRoomSaving(false);
+    }
+  }, [classes, events, t]);
+
   // Combined events = real DB events + draft overlay
   const allDisplayEvents = [...events, ...draftEvents];
 
-  const handleEventClick = useCallback((ev: ScheduleEvent) => {
+  const handleEventClick = (ev: ScheduleEvent) => {
+    // In Edit Mode, clicking a non-draft DB event opens the Room Edit modal
+    if (isEditMode && !ev.isDraft) {
+      setEditRoomTarget(ev);
+      return;
+    }
     setSelectedEvent(ev);
     openModal();
-  }, [openModal]);
+  };
 
   const handleGenerate = async (params: {
     semesterId: number;
@@ -1064,6 +1303,11 @@ export default function ClassScheduleCalendar() {
 
   const handleFcEventClick = (clickInfo: EventClickArg) => {
     const ev = clickInfo.event.extendedProps as unknown as ScheduleEvent;
+    // In Edit Mode, non-draft events open Room Edit modal
+    if (isEditMode && !ev.isDraft) {
+      setEditRoomTarget(ev);
+      return;
+    }
     setSelectedEvent(ev);
     openModal();
   };
@@ -1177,7 +1421,7 @@ export default function ClassScheduleCalendar() {
               <p className="text-xs text-violet-600 dark:text-violet-400 mt-0.5">
                 {editSaving
                   ? t("classSchedules.editModeSaving", { defaultValue: "Đang lưu thay đổi..." })
-                  : t("classSchedules.editModeBannerHint", { defaultValue: "Kéo thả các buổi học để điều chỉnh. Mỗi thay đổi được lưu xuống hệ thống ngay lập tức." })
+                  : t("classSchedules.editModeBannerHint", { defaultValue: "Kéo thả buổi học để đổi lịch · Nhấn vào buổi học để đổi phòng. Thay đổi được lưu ngay lập tức." })
                 }
               </p>
             </div>
@@ -1449,6 +1693,16 @@ export default function ClassScheduleCalendar() {
           </div>
         )}
       </Modal>
+
+      {/* Edit Room Modal (Edit Mode only) */}
+      <EditRoomModal
+        isOpen={editRoomTarget !== null}
+        onClose={() => setEditRoomTarget(null)}
+        event={editRoomTarget}
+        rooms={rooms}
+        onSave={handleSaveRoom}
+        saving={editRoomSaving}
+      />
 
       {/* Auto-Schedule Modal */}
       <AutoScheduleModal
