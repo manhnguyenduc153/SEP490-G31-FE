@@ -234,6 +234,10 @@
     "toastSystemError": "Lỗi hệ thống",
     "toastSubmitError": "Lỗi khi nộp bài",
     "toastStartAttemptError": "Không thể bắt đầu làm bài",
+    "toastScoreEmpty": "Vui lòng nhập điểm!",
+    "toastScoreInvalid": "Vui lòng nhập điểm hợp lệ!",
+    "toastScoreMinError": "Điểm không được nhỏ hơn 0!",
+    "toastScoreMaxError": "Điểm không được vượt quá {{max}}đ!",
     "readyTitle": "Bài tập đã sẵn sàng",
     "anyTime": "Bất kỳ lúc nào",
     "noDeadline": "Không có",
@@ -2143,6 +2147,8 @@
     "ERR_HOMEWORK_SUBMISSION_NOT_FOUND": "Không tìm thấy bài nộp.",
     "ERR_HOMEWORK_SCORE_INVALID": "Điểm số phải lớn hơn hoặc bằng 0.",
     "ERR_HOMEWORK_SCORE_EXCEEDS_TOTAL": "Điểm số không được vượt quá tổng điểm của bài tập.",
+    "ERR_EXAM_SCORE_INVALID": "Điểm số không được nhỏ hơn 0.",
+    "ERR_EXAM_SCORE_EXCEEDS_TOTAL": "Điểm số không được vượt quá tổng điểm bài thi.",
     "ERR_SEMESTER_HAS_SCHEDULES_CANNOT_CHANGE_DATES": "Học kỳ đã được xếp lịch học, không thể thay đổi ngày bắt đầu và kết thúc!",
     "ERR_TEACHER_ALREADY_SCHEDULED_CANNOT_CHANGE_AVAILABILITY": "Giáo viên đã được xếp lịch dạy trong học kỳ này, không thể thay đổi đăng ký lịch dạy!",
     "GET_EXAM_LIST_SUCCESS": "Lấy danh sách bài kiểm tra thành công",
@@ -2672,7 +2678,8 @@
     "ERR_ATTEMPT_NOT_FOUND": "Không tìm thấy lượt làm bài.",
     "ERR_ATTEMPT_ALREADY_SUBMITTED": "Lượt làm bài này đã được nộp trước đó.",
     "ERR_EXAM_NOT_STARTED": "Bài kiểm tra chưa đến thời gian mở làm bài.",
-    "ERR_EXAM_CLOSED": "Bài kiểm tra đã kết thúc thời gian nộp bài."
+    "ERR_EXAM_CLOSED": "Bài kiểm tra đã kết thúc thời gian nộp bài.",
+    "ERR_FORBIDDEN_EXAM": "Bạn không thuộc lớp học được gán bài kiểm tra này."
   },
   "studentProgress": {
     "title": "Tiến độ học tập của tôi",
