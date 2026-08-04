@@ -19,6 +19,7 @@ export interface ClassScheduleItem {
   teacherAvatar?: string | null;
   status: number;
   note?: string | null;
+  classStatus?: number | null;
 }
 
 export interface ClassItem {

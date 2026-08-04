@@ -39,7 +39,7 @@ export default function SignInForm() {
       });
 
       if (res.success) {
-        router.push("/");
+        router.push("/dashboard");
       } else {
         setError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("backendMessages.ERR_INVALID_CREDENTIALS", { defaultValue: "Tên đăng nhập hoặc mật khẩu không chính xác." }));
       }
@@ -58,7 +58,7 @@ export default function SignInForm() {
           className="inline-flex items-center text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
         >
           <ChevronLeftIcon />
-          {t("signin.backToDashboard")}
+          Trở về trang chủ
         </Link>
       </div>
       <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">

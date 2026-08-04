@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import { examApi, ExamItem, ExamAttemptDto, ExamAnswerDto } from "@/services/exam.api";
 import { questionPassageApi, QuestionPassageItem } from "@/services/questionPassage.api";
@@ -47,6 +48,7 @@ type ConfirmModalState = {
 };
 
 export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTakerProps) {
+  const router = useRouter();
   const { t } = useTranslation();
   const [exam, setExam] = useState<ExamItem | null>(null);
   const [attempts, setAttempts] = useState<ExamAttemptDto[]>([]);
@@ -83,6 +85,15 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
   const [elapsedTime, setElapsedTime] = useState<number>(0); // in seconds
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Refs to avoid stale closures in interval / auto submit
+  const examRef = useRef(exam);
+  const currentAttemptRef = useRef(currentAttempt);
+  const chosenAnswersRef = useRef(chosenAnswers);
+
+  useEffect(() => { examRef.current = exam; }, [exam]);
+  useEffect(() => { currentAttemptRef.current = currentAttempt; }, [currentAttempt]);
+  useEffect(() => { chosenAnswersRef.current = chosenAnswers; }, [chosenAnswers]);
+
   // Custom confirm modal
   const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
     open: false,
@@ -105,7 +116,17 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
       ]);
 
       if (examRes.success && examRes.data) {
+        examRef.current = examRes.data;
         setExam(examRes.data);
+      } else {
+        showToast(
+          examRes.message
+            ? t(`backendMessages.${examRes.message}`, { defaultValue: examRes.message })
+            : t("exams.toastLoadingError"),
+          "error"
+        );
+        router.push("/exams");
+        return;
       }
       if (passRes.success && passRes.data) {
         setQuestionPassages(passRes.data.items || []);
@@ -116,6 +137,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
         // If there's an in-progress attempt, we should automatically resume it
         const inProgress = attemptsRes.data.find(a => a.status === 1);
         if (inProgress) {
+          currentAttemptRef.current = inProgress;
           setCurrentAttempt(inProgress);
           // Restore student's chosen answers from saved answers if any
           const savedAnswers: Record<number, string> = {};
@@ -124,6 +146,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
               savedAnswers[ans.questionId] = ans.answerContent;
             }
           });
+          chosenAnswersRef.current = savedAnswers;
           setChosenAnswers(savedAnswers);
           setViewState("taking");
           startTimer(inProgress.startTime, examRes.data.duration);
@@ -177,7 +200,20 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
     if (timerRef.current) clearInterval(timerRef.current);
 
     const startTime = new Date(startTimeStr).getTime();
-    
+
+    // Check initial remaining time
+    if (durationMinutes) {
+      const totalDurationSeconds = durationMinutes * 60;
+      const initialDiffSeconds = Math.floor((new Date().getTime() - startTime) / 1000);
+      const initialRemaining = totalDurationSeconds - initialDiffSeconds;
+      if (initialRemaining <= 0) {
+        setTimeLeft(0);
+        handleAutoSubmit();
+        return;
+      }
+      setTimeLeft(initialRemaining);
+    }
+
     timerRef.current = setInterval(() => {
       const now = new Date().getTime();
       const diffSeconds = Math.floor((now - startTime) / 1000);
@@ -211,13 +247,15 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
     try {
       const res = await examApi.startAttempt(exam.id);
       if (res.success && res.data) {
+        currentAttemptRef.current = res.data;
         setCurrentAttempt(res.data);
+        chosenAnswersRef.current = {};
         setChosenAnswers({});
         setViewState("taking");
         startTimer(res.data.startTime, exam.duration);
         showToast(t("exams.startExam"), "success");
       } else {
-        showToast(res.message || t("exams.toastStartAttemptError"), "error");
+        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("exams.toastStartAttemptError"), "error");
       }
     } catch {
       showToast(t("exams.toastSystemError"), "error");
@@ -283,27 +321,31 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
 
     setChosenAnswers(prev => {
       const current = prev[questionId] || "";
+      let updatedAnswers: Record<number, string>;
       if (!isMultiple) {
-        return { ...prev, [questionId]: choiceContent };
+        updatedAnswers = { ...prev, [questionId]: choiceContent };
       } else {
         // Multiple choices - comma separated
         const list = current ? current.split(",").map(s => s.trim()) : [];
         if (list.includes(choiceContent)) {
           const updated = list.filter(item => item !== choiceContent);
-          return { ...prev, [questionId]: updated.join(",") };
+          updatedAnswers = { ...prev, [questionId]: updated.join(",") };
         } else {
           const updated = [...list, choiceContent];
-          return { ...prev, [questionId]: updated.join(",") };
+          updatedAnswers = { ...prev, [questionId]: updated.join(",") };
         }
       }
+      chosenAnswersRef.current = updatedAnswers;
+      return updatedAnswers;
     });
   };
 
   const handleTextAnswerChange = (questionId: number, text: string) => {
-    setChosenAnswers(prev => ({
-      ...prev,
-      [questionId]: text
-    }));
+    setChosenAnswers(prev => {
+      const updatedAnswers = { ...prev, [questionId]: text };
+      chosenAnswersRef.current = updatedAnswers;
+      return updatedAnswers;
+    });
   };
 
   const handleAutoSubmit = () => {
@@ -312,18 +354,22 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
   };
 
   const submitTest = async (isAuto = false) => {
-    if (!exam || !currentAttempt) return;
+    const activeExam = examRef.current || exam;
+    const activeAttempt = currentAttemptRef.current || currentAttempt;
+    const activeAnswers = chosenAnswersRef.current || chosenAnswers;
+
+    if (!activeExam || !activeAttempt) return;
     setIsSubmitting(true);
     if (timerRef.current) clearInterval(timerRef.current);
 
     try {
-      const answersPayload = Object.entries(chosenAnswers).map(([qId, content]) => ({
+      const answersPayload = Object.entries(activeAnswers).map(([qId, content]) => ({
         questionId: Number(qId),
         answerContent: content
       }));
 
-      const logKey = `examLogs_${currentAttempt.id}`;
-      const exitsKey = `tabExits_${currentAttempt.id}`;
+      const logKey = `examLogs_${activeAttempt.id}`;
+      const exitsKey = `tabExits_${activeAttempt.id}`;
       
       const exitsCount = Number(localStorage.getItem(exitsKey) || "0");
       let logs = [];
@@ -334,20 +380,20 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
       localStorage.setItem(logKey, JSON.stringify(logs));
 
       const payload = {
-        attemptId: currentAttempt.id,
+        attemptId: activeAttempt.id,
         tabExitsCount: exitsCount,
         log: JSON.stringify(logs),
         answers: answersPayload
       };
 
-      const res = await examApi.submitAttempt(exam.id, payload);
+      const res = await examApi.submitAttempt(activeExam.id, payload);
       if (res.success && res.data) {
 
         setSelectedPastAttempt(res.data);
         setViewState("result");
         if (!isAuto) showToast(t("exams.submitSuccess"), "success");
         // Reload history list
-        examApi.getStudentAttempts(exam.id).then(r => {
+        examApi.getStudentAttempts(activeExam.id).then(r => {
           if (r.success && r.data) setAttempts(r.data);
         });
       } else {

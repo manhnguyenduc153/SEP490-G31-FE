@@ -155,6 +155,11 @@ export default function RolesTable() {
     new Set(["academicOperations", "administration"])
   );
 
+  // Delete confirmation dialog state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [roleToDelete, setRoleToDelete] = useState<RoleItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
 
 
   // Debounce Search Term
@@ -267,6 +272,36 @@ export default function RolesTable() {
     setSelectedRoleForPermissions(role);
     setCheckedPermissions(new Set(role.permissions || []));
     setIsPermissionsModalOpen(true);
+  };
+
+  const openDeleteModal = (role: RoleItem) => {
+    setRoleToDelete(role);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDeleteRole = async () => {
+    if (!roleToDelete) return;
+    setIsDeleting(true);
+    try {
+      const response = await authApi.deleteRole(roleToDelete.name);
+      if (response.success) {
+        showToast(t("roles.deleteSuccess", { name: roleToDelete.name }), "success");
+        setIsDeleteModalOpen(false);
+        setRoleToDelete(null);
+        triggerRefresh();
+      } else {
+        showToast(
+          response.message
+            ? t(`backendMessages.${response.message}`, { defaultValue: response.message })
+            : t("roles.deleteError"),
+          "error"
+        );
+      }
+    } catch {
+      showToast(t("roles.systemError"), "error");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleSavePermissions = async () => {
@@ -649,6 +684,7 @@ export default function RolesTable() {
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
+                        onClick={() => openDeleteModal(role)}
                         title={t("roles.deleteTooltip")}
                         className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors"
                       >
@@ -739,6 +775,65 @@ export default function RolesTable() {
         checkedPermissions={checkedPermissions}
         handleSavePermissions={handleSavePermissions}
       />
+
+      {/* Delete Role Confirmation Modal */}
+      {isDeleteModalOpen && roleToDelete && mounted && typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => !isDeleting && setIsDeleteModalOpen(false)}
+            />
+            {/* Dialog */}
+            <div className="relative z-10 w-full max-w-sm mx-4 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-6">
+              <div className="flex flex-col items-center gap-4 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-error-50 dark:bg-error-950/40">
+                  <Trash2 className="h-7 w-7 text-error-600 dark:text-error-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {t("roles.deleteConfirmTitle", { defaultValue: "Xác nhận xóa vai trò" })}
+                  </h3>
+                  <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">
+                    {t("roles.deleteConfirmDesc", {
+                      name: roleToDelete.name,
+                      defaultValue: `Bạn có chắc chắn muốn xóa vai trò "${roleToDelete.name}" không? Hành động này không thể hoàn tác.`,
+                    })}
+                  </p>
+                </div>
+                <div className="flex w-full gap-3 mt-2">
+                  <button
+                    onClick={() => setIsDeleteModalOpen(false)}
+                    disabled={isDeleting}
+                    className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                  >
+                    {t("common.cancel", { defaultValue: "Hủy" })}
+                  </button>
+                  <button
+                    onClick={handleDeleteRole}
+                    disabled={isDeleting}
+                    className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-error-600 hover:bg-error-700 rounded-lg transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  >
+                    {isDeleting ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>
+                        {t("common.deleting", { defaultValue: "Đang xóa..." })}
+                      </>
+                    ) : (
+                      t("common.delete", { defaultValue: "Xóa" })
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      }
     </div>
   );
 }
