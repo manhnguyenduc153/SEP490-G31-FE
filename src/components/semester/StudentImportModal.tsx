@@ -24,6 +24,7 @@ interface PreviewRow {
   courseId: number;              // 0 = not found → will be auto-created by BE
   courseResolved: boolean;       // true = matched existing course in system
   preferredSlots: string[];
+  enrollType?: number;           // 0 = Offline, 1 = Online
   hasError: boolean;
   isAlreadyRegistered: boolean;  // true = already exists in current semester registrations
   errorMsg?: string;
@@ -243,7 +244,7 @@ export function StudentImportModal({
       courseId: r.courseId,
       courseName: r.courseResolved ? null : r.rawCourseName,
       preferredSlots: r.preferredSlots,
-      enrollType: (r as any).enrollType || 1,
+      enrollType: r.enrollType ?? 1,
     }));
 
     try {

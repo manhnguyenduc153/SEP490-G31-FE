@@ -205,9 +205,9 @@ export async function buildClassScoreRows(classId: number, overrides: ScoreOverr
   return students.map((sc) => {
     const studentId = sc.student?.id || sc.studentId;
     const attendanceRow = attendanceRows.find((row) => row.studentId === studentId);
-    const takenAttendances = attendanceRow?.attendances.filter((item) => item.status !== -1) || [];
-    const attendedCount = takenAttendances.filter((item) => item.status !== 0).length;
-    const attendanceRaw = takenAttendances.length ? (attendedCount / takenAttendances.length) * 10 : 0;
+    const classAttendances = attendanceRow?.attendances || [];
+    const attendedCount = classAttendances.filter((item) => item.status > 0).length;
+    const attendanceRaw = classAttendances.length ? (attendedCount / classAttendances.length) * 10 : 0;
 
     const homeworkScores = homeworkSubmissionPairs.map(({ homework, submissions }) => {
       const submission = submissions.find((item) => item.studentId === studentId);
@@ -288,7 +288,7 @@ export async function buildClassScoreRows(classId: number, overrides: ScoreOverr
       rawAttendanceScore: round1(attendanceRaw),
       rawHomeworkScore: round1(homeworkRaw),
       rawExamScore: round1(examRaw),
-      attendanceSummary: `${attendedCount}/${takenAttendances.length || 0} buổi`,
+      attendanceSummary: `${attendedCount}/${classAttendances.length || 0} buổi`,
       homeworkSummary: `${homeworkSubmissionPairs.length} bài`,
       examSummary: `${examAttemptPairs.length} bài`,
     } satisfies ScoreRow;
