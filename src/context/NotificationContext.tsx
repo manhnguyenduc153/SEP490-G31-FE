@@ -114,14 +114,18 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       return;
     }
 
-    const hubUrl = `${ENV.API_BASE_URL}/hubs/notification?access_token=${tokenState}`;
+    // Đi qua rewrite proxy của Vercel (sử dụng relative path hoặc origin của website)
+    const hubUrl = `/api/hubs/notification?access_token=${tokenState}`;
 
     const newConnection = new signalR.HubConnectionBuilder()
       .withUrl(hubUrl, {
-        skipNegotiation: true,
-        transport: signalR.HttpTransportType.WebSockets,
+        // Vercel Serverless không hỗ trợ WebSockets, vì vậy ta bắt buộc dùng LongPolling (và ServerSentEvents nếu proxy hỗ trợ)
+        // Các transport này hoạt động qua các HTTP request thông thường nên đi qua Reverse Proxy của Vercel bình thường.
+        transport:
+          signalR.HttpTransportType.ServerSentEvents |
+          signalR.HttpTransportType.LongPolling,
       })
-      .withAutomaticReconnect()
+      .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
       .build();
 
     newConnection.on("ReceiveNotification", (notification: any) => {
