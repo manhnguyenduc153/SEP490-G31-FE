@@ -16,6 +16,8 @@ export interface QuestionItem {
   content: string;
   questionType: number;
   questionTypeName: string;
+  skillType?: number;
+  skillTypeName?: string;
   difficultyLevel: number;
   difficultyLevelName: string;
   explanation?: string | null;
