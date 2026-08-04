@@ -15,6 +15,10 @@ const nextConfig = {
         source: "/api/:path*",
         destination: "http://13.211.170.13:5000/api/:path*",
       },
+      {
+        source: "/uploads/:path*",
+        destination: "http://13.211.170.13:5000/uploads/:path*",
+      },
     ];
   },
   webpack(config: any) {
