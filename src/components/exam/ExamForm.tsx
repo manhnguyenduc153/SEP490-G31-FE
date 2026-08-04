@@ -173,13 +173,29 @@ export function ExamForm({ id }: ExamFormProps) {
     return map;
   }, [questionPassages, questions]);
 
-  // Filter question passages based on category, skill, and search
+  // Filter category dropdown options based on selected class's course
+  const filteredCategories = useMemo(() => {
+    if (selectedClass && selectedClass.courseId !== null && selectedClass.courseId !== undefined) {
+      return categories.filter((c) => c.courseId === selectedClass.courseId);
+    }
+    return categories;
+  }, [categories, selectedClass]);
+
+  // Filter question passages based on category, skill, search, and selected class course
   const filteredPassages = useMemo(() => {
     return questionPassages.filter((p) => {
       const childQs = passageChildQuestionsMap.get(p.id) || p.questions || [];
       // Only include passages that have at least 1 child question
       if (childQs.length === 0) {
         return false;
+      }
+
+      // Filter by Class Course if a Class is selected
+      if (selectedClass && selectedClass.courseId !== null && selectedClass.courseId !== undefined) {
+        const cat = categories.find((c) => c.id === p.categoryId);
+        if (cat && cat.courseId !== null && cat.courseId !== undefined && cat.courseId !== selectedClass.courseId) {
+          return false;
+        }
       }
 
       if (selectedCategoryId !== null && p.categoryId !== selectedCategoryId) {
@@ -191,7 +207,6 @@ export function ExamForm({ id }: ExamFormProps) {
       if (questionSearch.trim()) {
         const term = questionSearch.toLowerCase();
         const matchTitle = p.title.toLowerCase().includes(term) || p.code.toLowerCase().includes(term);
-        const childQs = passageChildQuestionsMap.get(p.id) || [];
         const matchChild = childQs.some(
           (q) =>
             q.name.toLowerCase().includes(term) ||
@@ -202,7 +217,7 @@ export function ExamForm({ id }: ExamFormProps) {
       }
       return true;
     });
-  }, [questionPassages, selectedCategoryId, selectedSkillType, questionSearch, passageChildQuestionsMap]);
+  }, [questionPassages, selectedCategoryId, selectedSkillType, questionSearch, passageChildQuestionsMap, selectedClass, categories]);
 
   // All question IDs mapped to passages
   const passageQuestionIds = useMemo(() => {
@@ -217,6 +232,15 @@ export function ExamForm({ id }: ExamFormProps) {
   const standaloneQuestions = useMemo(() => {
     return questions.filter((q) => {
       if (passageQuestionIds.has(q.id)) return false;
+
+      // Filter by Class Course if a Class is selected
+      if (selectedClass && selectedClass.courseId !== null && selectedClass.courseId !== undefined) {
+        const cat = categories.find((c) => c.id === q.categoryId);
+        if (cat && cat.courseId !== null && cat.courseId !== undefined && cat.courseId !== selectedClass.courseId) {
+          return false;
+        }
+      }
+
       if (selectedCategoryId !== null && q.categoryId !== selectedCategoryId) return false;
       if (selectedSkillType !== null && q.skillType !== selectedSkillType) return false;
       if (questionSearch.trim()) {
@@ -229,7 +253,7 @@ export function ExamForm({ id }: ExamFormProps) {
       }
       return true;
     });
-  }, [questions, passageQuestionIds, selectedCategoryId, selectedSkillType, questionSearch]);
+  }, [questions, passageQuestionIds, selectedCategoryId, selectedSkillType, questionSearch, selectedClass, categories]);
 
   const handleToggleQuestion = (questionId: number) => {
     setSelectedQuestionIds((prev) =>
@@ -296,6 +320,61 @@ export function ExamForm({ id }: ExamFormProps) {
       return;
     }
 
+    if (duration !== null && duration !== undefined && duration <= 0) {
+      setFormError(t("backendMessages.ERR_DURATION_INVALID", { defaultValue: "Thời lượng bài kiểm tra phải lớn hơn 0 phút." }));
+      return;
+    }
+
+    if (totalScore !== null && totalScore !== undefined && totalScore <= 0) {
+      setFormError(t("backendMessages.ERR_SCORE_INVALID", { defaultValue: "Tổng điểm phải lớn hơn 0." }));
+      return;
+    }
+
+    if (passingScore !== null && passingScore !== undefined && passingScore < 0) {
+      setFormError(t("backendMessages.ERR_SCORE_INVALID", { defaultValue: "Điểm đạt không được nhỏ hơn 0." }));
+      return;
+    }
+
+    if (
+      passingScore !== null &&
+      passingScore !== undefined &&
+      totalScore !== null &&
+      totalScore !== undefined &&
+      passingScore > totalScore
+    ) {
+      setFormError(
+        t("backendMessages.ERR_SCORE_INVALID", {
+          defaultValue: "Điểm đạt không được lớn hơn tổng điểm của bài kiểm tra.",
+        })
+      );
+      return;
+    }
+
+    if (selectedClass && selectedClass.courseId !== null && selectedClass.courseId !== undefined) {
+      const invalidQIds = selectedQuestionIds.filter((qid) => {
+        const q = questions.find((x) => x.id === qid);
+        let catId = q?.categoryId;
+        if (!catId && q?.passageId) {
+          const passage = questionPassages.find((p) => p.id === q.passageId);
+          catId = passage?.categoryId;
+        }
+        const cat = categories.find((c) => c.id === catId);
+        if (cat && cat.courseId !== null && cat.courseId !== undefined && cat.courseId !== selectedClass.courseId) {
+          return true;
+        }
+        return false;
+      });
+
+      if (invalidQIds.length > 0) {
+        setFormError(
+          t("exams.errorQuestionCourseMismatch", {
+            defaultValue: `Các câu hỏi được chọn không thuộc khóa học của lớp "${selectedClass.name}" (${selectedClass.courseName || "Khóa học khác"}). Vui lòng chọn lại các câu hỏi thuộc đúng khóa học của lớp!`,
+          })
+        );
+        return;
+      }
+    }
+
     const isPublished = status === 1;   // 1 = Published, 2 = Draft
     const isAssigned  = type === 1;     // 1 = Assigned to class, 2 = Template/bank
 
@@ -314,7 +393,7 @@ export function ExamForm({ id }: ExamFormProps) {
       const examStart = new Date(startTime);
       const examEnd = new Date(endTime);
       if (examEnd <= examStart) {
-        setFormError(t("exams.formValidationEndBeforeStart", { defaultValue: "Thời gian kết thúc không được trước thời gian bắt đầu." }));
+        setFormError(t("exams.formValidationEndBeforeStart", { defaultValue: "Thời gian kết thúc không được trước hoặc bằng thời gian bắt đầu." }));
         return;
       }
     }
@@ -579,14 +658,40 @@ export function ExamForm({ id }: ExamFormProps) {
                     label: `${c.name} (${c.code})`,
                   }))}
                   value={classId ?? ""}
-                  onChange={(val) => setClassId(val ? Number(val) : null)}
+                  onChange={(val) => {
+                    const newClassId = val ? Number(val) : null;
+                    setClassId(newClassId);
+                    const newClass = classes.find((c) => c.id === newClassId);
+                    if (newClass && newClass.courseId !== null && newClass.courseId !== undefined) {
+                      setSelectedQuestionIds((prev) =>
+                        prev.filter((qid) => {
+                          const q = questions.find((x) => x.id === qid);
+                          let catId = q?.categoryId;
+                          if (!catId && q?.passageId) {
+                            const passage = questionPassages.find((p) => p.id === q.passageId);
+                            catId = passage?.categoryId;
+                          }
+                          const cat = categories.find((c) => c.id === catId);
+                          if (!cat || cat.courseId === null || cat.courseId === undefined) return true;
+                          return cat.courseId === newClass.courseId;
+                        })
+                      );
+                    }
+                  }}
                   placeholder={t("exams.formClassPlaceholder", { defaultValue: "Không chọn lớp (tự do)" })}
                   onClear={() => setClassId(null)}
                 />
                 {selectedClass && (
-                  <p className="mt-1.5 text-[11px] text-blue-600 dark:text-blue-400 font-medium">
-                    📅 {t("exams.classDateRangeInfo", { defaultValue: "Lớp hoạt động từ:" })} {formatDateDDMMYYYY(selectedClass.startDate) || "?"} - {formatDateDDMMYYYY(selectedClass.endDate) || "?"}
-                  </p>
+                  <div className="mt-1.5 space-y-1">
+                    <p className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">
+                      📅 {t("exams.classDateRangeInfo", { defaultValue: "Lớp hoạt động từ:" })} {formatDateDDMMYYYY(selectedClass.startDate) || "?"} - {formatDateDDMMYYYY(selectedClass.endDate) || "?"}
+                    </p>
+                    {selectedClass.courseName && (
+                      <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                        {t("exams.classCourseFilterHint", { courseName: selectedClass.courseName, defaultValue: `💡 Đang hiển thị danh sách câu hỏi thuộc khóa học: ${selectedClass.courseName}` })}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             )}
@@ -764,7 +869,7 @@ export function ExamForm({ id }: ExamFormProps) {
                   className="w-full h-9 px-3 text-xs bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-hidden dark:text-white cursor-pointer font-medium"
                 >
                   <option value="">{t("question.filterCategoryAll", { defaultValue: "Tất cả danh mục" })}</option>
-                  {categories.map((cat) => (
+                  {filteredCategories.map((cat) => (
                     <option key={cat.id} value={cat.id}>
                       {cat.name} ({cat.code})
                     </option>

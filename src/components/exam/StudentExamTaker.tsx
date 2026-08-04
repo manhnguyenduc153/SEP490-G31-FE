@@ -217,7 +217,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
         startTimer(res.data.startTime, exam.duration);
         showToast(t("exams.startExam"), "success");
       } else {
-        showToast(res.message || t("exams.toastStartAttemptError"), "error");
+        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("exams.toastStartAttemptError"), "error");
       }
     } catch {
       showToast(t("exams.toastSystemError"), "error");
