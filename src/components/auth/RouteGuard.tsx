@@ -5,51 +5,31 @@ import { authApi } from "@/services/auth.api";
 
 // Mapping từ URL route sang Permission tương ứng
 const routePermissions: Record<string, string | string[]> = {
-  // Academic Operations
-  "/semesters": ["Semester", "Semester.View"],
-  "/courses": ["Course", "Course.View"],
-  "/registrations": ["StudentRegistration", "StudentRegistration.View"],
-  "/classes": ["Class", "Class.View"],
+  "/courses": "Course",
+  "/classes": "Class",
+  "/teachers": "Teacher",
+  "/students": "Student",
+  "/rooms": "Room",
+  "/schedules": "ClassSchedule",
+  "/exams": "Exam.View",
+  "/my-exams": "StudentExam",
+  "/my-classes": "MyClass",
   "/teaching-classes": "TeachingClass",
   "/teaching-exams": "TeachingExam",
-  "/teachers": ["Teacher", "Teacher.View"],
-  "/students": ["Student", "Student.View"],
-  "/rooms": ["Room", "Room.View"],
-
-  // Schedule
-  "/schedules": ["Schedule", "ClassSchedule"],
-  "/teaching-schedules": "TeachingSchedule",
-  "/timetable": "Timetable",
-
-  // Assessments
-  "/exams": ["Exam", "Exam.View"],
-  "/homework": ["HomeworkManagement", "HomeworkManagement.View"],
-  "/question-bank": ["Question", "Question.View"],
-  "/question-category": ["QuestionCategory", "QuestionCategory.View"],
+  "/assignments": "Activity",
+  "/question-bank": "Question",
+  "/question-category": "QuestionCategory",
   "/scores": "StudentGrade.ViewSettings",
-
-  // Learning
-  "/my-classes": "MyClass",
-  "/learning-materials": ["LearningMaterial", "LearningMaterial.View"],
-  "/my-homework": ["StudentHomework", "StudentHomework.View"],
-  "/attendance": ["Attendance", "Attendance.View"],
-  "/my-exams": "StudentExam",
   "/my-scores": "MyGrade",
-  "/student-progress": "StudentProgress",
-
-  // Administration
-  "/users": ["User", "User.View"],
-  "/roles": ["Role", "Role.View"],
-
-  // Reports
-  "/reports/class-grade": "ClassGradeReport",
-  "/reports/attendance": "AttendanceReport",
-  "/reports/exam": "ExamReport",
-
-  // Parent Services
-  "/parent-student": ["ParentStudent", "ParentStudent.View"],
+  "/learning-materials": "LearningMaterial.View",
+  "/attendance": "Attendance.View",
+  "/homework": "HomeworkManagement.View",
+  "/my-homework": "StudentHomework.View",
+  "/users": "User",
+  "/roles": "Role",
+  "/child-profile": "ParentStudent",
   "/child-progress": "ChildProgress",
-  "/child-schedules": "ChildSchedule",
+  "/student-progress": "StudentProgress",
 };
 
 export const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -58,13 +38,9 @@ export const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // 1. Tìm route khớp nhất (khớp hoàn toàn hoặc khớp prefix theo dạng path/subpath)
-    const matchedKey = Object.keys(routePermissions)
-      .sort((a, b) => b.length - a.length) // Ưu tiên các path dài hơn, chi tiết hơn
-      .find((key) => pathname === key || pathname.startsWith(key + "/"));
+    // 1. Lấy permission tương ứng với route hiện tại
+    const requiredPermission = routePermissions[pathname];
 
-    const requiredPermission = matchedKey ? routePermissions[matchedKey] : undefined;
-    
     // Nếu route không yêu cầu permission đặc biệt -> cho phép truy cập
     if (!requiredPermission) {
       setIsAuthorized(true);
@@ -79,13 +55,7 @@ export const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }
       ? requiredPermission.some((p) => userPermissions.includes(p))
       : userPermissions.includes(requiredPermission);
 
-    if (
-      userRole === "admin" || 
-      userRole === "academic staff" || 
-      userRole === "ban chuyên chuyên môn" || // Tương ứng với cấu hình trong PermissionGuard
-      userRole === "ban vận hành" ||
-      hasRequired
-    ) {
+    if (userRole === "admin" || hasRequired) {
       setIsAuthorized(true);
     } else {
       setIsAuthorized(false);
