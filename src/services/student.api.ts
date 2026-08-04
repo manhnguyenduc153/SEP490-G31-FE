@@ -110,9 +110,12 @@ export const studentApi = {
   async uploadFile(file: File): Promise<ApiResponse<string>> {
     const formData = new FormData();
     formData.append("file", file);
-    
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     const response = await fetch(`${ENV.API_BASE_URL}/api/upload/image`, {
       method: "POST",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: formData,
     });
     return response.json();
