@@ -114,8 +114,9 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       return;
     }
 
-    // Đi qua rewrite proxy của Vercel (sử dụng relative path hoặc origin của website)
-    const hubUrl = `/api/hubs/notification?access_token=${tokenState}`;
+    // Đi qua rewrite proxy của Vercel: /hubs/* → EC2 backend /hubs/*
+    // (Tránh dùng EC2 IP trực tiếp để không bị chặn bởi tường lửa mạng trường)
+    const hubUrl = `/hubs/notification?access_token=${tokenState}`;
 
     const newConnection = new signalR.HubConnectionBuilder()
       .withUrl(hubUrl, {
