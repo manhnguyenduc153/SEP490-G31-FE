@@ -157,6 +157,10 @@ export const authApi = {
     return api.post<boolean>(ENDPOINTS.AUTH.CREATE_ROLE, { roleName });
   },
 
+  async deleteRole(roleName: string): Promise<ApiResponse<boolean>> {
+    return api.delete<boolean>(ENDPOINTS.AUTH.DELETE_ROLE(roleName));
+  },
+
   async changePassword(dto: { oldPassword: string; newPassword: string; confirmPassword: string }): Promise<ApiResponse<boolean>> {
     return api.post<boolean>(ENDPOINTS.AUTH.CHANGE_PASSWORD, dto);
   }

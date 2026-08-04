@@ -19,6 +19,7 @@ import {
   questionCategoryApi,
   QuestionCategoryItem,
 } from "@/services/questionCategory.api";
+import { commonApi } from "@/services/common.api";
 import { CodeHelper } from "@/helpers/CodeHelper";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { useTranslation } from "react-i18next";
@@ -44,19 +45,21 @@ export default function QuestionCategoryTable() {
 
   // ── Data states ──
   const [items, setItems] = useState<QuestionCategoryItem[]>([]);
+  const [courses, setCourses] = useState<{ id: number; code: string; name: string }[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // ── Pagination / search / sort ──
+  // ── Pagination / search / sort / course filter ──
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
-  // ── Refresh trigger: tăng lên để ép re-fetch dù các state khác không đổi ──
+  const [courseFilter, setCourseFilter] = useState<number | undefined>(undefined);
+  // ── Refresh trigger ──
   const [refreshKey, setRefreshKey] = useState(0);
   const triggerRefresh = () => setRefreshKey((k) => k + 1);
 
@@ -69,12 +72,27 @@ export default function QuestionCategoryTable() {
     setMounted(true);
   }, []);
 
+  // ── Fetch courses for filter and dropdown ──
+  useEffect(() => {
+    async function loadCourses() {
+      try {
+        const res = await commonApi.getCourses(1, 100, "", true);
+        if (res.success && res.data) {
+          setCourses(res.data.items || []);
+        }
+      } catch {}
+    }
+    loadCourses();
+  }, []);
+
   // ── Create / Edit modal ──
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<QuestionCategoryItem | null>(null);
   const [formCode, setFormCode] = useState("");
   const [formName, setFormName] = useState("");
   const [formDesc, setFormDesc] = useState("");
+  const [formCourseId, setFormCourseId] = useState<number | null>(null);
+  const [formCourseName, setFormCourseName] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -88,8 +106,8 @@ export default function QuestionCategoryTable() {
   // ── Toast auto-hide ──
   useEffect(() => {
     if (!toastMessage) return;
-    const t = setTimeout(() => setToastMessage(null), 3000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setToastMessage(null), 3000);
+    return () => clearTimeout(timer);
   }, [toastMessage]);
 
   const showToast = (msg: string, type: "success" | "error" = "success") => {
@@ -99,11 +117,11 @@ export default function QuestionCategoryTable() {
 
   // ── Debounce search ──
   useEffect(() => {
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
       setCurrentPage(1);
     }, 500);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [searchTerm]);
 
   // ── Fetch data ──
@@ -117,7 +135,8 @@ export default function QuestionCategoryTable() {
         const res = await questionCategoryApi.getAll(
           currentPage,
           itemsPerPage,
-          debouncedSearchTerm
+          debouncedSearchTerm,
+          courseFilter
         );
         if (!mounted) return;
         if (res.success && res.data) {
@@ -139,7 +158,7 @@ export default function QuestionCategoryTable() {
       mounted = false;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, itemsPerPage, debouncedSearchTerm, refreshKey]);
+  }, [currentPage, itemsPerPage, debouncedSearchTerm, courseFilter, refreshKey]);
 
   // ── Sort ──
   const sortedData = useMemo(() => {
@@ -165,6 +184,7 @@ export default function QuestionCategoryTable() {
     setFormCode(CodeHelper.generate("QC"));
     setFormName("");
     setFormDesc("");
+    setFormCourseId(null);
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -175,6 +195,7 @@ export default function QuestionCategoryTable() {
     setFormCode(item.code);
     setFormName(item.name);
     setFormDesc(item.description ?? "");
+    setFormCourseId(item.courseId ?? null);
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -184,6 +205,7 @@ export default function QuestionCategoryTable() {
     setFormCode("");
     setFormName("");
     setFormDesc("");
+    setFormCourseName(null);
     setFormError(null);
     setIsLoadingDetail(true);
     setIsViewModalOpen(true);
@@ -194,6 +216,7 @@ export default function QuestionCategoryTable() {
         setFormCode(res.data.code);
         setFormName(res.data.name);
         setFormDesc(res.data.description ?? "");
+        setFormCourseName(res.data.courseName ?? item.courseName ?? null);
       } else {
         setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("questionCategory.systemError"));
       }
@@ -225,6 +248,7 @@ export default function QuestionCategoryTable() {
           code: formCode.trim(),
           name: formName.trim(),
           description: formDesc.trim() || null,
+          courseId: formCourseId,
         });
         if (res.success && res.data) {
           setItems((prev) =>
@@ -241,6 +265,7 @@ export default function QuestionCategoryTable() {
           code: formCode.trim(),
           name: formName.trim(),
           description: formDesc.trim() || null,
+          courseId: formCourseId,
         });
         if (res.success && res.data) {
           setCurrentPage(1);
@@ -276,7 +301,7 @@ export default function QuestionCategoryTable() {
         showToast(t("questionCategory.deleteSuccess", { name: deleteTarget.name }));
         setIsDeleteModalOpen(false);
         setDeleteTarget(null);
-        triggerRefresh(); // ép re-fetch để đồng bộ pagination
+        triggerRefresh();
       } else {
         showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("questionCategory.deleteError"), "error");
       }
@@ -345,24 +370,47 @@ export default function QuestionCategoryTable() {
       {/* Filter / Search Bar */}
       <div className="p-4 sm:p-5 border-b border-gray-150 dark:border-gray-800 bg-gray-50/20 dark:bg-gray-900/10">
         <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between w-full">
-          {/* Text Search */}
-          <div className="relative w-full sm:max-w-xs">
-            <input
-              type="text"
-              placeholder={t("questionCategory.searchPlaceholder")}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="h-11 w-full pl-10 pr-4 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all placeholder-gray-400"
-            />
-            <span className="absolute left-3 top-3.5 text-gray-400">
-              <Search className="w-4 h-4" />
-            </span>
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center w-full sm:max-w-md">
+            {/* Text Search */}
+            <div className="relative w-full sm:max-w-xs">
+              <input
+                type="text"
+                placeholder={t("questionCategory.searchPlaceholder")}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="h-11 w-full pl-10 pr-4 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all placeholder-gray-400"
+              />
+              <span className="absolute left-3 top-3.5 text-gray-400">
+                <Search className="w-4 h-4" />
+              </span>
+            </div>
+
+            {/* Course Filter */}
+            <select
+              value={courseFilter ?? ""}
+              onChange={(e) => {
+                const val = e.target.value ? Number(e.target.value) : undefined;
+                setCourseFilter(val);
+                setCurrentPage(1);
+              }}
+              className="h-11 px-3 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+            >
+              <option value="" className="dark:bg-gray-900">Tất cả khóa học</option>
+              {courses.map((c) => (
+                <option key={c.id} value={c.id} className="dark:bg-gray-900">
+                  {c.name} ({c.code})
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Reset button */}
           <button
             type="button"
-            onClick={() => setSearchTerm("")}
+            onClick={() => {
+              setSearchTerm("");
+              setCourseFilter(undefined);
+            }}
             className="inline-flex items-center justify-center px-4 h-11 text-sm font-medium text-gray-700 bg-white border border-gray-355 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors cursor-pointer shadow-theme-xs shrink-0 w-full sm:w-auto"
           >
             {t("common.clearFilters")}
@@ -413,6 +461,12 @@ export default function QuestionCategoryTable() {
               ))}
               <TableCell
                 isHeader
+                className="px-6 py-4 border-r border-gray-100 dark:border-white/[0.05] text-center font-semibold text-gray-800 text-theme-sm dark:text-gray-200"
+              >
+                Khóa học
+              </TableCell>
+              <TableCell
+                isHeader
                 className="px-6 py-4 text-center font-semibold text-gray-800 text-theme-sm dark:text-gray-200"
               >
                 {t("questionCategory.colActions")}
@@ -434,6 +488,9 @@ export default function QuestionCategoryTable() {
                     <div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-64" />
                   </TableCell>
                   <TableCell className="px-6 py-4">
+                    <div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-20" />
+                  </TableCell>
+                  <TableCell className="px-6 py-4">
                     <div className="flex justify-center gap-2">
                       <div className="h-8 w-8 bg-gray-200 dark:bg-white/10 rounded-md" />
                       <div className="h-8 w-8 bg-gray-200 dark:bg-white/10 rounded-md" />
@@ -444,7 +501,7 @@ export default function QuestionCategoryTable() {
             ) : error ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="px-6 py-10 text-center text-error-500 dark:text-error-400 font-medium"
                 >
                   {error}
@@ -469,6 +526,17 @@ export default function QuestionCategoryTable() {
                     {item.description || (
                       <span className="italic text-gray-400 dark:text-gray-600">
                         {t("questionCategory.noDescription", { defaultValue: "Không có mô tả" })}
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="px-6 py-4 text-center whitespace-nowrap">
+                    {item.courseName ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200/50">
+                        {item.courseName}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                        Tất cả khóa học
                       </span>
                     )}
                   </TableCell>
@@ -511,7 +579,7 @@ export default function QuestionCategoryTable() {
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="px-6 py-10 text-center text-gray-500 dark:text-gray-400"
                 >
                   {t("questionCategory.noResults", { defaultValue: "Không tìm thấy danh mục câu hỏi nào." })}
@@ -567,6 +635,9 @@ export default function QuestionCategoryTable() {
         setFormName={setFormName}
         formDesc={formDesc}
         setFormDesc={setFormDesc}
+        formCourseId={formCourseId}
+        setFormCourseId={setFormCourseId}
+        courses={courses}
         formError={formError}
         isSubmitting={isSubmitting}
         handleSubmit={handleSubmit}
@@ -580,6 +651,7 @@ export default function QuestionCategoryTable() {
         formCode={formCode}
         formName={formName}
         formDesc={formDesc}
+        formCourseName={formCourseName}
         isLoadingDetail={isLoadingDetail}
         formError={formError}
       />

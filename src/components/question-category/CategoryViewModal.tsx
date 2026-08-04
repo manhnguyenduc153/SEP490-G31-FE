@@ -10,6 +10,7 @@ interface CategoryViewModalProps {
   formCode: string;
   formName: string;
   formDesc: string;
+  formCourseName?: string | null;
   isLoadingDetail?: boolean;
   formError?: string | null;
 }
@@ -21,6 +22,7 @@ export function CategoryViewModal({
   formCode,
   formName,
   formDesc,
+  formCourseName,
   isLoadingDetail = false,
   formError = null,
 }: CategoryViewModalProps) {
@@ -56,7 +58,7 @@ export function CategoryViewModal({
                 type="text"
                 disabled
                 value={formCode}
-                placeholder={t("questionCategory.formCodePlaceholder", { defaultValue: "VD: MATH, LITERATURE..." })}
+                placeholder={t("questionCategory.formCodePlaceholder", { defaultValue: "VD: QC-001..." })}
                 className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs disabled:bg-gray-100 dark:disabled:bg-gray-800 dark:disabled:text-gray-400"
               />
             </div>
@@ -70,7 +72,20 @@ export function CategoryViewModal({
                 type="text"
                 disabled
                 value={formName}
-                placeholder={t("questionCategory.formNamePlaceholder", { defaultValue: "VD: Toán học, Ngữ văn..." })}
+                placeholder={t("questionCategory.formNamePlaceholder", { defaultValue: "VD: IELTS Reading Task 1..." })}
+                className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs disabled:bg-gray-100 dark:disabled:bg-gray-800 dark:disabled:text-gray-400"
+              />
+            </div>
+
+            {/* Course */}
+            <div>
+              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t("questionCategory.courseLabel", { defaultValue: "Khóa học" })}
+              </label>
+              <input
+                type="text"
+                disabled
+                value={formCourseName || t("questionCategory.allCourses", { defaultValue: "Tất cả khóa học" })}
                 className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs disabled:bg-gray-100 dark:disabled:bg-gray-800 dark:disabled:text-gray-400"
               />
             </div>
@@ -83,19 +98,16 @@ export function CategoryViewModal({
               <textarea
                 disabled
                 value={formDesc}
-                placeholder={t("questionCategory.formDescPlaceholder", { defaultValue: "Mô tả ngắn về danh mục (không bắt buộc)..." })}
                 rows={3}
-                className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs resize-none disabled:bg-gray-100 dark:disabled:bg-gray-800 dark:disabled:text-gray-400"
+                className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs disabled:bg-gray-100 dark:disabled:bg-gray-800 dark:disabled:text-gray-400 resize-none"
               />
             </div>
 
-            {/* Form-level error */}
             {formError && (
               <p className="text-sm text-error-500 dark:text-error-400">{formError}</p>
             )}
 
-            {/* Buttons */}
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex justify-end pt-2">
               <button
                 type="button"
                 onClick={onClose}

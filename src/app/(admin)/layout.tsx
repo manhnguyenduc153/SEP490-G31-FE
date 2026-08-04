@@ -29,7 +29,7 @@ export default function AdminLayout({
       case "/video-generator":
         return "";
       default:
-        return "pt-6 px-4 pb-4 mx-auto max-w-(--breakpoint-2xl) md:pt-10 md:px-6 md:pb-6";
+        return "w-full pt-6 px-6 pb-6 md:pt-10 md:px-10 md:pb-10";
     }
   };
 

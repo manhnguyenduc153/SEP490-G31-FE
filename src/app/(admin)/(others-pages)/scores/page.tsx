@@ -5,7 +5,6 @@ import { CourseItem } from "@/services/course.api";
 import { commonApi } from "@/services/common.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
-import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
 import { GradeComponentDto, GradeComponentSaveDto, studentGradeApi } from "@/services/score.api";
 import { CheckCircle, Plus, RefreshCw, Save, Trash2, XCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -38,8 +37,6 @@ export default function ScoresPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<"success" | "error">("success");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(5);
 
   const selectedCourse = useMemo(
     () => courses.find((item) => item.id === selectedCourseId),
@@ -134,14 +131,6 @@ export default function ScoresPage() {
   const removeRule = (id: string) => {
     setRules((current) => current.filter((rule) => rule.id !== id));
   };
-
-  const totalPages = Math.max(1, Math.ceil(rules.length / itemsPerPage));
-  const pageRules = rules.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  useEffect(() => setCurrentPage(1), [selectedCourseId, itemsPerPage]);
-  useEffect(() => {
-    if (currentPage > totalPages) setCurrentPage(totalPages);
-  }, [currentPage, totalPages]);
 
   const saveRules = async () => {
     if (!selectedCourseId) return;
@@ -286,7 +275,7 @@ export default function ScoresPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                    {pageRules.map((rule) => (
+                    {rules.map((rule) => (
                       <tr key={rule.id}>
                         <td className="px-4 py-3">
                           <input
@@ -318,18 +307,6 @@ export default function ScoresPage() {
                     ))}
                   </tbody>
                 </table>
-              </div>
-            )}
-            {!isLoadingRules && (
-              <div className="mt-4 flex flex-col gap-4 border-t border-gray-100 pt-4 dark:border-gray-800 xl:flex-row xl:items-center xl:justify-between">
-                <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
-                  <span>{t("common.show")}</span>
-                  <select value={itemsPerPage} onChange={(e) => setItemsPerPage(Number(e.target.value))} className="h-10 rounded-lg border border-gray-300 bg-white px-3 pr-8 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                    {[5, 10, 15, 20].map((value) => <option key={value} value={value}>{value}</option>)}
-                  </select>
-                  <span>{t("common.entries")}</span>
-                </div>
-                {totalPages > 1 && <PaginationWithIcon totalPages={totalPages} initialPage={currentPage} onPageChange={setCurrentPage} />}
               </div>
             )}
           </div>

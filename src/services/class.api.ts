@@ -19,6 +19,7 @@ export interface ClassScheduleItem {
   teacherAvatar?: string | null;
   status: number;
   note?: string | null;
+  classStatus?: number | null;
 }
 
 export interface ClassItem {
@@ -209,5 +210,30 @@ export const classApi = {
 
   async autoSchedule(classIds: number[], constraints: AutoScheduleConstraintDto): Promise<ApiResponse<ClassItem[]>> {
     return api.post<ClassItem[]>("/api/Class/auto-schedule", { classIds, constraints });
+  },
+
+  async autoScheduleSemester(dto: {
+    semesterId: number;
+    maxClassSize: number;
+    minClassSize: number;
+    constraints: AutoScheduleConstraintDto;
+  }): Promise<ApiResponse<ClassItem[]>> {
+    return api.post<ClassItem[]>(ENDPOINTS.SEMESTER.AUTO_SCHEDULE_SEMESTER, dto);
+  },
+
+  async saveScheduleDraft(dto: {
+    semesterId: number;
+    classes: {
+      code: string;
+      name: string;
+      courseId: number;
+      teacherId: number;
+      enrollType: number;
+      expectedLessons: number;
+      weeklySchedules: { dayOfWeek: number; startTime: string; endTime: string; roomId: number | null }[];
+      students: { studentId: number; enrollType: number }[];
+    }[];
+  }): Promise<ApiResponse<ClassItem[]>> {
+    return api.post<ClassItem[]>(ENDPOINTS.SEMESTER.SAVE_SCHEDULE_DRAFT, dto);
   },
 };

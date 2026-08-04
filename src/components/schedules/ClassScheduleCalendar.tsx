@@ -1,15 +1,20 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import { EventClickArg } from "@fullcalendar/core";
 import { useModal } from "@/hooks/useModal";
 import { Modal } from "@/components/ui/modal";
-import { classApi, ClassItem, ClassScheduleItem } from "@/services/class.api";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { classApi, ClassItem, ClassScheduleItem, ClassSaveDto } from "@/services/class.api";
+import { semesterApi, SemesterItem } from "@/services/semester.api";
+import { ChevronLeft, ChevronRight, CalendarClock, Save, X, Loader2, AlertTriangle, Cpu, Check, AlertCircle, Edit, DoorOpen } from "lucide-react";
+import { roomApi, RoomItem } from "@/services/room.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { useTranslation } from "react-i18next";
+import { commonApi } from "@/services/common.api";
 
 // ── Fixed time slots (must stay in sync with backend FixedTimeSlot.All) ──────
 const FIXED_SLOTS = [
@@ -22,10 +27,9 @@ const FIXED_SLOTS = [
 
 const DAY_LABELS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
-// Return Monday of the ISO week that contains `date`
 function getWeekStart(date: Date): Date {
   const d = new Date(date);
-  const day = d.getDay(); // 0=Sun
+  const day = d.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   d.setDate(d.getDate() + diff);
   d.setHours(0, 0, 0, 0);
@@ -57,14 +61,17 @@ interface ScheduleEvent {
   className: string;
   lessonNo: number;
   roomName: string;
+  roomId?: number | null;
   teacherName: string;
   teacherAvatar: string | null;
   startTime: string;
   endTime: string;
   status: number;
   note: string | null;
-  scheduleDate: string; // YYYY-MM-DD
-  slotIndex: number;    // 0-4
+  scheduleDate: string;
+  slotIndex: number;
+  isDraft?: boolean;
+  classStatus?: number | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -73,17 +80,18 @@ function resolveSlotIndex(startTime: string): number {
   return idx >= 0 ? idx : -1;
 }
 
-function mapApiItem(s: ClassScheduleItem, fallbackClass?: ClassItem): ScheduleEvent | null {
+function mapApiItem(s: ClassScheduleItem, fallbackClass?: ClassItem, isDraft = false): ScheduleEvent | null {
   const datePart = s.scheduleDate ? s.scheduleDate.split("T")[0] : "";
   const st = s.startTime || "";
   const slotIdx = resolveSlotIndex(st);
-  if (slotIdx < 0) return null; // skip unknown slots
+  if (slotIdx < 0) return null;
   return {
-    id: String(s.id),
+    id: isDraft ? `draft-${s.classId ?? 0}-${s.lessonNo}` : String(s.id),
     classCode: s.classCode || fallbackClass?.code || "N/A",
     className: s.className || fallbackClass?.name || "N/A",
     lessonNo: s.lessonNo || 0,
     roomName: s.roomName || "N/A",
+    roomId: s.roomId ?? null,
     teacherName: s.teacherName || fallbackClass?.teacherName || "Chưa phân công",
     teacherAvatar: s.teacherAvatar || fallbackClass?.teacherAvatar || null,
     startTime: st,
@@ -92,20 +100,60 @@ function mapApiItem(s: ClassScheduleItem, fallbackClass?: ClassItem): ScheduleEv
     note: s.note || null,
     scheduleDate: datePart,
     slotIndex: slotIdx,
+    isDraft,
+    classStatus: s.classStatus !== undefined ? s.classStatus : (fallbackClass?.status ?? 0),
   };
 }
 
-const STATUS_CONFIG: Record<number, { text: string; color: string; dot: string }> = {
-  0: { text: "Chưa diễn ra", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800", dot: "bg-blue-400" },
-  1: { text: "Đang học",     color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800", dot: "bg-amber-400" },
-  2: { text: "Đã hoàn thành",color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-800", dot: "bg-green-400" },
-  3: { text: "Đã hủy",       color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800", dot: "bg-red-400" },
-};
-function getStatus(s: number) {
-  return STATUS_CONFIG[s] ?? { text: "Không xác định", color: "bg-gray-100 text-gray-800 border-gray-200", dot: "bg-gray-400" };
+function mapDraftClass(cls: ClassItem): ScheduleEvent[] {
+  if (!cls.schedules) return [];
+  return cls.schedules
+    .map((s) => {
+      const datePart = s.scheduleDate ? s.scheduleDate.split("T")[0] : "";
+      const st = s.startTime || "";
+      const slotIdx = resolveSlotIndex(st);
+      if (slotIdx < 0 || !datePart) return null;
+      return {
+        id: `draft-${cls.code}-${s.lessonNo}`,
+        classCode: cls.code,
+        className: cls.name,
+        lessonNo: s.lessonNo || 0,
+        roomName: s.roomName || "—",
+        teacherName: cls.teacherName || "—",
+        teacherAvatar: cls.teacherAvatar || null,
+        startTime: st,
+        endTime: s.endTime || "",
+        status: 0,
+        note: null,
+        scheduleDate: datePart,
+        slotIndex: slotIdx,
+        isDraft: true,
+        classStatus: 0,
+      } as ScheduleEvent;
+    })
+    .filter(Boolean) as ScheduleEvent[];
 }
 
-// ── Slot card colors (one per slot) ──────────────────────────────────────────
+function getStatus(s: number, t: any) {
+  const configs: Record<number, { text: string; color: string; dot: string }> = {
+    0: { text: t("schedules.statusNotStarted", { defaultValue: "Chưa học" }), color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800", dot: "bg-blue-400" },
+    1: { text: t("schedules.statusActive", { defaultValue: "Đang học" }), color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800", dot: "bg-amber-400" },
+    2: { text: t("schedules.statusCompleted", { defaultValue: "Đã hoàn thành" }), color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-800", dot: "bg-green-400" },
+    3: { text: t("schedules.statusCancelled", { defaultValue: "Đã hủy" }), color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800", dot: "bg-red-400" },
+  };
+  return configs[s] ?? { text: t("schedules.statusUnknown", { defaultValue: "Không xác định" }), color: "bg-gray-100 text-gray-800 border-gray-200", dot: "bg-gray-400" };
+}
+
+function getClassStatus(s: number, t: any) {
+  const configs: Record<number, { text: string; color: string }> = {
+    0: { text: t("classes.statusPlanning", { defaultValue: "Chưa diễn ra" }), color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800" },
+    1: { text: t("classes.statusActive", { defaultValue: "Đang diễn ra" }), color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800" },
+    2: { text: t("classes.statusCompleted", { defaultValue: "Đã kết thúc" }), color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-800" },
+    3: { text: t("classes.statusCancelled", { defaultValue: "Đã hủy" }), color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800" },
+  };
+  return configs[s] ?? { text: t("classes.statusUnknown", { defaultValue: "Không xác định" }), color: "bg-gray-100 text-gray-800 border-gray-200" };
+}
+
 const SLOT_COLORS = [
   "bg-sky-50 border-sky-200 text-sky-800 dark:bg-sky-950/30 dark:border-sky-800 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/50",
   "bg-violet-50 border-violet-200 text-violet-800 dark:bg-violet-950/30 dark:border-violet-800 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/50",
@@ -114,15 +162,20 @@ const SLOT_COLORS = [
   "bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/50",
 ];
 
-// ── Week grid sub-component ───────────────────────────────────────────────────
+const DRAFT_COLOR = "bg-amber-50 border-amber-400 text-amber-900 dark:bg-amber-950/40 dark:border-amber-500 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/60 border-dashed";
+
 interface WeekGridProps {
   events: ScheduleEvent[];
   weekStart: Date;
   onEventClick: (ev: ScheduleEvent) => void;
+  onEventDrop?: (ev: ScheduleEvent, dateStr: string, slotIdx: number) => void;
+  isEventEditable: (ev: ScheduleEvent) => boolean;
 }
 
-function WeekGrid({ events, weekStart, onEventClick }: WeekGridProps) {
-  // Build lookup: dateISO -> slotIndex -> events[]
+function WeekGrid({ events, weekStart, onEventClick, onEventDrop, isEventEditable }: WeekGridProps) {
+  const { t } = useTranslation();
+  const [dragOverCell, setDragOverCell] = useState<{ date: string; slotIdx: number } | null>(null);
+
   const lookup: Record<string, Record<number, ScheduleEvent[]>> = {};
   for (const ev of events) {
     if (!lookup[ev.scheduleDate]) lookup[ev.scheduleDate] = {};
@@ -130,24 +183,45 @@ function WeekGrid({ events, weekStart, onEventClick }: WeekGridProps) {
     lookup[ev.scheduleDate][ev.slotIndex].push(ev);
   }
 
-  // Week days: Mon..Sun
   const days: { date: Date; iso: string; label: string; dayLabel: string }[] = [];
   for (let i = 0; i < 7; i++) {
     const d = addDays(weekStart, i);
-    const dayOfWeek = d.getDay(); // 0=Sun
+    const dayOfWeek = d.getDay();
     days.push({ date: d, iso: toISO(d), label: `${d.getDate()}/${d.getMonth() + 1}`, dayLabel: DAY_LABELS[dayOfWeek] });
   }
 
   const todayISO = toISO(new Date());
+
+  const handleDragStart = (e: React.DragEvent, ev: ScheduleEvent) => {
+    e.dataTransfer.setData("text/plain", ev.id);
+  };
+
+  const handleDragOver = (e: React.DragEvent, date: string, slotIdx: number) => {
+    e.preventDefault();
+    setDragOverCell({ date, slotIdx });
+  };
+
+  const handleDragLeave = () => {
+    setDragOverCell(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, date: string, slotIdx: number) => {
+    e.preventDefault();
+    setDragOverCell(null);
+    const evId = e.dataTransfer.getData("text/plain");
+    const ev = events.find((x) => x.id === evId);
+    if (ev && onEventDrop) {
+      onEventDrop(ev, date, slotIdx);
+    }
+  };
 
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[700px] border-collapse text-sm">
         <thead>
           <tr>
-            {/* slot column header */}
             <th className="w-28 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-850 px-3 py-2.5 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
-              Ca / Ngày
+              {t("classSchedules.slotDayLabel", { defaultValue: "Ca / Ngày" })}
             </th>
             {days.map((d) => (
               <th
@@ -168,34 +242,48 @@ function WeekGrid({ events, weekStart, onEventClick }: WeekGridProps) {
         <tbody>
           {FIXED_SLOTS.map((slot) => (
             <tr key={slot.index} className="group">
-              {/* Slot header cell */}
               <td className="border border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-850/60 px-3 py-5 align-top" style={{ height: "120px" }}>
-                <p className="font-bold text-xs text-gray-700 dark:text-gray-300">{slot.label}</p>
+                <p className="font-bold text-xs text-gray-700 dark:text-gray-300">{t(`classSchedules.ca${slot.index + 1}`, { defaultValue: slot.label })}</p>
                 <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{slot.time}</p>
               </td>
-              {/* Day cells */}
               {days.map((d) => {
                 const cellEvents = lookup[d.iso]?.[slot.index] ?? [];
+                const isDraggingOver = dragOverCell?.date === d.iso && dragOverCell?.slotIdx === slot.index;
                 return (
                   <td
                     key={d.iso}
                     style={{ height: "120px" }}
-                    className={`border border-gray-200 dark:border-gray-700 p-1.5 align-top min-w-[90px]
-                      ${d.iso === todayISO ? "bg-brand-500/5 dark:bg-brand-950/10" : "bg-white dark:bg-gray-900"}`}
+                    onDragOver={(e) => handleDragOver(e, d.iso, slot.index)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, d.iso, slot.index)}
+                    className={`border border-gray-200 dark:border-gray-700 p-1.5 align-top min-w-[90px] transition-colors duration-150
+                      ${d.iso === todayISO ? "bg-brand-500/5 dark:bg-brand-950/10" : "bg-white dark:bg-gray-900"}
+                      ${isDraggingOver ? "bg-brand-500/10 ring-2 ring-brand-500 ring-inset" : ""}`}
                   >
                     <div className="flex flex-col gap-1 h-full">
-                      {cellEvents.map((ev) => (
-                        <button
-                          key={ev.id}
-                          type="button"
-                          onClick={() => onEventClick(ev)}
-                          className={`w-full text-left rounded-lg border px-2 py-1.5 text-[11px] font-semibold leading-tight transition-all duration-150 cursor-pointer shadow-xs hover:shadow-md hover:-translate-y-px
-                            ${SLOT_COLORS[slot.index]}`}
-                        >
-                          <span className="block truncate font-bold">{ev.classCode}</span>
-                          <span className="block truncate text-[10px] opacity-70 font-normal">{ev.className}</span>
-                        </button>
-                      ))}
+                      {cellEvents.map((ev) => {
+                        const editable = isEventEditable(ev);
+                        return (
+                          <button
+                            key={ev.id}
+                            type="button"
+                            onClick={() => onEventClick(ev)}
+                            draggable={editable}
+                            onDragStart={(e) => handleDragStart(e, ev)}
+                            className={`w-full text-left rounded-lg border px-2 py-1.5 text-[11px] font-semibold leading-tight transition-all duration-150 shadow-xs hover:shadow-md hover:-translate-y-px
+                              ${ev.isDraft
+                                ? DRAFT_COLOR + " cursor-grab active:cursor-grabbing hover:border-amber-500"
+                                : editable
+                                  ? SLOT_COLORS[slot.index] + " cursor-grab active:cursor-grabbing hover:border-brand-500 hover:ring-1 hover:ring-brand-500"
+                                  : SLOT_COLORS[slot.index] + " cursor-pointer"}`}
+                          >
+                            <span className="flex items-center gap-1">
+                              <span className="block truncate font-bold">{ev.classCode}</span>
+                            </span>
+                            <span className="block truncate text-[10px] opacity-70 font-normal">{ev.className}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </td>
                 );
@@ -208,31 +296,440 @@ function WeekGrid({ events, weekStart, onEventClick }: WeekGridProps) {
   );
 }
 
+// ── Auto-Schedule Config Modal (Semester-Style UI) ───────────────────────────
+interface AutoScheduleModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  semesters: SemesterItem[];
+  onGenerate: (params: {
+    semesterId: number;
+    maxClassSize: number;
+    minClassSize: number;
+    sessionsPerWeek: number;
+    timePreferences: string[];
+    allowConsecutiveDays: boolean;
+    allowWeekend: boolean;
+  }) => void;
+  loading: boolean;
+  showToast: (msg: string, type?: "success" | "error") => void;
+}
+
+function AutoScheduleModal({ isOpen, onClose, semesters, onGenerate, loading, showToast }: AutoScheduleModalProps) {
+  const { t } = useTranslation();
+  const [semesterId, setSemesterId] = useState<number | null>(null);
+  const [maxClassSize, setMaxClassSize] = useState<number>(15);
+  const [minClassSize, setMinClassSize] = useState<number>(5);
+  const [sessionsPerWeek, setSessionsPerWeek] = useState<number>(2);
+  const [timePreferences, setTimePreferences] = useState<string[]>(["Morning", "Afternoon", "Evening"]);
+  const [allowConsecutiveDays, setAllowConsecutiveDays] = useState<boolean>(false);
+  const [allowWeekend, setAllowWeekend] = useState<boolean>(false);
+  const [loadingStep, setLoadingStep] = useState(0);
+
+  const togglePref = (pref: string) => {
+    setTimePreferences((prev) =>
+      prev.includes(pref) ? prev.filter((p) => p !== pref) : [...prev, pref]
+    );
+  };
+
+  const selectedSemesterName = semesters.find(s => s.id === semesterId)?.name || "";
+  const semesterOptions = semesters.map((s) => ({ value: s.id, label: `${s.code} — ${s.name}` }));
+
+  useEffect(() => {
+    if (!loading) {
+      setLoadingStep(0);
+      return;
+    }
+    setLoadingStep(1);
+    const t1 = setTimeout(() => setLoadingStep(2), 1500);
+    const t2 = setTimeout(() => setLoadingStep(3), 3550);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [loading]);
+
+  const handleSubmit = () => {
+    if (!semesterId) {
+      showToast(t("semester.toastSelectSemester", { defaultValue: "Vui lòng chọn học kỳ." }), "error");
+      return;
+    }
+    if (timePreferences.length === 0) {
+      showToast(t("semester.errSelectPreference", { defaultValue: "Vui lòng chọn ít nhất một ca học ưu tiên." }), "error");
+      return;
+    }
+    if (minClassSize > maxClassSize) {
+      showToast(t("semester.errClassSizeValidation", { defaultValue: "Sĩ số tối thiểu không lớn hơn sĩ số tối đa." }), "error");
+      return;
+    }
+    onGenerate({
+      semesterId,
+      maxClassSize,
+      minClassSize,
+      sessionsPerWeek,
+      timePreferences: timePreferences.map(p => p.toLowerCase()),
+      allowConsecutiveDays,
+      allowWeekend,
+    });
+  };
+
+  if (!isOpen) return null;
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} className="max-w-[600px] p-6 sm:p-8" showCloseButton={!loading}>
+      <div className="flex flex-col gap-4">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <Cpu className="w-5 h-5 text-brand-500" />
+            {t("semester.autoScheduleTitle", { defaultValue: "Xếp lịch học tự động" })}
+          </h3>
+          {semesterId && (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {t("semester.targetSemester", { defaultValue: "Học kỳ áp dụng:" })} <span className="font-semibold text-gray-700 dark:text-gray-300">{selectedSemesterName}</span>
+            </p>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-6">
+            <div className="relative w-16 h-16">
+              <div className="absolute inset-0 rounded-full border-4 border-blue-200 animate-pulse"></div>
+              <div className="absolute inset-0 rounded-full border-4 border-t-blue-600 animate-spin"></div>
+            </div>
+            <div className="text-center space-y-2">
+              <h4 className="text-md font-semibold text-gray-800 dark:text-gray-200">
+                {t("semester.autoScheduleRunningSubtitle", { defaultValue: "Hệ thống đang tính toán lịch học tối ưu..." })}
+              </h4>
+              <div className="text-sm text-gray-500 dark:text-gray-400 min-h-[40px] flex flex-col items-center justify-center">
+                {loadingStep === 1 && <p className="animate-fade-in">{t("semester.autoScheduleStep1", { defaultValue: "Đang nạp danh sách đăng ký học sinh..." })}</p>}
+                {loadingStep === 2 && <p className="animate-fade-in text-indigo-650 dark:text-indigo-400">{t("semester.autoScheduleStep2", { defaultValue: "Đang phân nhóm lớp học tối ưu..." })}</p>}
+                {loadingStep === 3 && <p className="animate-fade-in text-emerald-650 dark:text-emerald-400">{t("semester.autoScheduleStep3", { defaultValue: "Đang giải ràng buộc & lập ca học..." })}</p>}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="p-3.5 bg-blue-50/50 dark:bg-blue-950/20 text-xs text-blue-700 dark:text-blue-400 border border-blue-100 dark:border-blue-900 rounded-lg">
+              <strong>{t("semester.autoScheduleNoteTitle", { defaultValue: "Lưu ý:" })}</strong> {t("semester.autoScheduleNoteBody", { defaultValue: "Quá trình này sử dụng AI để tự động tạo lớp học và thời khóa biểu tối ưu theo các ràng buộc được chỉ định bên dưới." })}
+            </div>
+
+            <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t("semester.semesterLabel", { defaultValue: "Học kỳ" })} <span className="text-rose-500">*</span>
+                </label>
+                <SearchableSelect
+                  options={semesterOptions}
+                  value={semesterId || ""}
+                  onChange={(val) => setSemesterId(val as number)}
+                  placeholder="Chọn học kỳ..."
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t("semester.autoScheduleMaxClassSize", { defaultValue: "Sĩ số tối đa" })} <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={100}
+                    required
+                    value={maxClassSize}
+                    onChange={(e) => setMaxClassSize(Number(e.target.value))}
+                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 dark:border-gray-750 dark:bg-gray-900 dark:text-white/90 focus:border-brand-300 focus:outline-hidden"
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t("semester.autoScheduleMinClassSize", { defaultValue: "Sĩ số tối thiểu" })} <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    required
+                    value={minClassSize}
+                    onChange={(e) => setMinClassSize(Number(e.target.value))}
+                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-850 dark:text-gray-250 dark:border-gray-700 dark:bg-gray-900 dark:text-white focus:border-brand-300 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t("semester.autoScheduleSessionsPerWeek", { defaultValue: "Số buổi mỗi tuần" })} <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={sessionsPerWeek}
+                  onChange={(e) => setSessionsPerWeek(Number(e.target.value))}
+                  className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-850 dark:text-gray-250 dark:border-gray-700 dark:bg-gray-900 dark:text-white cursor-pointer"
+                >
+                  <option value={1}>1 {t("semester.sessionPerWeekOption", { defaultValue: "buổi / tuần" })}</option>
+                  <option value={2}>2 {t("semester.sessionPerWeekOption", { defaultValue: "buổi / tuần" })}</option>
+                  <option value={3}>3 {t("semester.sessionPerWeekOption", { defaultValue: "buổi / tuần" })}</option>
+                  <option value={4}>4 {t("semester.sessionPerWeekOption", { defaultValue: "buổi / tuần" })}</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t("semester.autoSchedulePreferences", { defaultValue: "Khung thời gian có thể xếp lớp" })}
+                </label>
+                <div className="flex gap-3">
+                  {["Morning", "Afternoon", "Evening"].map((p) => {
+                    const label = p === "Morning" ? t("semester.autoSchedulePrefMorning", { defaultValue: "Sáng" }) : p === "Afternoon" ? t("semester.autoSchedulePrefAfternoon", { defaultValue: "Chiều" }) : t("semester.autoSchedulePrefEvening", { defaultValue: "Tối" });
+                    const active = timePreferences.includes(p);
+                    return (
+                      <button
+                        type="button"
+                        key={p}
+                        onClick={() => togglePref(p)}
+                        className={`flex-1 py-2 px-3 border text-xs font-semibold rounded-lg transition-all ${active
+                          ? "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-950/40 dark:border-blue-900 dark:text-blue-400"
+                          : "bg-white border-gray-200 text-gray-500 dark:bg-gray-900 dark:border-gray-800"
+                          }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={allowConsecutiveDays}
+                    onChange={(e) => setAllowConsecutiveDays(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-650 dark:text-gray-300">
+                    {t("semester.autoScheduleConsecutiveDays", { defaultValue: "Cho học liên tiếp" })}
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={allowWeekend}
+                    onChange={(e) => setAllowWeekend(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-650 dark:text-gray-300">
+                    {t("semester.autoScheduleWeekend", { defaultValue: "Cho xếp lịch cuối tuần" })}
+                  </span>
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-305 dark:border-gray-650"
+                >
+                  {t("semester.btnCancel", { defaultValue: "Hủy" })}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={!semesterId || loading}
+                  className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 flex items-center gap-1.5"
+                >
+                  <CalendarClock className="w-4 h-4" />
+                  {t("semester.btnStartScheduling", { defaultValue: "Bắt đầu lập lịch" })}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+// ── Edit Room Modal ──────────────────────────────────────────────────────────
+interface EditRoomModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  event: ScheduleEvent | null;
+  rooms: RoomItem[];
+  onSave: (event: ScheduleEvent, newRoomId: number | null, newRoomName: string) => void;
+  saving: boolean;
+}
+
+function EditRoomModal({ isOpen, onClose, event, rooms, onSave, saving }: EditRoomModalProps) {
+  const { t } = useTranslation();
+  const [selectedRoomId, setSelectedRoomId] = useState<number | null>(event?.roomId ?? null);
+
+  useEffect(() => {
+    if (event) setSelectedRoomId(event.roomId ?? null);
+  }, [event]);
+
+  if (!isOpen || !event) return null;
+
+  const roomOptions = [
+    { value: "", label: t("classSchedules.noRoom", { defaultValue: "— Chưa phân phòng —" }) },
+    ...rooms.filter(r => r.status === 1).map(r => ({
+      value: String(r.id), // Stringify for Select compatibility
+      label: `${r.name}${r.building ? ` (${r.building}${r.floor ? ` - T${r.floor}` : ""})` : ""}${r.capacity ? ` · ${r.capacity} chỗ` : ""}`,
+    }))
+  ];
+
+  const selectedRoom = rooms.find(r => r.id === Number(selectedRoomId));
+
+  const handleConfirm = () => {
+    const roomName = selectedRoom?.name ?? "N/A";
+    onSave(event, selectedRoomId ? Number(selectedRoomId) : null, roomName);
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} showCloseButton={!saving} className="max-w-[480px] p-6">
+      <div className="flex flex-col gap-4">
+        <div>
+          <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <DoorOpen className="w-5 h-5 text-violet-500" />
+            {t("classSchedules.editRoomTitle", { defaultValue: "Đổi phòng học" })}
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {t("classSchedules.editRoomSubtitle", {
+              classCode: event.classCode,
+              defaultValue: `Lớp: ${event.classCode} — ${event.className}`
+            })}
+          </p>
+        </div>
+
+        <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-850 border border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 space-y-1">
+          <div className="flex gap-2">
+            <span className="font-semibold text-gray-700 dark:text-gray-300">{t("classSchedules.currentRoom", { defaultValue: "Phòng hiện tại:" })}</span>
+            <span>{event.roomName}</span>
+          </div>
+          <div className="flex gap-2">
+            <span className="font-semibold text-gray-700 dark:text-gray-300">{t("classSchedules.slotLabel", { defaultValue: "Ca học:" })}</span>
+            <span>{FIXED_SLOTS[event.slotIndex]?.label} · {event.startTime}–{event.endTime}</span>
+          </div>
+          <div className="flex gap-2">
+            <span className="font-semibold text-gray-700 dark:text-gray-300">{t("classSchedules.scheduleDay", { defaultValue: "Lịch hàng tuần:" })}</span>
+            <span>{DAY_LABELS[new Date(event.scheduleDate).getDay()]}</span>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            {t("classSchedules.newRoomLabel", { defaultValue: "Phòng mới" })}
+          </label>
+          <SearchableSelect
+            options={roomOptions}
+            value={selectedRoomId !== null ? String(selectedRoomId) : ""}
+            onChange={(val) => setSelectedRoomId(val ? Number(val) : null)}
+            placeholder={t("classSchedules.selectRoom", { defaultValue: "Chọn phòng học..." })}
+            onClear={() => setSelectedRoomId(null)}
+          />
+          {selectedRoom && (
+            <p className="text-xs text-violet-600 dark:text-violet-400">
+              {selectedRoom.building && `${selectedRoom.building}${selectedRoom.floor ? ` · Tầng ${selectedRoom.floor}` : ""} · `}
+              {selectedRoom.capacity ? `${selectedRoom.capacity} chỗ ngồi` : ""}
+            </p>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-3 pt-2 border-t border-gray-100 dark:border-gray-800">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 disabled:opacity-50"
+          >
+            {t("classSchedules.btnCancel", { defaultValue: "Hủy" })}
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={saving || (selectedRoomId === null ? event.roomId === null : Number(selectedRoomId) === Number(event.roomId))}
+            className="px-4 py-2 text-sm font-semibold text-white bg-violet-600 rounded-lg hover:bg-violet-700 disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {t("classSchedules.btnSaveRoom", { defaultValue: "Lưu phòng" })}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function ClassScheduleCalendar() {
+  const { t } = useTranslation();
   const { isOpen, openModal, closeModal } = useModal();
 
   const [classes, setClasses] = useState<ClassItem[]>([]);
+  const [semesters, setSemesters] = useState<SemesterItem[]>([]);
+  const [rooms, setRooms] = useState<RoomItem[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
   const [classDetail, setClassDetail] = useState<ClassItem | null>(null);
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<"week" | "month">("week");
-
-  // Week navigation
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
-
-  // Selected event for modal
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
 
-  // Load classes list
+  // Edit Room state
+  const [editRoomTarget, setEditRoomTarget] = useState<ScheduleEvent | null>(null);
+  const [editRoomSaving, setEditRoomSaving] = useState(false);
+
+  // Semester filter state
+  const [selectedSemesterId, setSelectedSemesterId] = useState<number | null>(null);
+
+  // Toast State
+  const [toasts, setToasts] = useState<{ id: number; message: string; type: "success" | "error" }[]>([]);
+  const [mounted, setMounted] = useState(false);
+
+  const showToast = (msg: string, type: "success" | "error" = "success") => {
+    if (!msg) return;
+    const messages = msg
+      .split(/\r?\n/)
+      .map((m) => m.trim())
+      .filter(Boolean);
+
+    messages.forEach((message, index) => {
+      const id = Date.now() + index;
+      setToasts((prev) => [...prev, { id, message, type }]);
+
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 4000);
+    });
+  };
+
+  // Draft state
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [draftClasses, setDraftClasses] = useState<ClassItem[] | null>(null);
+  const [draftEvents, setDraftEvents] = useState<ScheduleEvent[]>([]);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [draftSemesterId, setDraftSemesterId] = useState<number | null>(null);
+  const [reloadTrigger, setReloadTrigger] = useState(0);
+
+  // Edit Mode state — controls whether DB schedule events are draggable
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editSaving, setEditSaving] = useState(false); // true while an immediate drag-save is in progress
+
+  // Load classes and semesters
   useEffect(() => {
+    setMounted(true);
     classApi.getAll(1, 1000).then((res) => {
       if (res.success && res.data) setClasses(res.data.items || []);
     });
-  }, []);
+    commonApi.getSemesters().then((res) => {
+      if (res.success && res.data) setSemesters(res.data);
+    });
+    roomApi.getAll(1, 500).then((res) => {
+      if (res.success && res.data) setRooms(res.data.items || []);
+    });
+  }, [reloadTrigger]);
 
-  // Load schedules
+  // Load schedules from DB
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -264,28 +761,571 @@ export default function ClassScheduleCalendar() {
       }
     }
     load();
-  }, [selectedClassId]);
+  }, [selectedClassId, reloadTrigger]);
 
-  const handleEventClick = useCallback((ev: ScheduleEvent) => {
+  const isEventEditable = useCallback((ev: ScheduleEvent): boolean => {
+    if (ev.isDraft) return true; // Temp draft always draggable
+    if (!isEditMode) return false; // DB events only draggable when Edit Mode is ON
+    if (ev.classStatus !== undefined && ev.classStatus !== null) {
+      return ev.classStatus === 0; // Only Planning classes
+    }
+    const cls = classes.find((c) => c.code === ev.classCode);
+    return cls?.status === 0; // 0 = Planning
+  }, [classes, isEditMode]);
+
+  const regenerateSchedulesForClass = (cls: ClassItem, semesterStartStr: string, semesterEndStr: string): ClassScheduleItem[] => {
+    const start = new Date(semesterStartStr);
+    const end = new Date(semesterEndStr);
+    let weeklySchedules = [];
+    try {
+      weeklySchedules = cls.weeklySchedulesJson ? JSON.parse(cls.weeklySchedulesJson) : [];
+    } catch {
+      weeklySchedules = [];
+    }
+    
+    const schedules: ClassScheduleItem[] = [];
+    let lessonNo = 1;
+    const cur = new Date(start);
+    
+    while (cur <= end) {
+      const dayOfWeek = cur.getDay();
+      const match = weeklySchedules.find((w: any) => w.dayOfWeek === dayOfWeek);
+      if (match) {
+        const slotIdx = resolveSlotIndex(match.startTime);
+        schedules.push({
+          id: 0,
+          classId: cls.id,
+          classCode: cls.code,
+          className: cls.name,
+          lessonNo: lessonNo,
+          scheduleDate: toISO(cur),
+          startTime: match.startTime,
+          endTime: match.endTime,
+          roomId: match.roomId || null,
+          roomName: match.roomId ? (cls.schedules?.[0]?.roomName || "Phòng học") : undefined,
+          teacherId: cls.teacherId,
+          teacherName: cls.teacherName,
+          status: 0,
+        });
+        lessonNo++;
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    return schedules;
+  };
+
+  const handleMoveEvent = (draggedEvent: ScheduleEvent, targetDate: string, targetSlotIdx: number): boolean => {
+    // Conflict check against all currently displayed events
+    const checkEvents = allDisplayEvents;
+
+    const teacherConflict = checkEvents.some(ev => 
+      ev.id !== draggedEvent.id &&
+      ev.scheduleDate === targetDate &&
+      ev.slotIndex === targetSlotIdx &&
+      ev.teacherName === draggedEvent.teacherName &&
+      draggedEvent.teacherName !== "—" &&
+      draggedEvent.teacherName !== "Chưa phân công"
+    );
+
+    const roomConflict = checkEvents.some(ev => 
+      ev.id !== draggedEvent.id &&
+      ev.scheduleDate === targetDate &&
+      ev.slotIndex === targetSlotIdx &&
+      ev.roomName === draggedEvent.roomName &&
+      draggedEvent.roomName !== "—" &&
+      draggedEvent.roomName !== "N/A"
+    );
+
+    if (teacherConflict) {
+      showToast(t("classSchedules.teacherConflictWarning", { 
+        teacher: draggedEvent.teacherName, 
+        slot: FIXED_SLOTS[targetSlotIdx].label, 
+        date: targetDate, 
+        defaultValue: `Giáo viên ${draggedEvent.teacherName} đã có lịch dạy vào ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!` 
+      }), "error");
+      return false;
+    }
+
+    if (roomConflict) {
+      showToast(t("classSchedules.roomConflictWarning", { 
+        room: draggedEvent.roomName, 
+        slot: FIXED_SLOTS[targetSlotIdx].label, 
+        date: targetDate, 
+        defaultValue: `Phòng ${draggedEvent.roomName} đã được sử dụng vào ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!` 
+      }), "error");
+      return false;
+    }
+
+    // ── DB event in Edit Mode: optimistic update + background API call ──────────
+    if (!draggedEvent.isDraft && isEditMode) {
+      const targetClass = classes.find(c => c.code === draggedEvent.classCode);
+      if (!targetClass) return false;
+
+      // ── 1. Optimistic update: move all occurrences of this class on the same
+      //       day-of-week to the new day-of-week + slot, so the calendar reflects
+      //       the change instantly without waiting for the API.
+      const originalDayOfWeek = new Date(draggedEvent.scheduleDate).getDay();
+      const targetDayOfWeek = new Date(targetDate).getDay();
+      const dayDiff = targetDayOfWeek - originalDayOfWeek;
+
+      const prevEvents = [...events]; // snapshot for revert
+
+      const optimisticEvents = events.map(ev => {
+        if (ev.classCode !== draggedEvent.classCode) return ev;
+        if (new Date(ev.scheduleDate).getDay() !== originalDayOfWeek) return ev;
+        if (ev.slotIndex !== draggedEvent.slotIndex) return ev;
+
+        // Shift date by day difference, keeping week intact
+        const d = new Date(ev.scheduleDate);
+        d.setDate(d.getDate() + dayDiff);
+
+        return {
+          ...ev,
+          scheduleDate: toISO(d),
+          slotIndex: targetSlotIdx,
+          startTime: FIXED_SLOTS[targetSlotIdx].start,
+          endTime: FIXED_SLOTS[targetSlotIdx].end,
+        };
+      });
+
+      setEvents(optimisticEvents);
+
+      // ── 2. Background API call (getById to get full weeklySchedulesJson, then update)
+      setEditSaving(true);
+      classApi.getById(targetClass.id).then((detailRes) => {
+        if (!detailRes.success || !detailRes.data) {
+          showToast(t("classSchedules.toastFetchDetailError", { defaultValue: "Không thể lấy thông tin chi tiết lớp học để cập nhật." }), "error");
+          setEvents(prevEvents); // revert
+          setEditSaving(false);
+          return;
+        }
+
+        const cls = detailRes.data;
+        let weeklySchedules: any[] = [];
+        try {
+          weeklySchedules = cls.weeklySchedulesJson ? JSON.parse(cls.weeklySchedulesJson) : [];
+        } catch {
+          weeklySchedules = [];
+        }
+
+        const wsIdx = weeklySchedules.findIndex((w: any) => w.dayOfWeek === originalDayOfWeek && w.startTime === draggedEvent.startTime);
+        if (wsIdx < 0) {
+          const wsIdxFallback = weeklySchedules.findIndex((w: any) => w.dayOfWeek === originalDayOfWeek);
+          if (wsIdxFallback >= 0) {
+            weeklySchedules[wsIdxFallback].dayOfWeek = targetDayOfWeek;
+            weeklySchedules[wsIdxFallback].startTime = FIXED_SLOTS[targetSlotIdx].start;
+            weeklySchedules[wsIdxFallback].endTime = FIXED_SLOTS[targetSlotIdx].end;
+          }
+        } else {
+          weeklySchedules[wsIdx].dayOfWeek = targetDayOfWeek;
+          weeklySchedules[wsIdx].startTime = FIXED_SLOTS[targetSlotIdx].start;
+          weeklySchedules[wsIdx].endTime = FIXED_SLOTS[targetSlotIdx].end;
+        }
+
+        const saveDto: ClassSaveDto = {
+          id: cls.id,
+          code: cls.code,
+          name: cls.name,
+          status: cls.status,
+          type: cls.type,
+          url: cls.url,
+          description: cls.description,
+          startDate: cls.startDate,
+          endDate: cls.endDate,
+          courseId: cls.courseId,
+          teacherId: cls.teacherId,
+          semesterId: cls.semesterId,
+          expectedLessons: cls.expectedLessons,
+          weeklySchedules,
+          students: (cls.studentClasses || []).map((sc: any) => ({
+            studentId: sc.studentId,
+            enrollType: sc.enrollType ?? 0,
+          })),
+        };
+
+        classApi.update(cls.id, saveDto).then((updateRes) => {
+          if (updateRes.success) {
+            // Optimistic state is already correct — just show toast, no reload needed
+            showToast(t("classSchedules.toastMoveSuccess", {
+              classCode: draggedEvent.classCode,
+              slot: FIXED_SLOTS[targetSlotIdx].label,
+              date: targetDate,
+              defaultValue: `Đã đổi lịch lớp ${draggedEvent.classCode} sang ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!`
+            }), "success");
+          } else {
+            // API rejected (room/teacher conflict from backend) → revert optimistic change
+            setEvents(prevEvents);
+            const errMsg = updateRes.message
+              ? getFriendlyRoomError(updateRes.message)
+              : t("classSchedules.toastUpdateError", { defaultValue: "Lỗi khi cập nhật lịch lớp học." });
+            showToast(errMsg, "error");
+          }
+        }).catch(() => {
+          setEvents(prevEvents); // revert on network error
+          showToast(t("classSchedules.toastUpdateError", { defaultValue: "Có lỗi xảy ra khi cập nhật lịch." }), "error");
+        }).finally(() => {
+          setEditSaving(false);
+        });
+      }).catch(() => {
+        setEvents(prevEvents); // revert on network error
+        showToast(t("classSchedules.toastUpdateError", { defaultValue: "Có lỗi xảy ra khi cập nhật lịch." }), "error");
+        setEditSaving(false);
+      });
+
+      return true;
+    }
+
+
+    if (!draftClasses) return false;
+
+
+    // Find class
+    const clsIndex = draftClasses.findIndex(c => c.code === draggedEvent.classCode);
+    if (clsIndex < 0) return false;
+
+    const cls = { ...draftClasses[clsIndex] };
+    let weeklySchedules = [];
+    try {
+      weeklySchedules = cls.weeklySchedulesJson ? JSON.parse(cls.weeklySchedulesJson) : [];
+    } catch {
+      weeklySchedules = [];
+    }
+
+    const originalDateObj = new Date(draggedEvent.scheduleDate);
+    const originalDayOfWeek = originalDateObj.getDay();
+
+    const targetDateObj = new Date(targetDate);
+    const targetDayOfWeek = targetDateObj.getDay();
+
+    // Find the weekly schedule entry to change
+    const wsIdx = weeklySchedules.findIndex((w: any) => w.dayOfWeek === originalDayOfWeek && w.startTime === draggedEvent.startTime);
+    if (wsIdx < 0) {
+      const wsIdxFallback = weeklySchedules.findIndex((w: any) => w.dayOfWeek === originalDayOfWeek);
+      if (wsIdxFallback < 0) return false;
+      weeklySchedules[wsIdxFallback].dayOfWeek = targetDayOfWeek;
+      weeklySchedules[wsIdxFallback].startTime = FIXED_SLOTS[targetSlotIdx].start;
+      weeklySchedules[wsIdxFallback].endTime = FIXED_SLOTS[targetSlotIdx].end;
+    } else {
+      weeklySchedules[wsIdx].dayOfWeek = targetDayOfWeek;
+      weeklySchedules[wsIdx].startTime = FIXED_SLOTS[targetSlotIdx].start;
+      weeklySchedules[wsIdx].endTime = FIXED_SLOTS[targetSlotIdx].end;
+    }
+
+    cls.weeklySchedulesJson = JSON.stringify(weeklySchedules);
+
+    cls.scheduleDisplay = weeklySchedules
+      .sort((a: any, b: any) => a.dayOfWeek - b.dayOfWeek)
+      .map((w: any) => `${DAY_LABELS[w.dayOfWeek]} ${w.startTime}-${w.endTime}`)
+      .join(", ");
+
+    const newSchedules = regenerateSchedulesForClass(cls, cls.startDate || targetDate, cls.endDate || targetDate);
+    cls.schedules = newSchedules;
+
+    const updatedDraftClasses = [...draftClasses];
+    updatedDraftClasses[clsIndex] = cls;
+    setDraftClasses(updatedDraftClasses);
+
+    const newDraftEvents = updatedDraftClasses.flatMap((c) => mapDraftClass(c));
+    setDraftEvents(newDraftEvents);
+
+    showToast(t("classSchedules.toastMoveSuccess", {
+      classCode: draggedEvent.classCode,
+      slot: FIXED_SLOTS[targetSlotIdx].label,
+      date: targetDate,
+      defaultValue: `Đã đổi lịch lớp ${draggedEvent.classCode} sang ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!`
+    }), "success");
+
+    return true;
+  };
+
+  // ── Edit Mode handlers ────────────────────────────────────────────────────
+  const handleToggleEditMode = () => {
+    setIsEditMode(prev => !prev);
+  };
+
+  const handleSemesterChange = (semesterId: any) => {
+    const semId = semesterId ? Number(semesterId) : null;
+    setSelectedSemesterId(semId);
+
+    // If a semester is selected, move the calendar's weekStart to its startDate
+    if (semId !== null) {
+      const selectedSem = semesters.find((s) => s.id === semId);
+      if (selectedSem && selectedSem.startDate) {
+        setWeekStart(getWeekStart(new Date(selectedSem.startDate)));
+      }
+    }
+
+    if (selectedClassId !== null) {
+      const currentClass = classes.find(c => c.id === Number(selectedClassId));
+      if (currentClass && semId !== null && currentClass.semesterId !== semId) {
+        setSelectedClassId(null);
+      }
+    }
+  };
+
+  // Parse backend room-specific error codes into user-friendly messages.
+  // Mirrors the same logic used in ClassForm.getFriendlyErrorMessage.
+  const getFriendlyRoomError = (msg: string): string => {
+    if (msg.startsWith("ERR_ROOM_CONFLICT_")) {
+      const classCode = msg.replace("ERR_ROOM_CONFLICT_", "");
+      return t("class.errRoomConflict", {
+        classCode,
+        defaultValue: `Phòng đã được sử dụng bởi lớp ${classCode} trong cùng khung giờ này.`,
+      });
+    }
+    if (msg.startsWith("ERR_ROOM_CAPACITY_EXCEEDED_")) {
+      const roomName = msg.replace("ERR_ROOM_CAPACITY_EXCEEDED_", "");
+      return t("class.errRoomCapacityExceeded", {
+        roomName,
+        defaultValue: `Sức chứa phòng ${roomName} không đủ cho số lượng học viên của lớp.`,
+      });
+    }
+    if (msg.startsWith("ERR_TEACHER_CONFLICT_")) {
+      const classCode = msg.replace("ERR_TEACHER_CONFLICT_", "");
+      return t("class.errTeacherConflict", {
+        classCode,
+        defaultValue: `Giáo viên đã có lịch dạy lớp ${classCode} trong cùng khung giờ này.`,
+      });
+    }
+    if (msg.startsWith("ERR_STUDENT_CONFLICT_")) {
+      const parts = msg.replace("ERR_STUDENT_CONFLICT_", "").split("__");
+      const emailsStr = parts[1] || "";
+      return t("class.errStudentConflict", {
+        emails: emailsStr,
+        defaultValue: `Học viên (${emailsStr}) bị trùng lịch học ở lớp khác vào khung giờ này.`,
+      });
+    }
+    return t(`backendMessages.${msg}`, { defaultValue: msg });
+  };
+
+  // ── Room edit handler (Edit Mode only) ────────────────────────────────────
+  const handleSaveRoom = useCallback(async (event: ScheduleEvent, newRoomId: number | null, newRoomName: string) => {
+    const targetClass = classes.find(c => c.code === event.classCode);
+    if (!targetClass) return;
+
+    setEditRoomSaving(true);
+
+    // Optimistic update: update roomName/roomId on all events of this class
+    const prevEvents = [...events];
+    const optimisticEvents = events.map(ev =>
+      ev.classCode === event.classCode
+        ? { ...ev, roomName: newRoomName, roomId: newRoomId }
+        : ev
+    );
+    setEvents(optimisticEvents);
+    setEditRoomTarget(null);
+
+    try {
+      const detailRes = await classApi.getById(targetClass.id);
+      if (!detailRes.success || !detailRes.data) {
+        setEvents(prevEvents);
+        showToast(t("classSchedules.toastFetchDetailError", { defaultValue: "Không thể lấy thông tin chi tiết lớp học để cập nhật." }), "error");
+        return;
+      }
+
+      const cls = detailRes.data;
+      let weeklySchedules: any[] = [];
+      try {
+        weeklySchedules = cls.weeklySchedulesJson ? JSON.parse(cls.weeklySchedulesJson) : [];
+      } catch { weeklySchedules = []; }
+
+      // Apply new roomId to all weekly schedule entries
+      weeklySchedules = weeklySchedules.map((w: any) => ({ ...w, roomId: newRoomId }));
+
+      const saveDto: ClassSaveDto = {
+        id: cls.id,
+        code: cls.code,
+        name: cls.name,
+        status: cls.status,
+        type: cls.type,
+        url: cls.url,
+        description: cls.description,
+        startDate: cls.startDate,
+        endDate: cls.endDate,
+        courseId: cls.courseId,
+        teacherId: cls.teacherId,
+        semesterId: cls.semesterId,
+        expectedLessons: cls.expectedLessons,
+        weeklySchedules,
+        students: (cls.studentClasses || []).map((sc: any) => ({
+          studentId: sc.studentId,
+          enrollType: sc.enrollType ?? 0,
+        })),
+      };
+
+      const updateRes = await classApi.update(cls.id, saveDto);
+      if (updateRes.success) {
+        showToast(t("classSchedules.toastRoomSaveSuccess", {
+          classCode: event.classCode,
+          room: newRoomName,
+          defaultValue: `Đã đổi phòng lớp ${event.classCode} sang ${newRoomName}!`
+        }), "success");
+      } else {
+        setEvents(prevEvents); // revert
+        // Parse backend-specific room/capacity error codes (same as ClassForm)
+        const errMsg = updateRes.message
+          ? getFriendlyRoomError(updateRes.message)
+          : t("classSchedules.toastUpdateError", { defaultValue: "Lỗi khi cập nhật phòng học." });
+        showToast(errMsg, "error");
+      }
+    } catch {
+      setEvents(prevEvents); // revert
+      showToast(t("classSchedules.toastUpdateError", { defaultValue: "Có lỗi xảy ra khi cập nhật phòng." }), "error");
+    } finally {
+      setEditRoomSaving(false);
+    }
+  }, [classes, events, t]);
+
+  // Combined events = real DB events + draft overlay
+  const rawDisplayEvents = [...events, ...draftEvents];
+  const allDisplayEvents = selectedSemesterId === null
+    ? rawDisplayEvents
+    : rawDisplayEvents.filter(ev => {
+        const cls = classes.find(c => c.code === ev.classCode);
+        return cls?.semesterId === selectedSemesterId;
+      });
+
+  const handleEventClick = (ev: ScheduleEvent) => {
+    // In Edit Mode, clicking a non-draft DB event opens the Room Edit modal
+    if (isEditMode && !ev.isDraft) {
+      setEditRoomTarget(ev);
+      return;
+    }
     setSelectedEvent(ev);
     openModal();
-  }, [openModal]);
+  };
 
-  // ── Month view: FullCalendar dayGrid ──────────────────────────────────────
-  const fcEvents = events.map((ev) => ({
+  const handleGenerate = async (params: {
+    semesterId: number;
+    maxClassSize: number;
+    minClassSize: number;
+    sessionsPerWeek: number;
+    timePreferences: string[];
+    allowConsecutiveDays: boolean;
+    allowWeekend: boolean;
+  }) => {
+    setScheduleLoading(true);
+    const startTime = Date.now();
+    try {
+      const res = await classApi.autoScheduleSemester({
+        semesterId: params.semesterId,
+        maxClassSize: params.maxClassSize,
+        minClassSize: params.minClassSize,
+        constraints: {
+          sessionsPerWeek: params.sessionsPerWeek,
+          timePreferences: params.timePreferences,
+          allowConsecutiveDays: params.allowConsecutiveDays,
+          allowWeekend: params.allowWeekend,
+        },
+      });
+
+      // Ensure loading state runs for at least 4.5 seconds to complete loading steps transitions visually
+      const elapsedTime = Date.now() - startTime;
+      const minDelay = 4500;
+      if (elapsedTime < minDelay) {
+        await new Promise((resolve) => setTimeout(resolve, minDelay - elapsedTime));
+      }
+
+      if (res.success && res.data) {
+        setDraftClasses(res.data);
+        setDraftSemesterId(params.semesterId);
+        const newDraftEvents = res.data.flatMap((cls) => mapDraftClass(cls));
+        setDraftEvents(newDraftEvents);
+        setShowScheduleModal(false);
+        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: "Tạo lịch nháp học kỳ thành công! Hãy kiểm tra trên lịch." }) : "Tạo lịch nháp học kỳ thành công! Hãy kiểm tra trên lịch.", "success");
+        // Navigate to the semester start week
+        if (res.data.length > 0 && res.data[0].startDate) {
+          setWeekStart(getWeekStart(new Date(res.data[0].startDate)));
+        }
+      } else {
+        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("classSchedules.toastDraftGenerateError", { defaultValue: "Xếp lịch thất bại do xung đột ràng buộc hoặc bận lịch giáo viên." }), "error");
+      }
+    } catch (err: any) {
+      showToast(t("classSchedules.toastDraftSystemError", { defaultValue: "Có lỗi hệ thống xảy ra khi lập lịch tự động." }), "error");
+    } finally {
+      setScheduleLoading(false);
+    }
+  };
+
+  // Commit draft to DB
+  const handleSaveDraft = async () => {
+    if (!draftClasses || !draftSemesterId) return;
+    setSaveLoading(true);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const weeklySchedulesOf = (cls: ClassItem): any[] => {
+        try {
+          return cls.weeklySchedulesJson ? JSON.parse(cls.weeklySchedulesJson) : [];
+        } catch { return []; }
+      };
+
+      const res = await classApi.saveScheduleDraft({
+        semesterId: draftSemesterId,
+        classes: draftClasses.map((cls) => ({
+          code: cls.code,
+          name: cls.name,
+          courseId: cls.courseId ?? 0,
+          teacherId: cls.teacherId ?? 0,
+          enrollType: cls.type ?? 0,
+          expectedLessons: cls.expectedLessons ?? 30,
+          weeklySchedules: weeklySchedulesOf(cls),
+          students: (cls.studentClasses || []).map((sc) => ({
+            studentId: sc.studentId,
+            enrollType: sc.enrollType ?? 0,
+          })),
+        })),
+      });
+
+      if (res.success) {
+        setDraftClasses(null);
+        setDraftEvents([]);
+        setDraftSemesterId(null);
+        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: "Lưu chính thức thời khóa biểu thành công!" }) : "Lưu chính thức thời khóa biểu thành công!", "success");
+        // Reload calendar from DB
+        const dbRes = await classApi.getClassSchedules();
+        if (dbRes.success && dbRes.data) {
+          setEvents(
+            (dbRes.data as ClassScheduleItem[])
+              .map((s) => mapApiItem(s))
+              .filter(Boolean) as ScheduleEvent[]
+          );
+        }
+      } else {
+        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("classSchedules.toastSaveDraftError", { defaultValue: "Không thể lưu bản nháp lịch học." }), "error");
+      }
+    } catch (err: any) {
+      showToast(t("classSchedules.toastSaveDraftSystemError", { defaultValue: "Lỗi hệ thống xảy ra khi lưu lịch học." }), "error");
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
+  const handleCancelDraft = () => {
+    setDraftClasses(null);
+    setDraftEvents([]);
+    setDraftSemesterId(null);
+    showToast(t("classSchedules.toastCancelDraftSuccess", { defaultValue: "Đã hủy bản nháp lịch học hiện tại." }), "success");
+  };
+
+  // ── Month view ──────────────────────────────────────────────────────────────
+  const fcEvents = allDisplayEvents.map((ev) => ({
     id: ev.id,
     title: ev.classCode,
     start: `${ev.scheduleDate}T${ev.startTime}:00`,
     end: `${ev.scheduleDate}T${ev.endTime}:00`,
     extendedProps: ev,
+    backgroundColor: ev.isDraft ? "#fef3c7" : undefined,
+    borderColor: ev.isDraft ? "#f59e0b" : undefined,
+    editable: isEventEditable(ev),
   }));
 
-  const renderMonthEvent = (info: { event: { extendedProps: Record<string, unknown>; } }) => {
+  const renderMonthEvent = (info: { event: { extendedProps: Record<string, unknown> } }) => {
     const ev = info.event.extendedProps as unknown as ScheduleEvent;
     const slot = FIXED_SLOTS[ev.slotIndex] ?? FIXED_SLOTS[0];
-    const color = SLOT_COLORS[slot.index];
+    const color = ev.isDraft ? "bg-amber-100 border-amber-400 text-amber-900 border-dashed" : SLOT_COLORS[slot.index];
     return (
       <div className={`rounded px-1.5 py-0.5 text-[10px] font-bold border truncate cursor-pointer transition-all duration-150 ${color}`}>
+        {ev.isDraft && <span className="mr-1 opacity-70">[{t("classSchedules.draftStatusLabel", { defaultValue: "Chưa lưu" })}]</span>}
         {ev.classCode}
       </div>
     );
@@ -293,59 +1333,260 @@ export default function ClassScheduleCalendar() {
 
   const handleFcEventClick = (clickInfo: EventClickArg) => {
     const ev = clickInfo.event.extendedProps as unknown as ScheduleEvent;
+    // In Edit Mode, non-draft events open Room Edit modal
+    if (isEditMode && !ev.isDraft) {
+      setEditRoomTarget(ev);
+      return;
+    }
     setSelectedEvent(ev);
     openModal();
   };
 
-  const classOptions = classes.map((cls) => ({
-    value: cls.id,
-    label: `${cls.code} - ${cls.name} (${cls.scheduleDisplay || "Chưa cấu hình lịch"})`,
+  const handleFcEventDrop = (info: any) => {
+    const ev = info.event.extendedProps as ScheduleEvent;
+    if (!ev.isDraft) {
+      info.revert();
+      return;
+    }
+    
+    const newStart = info.event.start;
+    if (!newStart) {
+      info.revert();
+      return;
+    }
+    
+    const targetDate = toISO(newStart);
+    const hours = String(newStart.getHours()).padStart(2, "0");
+    const minutes = String(newStart.getMinutes()).padStart(2, "0");
+    const timeStr = `${hours}:${minutes}`;
+    let targetSlotIdx = resolveSlotIndex(timeStr);
+    if (targetSlotIdx < 0) {
+      targetSlotIdx = ev.slotIndex;
+    }
+    
+    const success = handleMoveEvent(ev, targetDate, targetSlotIdx);
+    if (!success) {
+      info.revert();
+    }
+  };
+
+  const classOptions = classes
+    .filter((cls) => selectedSemesterId === null || cls.semesterId === selectedSemesterId)
+    .map((cls) => ({
+      value: cls.id,
+      label: `${cls.code} - ${cls.name} (${cls.scheduleDisplay || t("classSchedules.noScheduleConfig", { defaultValue: "Chưa cấu hình lịch" })})`,
+    }));
+
+  const semesterOptions = semesters.map((sem) => ({
+    value: sem.id,
+    label: sem.name,
   }));
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  const draftSemesterName = draftSemesterId
+    ? semesters.find((s) => s.id === draftSemesterId)?.name ?? `Học kỳ #${draftSemesterId}`
+    : "";
+
   return (
-    <div className="space-y-6">
-      {/* Top bar: class filter + view toggle */}
+    <div className="space-y-4">
+      {/* Toast Notification Container */}
+      {mounted && typeof document !== "undefined" && createPortal(
+        <div className="fixed bottom-5 right-5 z-[999999] flex flex-col gap-2 max-w-md w-full sm:w-auto">
+          {toasts.map((t) => (
+            <div
+              key={t.id}
+              className="flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5"
+            >
+              {t.type === "success" ? (
+                <svg className="w-5 h-5 text-emerald-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 text-rose-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+              <span className="text-sm font-medium">{t.message}</span>
+            </div>
+          ))}
+        </div>,
+        document.body
+      )}
+
+      {/* Draft Confirmation Banner */}
+      {draftClasses && draftClasses.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-5 py-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 rounded-2xl shadow-sm">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-bold text-amber-800 dark:text-amber-200">
+                {t("classSchedules.draftPendingTitle", { defaultValue: "Bản nháp lịch học đang chờ xác nhận" })}
+              </p>
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                {t("classSchedules.draftSemesterPrefix", { defaultValue: "Học kỳ: " })}<strong>{draftSemesterName}</strong> — {t("classSchedules.draftClassesCreated", { count: draftClasses.length, defaultValue: "lớp được tạo. Kiểm tra lịch trên Calendar rồi bấm Lưu nếu hài lòng." })}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={handleCancelDraft}
+              className="px-4 py-2 rounded-xl border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 text-sm font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors flex items-center gap-1.5"
+            >
+              <X className="w-4 h-4" />
+              {t("classSchedules.cancelDraft", { defaultValue: "Hủy bản nháp" })}
+            </button>
+            <button
+              onClick={handleSaveDraft}
+              disabled={saveLoading}
+              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {saveLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {t("classSchedules.saveOfficial", { defaultValue: "Lưu chính thức" })}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Mode Banner */}
+      {isEditMode && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-5 py-4 bg-violet-50 dark:bg-violet-950/30 border border-violet-300 dark:border-violet-700 rounded-2xl shadow-sm">
+          <div className="flex items-start gap-3">
+            <Edit className="w-5 h-5 text-violet-500 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-bold text-violet-800 dark:text-violet-200">
+                {t("classSchedules.editModeBannerTitle", { defaultValue: "Chế độ chỉnh sửa lịch đang BẬT" })}
+              </p>
+              <p className="text-xs text-violet-600 dark:text-violet-400 mt-0.5">
+                {editSaving
+                  ? t("classSchedules.editModeSaving", { defaultValue: "Đang lưu thay đổi..." })
+                  : t("classSchedules.editModeBannerHint", { defaultValue: "Kéo thả buổi học để đổi lịch · Nhấn vào buổi học để đổi phòng. Thay đổi được lưu ngay lập tức." })
+                }
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {editSaving && <Loader2 className="w-4 h-4 animate-spin text-violet-500" />}
+            <button
+              onClick={handleToggleEditMode}
+              disabled={editSaving}
+              className="px-4 py-2 rounded-xl border border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300 text-sm font-semibold hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <X className="w-4 h-4" />
+              {t("classSchedules.exitEditMode", { defaultValue: "Thoát chỉnh sửa" })}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Top bar: class filter + view toggle + schedule button */}
       <div className="p-5 sm:p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-5">
-        <div className="flex flex-col gap-1.5 w-full md:max-w-md">
-          <label className="text-sm font-semibold text-gray-750 dark:text-gray-300">Lớp học:</label>
-          <SearchableSelect
-            options={classOptions}
-            value={selectedClassId || ""}
-            onChange={(val) => setSelectedClassId(val)}
-            placeholder="Tất cả các lớp"
-            onClear={() => setSelectedClassId(null)}
-          />
+        <div className="flex flex-col sm:flex-row gap-4 w-full md:max-w-2xl">
+          {/* Semester Filter */}
+          <div className="flex flex-col gap-1.5 w-full sm:w-1/2">
+            <label className="text-sm font-semibold text-gray-750 dark:text-gray-300">{t("classSchedules.semesterFilterLabel", { defaultValue: "Học kỳ:" })}</label>
+            <SearchableSelect
+              options={semesterOptions}
+              value={selectedSemesterId || ""}
+              onChange={handleSemesterChange}
+              placeholder={t("classSchedules.allSemestersPlaceholder", { defaultValue: "Tất cả học kỳ" })}
+              onClear={() => handleSemesterChange(null)}
+            />
+          </div>
+
+          {/* Class Filter */}
+          <div className="flex flex-col gap-1.5 w-full sm:w-1/2">
+            <label className="text-sm font-semibold text-gray-750 dark:text-gray-300">{t("classSchedules.classFilterLabel", { defaultValue: "Lớp học:" })}</label>
+            <SearchableSelect
+              options={classOptions}
+              value={selectedClassId || ""}
+              onChange={(val) => setSelectedClassId(val)}
+              placeholder={t("classSchedules.allClassesPlaceholder", { defaultValue: "Tất cả các lớp" })}
+              onClear={() => setSelectedClassId(null)}
+            />
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           {classDetail && (
-            <div className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/40 p-3 rounded-xl border border-gray-100 dark:border-gray-800 text-xs">
-              <span className="font-semibold text-gray-700 dark:text-gray-300">{classDetail.teacherName || "Chưa phân công"}</span>
+            <div className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-850 p-3 rounded-xl border border-gray-100 dark:border-gray-800 text-xs">
+              <span className="font-semibold text-gray-700 dark:text-gray-300">{classDetail.teacherName || t("classSchedules.unassigned", { defaultValue: "Chưa phân công" })}</span>
               <span className="mx-1.5 text-gray-300">·</span>
-              <span>{classDetail.expectedLessons} buổi</span>
+              <span>{t("classSchedules.lessonsCount", { count: classDetail.expectedLessons, defaultValue: "buổi" })}</span>
             </div>
           )}
 
-          {/* View toggle */}
+          {/* Edit Mode button — disabled when temp schedule is active */}
+          <button
+            type="button"
+            onClick={handleToggleEditMode}
+            disabled={!!(draftClasses && draftClasses.length > 0)}
+            title={draftClasses?.length ? t("classSchedules.editModeDisabledHint", { defaultValue: "Không thể chỉnh sửa khi đang có lịch nháp" }) : undefined}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm
+              ${isEditMode
+                ? "bg-violet-600 hover:bg-violet-700 text-white"
+                : "border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
+          >
+            <Edit className="w-4 h-4" />
+            {isEditMode
+              ? t("classSchedules.editModeActiveBtn", { defaultValue: "Đang chỉnh sửa" })
+              : t("classSchedules.editModeBtn", { defaultValue: "Chỉnh sửa lịch" })
+            }
+          </button>
+
+          {/* Auto Schedule button — disabled when Edit Mode is ON */}
+          <button
+            type="button"
+            onClick={() => setShowScheduleModal(true)}
+            disabled={isEditMode}
+            title={isEditMode ? t("classSchedules.autoScheduleDisabledHint", { defaultValue: "Không thể xếp lịch tự động khi đang ở chế độ chỉnh sửa" }) : undefined}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <CalendarClock className="w-4 h-4" />
+            {t("classSchedules.autoScheduleBtn", { defaultValue: "Xếp lịch tự động" })}
+          </button>
+
           <div className="flex rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden bg-gray-50 dark:bg-gray-850">
             <button
               type="button"
               onClick={() => setView("week")}
               className={`px-4 py-2 text-sm font-semibold transition-colors ${view === "week" ? "bg-brand-500 text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
             >
-              Tuần
+              {t("classSchedules.week", { defaultValue: "Tuần" })}
             </button>
             <button
               type="button"
               onClick={() => setView("month")}
               className={`px-4 py-2 text-sm font-semibold transition-colors ${view === "month" ? "bg-brand-500 text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
             >
-              Tháng
+              {t("classSchedules.month", { defaultValue: "Tháng" })}
             </button>
           </div>
         </div>
       </div>
+
+      {/* Legend */}
+      {(draftClasses && draftClasses.length > 0) || isEditMode ? (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-800 text-xs text-gray-600 dark:text-gray-400">
+          {draftClasses && draftClasses.length > 0 && (
+            <>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-4 h-3 rounded border-2 border-dashed border-amber-400 bg-amber-100"></span>
+                {t("classSchedules.legendDraft", { defaultValue: "Lịch nháp chưa lưu" })}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-4 h-3 rounded border border-sky-300 bg-sky-50"></span>
+                {t("classSchedules.legendSaved", { defaultValue: "Lịch đã lưu" })}
+              </span>
+            </>
+          )}
+          {isEditMode && (
+            <span className="flex items-center gap-1.5 text-violet-600 dark:text-violet-400 font-semibold">
+              <Edit className="w-3.5 h-3.5" />
+              {t("classSchedules.legendEditMode", { defaultValue: "Chế độ chỉnh sửa — kéo thả để di chuyển buổi học" })}
+            </span>
+          )}
+        </div>
+      ) : null}
 
       {/* Calendar area */}
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] overflow-hidden">
@@ -355,7 +1596,6 @@ export default function ClassScheduleCalendar() {
           </div>
         ) : view === "week" ? (
           <div>
-            {/* Week nav header */}
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-200 dark:border-gray-700">
               <button
                 type="button"
@@ -366,14 +1606,14 @@ export default function ClassScheduleCalendar() {
               </button>
               <div className="flex items-center gap-3">
                 <span className="text-sm font-bold text-gray-800 dark:text-gray-200">
-                  Tuần: {formatWeekLabel(weekStart)}
+                  {t("classSchedules.weekLabel", { defaultValue: "Tuần: " })}{formatWeekLabel(weekStart)}
                 </span>
                 <button
                   type="button"
                   onClick={() => setWeekStart(getWeekStart(new Date()))}
                   className="px-3 py-1 text-xs font-semibold rounded-lg border border-brand-300 text-brand-600 dark:text-brand-400 dark:border-brand-700 hover:bg-brand-50 dark:hover:bg-brand-950/20 transition-colors"
                 >
-                  Hôm nay
+                  {t("classSchedules.today", { defaultValue: "Hôm nay" })}
                 </button>
               </div>
               <button
@@ -385,7 +1625,6 @@ export default function ClassScheduleCalendar() {
               </button>
             </div>
 
-            {/* Slot legend */}
             <div className="flex flex-wrap gap-2 px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30">
               {FIXED_SLOTS.map((s) => (
                 <span key={s.index} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${SLOT_COLORS[s.index]}`}>
@@ -395,11 +1634,16 @@ export default function ClassScheduleCalendar() {
             </div>
 
             <div className="p-4">
-              <WeekGrid events={events} weekStart={weekStart} onEventClick={handleEventClick} />
+              <WeekGrid
+                events={allDisplayEvents}
+                weekStart={weekStart}
+                onEventClick={handleEventClick}
+                onEventDrop={handleMoveEvent}
+                isEventEditable={isEventEditable}
+              />
             </div>
           </div>
         ) : (
-          /* Month view */
           <div className="p-5 schedules-calendar-main">
             <FullCalendar
               plugins={[dayGridPlugin, interactionPlugin]}
@@ -409,6 +1653,10 @@ export default function ClassScheduleCalendar() {
               headerToolbar={{ left: "prev,next today", center: "title", right: "" }}
               events={fcEvents}
               selectable={false}
+              editable={isEditMode || !!(draftClasses && draftClasses.length > 0)}
+              eventStartEditable={true}
+              eventDurationEditable={false}
+              eventDrop={handleFcEventDrop}
               eventClick={handleFcEventClick}
               eventContent={renderMonthEvent}
               height="auto"
@@ -424,14 +1672,22 @@ export default function ClassScheduleCalendar() {
             <div className="border-b border-gray-100 dark:border-gray-800 pb-4">
               <div className="flex items-center justify-between gap-3">
                 <h5 className="font-bold text-gray-900 dark:text-white text-lg sm:text-xl">
-                  Chi Tiết Buổi Học {selectedEvent.lessonNo}
+                  {selectedEvent.isDraft
+                    ? t("classSchedules.draftSessionTitle", { lessonNo: selectedEvent.lessonNo, defaultValue: `📋 Lịch Nháp — Chi Tiết Buổi Học ${selectedEvent.lessonNo}` })
+                    : t("classSchedules.sessionTitle", { lessonNo: selectedEvent.lessonNo, defaultValue: `Chi Tiết Buổi Học ${selectedEvent.lessonNo}` })}
                 </h5>
-                <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${getStatus(selectedEvent.status).color}`}>
-                  {getStatus(selectedEvent.status).text}
-                </span>
+                {selectedEvent.isDraft ? (
+                  <span className="px-2.5 py-1 text-xs font-bold rounded-full border bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-700">
+                    {t("classSchedules.draftStatusLabel", { defaultValue: "Chưa lưu" })}
+                  </span>
+                ) : (
+                  <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${getStatus(selectedEvent.status, t).color}`}>
+                    {getStatus(selectedEvent.status, t).text}
+                  </span>
+                )}
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Lớp: <strong className="text-gray-700 dark:text-gray-200">{selectedEvent.classCode} – {selectedEvent.className}</strong>
+                {t("classSchedules.classPrefix", { defaultValue: "Lớp: " })}<strong className="text-gray-700 dark:text-gray-200">{selectedEvent.classCode} – {selectedEvent.className}</strong>
               </p>
             </div>
 
@@ -439,23 +1695,28 @@ export default function ClassScheduleCalendar() {
               {[
                 {
                   icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
-                  label: "Ngày học",
+                  label: t("classSchedules.dateLabel", { defaultValue: "Ngày học" }),
                   value: selectedEvent.scheduleDate,
                 },
                 {
                   icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
-                  label: "Khung giờ",
-                  value: `${FIXED_SLOTS[selectedEvent.slotIndex]?.label ?? ""} · ${selectedEvent.startTime} – ${selectedEvent.endTime}`,
+                  label: t("classSchedules.timeLabel", { defaultValue: "Khung giờ" }),
+                  value: `${t(`classSchedules.ca${selectedEvent.slotIndex + 1}`, { defaultValue: FIXED_SLOTS[selectedEvent.slotIndex]?.label ?? "" })} · ${selectedEvent.startTime} – ${selectedEvent.endTime}`,
                 },
                 {
                   icon: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4",
-                  label: "Phòng học",
+                  label: t("classSchedules.roomLabel", { defaultValue: "Phòng học" }),
                   value: selectedEvent.roomName,
                 },
                 {
                   icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z",
-                  label: "Giáo viên",
+                  label: t("classSchedules.teacherLabel", { defaultValue: "Giáo viên" }),
                   value: selectedEvent.teacherName,
+                },
+                {
+                  icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z",
+                  label: t("classSchedules.classStatusLabel", { defaultValue: "Trạng thái lớp học" }),
+                  value: getClassStatus(selectedEvent.classStatus ?? 0, t).text,
                 },
               ].map(({ icon, label, value }) => (
                 <div key={label} className="flex items-start gap-3.5">
@@ -470,36 +1731,40 @@ export default function ClassScheduleCalendar() {
                   </div>
                 </div>
               ))}
-
-              {selectedEvent.note && (
-                <div className="flex items-start gap-3.5">
-                  <div className="mt-0.5 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-500">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <span className="block text-xs text-gray-400 font-semibold uppercase">Ghi chú</span>
-                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-0.5 whitespace-pre-wrap bg-gray-50 dark:bg-gray-850 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800">
-                      {selectedEvent.note}
-                    </p>
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-100 dark:border-gray-800">
               <button
                 onClick={closeModal}
                 type="button"
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-750 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-850 dark:border-gray-700 dark:hover:bg-gray-750 transition-colors"
               >
-                Đóng
+                {t("classSchedules.btnClose", { defaultValue: "Đóng" })}
               </button>
             </div>
           </div>
         )}
       </Modal>
+
+      {/* Edit Room Modal (Edit Mode only) */}
+      <EditRoomModal
+        isOpen={editRoomTarget !== null}
+        onClose={() => setEditRoomTarget(null)}
+        event={editRoomTarget}
+        rooms={rooms}
+        onSave={handleSaveRoom}
+        saving={editRoomSaving}
+      />
+
+      {/* Auto-Schedule Modal */}
+      <AutoScheduleModal
+        isOpen={showScheduleModal}
+        onClose={() => setShowScheduleModal(false)}
+        semesters={semesters}
+        onGenerate={handleGenerate}
+        loading={scheduleLoading}
+        showToast={showToast}
+      />
     </div>
   );
 }

@@ -8,6 +8,9 @@ export interface QuestionCategoryItem {
   code: string;
   name: string;
   description?: string | null;
+  courseId?: number | null;
+  courseName?: string | null;
+  courseCode?: string | null;
 }
 
 export interface QuestionCategoryPagingResponse {
@@ -23,6 +26,7 @@ export interface QuestionCategorySaveDto {
   code: string;
   name: string;
   description?: string | null;
+  courseId?: number | null;
 }
 
 // ─── API ─────────────────────────────────────────────────────────────────────
@@ -31,12 +35,14 @@ export const questionCategoryApi = {
   async getAll(
     pageIndex: number,
     pageSize: number,
-    keyword: string = ""
+    keyword: string = "",
+    courseId?: number
   ): Promise<ApiResponse<QuestionCategoryPagingResponse>> {
     const query = new URLSearchParams({
       pageIndex: String(pageIndex),
       pageSize: String(pageSize),
       ...(keyword ? { keyword } : {}),
+      ...(courseId ? { courseId: String(courseId) } : {}),
     }).toString();
     return api.get<QuestionCategoryPagingResponse>(
       `${ENDPOINTS.QUESTION_CATEGORY.GET_ALL}?${query}`

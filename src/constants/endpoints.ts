@@ -9,6 +9,7 @@ export const ENDPOINTS = {
     GET_CURRENT_PERMISSIONS: "/api/Auth/GetCurrentPermissions",
     ASSIGN_ROLE_PERMISSIONS: "/api/Auth/AssignRolePermissions",
     CREATE_ROLE: "/api/Auth/CreateRole",
+    DELETE_ROLE: (roleName: string) => `/api/Auth/DeleteRole/${roleName}`,
     CHANGE_PASSWORD: "/api/Auth/ChangePassword",
   },
   USER: {
@@ -89,6 +90,7 @@ export const ENDPOINTS = {
     SAVE_TEACHER_AVAILABILITY: "/api/Semester/availability",
     IMPORT_STUDENTS: "/api/Semester/registrations/import",
     AUTO_SCHEDULE_SEMESTER: "/api/Class/auto-schedule-semester",
+    SAVE_SCHEDULE_DRAFT: "/api/Class/save-schedule-draft",
     CREATE_REGISTRATION: "/api/Semester/registrations",
     UPDATE_REGISTRATION: (id: number) => `/api/Semester/registrations/${id}`,
     DELETE_REGISTRATION: (id: number) => `/api/Semester/registrations/${id}`,
