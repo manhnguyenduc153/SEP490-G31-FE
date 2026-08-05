@@ -64,6 +64,10 @@ export function QuestionForm({ id }: QuestionFormProps) {
   const [isUploadingAudio, setIsUploadingAudio] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  // Synchronous re-entrancy guard: `isSubmitting` state only disables the button after React
+  // re-renders, leaving a window for a fast double-click to fire handleSubmit twice. A ref is
+  // updated immediately, closing that window.
+  const isSubmittingRef = React.useRef(false);
 
   // ── Upload Audio Handler ──
   const handleAudioFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -314,10 +318,13 @@ export function QuestionForm({ id }: QuestionFormProps) {
   // ── Submit Form ──
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setFormError(null);
 
     if (!passageTitle.trim()) {
       setFormError(t("questionPassage.errTitleEmpty"));
+      isSubmittingRef.current = false;
       return;
     }
 
@@ -327,24 +334,33 @@ export function QuestionForm({ id }: QuestionFormProps) {
     if (skillType === 1 || skillType === 2) {
       if (childQuestions.length === 0) {
         setFormError(t("questionPassage.errChildEmpty"));
+        isSubmittingRef.current = false;
         return;
       }
 
       // Validate child questions for Listening & Reading
+      let validationFailed = false;
       for (let i = 0; i < childQuestions.length; i++) {
         const q = childQuestions[i];
         if (!q.content.trim()) {
           setFormError(t("questionPassage.errQuestionContentEmpty", { index: i + 1 }));
-          return;
+          validationFailed = true;
+          break;
         }
         if ((q.questionType === 1 || q.questionType === 2) && (!q.answers || q.answers.length === 0)) {
           setFormError(t("questionPassage.errAnswersEmpty", { index: i + 1 }));
-          return;
+          validationFailed = true;
+          break;
         }
         if ((q.questionType === 1 || q.questionType === 2) && !q.answers?.some((a) => a.isCorrect)) {
           setFormError(t("questionPassage.errNoCorrectAnswer", { index: i + 1 }));
-          return;
+          validationFailed = true;
+          break;
         }
+      }
+      if (validationFailed) {
+        isSubmittingRef.current = false;
+        return;
       }
       questionsToSubmit = childQuestions;
     } else {
@@ -396,6 +412,7 @@ export function QuestionForm({ id }: QuestionFormProps) {
       setFormError(t("questionPassage.errNetwork"));
     } finally {
       setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
