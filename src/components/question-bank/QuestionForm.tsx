@@ -7,7 +7,7 @@ import { questionPassageApi, QuestionPassageSaveDto } from "@/services/questionP
 import { questionApi, QuestionSaveDto, QuestionAnswerDto } from "@/services/question.api";
 import { CodeHelper } from "@/helpers/CodeHelper";
 import { useTranslation } from "react-i18next";
-import { Plus, Trash2, Volume2, BookOpen, PenTool, Mic, Save, ArrowLeft, HelpCircle, CheckSquare, Upload } from "lucide-react";
+import { Plus, Trash2, Volume2, BookOpen, PenTool, Mic, Save, ArrowLeft, HelpCircle, CheckSquare, Upload, Image as ImageIcon } from "lucide-react";
 
 import { ENV } from "@/config/env";
 
@@ -62,6 +62,7 @@ export function QuestionForm({ id }: QuestionFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingAudio, setIsUploadingAudio] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   // ── Upload Audio Handler ──
@@ -81,6 +82,25 @@ export function QuestionForm({ id }: QuestionFormProps) {
       alert(t("questionPassage.uploadError"));
     } finally {
       setIsUploadingAudio(false);
+    }
+  };
+
+  const handleImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingImage(true);
+    try {
+      const res = await questionPassageApi.uploadImage(file);
+      if (res.success && res.data) {
+        setPassageAttachmentUrl(res.data);
+      } else {
+        alert(res.message || t("questionPassage.uploadImageError"));
+      }
+    } catch {
+      alert(t("questionPassage.uploadImageError"));
+    } finally {
+      setIsUploadingImage(false);
     }
   };
 
@@ -462,7 +482,6 @@ export function QuestionForm({ id }: QuestionFormProps) {
               { type: 2, name: t("questionPassage.skillReading"), icon: BookOpen },
               { type: 1, name: t("questionPassage.skillListening"), icon: Volume2 },
               { type: 4, name: t("questionPassage.skillWriting"), icon: PenTool },
-              { type: 3, name: t("questionPassage.skillSpeaking"), icon: Mic },
             ]
               .filter((s) => !isEdit || s.type === skillType)
               .map((s) => {
@@ -619,16 +638,27 @@ export function QuestionForm({ id }: QuestionFormProps) {
         )}
 
         {skillType === 2 && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              {t("questionPassage.passageReadingContentLabel")} <span className="text-rose-500">*</span>
-            </label>
-            <textarea
-              value={passageContent}
-              onChange={(e) => setPassageContent(e.target.value)}
-              rows={8}
-              placeholder={t("questionPassage.passageReadingContentPlaceholder")}
-              className="w-full rounded-xl border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white font-serif leading-relaxed"
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {t("questionPassage.passageReadingContentLabel")} <span className="text-rose-500">*</span>
+              </label>
+              <textarea
+                value={passageContent}
+                onChange={(e) => setPassageContent(e.target.value)}
+                rows={8}
+                placeholder={t("questionPassage.passageReadingContentPlaceholder")}
+                className="w-full rounded-xl border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white font-serif leading-relaxed"
+              />
+            </div>
+
+            <PassageImageUpload
+              t={t}
+              imageUrl={passageAttachmentUrl}
+              onImageUrlChange={setPassageAttachmentUrl}
+              isUploading={isUploadingImage}
+              onFileSelected={handleImageFileUpload}
+              getFileUrl={getFileUrl}
             />
           </div>
         )}
@@ -647,6 +677,16 @@ export function QuestionForm({ id }: QuestionFormProps) {
                 className="w-full rounded-xl border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white"
               />
             </div>
+
+            <PassageImageUpload
+              t={t}
+              imageUrl={passageAttachmentUrl}
+              onImageUrlChange={setPassageAttachmentUrl}
+              isUploading={isUploadingImage}
+              onFileSelected={handleImageFileUpload}
+              getFileUrl={getFileUrl}
+            />
+
             <div className="p-3 bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900 rounded-xl text-xs text-purple-700 dark:text-purple-300">
               {t("questionPassage.passageWritingNote")}
             </div>
@@ -854,6 +894,66 @@ export function QuestionForm({ id }: QuestionFormProps) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// Optional illustration image for the passage/prompt itself (Reading & Writing only —
+// not shown for child questions or student answers).
+function PassageImageUpload({
+  t,
+  imageUrl,
+  onImageUrlChange,
+  isUploading,
+  onFileSelected,
+  getFileUrl,
+}: {
+  t: (key: string, opts?: Record<string, unknown>) => string;
+  imageUrl: string;
+  onImageUrlChange: (value: string) => void;
+  isUploading: boolean;
+  onFileSelected: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  getFileUrl: (url?: string) => string;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        {t("questionPassage.passageImageLabel")}
+      </label>
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 rounded-xl cursor-pointer text-sm font-medium border border-emerald-200 dark:border-emerald-800 transition-colors shadow-xs">
+            <ImageIcon className="w-4 h-4" />
+            {isUploading ? t("questionPassage.uploadingImage") : t("questionPassage.uploadImageBtn")}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,.jpg,.jpeg,.png"
+              className="hidden"
+              onChange={onFileSelected}
+              disabled={isUploading}
+            />
+          </label>
+          <span className="text-xs text-gray-400 font-medium">{t("questionPassage.uploadOrPaste")}</span>
+        </div>
+
+        <input
+          type="text"
+          value={imageUrl}
+          onChange={(e) => onImageUrlChange(e.target.value)}
+          placeholder="https://example.com/images/passage-diagram.png"
+          className="w-full rounded-xl border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+        />
+
+        {imageUrl && (
+          <div className="p-3 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl border border-emerald-200 dark:border-emerald-900 space-y-2">
+            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+              🖼️ {t("questionPassage.imagePreviewLabel")}
+            </span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={getFileUrl(imageUrl)} alt="" className="max-h-64 rounded-lg border border-emerald-100 dark:border-emerald-900/50" />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

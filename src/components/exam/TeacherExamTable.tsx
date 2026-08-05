@@ -11,8 +11,7 @@ import {
 } from "@/components/ui/table";
 import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
 import { examApi, ExamItem } from "@/services/exam.api";
-import { ClassItem } from "@/services/class.api";
-import { commonApi } from "@/services/common.api";
+import { classApi, ClassItem } from "@/services/class.api";
 import { CheckCircle, XCircle, Search, Eye } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
@@ -68,7 +67,7 @@ export function TeacherExamTable() {
 
   // ─── Fetch Dropdowns ────────────────────────────────────────────────────────
   useEffect(() => {
-    commonApi.getClasses(1, 1000).then((res) => {
+    classApi.getTeacherClasses(1, 1000).then((res) => {
       if (res.success && res.data) {
         setClasses(res.data.items || []);
       }

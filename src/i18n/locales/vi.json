@@ -334,6 +334,11 @@
     "confirmSubmitPrompt": "Bạn có chắc chắn muốn nộp bài?",
     "timesUpAlert": "Hết thời gian làm bài! Đang tự động nộp bài...",
     "submitSuccess": "Nộp bài thi thành công!",
+    "btnSaveProgress": "Lưu bài",
+    "savingProgress": "Đang lưu...",
+    "saveProgressSuccess": "Đã lưu tiến trình làm bài.",
+    "saveProgressError": "Lưu tiến trình thất bại. Vui lòng thử lại.",
+    "lastSavedAt": "Đã lưu lúc {{time}}",
     "tabHistory": "Lịch sử",
     "tabResult": "Kết quả",
     "btnBackToExam": "Quay lại trang làm bài",
@@ -445,7 +450,8 @@
     "formValidationStartBeforeClass": "Thời gian bắt đầu bài kiểm tra không được trước ngày bắt đầu của lớp ({{date}}).",
     "formValidationEndAfterClass": "Thời gian kết thúc bài kiểm tra không được sau ngày kết thúc của lớp ({{date}}).",
     "formValidationStartAfterClassEnd": "Thời gian bắt đầu bài kiểm tra không được sau ngày kết thúc của lớp ({{date}}).",
-    "formValidationEndBeforeStart": "Thời gian kết thúc không được trước hoặc bằng thời gian bắt đầu."
+    "formValidationEndBeforeStart": "Thời gian kết thúc không được trước hoặc bằng thời gian bắt đầu.",
+    "formValidationWindowLessThanDuration": "Khoảng thời gian làm bài (từ lúc bắt đầu đến lúc kết thúc) không được ít hơn thời lượng bài kiểm tra ({{duration}} phút)."
   },
   "question": {
     "title": "Ngân hàng câu hỏi",
@@ -644,6 +650,11 @@
     "passageTranscriptPlaceholder": "Nhập nội dung lời thoại hoặc mô tả ngữ cảnh bài nghe...",
     "passageReadingContentLabel": "Nội dung Đoạn văn đọc (Passage Content)",
     "passageReadingContentPlaceholder": "Nhập nội dung bài đọc tại đây (Hỗ trợ trình bày nhiều đoạn văn)...",
+    "passageImageLabel": "Hình ảnh minh họa đề bài (Không bắt buộc)",
+    "uploadImageBtn": "Tải ảnh lên (.jpg, .png)",
+    "uploadingImage": "Đang tải ảnh lên...",
+    "imagePreviewLabel": "Xem trước ảnh:",
+    "uploadImageError": "Lỗi khi tải ảnh lên.",
     "passageWritingPromptLabel": "Đề bài bài viết (Writing Prompt)",
     "passageWritingPromptPlaceholder": "VD: Write about the advantages and disadvantages of working from home...",
     "passageWritingNote": "💡 Học sinh sẽ làm bài bằng cách nhập bài viết văn bản trực tiếp vào màn hình thi (Text Essay).",

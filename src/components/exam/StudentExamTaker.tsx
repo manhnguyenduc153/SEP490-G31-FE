@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import { examApi, ExamItem, ExamAttemptDto, ExamAnswerDto } from "@/services/exam.api";
 import { questionPassageApi, QuestionPassageItem } from "@/services/questionPassage.api";
+import { HighlightableText } from "@/components/exam/HighlightableText";
 import { ENV } from "@/config/env";
 import {
   Rocket,
@@ -20,7 +21,8 @@ import {
   Award,
   AlertTriangle,
   FileText,
-  Volume2
+  Volume2,
+  Save
 } from "lucide-react";
 
 const getFileUrl = (url?: string) => {
@@ -79,6 +81,11 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
 
   // State of chosen answers for the active attempt
   const [chosenAnswers, setChosenAnswers] = useState<Record<number, string>>({});
+
+  // Save-progress states (manual button + auto-save)
+  const [isSavingProgress, setIsSavingProgress] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const saveDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Timer states
   const [timeLeft, setTimeLeft] = useState<number>(0); // in seconds
@@ -249,8 +256,13 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
       if (res.success && res.data) {
         currentAttemptRef.current = res.data;
         setCurrentAttempt(res.data);
-        chosenAnswersRef.current = {};
-        setChosenAnswers({});
+        // Restore previously saved answers if this resumes an existing in-progress attempt
+        const savedAnswers: Record<number, string> = {};
+        res.data.answers.forEach(ans => {
+          if (ans.answerContent) savedAnswers[ans.questionId] = ans.answerContent;
+        });
+        chosenAnswersRef.current = savedAnswers;
+        setChosenAnswers(savedAnswers);
         setViewState("taking");
         startTimer(res.data.startTime, exam.duration);
         showToast(t("exams.startExam"), "success");
@@ -407,6 +419,71 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
     }
   };
 
+  // Persist the student's current answers for the in-progress attempt without submitting it,
+  // so the attempt can be resumed with saved progress after a reload / crash / power loss.
+  // `silent` skips the toast/spinner for background auto-saves so they don't interrupt the student.
+  const saveProgress = useCallback(async (options: { silent?: boolean } = {}) => {
+    const activeExam = examRef.current;
+    const activeAttempt = currentAttemptRef.current;
+    const activeAnswers = chosenAnswersRef.current;
+    if (!activeExam || !activeAttempt || activeAttempt.status !== 1) return;
+
+    const answersPayload = Object.entries(activeAnswers).map(([qId, content]) => ({
+      questionId: Number(qId),
+      answerContent: content
+    }));
+
+    const exitsKey = `tabExits_${activeAttempt.id}`;
+    const logKey = `examLogs_${activeAttempt.id}`;
+    const exitsCount = Number(localStorage.getItem(exitsKey) || "0");
+    const logs = localStorage.getItem(logKey) || "[]";
+
+    if (!options.silent) setIsSavingProgress(true);
+    try {
+      const res = await examApi.saveProgress(activeExam.id, {
+        attemptId: activeAttempt.id,
+        tabExitsCount: exitsCount,
+        log: logs,
+        answers: answersPayload
+      });
+      if (res.success) {
+        setLastSavedAt(new Date());
+        if (!options.silent) showToast(t("exams.saveProgressSuccess"), "success");
+      } else if (!options.silent) {
+        showToast(res.message || t("exams.saveProgressError"), "error");
+      }
+    } catch {
+      if (!options.silent) showToast(t("exams.saveProgressError"), "error");
+    } finally {
+      if (!options.silent) setIsSavingProgress(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t]);
+
+  // Debounced auto-save: fires shortly after the student stops changing answers.
+  useEffect(() => {
+    if (viewState !== "taking") return;
+    if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
+    saveDebounceRef.current = setTimeout(() => {
+      saveProgress({ silent: true });
+    }, 4000);
+    return () => {
+      if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chosenAnswers, viewState]);
+
+  // Safety-net auto-save on a fixed interval, in case the student keeps typing continuously
+  // (which would otherwise keep resetting the debounce above) or navigates away unexpectedly.
+  useEffect(() => {
+    if (viewState !== "taking") return;
+    const interval = setInterval(() => {
+      saveProgress({ silent: true });
+    }, 30000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewState]);
+
   const handleSubmitClick = () => {
     if (!exam) return;
     const unansweredCount = exam.questions ? exam.questions.filter(q => !chosenAnswers[q.id]).length : 0;
@@ -434,37 +511,14 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
       onConfirm: async () => {
         closeConfirm();
         if (timerRef.current) clearInterval(timerRef.current);
-        // Auto-submit whatever answers the student has so far
+        // Save progress (not a final submit) so the attempt stays resumable later
         if (exam && currentAttempt) {
           try {
-            const answersPayload = Object.entries(chosenAnswers).map(([qId, content]) => ({
-              questionId: Number(qId),
-              answerContent: content
-            }));
-            const logKey = `examLogs_${currentAttempt.id}`;
-            const exitsKey = `tabExits_${currentAttempt.id}`;
-            const exitsCount = Number(localStorage.getItem(exitsKey) || "0");
-            let logs: any[] = [];
-            try { logs = JSON.parse(localStorage.getItem(logKey) || "[]"); } catch {}
-            logs.push({ type: "submit", time: new Date().toISOString() });
-            localStorage.setItem(logKey, JSON.stringify(logs));
-            const payload = {
-              attemptId: currentAttempt.id,
-              tabExitsCount: exitsCount,
-              log: JSON.stringify(logs),
-              answers: answersPayload
-            };
-            const res = await examApi.submitAttempt(exam.id, payload);
-            if (res.success && res.data) {
-              setSelectedPastAttempt(res.data);
-              // Reload attempts list before going back to ready
-              try {
-                const r = await examApi.getStudentAttempts(exam.id);
-                if (r.success && r.data) setAttempts(r.data);
-              } catch {}
-            }
+            await saveProgress();
+            const r = await examApi.getStudentAttempts(exam.id);
+            if (r.success && r.data) setAttempts(r.data);
           } catch (err) {
-            console.error("Auto-submit on leave failed:", err);
+            console.error("Save progress on leave failed:", err);
           }
         }
         setCurrentAttempt(null);
@@ -675,11 +729,29 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                 <h2 className="text-sm font-extrabold text-gray-900 dark:text-white leading-tight">{exam.title}</h2>
               </div>
             </div>
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-base tabular-nums transition-colors ${
-              isLowTime ? "bg-rose-500 text-white animate-pulse" : "bg-brand-500 text-white"
-            }`}>
-              <Clock className="w-4 h-4 shrink-0" />
-              {exam.duration ? formatTime(timeLeft) : formatTime(elapsedTime)}
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:flex flex-col items-end">
+                <button
+                  type="button"
+                  onClick={() => saveProgress()}
+                  disabled={isSavingProgress}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg transition-colors disabled:opacity-60"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  {isSavingProgress ? t("exams.savingProgress") : t("exams.btnSaveProgress")}
+                </button>
+                {lastSavedAt && (
+                  <span className="text-[10px] text-gray-400 mt-1">
+                    {t("exams.lastSavedAt", { time: lastSavedAt.toLocaleTimeString("vi-VN") })}
+                  </span>
+                )}
+              </div>
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-base tabular-nums transition-colors ${
+                isLowTime ? "bg-rose-500 text-white animate-pulse" : "bg-brand-500 text-white"
+              }`}>
+                <Clock className="w-4 h-4 shrink-0" />
+                {exam.duration ? formatTime(timeLeft) : formatTime(elapsedTime)}
+              </div>
             </div>
           </div>
 
@@ -704,11 +776,33 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
 
                   {/* Reading Passage Text */}
                   {passage.content && (
-                    <div className="p-4 bg-gray-50 dark:bg-gray-950/40 rounded-xl text-gray-800 dark:text-gray-200 text-sm font-serif leading-relaxed whitespace-pre-wrap border border-gray-150 dark:border-gray-800">
+                    <div className="p-4 bg-gray-50 dark:bg-gray-950/40 rounded-xl border border-gray-150 dark:border-gray-800">
                       <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 font-sans">
                         📖 {t("exams.passageContentTitle").toUpperCase()}
                       </span>
-                      {passage.content}
+                      {(passage.skillType === 2 || passage.skillType === 4) ? (
+                        <HighlightableText
+                          text={passage.content}
+                          storageKey={`${currentAttempt.id}_p${passage.id}`}
+                          className="text-gray-800 dark:text-gray-200 text-sm font-serif leading-relaxed whitespace-pre-wrap"
+                        />
+                      ) : (
+                        <div className="text-gray-800 dark:text-gray-200 text-sm font-serif leading-relaxed whitespace-pre-wrap">
+                          {passage.content}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Passage Illustration Image (Reading / Writing) */}
+                  {passage.attachmentUrl && (
+                    <div className="p-3 bg-emerald-50/40 dark:bg-emerald-950/10 rounded-xl border border-emerald-100 dark:border-emerald-900/40">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={getFileUrl(passage.attachmentUrl)}
+                        alt=""
+                        className="max-h-96 w-full object-contain rounded-lg"
+                      />
                     </div>
                   )}
 
@@ -752,9 +846,17 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                             )}
                           </div>
 
-                          <p className="text-sm font-semibold text-gray-855 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
-                            {q.content}
-                          </p>
+                          {(q.skillType === 2 || q.skillType === 4) ? (
+                            <HighlightableText
+                              text={q.content}
+                              storageKey={`${currentAttempt.id}_q${q.id}`}
+                              className="text-sm font-semibold text-gray-855 dark:text-gray-200 whitespace-pre-wrap leading-relaxed"
+                            />
+                          ) : (
+                            <p className="text-sm font-semibold text-gray-855 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
+                              {q.content}
+                            </p>
+                          )}
 
                           {/* Speaking: always show audio upload regardless of questionType */}
                           {isSpeakingQ && (
@@ -824,8 +926,8 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                                 value={chosenValue}
                                 onChange={(e) => handleTextAnswerChange(q.id, e.target.value)}
                                 placeholder={t("exams.studentAnswerPlaceholder")}
-                                rows={4}
-                                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-900 dark:text-white"
+                                rows={16}
+                                className="w-full min-h-[360px] resize-y rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-900 dark:text-white"
                               />
                             </div>
                           ) : !isSpeakingQ ? (
@@ -899,9 +1001,17 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                       )}
                     </div>
 
-                    <p className="text-sm font-semibold text-gray-855 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
-                      {q.content}
-                    </p>
+                    {(q.skillType === 2 || q.skillType === 4) ? (
+                      <HighlightableText
+                        text={q.content}
+                        storageKey={`${currentAttempt.id}_q${q.id}`}
+                        className="text-sm font-semibold text-gray-855 dark:text-gray-200 whitespace-pre-wrap leading-relaxed"
+                      />
+                    ) : (
+                      <p className="text-sm font-semibold text-gray-855 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
+                        {q.content}
+                      </p>
+                    )}
 
                     {/* Speaking: always show audio upload regardless of questionType */}
                     {isSpeakingQ && (
@@ -971,8 +1081,8 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                           value={chosenValue}
                           onChange={(e) => handleTextAnswerChange(q.id, e.target.value)}
                           placeholder={t("exams.studentAnswerPlaceholder")}
-                          rows={4}
-                          className="w-full rounded-xl border border-gray-200 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                          rows={16}
+                          className="w-full min-h-[360px] resize-y rounded-xl border border-gray-200 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                         />
                       </div>
                     ) : !isSpeakingQ ? (

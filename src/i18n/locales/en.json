@@ -333,6 +333,11 @@
     "confirmSubmitPrompt": "Are you sure you want to submit?",
     "timesUpAlert": "Time's up! Automatically submitting your exam...",
     "submitSuccess": "Exam submitted successfully!",
+    "btnSaveProgress": "Save",
+    "savingProgress": "Saving...",
+    "saveProgressSuccess": "Progress saved.",
+    "saveProgressError": "Failed to save progress. Please try again.",
+    "lastSavedAt": "Saved at {{time}}",
     "tabHistory": "History",
     "tabResult": "Results",
     "btnBackToExam": "Back to exam page",
@@ -444,7 +449,8 @@
     "formValidationStartBeforeClass": "Exam start time cannot be before the class start date ({{date}}).",
     "formValidationEndAfterClass": "Exam end time cannot be after the class end date ({{date}}).",
     "formValidationStartAfterClassEnd": "Exam start time cannot be after the class end date ({{date}}).",
-    "formValidationEndBeforeStart": "End time cannot be before or equal to start time."
+    "formValidationEndBeforeStart": "End time cannot be before or equal to start time.",
+    "formValidationWindowLessThanDuration": "The exam window (from start to end time) cannot be shorter than the exam duration ({{duration}} minutes)."
   },
   "question": {
     "title": "Question Bank",
@@ -648,6 +654,11 @@
     "passageTranscriptPlaceholder": "Enter audio transcript or listening context notes...",
     "passageReadingContentLabel": "Reading Passage Content",
     "passageReadingContentPlaceholder": "Enter reading passage content here (supports formatted text)...",
+    "passageImageLabel": "Illustration image for the passage (Optional)",
+    "uploadImageBtn": "Upload image (.jpg, .png)",
+    "uploadingImage": "Uploading image...",
+    "imagePreviewLabel": "Preview:",
+    "uploadImageError": "Failed to upload image.",
     "passageWritingPromptLabel": "Writing Task Prompt",
     "passageWritingPromptPlaceholder": "e.g. Write about the advantages and disadvantages of working from home...",
     "passageWritingNote": "💡 Students will answer by typing text directly into the exam screen (Text Essay).",
