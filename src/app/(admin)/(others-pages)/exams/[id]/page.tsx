@@ -413,6 +413,13 @@ export default function ExamDetailPage() {
 
     return (
       <div className="fixed inset-0 z-[999999] bg-[#f0f2f5] dark:bg-gray-950 flex flex-col overflow-hidden animate-in fade-in duration-200">
+        {toastMessage && (
+          <div className={`fixed bottom-5 right-5 z-[9999999] flex items-center gap-3 px-4 py-3 text-white rounded-xl shadow-2xl border animate-bounce ${
+            toastType === "error" ? "bg-rose-600 border-rose-500" : "bg-gray-900 dark:bg-white dark:text-gray-900 border-white/10"
+          }`}>
+            <span className="text-sm font-medium">{toastMessage}</span>
+          </div>
+        )}
         {/* Top Header Bar */}
         <div className="flex items-center justify-between px-5 py-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shrink-0 shadow-sm">
           {/* Left: Back button + Student Selection dropdown */}
@@ -833,51 +840,87 @@ export default function ExamDetailPage() {
                       {t("exams.gradeAndFeedbackTitle")}
                     </h5>
 
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
-                        {t("exams.gradeScore")} (0 - {exam.totalScore || 10}đ)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min={0}
-                        max={exam.totalScore || 10}
-                        value={gradeScoreInput}
-                        onChange={(e) => setGradeScoreInput(e.target.value)}
-                        placeholder="Nhập điểm..."
-                        className="w-full px-3 py-2 text-xs font-bold border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-lg text-gray-800 dark:text-white focus:border-brand-500 focus:outline-hidden"
-                      />
-                    </div>
+                    {(() => {
+                      const maxScore = exam.totalScore || 10;
+                      const parsedScore = parseFloat(gradeScoreInput);
+                      const isScoreEmpty = !gradeScoreInput || gradeScoreInput.trim() === "";
+                      const isScoreNaN = !isScoreEmpty && isNaN(parsedScore);
+                      const isScoreMinError = !isScoreEmpty && !isScoreNaN && parsedScore < 0;
+                      const isScoreMaxError = !isScoreEmpty && !isScoreNaN && parsedScore > maxScore;
+                      const isScoreInvalid = isScoreNaN || isScoreMinError || isScoreMaxError;
 
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
-                        {t("exams.teacherCommentTitle")}
-                      </label>
-                      <textarea
-                        rows={3}
-                        value={gradeCommentInput}
-                        onChange={(e) => setGradeCommentInput(e.target.value)}
-                        placeholder={t("exams.gradeCommentPlaceholder")}
-                        className="w-full px-3 py-2 text-xs border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-lg text-gray-800 dark:text-white focus:border-brand-500 focus:outline-hidden"
-                      />
-                    </div>
+                      let scoreErrorText = "";
+                      if (isScoreNaN) {
+                        scoreErrorText = t("exams.toastScoreInvalid") || "Vui lòng nhập điểm hợp lệ!";
+                      } else if (isScoreMinError) {
+                        scoreErrorText = t("exams.toastScoreMinError") || "Điểm không được nhỏ hơn 0!";
+                      } else if (isScoreMaxError) {
+                        scoreErrorText = t("exams.toastScoreMaxError", { max: maxScore }) || `Điểm không được vượt quá ${maxScore}đ!`;
+                      }
 
-                    <button
-                      type="button"
-                      disabled={isSubmittingGrade}
-                      onClick={() => {
-                        const s = parseFloat(gradeScoreInput);
-                        if (isNaN(s)) {
-                          showToast("Vui lòng nhập điểm hợp lệ!", "error");
-                          return;
-                        }
-                        handleSaveGrade(attempt.id, s, gradeCommentInput);
-                      }}
-                      className="w-full py-2 px-3 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition-colors shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      {isSubmittingGrade ? "Đang lưu..." : t("exams.btnSaveGrade")}
-                    </button>
+                      return (
+                        <>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                              {t("exams.gradeScore")} (0 - {maxScore}đ)
+                            </label>
+                            <input
+                              type="number"
+                              step="0.1"
+                              min={0}
+                              max={maxScore}
+                              value={gradeScoreInput}
+                              onChange={(e) => setGradeScoreInput(e.target.value)}
+                              placeholder="Nhập điểm..."
+                              className={`w-full px-3 py-2 text-xs font-bold border rounded-lg bg-white dark:bg-gray-900 text-gray-800 dark:text-white focus:outline-hidden ${
+                                isScoreInvalid
+                                  ? "border-rose-500 ring-1 ring-rose-500 focus:border-rose-500"
+                                  : "border-gray-200 dark:border-gray-700 focus:border-brand-500"
+                              }`}
+                            />
+                            {isScoreInvalid && (
+                              <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1 mt-1 animate-pulse">
+                                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                {scoreErrorText}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                              {t("exams.teacherCommentTitle")}
+                            </label>
+                            <textarea
+                              rows={3}
+                              value={gradeCommentInput}
+                              onChange={(e) => setGradeCommentInput(e.target.value)}
+                              placeholder={t("exams.gradeCommentPlaceholder")}
+                              className="w-full px-3 py-2 text-xs border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-lg text-gray-800 dark:text-white focus:border-brand-500 focus:outline-hidden"
+                            />
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={isSubmittingGrade || isScoreEmpty || isScoreInvalid}
+                            onClick={() => {
+                              if (isScoreEmpty) {
+                                showToast(t("exams.toastScoreEmpty") || "Vui lòng nhập điểm!", "error");
+                                return;
+                              }
+                              if (isScoreInvalid) {
+                                showToast(scoreErrorText, "error");
+                                return;
+                              }
+                              handleSaveGrade(attempt.id, parsedScore, gradeCommentInput);
+                            }}
+                            className="w-full py-2 px-3 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition-colors shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            {isSubmittingGrade ? "Đang lưu..." : t("exams.btnSaveGrade")}
+                          </button>
+                        </>
+                      );
+                    })()}
                   </div>
 
                   {/* Compact Answer Sheet Table */}
@@ -1032,6 +1075,13 @@ export default function ExamDetailPage() {
 
   return (
     <div className="space-y-6">
+      {toastMessage && (
+        <div className={`fixed bottom-5 right-5 z-[9999999] flex items-center gap-3 px-4 py-3 text-white rounded-xl shadow-2xl border animate-bounce ${
+          toastType === "error" ? "bg-rose-600 border-rose-500" : "bg-gray-900 dark:bg-white dark:text-gray-900 border-white/10"
+        }`}>
+          <span className="text-sm font-medium">{toastMessage}</span>
+        </div>
+      )}
       {/* Top Header Navigation (Breadcrumb + Title) */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-gray-100 dark:border-white/[0.05]">
         <div className="flex items-center gap-3">

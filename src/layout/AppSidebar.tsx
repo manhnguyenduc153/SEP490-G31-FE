@@ -46,7 +46,7 @@ const schoolItems: NavItem[] = [
   {
     icon: <GridIcon />,
     name: "dashboard",
-    path: "/",
+    path: "/dashboard",
   },
   {
     icon: <DocsIcon />,
