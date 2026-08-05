@@ -7,8 +7,9 @@ import { questionApi, QuestionItem } from "@/services/question.api";
 import { questionCategoryApi, QuestionCategoryItem } from "@/services/questionCategory.api";
 import { questionPassageApi, QuestionPassageItem } from "@/services/questionPassage.api";
 import { examApi, ExamSaveDto } from "@/services/exam.api";
+import { authApi } from "@/services/auth.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { ChevronDown, ChevronUp, BookOpen, Volume2, PenTool, Mic } from "lucide-react";
+import { ChevronDown, ChevronUp, BookOpen, Volume2, PenTool, XCircle } from "lucide-react";
 
 import { ENV } from "@/config/env";
 
@@ -85,12 +86,20 @@ export function ExamForm({ id }: ExamFormProps) {
   // Selected class object (for time validation hints)
   const selectedClass = classes.find((c) => c.id === classId) ?? null;
 
+  // Auto-dismiss the error/warning alert, mirroring the success toast used after redirect
+  useEffect(() => {
+    if (!formError) return;
+    const timeout = setTimeout(() => setFormError(null), 3000);
+    return () => clearTimeout(timeout);
+  }, [formError]);
+
   // Load dropdown options
   useEffect(() => {
     async function loadOptions() {
       try {
+        const isTeacher = authApi.getRole().toLowerCase() === "teacher";
         const [clsRes, qRes, catRes, passRes] = await Promise.all([
-          classApi.getAll(1, 1000),
+          isTeacher ? classApi.getTeacherClasses(1, 1000) : classApi.getAll(1, 1000),
           questionApi.getAll(1, 1000),
           questionCategoryApi.getAll(1, 1000),
           questionPassageApi.getAll(1, 1000),
@@ -396,6 +405,19 @@ export function ExamForm({ id }: ExamFormProps) {
         setFormError(t("exams.formValidationEndBeforeStart", { defaultValue: "Thời gian kết thúc không được trước hoặc bằng thời gian bắt đầu." }));
         return;
       }
+
+      if (duration) {
+        const windowMinutes = (examEnd.getTime() - examStart.getTime()) / 60000;
+        if (windowMinutes < duration) {
+          setFormError(
+            t("exams.formValidationWindowLessThanDuration", {
+              duration,
+              defaultValue: `Khoảng thời gian làm bài (từ lúc bắt đầu đến lúc kết thúc) không được ít hơn thời lượng bài kiểm tra (${duration} phút).`,
+            })
+          );
+          return;
+        }
+      }
     }
 
     if (type === 1 && classId !== null) {
@@ -523,7 +545,7 @@ export function ExamForm({ id }: ExamFormProps) {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-12">
+    <div className="w-full space-y-6 pb-12">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -544,8 +566,9 @@ export function ExamForm({ id }: ExamFormProps) {
       </div>
 
       {formError && (
-        <div className="p-4 rounded-xl bg-error-50 border border-error-200 text-error-700 text-sm dark:bg-error-500/10 dark:border-error-500/20 dark:text-error-400">
-          {formError}
+        <div className="fixed bottom-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
+          <XCircle className="w-5 h-5 text-rose-500 shrink-0" />
+          <span className="text-sm font-medium">{formError}</span>
         </div>
       )}
 
@@ -588,7 +611,6 @@ export function ExamForm({ id }: ExamFormProps) {
                   { type: 2, label: t("question.skillReading", { defaultValue: "Reading" }), icon: BookOpen, color: "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800" },
                   { type: 1, label: t("question.skillListening", { defaultValue: "Listening" }), icon: Volume2, color: "text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/30 border-blue-300 dark:border-blue-800" },
                   { type: 4, label: t("question.skillWriting", { defaultValue: "Writing" }), icon: PenTool, color: "text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/30 border-purple-300 dark:border-purple-800" },
-                  { type: 3, label: t("question.skillSpeaking", { defaultValue: "Speaking" }), icon: Mic, color: "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800" },
                   { type: null, label: t("exams.tabAll", { defaultValue: "Tất cả" }), icon: null, color: "text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700" },
                 ].map((s) => {
                   const Icon = s.icon;
@@ -884,7 +906,6 @@ export function ExamForm({ id }: ExamFormProps) {
                   { type: 2, label: t("question.skillReading", { defaultValue: "Reading" }), icon: BookOpen },
                   { type: 1, label: t("question.skillListening", { defaultValue: "Listening" }), icon: Volume2 },
                   { type: 4, label: t("question.skillWriting", { defaultValue: "Writing" }), icon: PenTool },
-                  { type: 3, label: t("question.skillSpeaking", { defaultValue: "Speaking" }), icon: Mic },
                 ].map((s) => {
                   const Icon = s.icon;
                   const isSelected = selectedSkillType === s.type;
