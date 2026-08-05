@@ -345,6 +345,7 @@
     "answersHiddenWarning": "The teacher has disabled viewing correct/incorrect answers for this exam.",
     "studentSelectYourAnswer": "Your answer",
     "studentAnswerPlaceholder": "Enter your answer here...",
+    "wordCount": "Word count",
     "singleSelectLabel": "Select one answer",
     "multipleSelectLabel": "Select multiple answers",
     "difficultyLevel": "Difficulty",

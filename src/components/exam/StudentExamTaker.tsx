@@ -33,6 +33,17 @@ const getFileUrl = (url?: string) => {
   return `${ENV.API_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
 };
 
+// Writing-task questions often reuse the passage prompt as the question content (e.g. "Task 1"),
+// so once the passage text is already shown, showing it again as the question content is redundant.
+const normalizeText = (s?: string | null) => (s || "").replace(/\s+/g, " ").trim();
+const isSameAsPassageContent = (questionContent?: string | null, passageContent?: string | null) =>
+  !!passageContent && normalizeText(questionContent) === normalizeText(passageContent);
+
+const countWords = (text?: string | null) => {
+  const trimmed = (text || "").trim();
+  return trimmed === "" ? 0 : trimmed.split(/\s+/).length;
+};
+
 interface StudentExamTakerProps {
   examId: number;
   onBack: () => void;
@@ -62,18 +73,25 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
   const [uploadingAudioQId, setUploadingAudioQId] = useState<number | null>(null);
   const [viewState, setViewState] = useState<"ready" | "taking" | "result">("ready");
 
-  const checkIfPendingGrading = (att?: ExamAttemptDto | null) => {
-    if (!att || !exam) return false;
+  // True if the exam contains manually-graded content (Writing/Speaking/Essay) — for these,
+  // per-question "correct/incorrect" and the aggregate correct/incorrect/unanswered stats never
+  // apply, whether or not the attempt has been graded yet.
+  const isManualGradedExam = () => {
+    if (!exam) return false;
     const typeStr = String(exam.type || "").toLowerCase();
     const titleStr = String(exam.title || "").toLowerCase();
-    const isManualGradedExam =
+    return (
       typeStr.includes("speaking") ||
       typeStr.includes("writing") ||
       titleStr.includes("speaking") ||
       titleStr.includes("writing") ||
-      exam.questions?.some((q) => q.skillType === 3 || q.skillType === 4 || q.questionType === 3);
+      exam.questions?.some((q) => q.skillType === 3 || q.skillType === 4 || q.questionType === 3)
+    );
+  };
 
-    return isManualGradedExam && (att.score === null || att.score === undefined || att.score === 0);
+  const checkIfPendingGrading = (att?: ExamAttemptDto | null) => {
+    if (!att || !exam) return false;
+    return isManualGradedExam() && (att.score === null || att.score === undefined || att.score === 0);
   };
   
   // Right side panel tab for Results view
@@ -846,7 +864,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                             )}
                           </div>
 
-                          {(q.skillType === 2 || q.skillType === 4) ? (
+                          {isSameAsPassageContent(q.content, passage.content) ? null : (q.skillType === 2 || q.skillType === 4) ? (
                             <HighlightableText
                               text={q.content}
                               storageKey={`${currentAttempt.id}_q${q.id}`}
@@ -929,6 +947,9 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                                 rows={16}
                                 className="w-full min-h-[360px] resize-y rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-900 dark:text-white"
                               />
+                              <div className="text-right text-xs font-semibold text-gray-400 dark:text-gray-500">
+                                {t("exams.wordCount")}: {countWords(chosenValue)}
+                              </div>
                             </div>
                           ) : !isSpeakingQ ? (
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
@@ -1084,6 +1105,9 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                           rows={16}
                           className="w-full min-h-[360px] resize-y rounded-xl border border-gray-200 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
                         />
+                        <div className="text-right text-xs font-semibold text-gray-400 dark:text-gray-500">
+                          {t("exams.wordCount")}: {countWords(chosenValue)}
+                        </div>
                       </div>
                     ) : !isSpeakingQ ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
@@ -1332,9 +1356,11 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                           )}
                         </div>
 
-                        <p className="text-sm font-bold text-gray-855 dark:text-gray-250 leading-relaxed whitespace-pre-wrap">
-                          {q.content}
-                        </p>
+                        {!isSameAsPassageContent(q.content, passage.content) && (
+                          <p className="text-sm font-bold text-gray-855 dark:text-gray-250 leading-relaxed whitespace-pre-wrap">
+                            {q.content}
+                          </p>
+                        )}
 
                         {studentAnswer && (studentAnswer.startsWith("/uploads") || studentAnswer.startsWith("http") || studentAnswer.startsWith("data:") || studentAnswer.includes(".mp3") || studentAnswer.includes(".wav") || studentAnswer.includes(".m4a")) ? (
                           <div className="p-3 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-900/40 space-y-2 mt-3">
@@ -1439,6 +1465,11 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                     {!studentAnswer ? (
                       <span className="text-[9px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-bold uppercase">
                         {t("exams.attemptUnanswered")}
+                      </span>
+                    ) : (checkIfPendingGrading(attempt) || q.questionType === 3 || q.skillType === 3 || q.skillType === 4) ? (
+                      <span className="inline-flex items-center gap-1 text-[9px] px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400 font-bold uppercase border border-amber-200 dark:border-amber-900/40">
+                        <Clock className="w-3 h-3 text-amber-500" />
+                        {t("exams.statusPendingGrade")}
                       </span>
                     ) : isCorrect ? (
                       <span className="inline-flex items-center gap-1 text-[9px] px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-bold uppercase">
@@ -1586,7 +1617,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                         {t("exams.statusPendingGrade")}
                       </span>
                     </div>
-                  ) : (
+                  ) : isManualGradedExam() ? null : (
                     <>
                       <div className="flex justify-between items-center text-xs font-semibold">
                         <span className="text-gray-500 flex items-center gap-1.5">

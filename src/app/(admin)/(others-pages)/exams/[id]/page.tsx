@@ -29,6 +29,12 @@ const getSkillBadgeClass = (skillType?: number) => {
   }
 };
 
+// Writing-task questions often reuse the passage prompt as the question content (e.g. "Task 1"),
+// so once the passage text is already shown, showing it again as the question content is redundant.
+const normalizeText = (s?: string | null) => (s || "").replace(/\s+/g, " ").trim();
+const isSameAsPassageContent = (questionContent?: string | null, passageContent?: string | null) =>
+  !!passageContent && normalizeText(questionContent) === normalizeText(passageContent);
+
 const getSkillName = (skillType?: number, t?: any) => {
   switch (skillType) {
     case 1: return t ? t("exams.skillListening") : "Listening";
@@ -315,6 +321,11 @@ export default function ExamDetailPage() {
       <div className="space-y-6">
         {toastMessage && (
           <div className="fixed bottom-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
+            {toastType === "success" ? (
+              <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" />
+            ) : (
+              <XCircle className="w-5 h-5 text-rose-500 shrink-0" />
+            )}
             <span className="text-sm font-medium">{toastMessage}</span>
           </div>
         )}
@@ -414,9 +425,12 @@ export default function ExamDetailPage() {
     return (
       <div className="fixed inset-0 z-[999999] bg-[#f0f2f5] dark:bg-gray-950 flex flex-col overflow-hidden animate-in fade-in duration-200">
         {toastMessage && (
-          <div className={`fixed bottom-5 right-5 z-[9999999] flex items-center gap-3 px-4 py-3 text-white rounded-xl shadow-2xl border animate-bounce ${
-            toastType === "error" ? "bg-rose-600 border-rose-500" : "bg-gray-900 dark:bg-white dark:text-gray-900 border-white/10"
-          }`}>
+          <div className="fixed bottom-5 right-5 z-[9999999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
+            {toastType === "success" ? (
+              <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" />
+            ) : (
+              <XCircle className="w-5 h-5 text-rose-500 shrink-0" />
+            )}
             <span className="text-sm font-medium">{toastMessage}</span>
           </div>
         )}
@@ -1076,9 +1090,12 @@ export default function ExamDetailPage() {
   return (
     <div className="space-y-6">
       {toastMessage && (
-        <div className={`fixed bottom-5 right-5 z-[9999999] flex items-center gap-3 px-4 py-3 text-white rounded-xl shadow-2xl border animate-bounce ${
-          toastType === "error" ? "bg-rose-600 border-rose-500" : "bg-gray-900 dark:bg-white dark:text-gray-900 border-white/10"
-        }`}>
+        <div className="fixed bottom-5 right-5 z-[9999999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
+          {toastType === "success" ? (
+            <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" />
+          ) : (
+            <XCircle className="w-5 h-5 text-rose-500 shrink-0" />
+          )}
           <span className="text-sm font-medium">{toastMessage}</span>
         </div>
       )}
@@ -1248,6 +1265,12 @@ export default function ExamDetailPage() {
                       <div className="space-y-4 pt-2">
                         {groupQs.map((q) => {
                           const globalIdx = (exam.questions || []).findIndex((x) => x.id === q.id);
+                          // Writing-task questions typically just repeat the passage prompt verbatim
+                          // (no separate question text, no answer options) — showing a near-empty
+                          // "Câu X" card under the passage adds nothing, so skip it entirely.
+                          if (isSameAsPassageContent(q.content, passage.content) && !q.mediaUrl && (!q.questionAnswers || q.questionAnswers.length === 0)) {
+                            return null;
+                          }
                           return (
                             <div key={q.id} className="p-4 bg-gray-50/60 dark:bg-gray-950/30 rounded-xl border border-gray-200/80 dark:border-gray-800 space-y-3">
                               <div className="flex items-center justify-between">
@@ -1264,9 +1287,11 @@ export default function ExamDetailPage() {
                                 </div>
                               </div>
 
-                              <p className="text-sm font-semibold text-gray-900 dark:text-white leading-relaxed">
-                                {q.content}
-                              </p>
+                              {!isSameAsPassageContent(q.content, passage.content) && (
+                                <p className="text-sm font-semibold text-gray-900 dark:text-white leading-relaxed">
+                                  {q.content}
+                                </p>
+                              )}
 
                               {/* Question Audio File (if mediaUrl is present on question) */}
                               {q.mediaUrl && (

@@ -71,6 +71,10 @@ export function ExamForm({ id }: ExamFormProps) {
   const [loadingData, setLoadingData] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  // Synchronous re-entrancy guard: `isSubmitting` state only disables the button after React
+  // re-renders, leaving a window for a fast double-click to fire handleSubmit twice. A ref is
+  // updated immediately, closing that window.
+  const isSubmittingRef = React.useRef(false);
 
   // Helper to format date for datetime-local input
   const formatDateTimeLocal = (dateStr?: string | null) => {
@@ -321,6 +325,16 @@ export function ExamForm({ id }: ExamFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    try {
+      await submitExamForm();
+    } finally {
+      isSubmittingRef.current = false;
+    }
+  };
+
+  const submitExamForm = async () => {
     if (!title.trim()) return;
 
     // ── Validation ──────────────────────────────────────────────────────────
