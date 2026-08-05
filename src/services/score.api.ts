@@ -98,6 +98,28 @@ const normalizeScore = (score?: number | null, total?: number | null) => {
   return Math.max(0, Math.min(10, (Number(score) / Number(total)) * 10));
 };
 
+type ExamSkillCode = "listening" | "reading" | "speaking" | "writing";
+
+const examSkillCodeByType: Record<number, ExamSkillCode> = {
+  1: "listening",
+  2: "reading",
+  3: "speaking",
+  4: "writing",
+};
+
+const getExamSkillCode = (questions?: Array<{ skillType?: number | null }>): ExamSkillCode | null => {
+  const skillCodes = new Set(
+    (questions || [])
+      .map((question) => examSkillCodeByType[Number(question.skillType)])
+      .filter((skillCode): skillCode is ExamSkillCode => Boolean(skillCode))
+  );
+
+  return skillCodes.size === 1 ? Array.from(skillCodes)[0] : null;
+};
+
+const averageScores = (scores: number[]) =>
+  scores.length ? scores.reduce((sum, value) => sum + value, 0) / scores.length : 0;
+
 export const studentGradeApi = {
   getSettings(classId: number): Promise<ApiResponse<ClassGradeSettingsDto>> {
     return api.get<ClassGradeSettingsDto>(`/api/StudentGrade/class/${classId}/settings`);
@@ -166,10 +188,16 @@ export async function buildClassScoreRows(classId: number, overrides: ScoreOverr
 
   const examAttemptPairs = await Promise.all(
     exams.map(async (exam) => {
-      const res = await examApi.getAttemptsByExam(exam.id).catch(() => null);
+      const [detailRes, attemptsRes] = await Promise.all([
+        examApi.getById(exam.id).catch(() => null),
+        examApi.getAttemptsByExam(exam.id).catch(() => null),
+      ]);
+      const detailedExam = detailRes?.success && detailRes.data ? detailRes.data : exam;
+
       return {
-        exam,
-        attempts: res?.success ? res.data || [] : [],
+        exam: detailedExam,
+        skillCode: getExamSkillCode(detailedExam.questions),
+        attempts: attemptsRes?.success ? attemptsRes.data || [] : [],
       };
     })
   );
@@ -177,9 +205,9 @@ export async function buildClassScoreRows(classId: number, overrides: ScoreOverr
   return students.map((sc) => {
     const studentId = sc.student?.id || sc.studentId;
     const attendanceRow = attendanceRows.find((row) => row.studentId === studentId);
-    const takenAttendances = attendanceRow?.attendances.filter((item) => item.status !== -1) || [];
-    const attendedCount = takenAttendances.filter((item) => item.status !== 0).length;
-    const attendanceRaw = takenAttendances.length ? (attendedCount / takenAttendances.length) * 10 : 0;
+    const classAttendances = attendanceRow?.attendances || [];
+    const attendedCount = classAttendances.filter((item) => item.status > 0).length;
+    const attendanceRaw = classAttendances.length ? (attendedCount / classAttendances.length) * 10 : 0;
 
     const homeworkScores = homeworkSubmissionPairs.map(({ homework, submissions }) => {
       const submission = submissions.find((item) => item.studentId === studentId);
@@ -189,27 +217,49 @@ export async function buildClassScoreRows(classId: number, overrides: ScoreOverr
       ? homeworkScores.reduce((sum, value) => sum + value, 0) / homeworkScores.length
       : 0;
 
-    const examScores = examAttemptPairs.map(({ exam, attempts }) => {
+    const examScoresBySkill: Record<ExamSkillCode, number[]> = {
+      listening: [],
+      reading: [],
+      speaking: [],
+      writing: [],
+    };
+
+    const examScores = examAttemptPairs.map(({ exam, skillCode, attempts }) => {
       const studentAttempts = attempts.filter((item) => item.studentId === studentId);
       const bestScore = studentAttempts.reduce(
         (max, item) => Math.max(max, normalizeScore(item.score, exam.totalScore || 10)),
         0
       );
+
+      if (skillCode) {
+        examScoresBySkill[skillCode].push(bestScore);
+      }
+
       return bestScore;
     });
-    const examRaw = examScores.length
-      ? examScores.reduce((sum, value) => sum + value, 0) / examScores.length
-      : 0;
+    const examRaw = averageScores(examScores);
+    const listeningRaw = averageScores(examScoresBySkill.listening);
+    const readingRaw = averageScores(examScoresBySkill.reading);
+    const speakingRaw = averageScores(examScoresBySkill.speaking);
+    const writingRaw = averageScores(examScoresBySkill.writing);
 
     const studentOverrides = overrides[studentId] || {};
     const rawComponentScores = {
       attendance: round1(attendanceRaw),
       homework: round1(homeworkRaw),
+      listening: round1(listeningRaw),
+      reading: round1(readingRaw),
+      speaking: round1(speakingRaw),
+      writing: round1(writingRaw),
       exam: round1(examRaw),
     };
     const componentScores: Record<string, number> = {
       attendance: round1(studentOverrides.attendance ?? attendanceRaw),
       homework: round1(studentOverrides.homework ?? homeworkRaw),
+      listening: round1(studentOverrides.listening ?? listeningRaw),
+      reading: round1(studentOverrides.reading ?? readingRaw),
+      speaking: round1(studentOverrides.speaking ?? speakingRaw),
+      writing: round1(studentOverrides.writing ?? writingRaw),
       exam: round1(studentOverrides.exam ?? examRaw),
     };
 
@@ -238,7 +288,7 @@ export async function buildClassScoreRows(classId: number, overrides: ScoreOverr
       rawAttendanceScore: round1(attendanceRaw),
       rawHomeworkScore: round1(homeworkRaw),
       rawExamScore: round1(examRaw),
-      attendanceSummary: `${attendedCount}/${takenAttendances.length || 0} buổi`,
+      attendanceSummary: `${attendedCount}/${classAttendances.length || 0} buổi`,
       homeworkSummary: `${homeworkSubmissionPairs.length} bài`,
       examSummary: `${examAttemptPairs.length} bài`,
     } satisfies ScoreRow;
