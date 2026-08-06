@@ -58,6 +58,18 @@ const isManualGradedExam = (examData?: ExamItem | null) => {
   );
 };
 
+const isWritingExam = (examData?: ExamItem | null, passages?: QuestionPassageItem[]) => {
+  if (!examData) return false;
+  const titleStr = String(examData.title || "").toLowerCase();
+  if (titleStr.includes("writing") || titleStr.includes("viết")) return true;
+  if (examData.questions?.some((q: any) => q.skillType === 4 || q.questionType === 3)) return true;
+  if (passages && examData.questions) {
+    const writingPassageIds = new Set(passages.filter((p: any) => p.skillType === 4).map((p: any) => p.id));
+    if (examData.questions.some((q: any) => writingPassageIds.has(q.passageId))) return true;
+  }
+  return false;
+};
+
 const checkIfPendingGrading = (att?: ExamAttemptDto | null, examData?: ExamItem | null) => {
   if (!att || !examData) return false;
   return isManualGradedExam(examData) && (att.score === null || att.score === undefined || att.score === 0);
@@ -937,59 +949,61 @@ export default function ExamDetailPage() {
                     })()}
                   </div>
 
-                  {/* Compact Answer Sheet Table */}
-                  <div className="space-y-2">
-                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">{t("exams.answerSheet")}</span>
-                    <div className="border border-gray-150 dark:border-gray-800 rounded-xl overflow-hidden max-h-[220px] overflow-y-auto custom-scrollbar">
-                      <table className="w-full text-[11px] text-left">
-                        <thead className="bg-gray-50 dark:bg-white/[0.02] border-b border-gray-100 dark:border-gray-800 text-[10px] text-gray-400 font-bold uppercase">
-                          <tr>
-                            <th className="px-3 py-2 text-center w-12">{t("exams.colQuestionNo")}</th>
-                            <th className="px-3 py-2 text-center">{t("exams.colSelected")}</th>
-                            <th className="px-3 py-2 text-center">{t("exams.colCorrect")}</th>
-                            <th className="px-3 py-2 text-center w-14">{t("exams.colPoints")}</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                          {questions.map((q, idx) => {
-                            const ans = attempt.answers?.find((a: any) => a.questionId === q.id);
-                            const studentAns = ans?.answerContent || "";
-                            const isAnsCorrect = ans?.isCorrect;
-                            const isAudioAns = studentAns && (studentAns.startsWith("/uploads") || studentAns.startsWith("http") || studentAns.startsWith("data:") || studentAns.includes(".mp3") || studentAns.includes(".wav") || studentAns.includes(".m4a"));
-                            const studentLabel = isAudioAns ? "🔊 File ghi âm" : getOptionLabel(q, studentAns);
-                            const correctLabel = getCorrectOptionLabel(q);
+                  {/* Compact Answer Sheet Table (Hidden for Writing exams) */}
+                  {!isWritingExam(exam, questionPassages) && (
+                    <div className="space-y-2">
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">{t("exams.answerSheet")}</span>
+                      <div className="border border-gray-150 dark:border-gray-800 rounded-xl overflow-hidden max-h-[220px] overflow-y-auto custom-scrollbar">
+                        <table className="w-full text-[11px] text-left">
+                          <thead className="bg-gray-50 dark:bg-white/[0.02] border-b border-gray-100 dark:border-gray-800 text-[10px] text-gray-400 font-bold uppercase">
+                            <tr>
+                              <th className="px-3 py-2 text-center w-12">{t("exams.colQuestionNo")}</th>
+                              <th className="px-3 py-2 text-center">{t("exams.colSelected")}</th>
+                              <th className="px-3 py-2 text-center">{t("exams.colCorrect")}</th>
+                              <th className="px-3 py-2 text-center w-14">{t("exams.colPoints")}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                            {questions.map((q, idx) => {
+                              const ans = attempt.answers?.find((a: any) => a.questionId === q.id);
+                              const studentAns = ans?.answerContent || "";
+                              const isAnsCorrect = ans?.isCorrect;
+                              const isAudioAns = studentAns && (studentAns.startsWith("/uploads") || studentAns.startsWith("http") || studentAns.startsWith("data:") || studentAns.includes(".mp3") || studentAns.includes(".wav") || studentAns.includes(".m4a"));
+                              const studentLabel = isAudioAns ? "🔊 File ghi âm" : getOptionLabel(q, studentAns);
+                              const correctLabel = getCorrectOptionLabel(q);
 
-                            return (
-                              <tr key={q.id} className="hover:bg-gray-50/50 dark:hover:bg-white/[0.01]">
-                                <td className="px-3 py-2 text-center font-bold text-gray-500">{idx + 1}</td>
-                                <td className="px-3 py-2 text-center">
-                                  {isAudioAns ? (
-                                    <div className="flex flex-col items-center gap-1 py-0.5">
-                                      <audio controls src={getFileUrl(studentAns)} className="h-7 w-36 rounded" />
-                                    </div>
-                                  ) : (
-                                    <span className={`px-1.5 py-0.5 rounded-md font-bold ${
-                                      !studentAns
-                                        ? "text-gray-400"
-                                        : isAnsCorrect
-                                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
-                                        : "bg-red-50 text-red-750 dark:bg-red-500/10 dark:text-red-400"
-                                    }`}>
-                                      {studentLabel}
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="px-3 py-2 text-center font-bold text-emerald-600 dark:text-emerald-400">{correctLabel}</td>
-                                <td className="px-3 py-2 text-center font-semibold text-gray-700 dark:text-gray-300">
-                                  {isAnsCorrect ? (q.point || 1) : 0}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                              return (
+                                <tr key={q.id} className="hover:bg-gray-50/50 dark:hover:bg-white/[0.01]">
+                                  <td className="px-3 py-2 text-center font-bold text-gray-500">{idx + 1}</td>
+                                  <td className="px-3 py-2 text-center">
+                                    {isAudioAns ? (
+                                      <div className="flex flex-col items-center gap-1 py-0.5">
+                                        <audio controls src={getFileUrl(studentAns)} className="h-7 w-36 rounded" />
+                                      </div>
+                                    ) : (
+                                      <span className={`px-1.5 py-0.5 rounded-md font-bold ${
+                                        !studentAns
+                                          ? "text-gray-400"
+                                          : isAnsCorrect
+                                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+                                          : "bg-red-50 text-red-750 dark:bg-red-500/10 dark:text-red-400"
+                                      }`}>
+                                        {studentLabel}
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2 text-center font-bold text-emerald-600 dark:text-emerald-400">{correctLabel}</td>
+                                  <td className="px-3 py-2 text-center font-semibold text-gray-700 dark:text-gray-300">
+                                    {isAnsCorrect ? (q.point || 1) : 0}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               ) : (
                 // History tab contents (Timeline)
