@@ -7,7 +7,7 @@ import { questionPassageApi, QuestionPassageSaveDto } from "@/services/questionP
 import { questionApi, QuestionSaveDto, QuestionAnswerDto } from "@/services/question.api";
 import { CodeHelper } from "@/helpers/CodeHelper";
 import { useTranslation } from "react-i18next";
-import { Plus, Trash2, Volume2, BookOpen, PenTool, Mic, Save, ArrowLeft, HelpCircle, CheckSquare, Upload, Image as ImageIcon } from "lucide-react";
+import { Plus, Trash2, Volume2, BookOpen, PenTool, Mic, Save, ArrowLeft, HelpCircle, CheckSquare, Upload, Image as ImageIcon, XCircle } from "lucide-react";
 
 import { ENV } from "@/config/env";
 
@@ -68,6 +68,13 @@ export function QuestionForm({ id }: QuestionFormProps) {
   // re-renders, leaving a window for a fast double-click to fire handleSubmit twice. A ref is
   // updated immediately, closing that window.
   const isSubmittingRef = React.useRef(false);
+
+  // Auto-dismiss the error toast, mirroring ExamForm's behavior.
+  useEffect(() => {
+    if (!formError) return;
+    const timeout = setTimeout(() => setFormError(null), 3000);
+    return () => clearTimeout(timeout);
+  }, [formError]);
 
   // ── Upload Audio Handler ──
   const handleAudioFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -477,8 +484,9 @@ export function QuestionForm({ id }: QuestionFormProps) {
       </div>
 
       {formError && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 dark:bg-rose-950/30 dark:border-rose-900 dark:text-rose-400 text-sm font-medium">
-          ⚠️ {formError}
+        <div className="fixed bottom-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
+          <XCircle className="w-5 h-5 text-rose-500 shrink-0" />
+          <span className="text-sm font-medium">{formError}</span>
         </div>
       )}
 

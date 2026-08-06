@@ -63,7 +63,10 @@ export function ExamForm({ id }: ExamFormProps) {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [categories, setCategories] = useState<QuestionCategoryItem[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
-  const [selectedSkillType, setSelectedSkillType] = useState<number | null>(2); // Default to Reading (2)
+  // The exam's declared skill (top "KỸ NĂNG BÀI THI" selector) — every exam must pick exactly
+  // one skill now (no "Tất cả"/mixed option), and the question picker is always locked to it so
+  // mismatched-skill questions can neither be shown nor stay selected.
+  const [examSkillType, setExamSkillType] = useState<number>(2); // Default to Reading (2)
   const [questionPassages, setQuestionPassages] = useState<QuestionPassageItem[]>([]);
   const [questions, setQuestions] = useState<QuestionItem[]>([]);
   const [expandedPassageIds, setExpandedPassageIds] = useState<number[]>([]);
@@ -214,7 +217,7 @@ export function ExamForm({ id }: ExamFormProps) {
       if (selectedCategoryId !== null && p.categoryId !== selectedCategoryId) {
         return false;
       }
-      if (selectedSkillType !== null && p.skillType !== selectedSkillType) {
+      if (p.skillType !== examSkillType) {
         return false;
       }
       if (questionSearch.trim()) {
@@ -230,7 +233,7 @@ export function ExamForm({ id }: ExamFormProps) {
       }
       return true;
     });
-  }, [questionPassages, selectedCategoryId, selectedSkillType, questionSearch, passageChildQuestionsMap, selectedClass, categories]);
+  }, [questionPassages, selectedCategoryId, examSkillType, questionSearch, passageChildQuestionsMap, selectedClass, categories]);
 
   // All question IDs mapped to passages
   const passageQuestionIds = useMemo(() => {
@@ -255,7 +258,7 @@ export function ExamForm({ id }: ExamFormProps) {
       }
 
       if (selectedCategoryId !== null && q.categoryId !== selectedCategoryId) return false;
-      if (selectedSkillType !== null && q.skillType !== selectedSkillType) return false;
+      if (q.skillType !== examSkillType) return false;
       if (questionSearch.trim()) {
         const term = questionSearch.toLowerCase();
         return (
@@ -266,7 +269,21 @@ export function ExamForm({ id }: ExamFormProps) {
       }
       return true;
     });
-  }, [questions, passageQuestionIds, selectedCategoryId, selectedSkillType, questionSearch, selectedClass, categories]);
+  }, [questions, passageQuestionIds, selectedCategoryId, examSkillType, questionSearch, selectedClass, categories]);
+
+  // Resolves the effective skill of a question for pruning purposes — passage-child questions
+  // are classified by their parent passage's skill (mirrors the grouping shown in the picker).
+  const getQuestionSkillType = (questionId: number): number | undefined => {
+    const q = questions.find((x) => x.id === questionId);
+    if (!q) return undefined;
+    if (q.passageId) {
+      const passage = questionPassages.find((p) => p.id === q.passageId);
+      if (passage && passage.skillType !== undefined && passage.skillType !== null) {
+        return passage.skillType;
+      }
+    }
+    return q.skillType;
+  };
 
   const handleToggleQuestion = (questionId: number) => {
     setSelectedQuestionIds((prev) =>
@@ -620,22 +637,25 @@ export function ExamForm({ id }: ExamFormProps) {
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                 {t("exams.formExamSkillLabel", { defaultValue: "Kỹ năng bài thi (Exam Skill)" })} <span className="text-error-500">*</span>
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {[
                   { type: 2, label: t("question.skillReading", { defaultValue: "Reading" }), icon: BookOpen, color: "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800" },
                   { type: 1, label: t("question.skillListening", { defaultValue: "Listening" }), icon: Volume2, color: "text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/30 border-blue-300 dark:border-blue-800" },
                   { type: 4, label: t("question.skillWriting", { defaultValue: "Writing" }), icon: PenTool, color: "text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/30 border-purple-300 dark:border-purple-800" },
-                  { type: null, label: t("exams.tabAll", { defaultValue: "Tất cả" }), icon: null, color: "text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700" },
                 ].map((s) => {
                   const Icon = s.icon;
-                  const isSelected = selectedSkillType === s.type;
+                  const isSelected = examSkillType === s.type;
                   return (
                     <button
-                      key={s.type ?? "all"}
+                      key={s.type}
                       type="button"
                       onClick={() => {
-                        if (selectedSkillType !== s.type) {
-                          setSelectedSkillType(s.type);
+                        if (examSkillType !== s.type) {
+                          setExamSkillType(s.type);
+                          // Switching skill locks the picker to it — drop any already-selected
+                          // questions from other skills so they don't get silently submitted
+                          // while hidden from view.
+                          setSelectedQuestionIds((prev) => prev.filter((qid) => getQuestionSkillType(qid) === s.type));
                         }
                       }}
                       className={`px-2.5 py-2 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
@@ -913,33 +933,6 @@ export function ExamForm({ id }: ExamFormProps) {
                 </select>
               </div>
 
-              {/* Skill Tabs */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 custom-scrollbar">
-                {[
-                  { type: null, label: t("exams.tabAll", { defaultValue: "Tất cả" }) },
-                  { type: 2, label: t("question.skillReading", { defaultValue: "Reading" }), icon: BookOpen },
-                  { type: 1, label: t("question.skillListening", { defaultValue: "Listening" }), icon: Volume2 },
-                  { type: 4, label: t("question.skillWriting", { defaultValue: "Writing" }), icon: PenTool },
-                ].map((s) => {
-                  const Icon = s.icon;
-                  const isSelected = selectedSkillType === s.type;
-                  return (
-                    <button
-                      key={s.type ?? "all"}
-                      type="button"
-                      onClick={() => setSelectedSkillType(s.type)}
-                      className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-                        isSelected
-                          ? "bg-brand-500 text-white shadow-xs"
-                          : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                      }`}
-                    >
-                      {Icon && <Icon className="w-3.5 h-3.5" />}
-                      <span>{s.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
 
               {/* Text Search */}
               <input
