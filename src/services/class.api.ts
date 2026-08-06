@@ -109,6 +109,8 @@ export interface AutoScheduleConstraintDto {
   timePreferences: string[];
   allowConsecutiveDays: boolean;
   allowWeekend: boolean;
+  teacherIds?: number[];
+  roomIds?: number[];
 }
 
 export const classApi = {

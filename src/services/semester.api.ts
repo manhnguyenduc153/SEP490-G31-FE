@@ -82,6 +82,8 @@ export interface AutoScheduleSemesterRequestDto {
     timePreferences: string[];
     allowConsecutiveDays: boolean;
     allowWeekend: boolean;
+    teacherIds?: number[];
+    roomIds?: number[];
   };
 }
 

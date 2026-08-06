@@ -76,4 +76,36 @@ export const commonApi = {
       `${ENDPOINTS.COMMON.QUESTION_CATEGORIES}?${query}`
     );
   },
+
+  async getTeachers(
+    pageIndex: number,
+    pageSize: number,
+    keyword: string = "",
+    teacherStatus?: number | null
+  ): Promise<ApiResponse<any>> {
+    const params: Record<string, string> = {
+      pageIndex: String(pageIndex),
+      pageSize: String(pageSize),
+    };
+    if (keyword) params.keyword = keyword;
+    if (teacherStatus !== undefined && teacherStatus !== null) params.teacherStatus = String(teacherStatus);
+    const query = new URLSearchParams(params).toString();
+    return api.get<any>(`${ENDPOINTS.COMMON.TEACHERS}?${query}`);
+  },
+
+  async getRooms(
+    pageIndex: number,
+    pageSize: number,
+    keyword: string = "",
+    status?: boolean | null
+  ): Promise<ApiResponse<any>> {
+    const params: Record<string, string> = {
+      pageIndex: String(pageIndex),
+      pageSize: String(pageSize),
+    };
+    if (keyword) params.keyword = keyword;
+    if (status !== undefined && status !== null) params.status = String(status);
+    const query = new URLSearchParams(params).toString();
+    return api.get<any>(`${ENDPOINTS.COMMON.ROOMS}?${query}`);
+  },
 };
