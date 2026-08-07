@@ -157,7 +157,7 @@ export default function ClassDetailGradesTab({
       return {
         ...row,
         componentScores: nextComponentScores,
-        attendanceScore: nextComponentScores.attendance ?? row.attendanceScore,
+        componentScores: nextComponentScores,
         homeworkScore: nextComponentScores.homework ?? row.homeworkScore,
         examScore: nextComponentScores.exam ?? row.examScore,
       };
