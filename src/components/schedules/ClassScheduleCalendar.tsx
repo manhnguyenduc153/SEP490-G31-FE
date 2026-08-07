@@ -10,7 +10,7 @@ import { useModal } from "@/hooks/useModal";
 import { Modal } from "@/components/ui/modal";
 import { classApi, ClassItem, ClassScheduleItem, ClassSaveDto } from "@/services/class.api";
 import { semesterApi, SemesterItem } from "@/services/semester.api";
-import { ChevronLeft, ChevronRight, CalendarClock, Save, X, Loader2, AlertTriangle, Cpu, Check, AlertCircle, Edit, DoorOpen } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarClock, Save, X, Loader2, AlertTriangle, Cpu, Check, AlertCircle, Edit, DoorOpen, RotateCcw } from "lucide-react";
 import { roomApi, RoomItem } from "@/services/room.api";
 import { teacherApi } from "@/services/teacher.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
@@ -1447,6 +1447,7 @@ export default function ClassScheduleCalendar() {
         setDraftClasses(res.data);
         setDraftSemesterId(params.semesterId);
         localStorage.setItem("semester_draft_classes", JSON.stringify(res.data));
+        localStorage.setItem("semester_original_draft_classes", JSON.stringify(res.data));
         localStorage.setItem("semester_draft_id", String(params.semesterId));
         const newDraftEvents = res.data.flatMap((cls) => mapDraftClass(cls));
         setDraftEvents(newDraftEvents);
@@ -1500,6 +1501,7 @@ export default function ClassScheduleCalendar() {
         setDraftEvents([]);
         setDraftSemesterId(null);
         localStorage.removeItem("semester_draft_classes");
+        localStorage.removeItem("semester_original_draft_classes");
         localStorage.removeItem("semester_draft_id");
         showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: "Lưu chính thức thời khóa biểu thành công!" }) : "Lưu chính thức thời khóa biểu thành công!", "success");
         // Reload calendar from DB
@@ -1526,8 +1528,31 @@ export default function ClassScheduleCalendar() {
     setDraftEvents([]);
     setDraftSemesterId(null);
     localStorage.removeItem("semester_draft_classes");
+    localStorage.removeItem("semester_original_draft_classes");
     localStorage.removeItem("semester_draft_id");
     showToast(t("classSchedules.toastCancelDraftSuccess", { defaultValue: "Đã hủy bản nháp lịch học hiện tại." }), "success");
+  };
+
+  const handleRevertDraft = () => {
+    const originalClasses = localStorage.getItem("semester_original_draft_classes");
+    if (originalClasses) {
+      try {
+        const parsedClasses = JSON.parse(originalClasses);
+        setDraftClasses(parsedClasses);
+        localStorage.setItem("semester_draft_classes", originalClasses);
+        const newDraftEvents = parsedClasses.flatMap((cls: ClassItem) => mapDraftClass(cls));
+        setDraftEvents(newDraftEvents);
+        showToast(t("classSchedules.toastRevertDraftSuccess", { defaultValue: "Đã khôi phục về bản lịch gốc ban đầu!" }), "success");
+        if (parsedClasses.length > 0 && parsedClasses[0].startDate) {
+          setWeekStart(getWeekStart(new Date(parsedClasses[0].startDate)));
+        }
+      } catch (e) {
+        console.error("Failed to parse original draft classes", e);
+        showToast("Lỗi khi giải nén lịch gốc.", "error");
+      }
+    } else {
+      showToast("Không tìm thấy dữ liệu bản lịch gốc để khôi phục.", "error");
+    }
   };
 
   // ── Month view ──────────────────────────────────────────────────────────────
@@ -1656,6 +1681,13 @@ export default function ClassScheduleCalendar() {
             >
               <X className="w-4 h-4" />
               {t("classSchedules.cancelDraft", { defaultValue: "Hủy bản nháp" })}
+            </button>
+            <button
+              onClick={handleRevertDraft}
+              className="px-4 py-2 rounded-xl border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 text-sm font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors flex items-center gap-1.5"
+            >
+              <RotateCcw className="w-4 h-4" />
+              {t("classSchedules.revertDraft", { defaultValue: "Khôi phục gốc" })}
             </button>
             <button
               onClick={handleSaveDraft}
