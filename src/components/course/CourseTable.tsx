@@ -73,14 +73,6 @@ export default function CourseTable() {
   // ── Create / Edit modal ──
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<CourseItem | null>(null);
-  const [formCode, setFormCode] = useState("");
-  const [formName, setFormName] = useState("");
-  const [formDuration, setFormDuration] = useState("");
-  const [formPrice, setFormPrice] = useState("");
-  const [formStatus, setFormStatus] = useState<number>(1);
-  const [formDesc, setFormDesc] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
 
   // ── Delete (Deactivate) confirm modal ──
   const [deleteTarget, setDeleteTarget] = useState<CourseItem | null>(null);
@@ -197,106 +189,16 @@ export default function CourseTable() {
   // ── Open create modal ──
   const openCreateModal = () => {
     setEditingItem(null);
-    setFormCode(CodeHelper.generate("CR"));
-    setFormName("");
-    setFormDuration("");
-    setFormPrice("");
-    setFormStatus(1);
-    setFormDesc("");
-    setFormError(null);
     setIsModalOpen(true);
   };
 
   // ── Open edit modal ──
   const openEditModal = (item: CourseItem) => {
     setEditingItem(item);
-    setFormCode(item.code);
-    setFormName(item.name);
-    setFormDuration(item.duration !== null && item.duration !== undefined ? String(item.duration) : "");
-    setFormPrice(item.price !== null && item.price !== undefined ? String(item.price) : "");
-    setFormStatus(item.status);
-    setFormDesc(item.description ?? "");
-    setFormError(null);
     setIsModalOpen(true);
   };
 
-  // ── Submit create / edit ──
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formCode.trim()) {
-      setFormError(t("backendMessages.ERR_CODE_EMPTY"));
-      return;
-    }
-    if (!formName.trim()) {
-      setFormError(t("backendMessages.ERR_NAME_EMPTY"));
-      return;
-    }
-    
-    // Client-side validations
-    const priceVal = formPrice.trim() ? Number(formPrice) : null;
-    const durationVal = formDuration.trim() ? Number(formDuration) : null;
-
-    if (priceVal !== null && (isNaN(priceVal) || priceVal < 0)) {
-      setFormError(t("backendMessages.ERR_PRICE_NEGATIVE"));
-      return;
-    }
-
-    if (durationVal !== null && (isNaN(durationVal) || !Number.isInteger(durationVal) || durationVal < 0)) {
-      setFormError(t("backendMessages.ERR_DURATION_NEGATIVE"));
-      return;
-    }
-
-    setIsSubmitting(true);
-    setFormError(null);
-    try {
-      const payload = {
-        code: formCode.trim(),
-        name: formName.trim(),
-        status: formStatus,
-        duration: durationVal,
-        price: priceVal,
-        description: formDesc.trim() || null,
-      };
-
-      if (editingItem) {
-        // Edit
-        const res = await courseApi.update(editingItem.id, {
-          id: editingItem.id,
-          ...payload,
-        });
-        if (res.success && res.data) {
-          setItems((prev) =>
-            prev.map((i) => (i.id === editingItem.id ? res.data : i))
-          );
-          showToast(t("course.updateSuccess", { name: res.data.name }));
-          setIsModalOpen(false);
-          triggerRefresh();
-        } else {
-          setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("course.updateError"));
-        }
-      } else {
-        // Create
-        const res = await courseApi.create(payload);
-        if (res.success && res.data) {
-          setCurrentPage(1);
-          setSearchTerm("");
-          setDebouncedSearchTerm("");
-          setStatusFilter("all");
-          triggerRefresh();
-          showToast(t("course.createSuccess", { name: res.data.name }));
-          setIsModalOpen(false);
-        } else {
-          setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("course.createError"));
-        }
-      }
-    } catch {
-      setFormError(t("course.systemError"));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // ── Open delete (deactive) confirm ──
+    // ── Open delete (deactive) confirm ──
   const openDeleteModal = (item: CourseItem) => {
     setDeleteTarget(item);
     setIsDeleteModalOpen(true);
@@ -646,26 +548,25 @@ export default function CourseTable() {
       <CourseFormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        t={t}
         editingItem={editingItem}
-        formCode={formCode}
-        setFormCode={setFormCode}
-        formName={formName}
-        setFormName={setFormName}
-        formDuration={formDuration}
-        setFormDuration={setFormDuration}
-        formPrice={formPrice}
-        setFormPrice={setFormPrice}
-        formStatus={formStatus}
-        setFormStatus={setFormStatus}
-        formDesc={formDesc}
-        setFormDesc={setFormDesc}
-        formError={formError}
-        isSubmitting={isSubmitting}
-        handleSubmit={handleSubmit}
+        onSubmitSuccess={(savedItem, isEdit) => {
+          if (isEdit) {
+            setItems((prev) =>
+              prev.map((i) => (i.id === savedItem.id ? savedItem : i))
+            );
+            showToast(t("course.updateSuccess", { name: savedItem.name }));
+          } else {
+            setCurrentPage(1);
+            setSearchTerm("");
+            setDebouncedSearchTerm("");
+            setStatusFilter("all");
+            showToast(t("course.createSuccess", { name: savedItem.name }));
+          }
+          triggerRefresh();
+        }}
       />
 
-      {/* ── Delete (Deactivate) Confirm Modal ── */}
+            {/* ── Delete (Deactivate) Confirm Modal ── */}
       <DeleteConfirmModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}

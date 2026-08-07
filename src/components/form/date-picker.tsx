@@ -20,6 +20,7 @@ type PropsType = {
   dateFormat?: string;
   staticOption?: boolean;
   disabled?: boolean;
+  isError?: boolean;
 };
 
 export default function DatePicker({
@@ -32,6 +33,7 @@ export default function DatePicker({
   dateFormat,
   staticOption,
   disabled,
+  isError,
 }: PropsType) {
   const { i18n } = useTranslation();
   const fpRef = useRef<any>(null);
@@ -90,10 +92,12 @@ export default function DatePicker({
           id={id}
           disabled={disabled}
           placeholder={placeholder}
-          className={`h-11 w-full rounded-lg border appearance-none px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 focus:ring-brand-500/20 dark:border-gray-700 dark:focus:border-brand-800 ${
+          className={`h-11 w-full rounded-lg border appearance-none px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 ${
             disabled
               ? "cursor-not-allowed bg-gray-50/60 dark:bg-gray-950/40 text-gray-450 dark:text-gray-500"
-              : "bg-transparent text-gray-800 border-gray-300 focus:border-brand-300 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+              : isError
+              ? "bg-transparent text-gray-800 border-rose-500 focus:border-rose-500 focus:ring-rose-500/10 dark:border-rose-500"
+              : "bg-transparent text-gray-800 border-gray-300 focus:border-brand-300 focus:ring-brand-500/20 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
           }`}
         />
 

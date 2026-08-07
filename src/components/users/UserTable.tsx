@@ -64,12 +64,6 @@ export default function UserTable() {
   // ── Create / Edit modal ──
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<UserItem | null>(null);
-  const [formUsername, setFormUsername] = useState("");
-  const [formEmail, setFormEmail] = useState("");
-  const [formPhone, setFormPhone] = useState("");
-  const [formRole, setFormRole] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
 
   // ── Delete confirm modal ──
   const [deleteTarget, setDeleteTarget] = useState<UserItem | null>(null);
@@ -192,104 +186,16 @@ export default function UserTable() {
   // ── Open create modal ──
   const openCreateModal = () => {
     setEditingItem(null);
-    setFormUsername("");
-    setFormEmail("");
-    setFormPhone("");
-    setFormRole("");
-    setFormError(null);
     setIsFormModalOpen(true);
   };
 
   // ── Open edit modal ──
   const openEditModal = (item: UserItem) => {
     setEditingItem(item);
-    setFormUsername(item.username);
-    setFormEmail(item.email);
-    setFormPhone(item.phone || "");
-    setFormRole(item.roles[0] || "");
-    setFormError(null);
     setIsFormModalOpen(true);
   };
 
-  // ── Submit create / edit ──
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formUsername.trim()) {
-      setFormError(t("backendMessages.ERR_USERNAME_REQUIRED", { defaultValue: "Tên đăng nhập không được để trống" }));
-      return;
-    }
-    if (!formEmail.trim()) {
-      setFormError(t("backendMessages.ERR_EMAIL_REQUIRED", { defaultValue: "Email không được để trống" }));
-      return;
-    }
-    
-    // Email regex validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formEmail.trim())) {
-      setFormError(t("user.invalidEmailFormat", { defaultValue: "Địa chỉ Email không đúng định dạng." }));
-      return;
-    }
 
-    // Phone regex validation (if provided)
-    if (formPhone.trim()) {
-      const phoneRegex = /^[0-9]{10,11}$/;
-      if (!phoneRegex.test(formPhone.trim())) {
-        setFormError(t("user.invalidPhoneFormat", { defaultValue: "Số điện thoại không hợp lệ (chỉ nhập số, từ 10-11 chữ số)." }));
-        return;
-      }
-    }
-
-    if (!formRole) {
-      setFormError(t("backendMessages.ERR_ROLE_REQUIRED", { defaultValue: "Vai trò không được để trống" }));
-      return;
-    }
-
-    setIsSubmitting(true);
-    setFormError(null);
-    try {
-      if (editingItem) {
-        // Update
-        const payload = {
-          id: editingItem.id,
-          email: formEmail.trim(),
-          phone: formPhone.trim(),
-          roleName: formRole,
-        };
-        const res = await userApi.update(editingItem.id, payload);
-        if (res.success && res.data) {
-          showToast(t("user.updateSuccess", { name: res.data.username }));
-          setIsFormModalOpen(false);
-          triggerRefresh();
-        } else {
-          setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("user.updateError"));
-        }
-      } else {
-        // Create
-        const payload = {
-          username: formUsername.trim(),
-          email: formEmail.trim(),
-          phone: formPhone.trim(),
-          roleName: formRole,
-        };
-        const res = await userApi.create(payload);
-        if (res.success && res.data) {
-          setCurrentPage(1);
-          setSearchTerm("");
-          setDebouncedSearchTerm("");
-          setRoleFilter("all");
-          triggerRefresh();
-          showToast(t("user.createSuccess", { name: res.data.username }));
-          setIsFormModalOpen(false);
-        } else {
-          setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("user.createError"));
-        }
-      }
-    } catch {
-      setFormError(t("user.systemError"));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   // ── Toggle Deactive ──
   const openDeactiveModal = (item: UserItem) => {
@@ -694,20 +600,20 @@ export default function UserTable() {
       <UserFormModal
         isOpen={isFormModalOpen}
         onClose={() => setIsFormModalOpen(false)}
-        t={t}
         editingItem={editingItem}
-        formUsername={formUsername}
-        setFormUsername={setFormUsername}
-        formEmail={formEmail}
-        setFormEmail={setFormEmail}
-        formPhone={formPhone}
-        setFormPhone={setFormPhone}
-        formRole={formRole}
-        setFormRole={setFormRole}
         rolesList={rolesList.filter((r) => r.toLowerCase() !== "admin")}
-        formError={formError}
-        isSubmitting={isSubmitting}
-        handleSubmit={handleSubmit}
+        onSubmitSuccess={(savedItem, isEdit) => {
+          if (isEdit) {
+            showToast(t("user.updateSuccess", { name: savedItem.username }));
+          } else {
+            setCurrentPage(1);
+            setSearchTerm("");
+            setDebouncedSearchTerm("");
+            setRoleFilter("all");
+            showToast(t("user.createSuccess", { name: savedItem.username }));
+          }
+          triggerRefresh();
+        }}
       />
 
       {/* ── Delete Confirm Modal ── */}

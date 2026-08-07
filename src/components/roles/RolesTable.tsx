@@ -141,11 +141,7 @@ export default function RolesTable() {
     return buildPermissionTree(systemPermissions);
   }, [systemPermissions]);
 
-  // Add Role Form states
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newRoleName, setNewRoleName] = useState("");
-  const [newRoleDesc, setNewRoleDesc] = useState("");
-  const [newRoleStatus, setNewRoleStatus] = useState<"Active" | "Inactive">("Active");
+
 
   // Permissions Modal states
   const [selectedRoleForPermissions, setSelectedRoleForPermissions] = useState<RoleItem | null>(null);
@@ -230,38 +226,7 @@ export default function RolesTable() {
     loadPermissions();
   }, []);
 
-  const handleAddRoleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newRoleName.trim()) return;
-
-    setIsLoading(true);
-    try {
-      const createRes = await authApi.createRole(newRoleName.trim());
-      if (createRes.success) {
-        if (newRolePermissions.size > 0) {
-          const assignRes = await authApi.assignRolePermissions(newRoleName.trim(), Array.from(newRolePermissions));
-          if (!assignRes.success) {
-            showToast(assignRes.message ? t(`backendMessages.${assignRes.message}`, { defaultValue: assignRes.message }) : t("roles.updateError"));
-          }
-        }
-        showToast(t("roles.createSuccess", { name: newRoleName.trim() }));
-        
-        // Reset form fields
-        setNewRoleName("");
-        setNewRoleDesc("");
-        setNewRoleStatus("Active");
-        setNewRolePermissions(new Set());
-        setIsModalOpen(false);
-        triggerRefresh();
-      } else {
-        showToast(createRes.message ? t(`backendMessages.${createRes.message}`, { defaultValue: createRes.message }) : t("roles.createError"));
-      }
-    } catch {
-      showToast(t("roles.systemError"));
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const openCreateModal = () => {
     setNewRolePermissions(new Set(currentUserPermissions));
@@ -741,13 +706,6 @@ export default function RolesTable() {
       <CreateRoleModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        t={t}
-        newRoleName={newRoleName}
-        setNewRoleName={setNewRoleName}
-        newRoleDesc={newRoleDesc}
-        setNewRoleDesc={setNewRoleDesc}
-        newRoleStatus={newRoleStatus}
-        setNewRoleStatus={setNewRoleStatus}
         dynamicPermissionTree={dynamicPermissionTree}
         expandedCategories={expandedCategories}
         toggleCategoryExpand={toggleCategoryExpand}
@@ -755,7 +713,11 @@ export default function RolesTable() {
         toggleCategorySelection={toggleCategorySelection}
         toggleChildSelection={toggleChildSelection}
         newRolePermissions={newRolePermissions}
-        handleAddRoleSubmit={handleAddRoleSubmit}
+        setNewRolePermissions={setNewRolePermissions}
+        onSubmitSuccess={(roleName) => {
+          showToast(t("roles.createSuccess", { name: roleName }));
+          triggerRefresh();
+        }}
       />
 
       {/* Permissions Assignment Modal */}

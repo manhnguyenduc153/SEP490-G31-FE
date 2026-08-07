@@ -1,76 +1,50 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/modal";
-import { LearningMaterialItem } from "@/services/learningMaterial.api";
-import { courseApi, CourseItem } from "@/services/course.api";
-import { classApi, ClassItem } from "@/services/class.api";
+import { LearningMaterialItem, QuestionCategorySaveDto } from "@/services/learningMaterial.api";
 import { commonApi } from "@/services/common.api";
 import { teacherApi } from "@/services/teacher.api";
+import { learningMaterialApi } from "@/services/learningMaterial.api";
 import { UploadCloud, FileText, X } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { CodeHelper } from "@/helpers/CodeHelper";
+import { useTranslation } from "react-i18next";
+import { z } from "zod";
 
 interface MaterialFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  t: any;
   editingItem: LearningMaterialItem | null;
-  formCode: string;
-  setFormCode: (val: string) => void;
-  formName: string;
-  setFormName: (val: string) => void;
-  formTitle: string;
-  setFormTitle: (val: string) => void;
-  formDesc: string;
-  setFormDesc: (val: string) => void;
-  formClassId: number | null;
-  setFormClassId: (val: number | null) => void;
-  formCourseId: number | null;
-  setFormCourseId: (val: number | null) => void;
-  formFileUrl: string;
-  setFormFileUrl: (val: string) => void;
-  formFileType: string;
-  setFormFileType: (val: string) => void;
-  formStatus: number;
-  setFormStatus: (val: number) => void;
-  formError: string | null;
-  setFormError: (val: string | null) => void;
-  isSubmitting: boolean;
-  handleSubmit: (e: React.FormEvent) => void;
+  onSubmitSuccess: (savedItem: LearningMaterialItem, isEdit: boolean) => void;
 }
 
 export function MaterialFormModal({
   isOpen,
   onClose,
-  t,
   editingItem,
-  formCode,
-  setFormCode,
-  formName,
-  setFormName,
-  formTitle,
-  setFormTitle,
-  formDesc,
-  setFormDesc,
-  formClassId,
-  setFormClassId,
-  formCourseId,
-  setFormCourseId,
-  formFileUrl,
-  setFormFileUrl,
-  formFileType,
-  setFormFileType,
-  formStatus,
-  setFormStatus,
-  formError,
-  setFormError,
-  isSubmitting,
-  handleSubmit,
+  onSubmitSuccess,
 }: MaterialFormModalProps) {
-  const [courses, setCourses] = useState<CourseItem[]>([]);
-  const [classes, setClasses] = useState<ClassItem[]>([]);
+  const { t } = useTranslation();
+  const [courses, setCourses] = useState<{ id: number; code: string; name: string }[]>([]);
+  const [classes, setClasses] = useState<{ id: number; code: string; name: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // Form states
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [title, setTitle] = useState("");
+  const [desc, setDesc] = useState("");
+  const [classId, setClassId] = useState<number | null>(null);
+  const [courseId, setCourseId] = useState<number | null>(null);
+  const [fileUrl, setFileUrl] = useState("");
+  const [fileType, setFileType] = useState("");
+  const [status, setStatus] = useState(1);
+
+  // Validation states
+  const [errors, setErrors] = useState<string[]>([]);
+  const [invalidFields, setInvalidFields] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Load courses and classes for dropdown selections
   useEffect(() => {
@@ -96,6 +70,38 @@ export function MaterialFormModal({
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (editingItem && isOpen) {
+      setCode(editingItem.code || "");
+      setName(editingItem.name || "");
+      setTitle(editingItem.title || "");
+      setDesc(editingItem.description || "");
+      setClassId(editingItem.classId || null);
+      setCourseId(editingItem.courseId || null);
+      setFileUrl(editingItem.fileUrl || "");
+      setFileType(editingItem.fileType || "");
+      setStatus(editingItem.status);
+    } else if (isOpen) {
+      setCode(CodeHelper.generate("LM"));
+      setName("");
+      setTitle("");
+      setDesc("");
+      setClassId(null);
+      setCourseId(null);
+      setFileUrl("");
+      setFileType("");
+      setStatus(1);
+    }
+    setErrors([]);
+    setInvalidFields([]);
+  }, [editingItem, isOpen]);
+
+  const clearField = (field: string) => {
+    if (invalidFields.includes(field)) {
+      setInvalidFields((prev) => prev.filter((f) => f !== field));
+    }
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
@@ -105,18 +111,20 @@ export function MaterialFormModal({
 
   const processUpload = async (file: File) => {
     setUploading(true);
-    setFormError(null);
+    setErrors([]);
     try {
       const res = await teacherApi.uploadDocument(file);
       if (res.success && res.data) {
-        setFormFileUrl(res.data);
-        setFormFileType(file.type || file.name.split(".").pop() || "");
+        setFileUrl(res.data);
+        setFileType(file.type || file.name.split(".").pop() || "");
         setSelectedFile(file);
+        clearField("fileUrl");
       } else {
-        setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("learningMaterial.uploadError"));
+        const errMsg = res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("learningMaterial.uploadError", { defaultValue: "Lỗi tải lên tệp tin." });
+        setErrors([errMsg]);
       }
     } catch {
-      setFormError(t("learningMaterial.systemError"));
+      setErrors([t("learningMaterial.systemError", { defaultValue: "Lỗi hệ thống." })]);
     } finally {
       setUploading(false);
     }
@@ -124,8 +132,105 @@ export function MaterialFormModal({
 
   const removeFile = () => {
     setSelectedFile(null);
-    setFormFileUrl("");
-    setFormFileType("");
+    setFileUrl("");
+    setFileType("");
+  };
+
+  const inputClass = (field: string) =>
+    `w-full rounded-lg border bg-transparent px-4 py-2 text-sm text-gray-800 focus:outline-hidden focus:ring-3 dark:text-white/90 dark:placeholder:text-white/30 shadow-theme-xs ${
+      invalidFields.includes(field)
+        ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10 dark:border-rose-500"
+        : "border-gray-300 focus:border-brand-300 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:focus:border-brand-800"
+    }`;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const schema = z.object({
+      code: z
+        .string()
+        .trim()
+        .min(1, t("learningMaterial.errorEmptyCode", { defaultValue: "Mã tài liệu không được để trống." }))
+        .min(5, t("learningMaterial.errorMinLengthCode", { defaultValue: "Mã tài liệu phải có ít nhất 5 ký tự." }))
+        .max(50, t("learningMaterial.errorMaxLengthCode", { defaultValue: "Mã tài liệu không được vượt quá 50 ký tự." })),
+      name: z
+        .string()
+        .trim()
+        .min(1, t("learningMaterial.errorEmptyName", { defaultValue: "Tên tài liệu không được để trống." }))
+        .min(5, t("learningMaterial.errorMinLengthName", { defaultValue: "Tên tài liệu phải có ít nhất 5 ký tự." }))
+        .max(200, t("learningMaterial.errorMaxLengthName", { defaultValue: "Tên tài liệu không được vượt quá 200 ký tự." })),
+      title: z
+        .string()
+        .trim()
+        .max(250, t("learningMaterial.errorMaxLengthTitle", { defaultValue: "Tiêu đề hiển thị không được vượt quá 250 ký tự." }))
+        .optional(),
+      desc: z
+        .string()
+        .trim()
+        .max(1000, t("learningMaterial.errorMaxLengthDesc", { defaultValue: "Mô tả không được vượt quá 1000 ký tự." }))
+        .optional(),
+      fileUrl: z
+        .string()
+        .min(1, t("learningMaterial.fileRequired", { defaultValue: "Vui lòng tải lên tài liệu đính kèm." })),
+    });
+
+    const result = schema.safeParse({ code, name, title, desc, fileUrl });
+
+    if (!result.success) {
+      const fieldErrors: string[] = [];
+      const fields: string[] = [];
+      result.error.issues.forEach((err) => {
+        fieldErrors.push(err.message);
+        if (err.path.length > 0) fields.push(err.path[0] as string);
+      });
+      setErrors(fieldErrors);
+      setInvalidFields(fields);
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrors([]);
+    setInvalidFields([]);
+
+    const dto = {
+      code: code.trim(),
+      name: name.trim(),
+      title: title.trim() || name.trim(),
+      description: desc.trim() || null,
+      classId,
+      courseId,
+      fileUrl,
+      fileType,
+      status,
+    };
+
+    try {
+      let res;
+      if (editingItem) {
+        res = await learningMaterialApi.update(editingItem.id, {
+          ...dto,
+          id: editingItem.id,
+        });
+      } else {
+        res = await learningMaterialApi.create(dto);
+      }
+
+      if (res.success && res.data) {
+        onSubmitSuccess(res.data, !!editingItem);
+        onClose();
+      } else {
+        const msg = res.message
+          ? t(`backendMessages.${res.message}`, { defaultValue: res.message })
+          : t("learningMaterial.saveError", { defaultValue: "Đã xảy ra lỗi khi lưu tài liệu." });
+        setErrors([msg]);
+        if (res.message === "ERR_CODE_DUPLICATE") setInvalidFields(["code"]);
+        else if (res.message === "ERR_NAME_DUPLICATE") setInvalidFields(["name"]);
+      }
+    } catch {
+      setErrors([t("learningMaterial.systemError", { defaultValue: "Lỗi hệ thống." })]);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -146,37 +251,35 @@ export function MaterialFormModal({
             : t("learningMaterial.createDesc", { defaultValue: "Điền thông tin và tải lên tài liệu mới." })}
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+        <form onSubmit={handleSubmit} className="space-y-4 mt-2" noValidate>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Code */}
             <div>
               <label className="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-                {t("learningMaterial.formCodeLabel", { defaultValue: "Mã tài liệu" })} <span className="text-error-500">*</span>
+                {t("learningMaterial.formCodeLabel", { defaultValue: "Mã tài liệu" })} <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
-                required
                 maxLength={50}
-                value={formCode}
-                onChange={(e) => setFormCode(e.target.value)}
+                value={code}
+                onChange={(e) => { setCode(e.target.value); clearField("code"); }}
                 placeholder={t("learningMaterial.formCodePlaceholder", { defaultValue: "Nhập mã tài liệu..." })}
-                className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs"
+                className={inputClass("code")}
               />
             </div>
 
             {/* Name */}
             <div>
               <label className="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-                {t("learningMaterial.formNameLabel", { defaultValue: "Tên tài liệu" })} <span className="text-error-500">*</span>
+                {t("learningMaterial.formNameLabel", { defaultValue: "Tên tài liệu" })} <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
-                required
                 maxLength={200}
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
+                value={name}
+                onChange={(e) => { setName(e.target.value); clearField("name"); }}
                 placeholder={t("learningMaterial.formNamePlaceholder", { defaultValue: "Nhập tên tài liệu..." })}
-                className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs"
+                className={inputClass("name")}
               />
             </div>
           </div>
@@ -189,10 +292,10 @@ export function MaterialFormModal({
             <input
               type="text"
               maxLength={250}
-              value={formTitle}
-              onChange={(e) => setFormTitle(e.target.value)}
+              value={title}
+              onChange={(e) => { setTitle(e.target.value); clearField("title"); }}
               placeholder={t("learningMaterial.formTitlePlaceholder", { defaultValue: "Nhập tiêu đề hiển thị..." })}
-              className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs"
+              className={inputClass("title")}
             />
           </div>
 
@@ -203,11 +306,11 @@ export function MaterialFormModal({
                 {t("learningMaterial.formCourseLabel", { defaultValue: "Khóa học áp dụng" })}
               </label>
               <SearchableSelect
-                value={formCourseId || ""}
-                onChange={(value) => setFormCourseId(value ? Number(value) : null)}
+                value={courseId || ""}
+                onChange={(value) => setCourseId(value ? Number(value) : null)}
                 options={courses.map((c) => ({ value: c.id, label: `${c.name} (${c.code})` }))}
                 placeholder={t("learningMaterial.noCourse", { defaultValue: "Tất cả khóa học" })}
-                onClear={() => setFormCourseId(null)}
+                onClear={() => setCourseId(null)}
               />
             </div>
 
@@ -217,11 +320,11 @@ export function MaterialFormModal({
                 {t("learningMaterial.formClassLabel", { defaultValue: "Lớp học áp dụng" })}
               </label>
               <SearchableSelect
-                value={formClassId || ""}
-                onChange={(value) => setFormClassId(value ? Number(value) : null)}
+                value={classId || ""}
+                onChange={(value) => setClassId(value ? Number(value) : null)}
                 options={classes.map((c) => ({ value: c.id, label: `${c.name} (${c.code})` }))}
                 placeholder={t("learningMaterial.noClass", { defaultValue: "Tất cả lớp học" })}
-                onClear={() => setFormClassId(null)}
+                onClear={() => setClassId(null)}
               />
             </div>
           </div>
@@ -232,12 +335,12 @@ export function MaterialFormModal({
               {t("learningMaterial.formDescLabel", { defaultValue: "Mô tả tài liệu" })}
             </label>
             <textarea
-              value={formDesc}
-              onChange={(e) => setFormDesc(e.target.value)}
+              value={desc}
+              onChange={(e) => { setDesc(e.target.value); clearField("desc"); }}
               placeholder={t("learningMaterial.formDescPlaceholder", { defaultValue: "Nhập mô tả tài liệu (không bắt buộc)..." })}
               rows={2}
               maxLength={1000}
-              className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs resize-none"
+              className={`${inputClass("desc")} resize-none`}
             />
           </div>
 
@@ -248,8 +351,8 @@ export function MaterialFormModal({
                 {t("learningMaterial.formStatusLabel", { defaultValue: "Trạng thái hoạt động" })}
               </label>
               <select
-                value={formStatus}
-                onChange={(e) => setFormStatus(Number(e.target.value))}
+                value={status}
+                onChange={(e) => setStatus(Number(e.target.value))}
                 className="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 shadow-theme-xs"
               >
                 <option value={1}>{t("student.formStatusActive", { defaultValue: "Hoạt động" })}</option>
@@ -261,19 +364,19 @@ export function MaterialFormModal({
           {/* File Upload Dropzone */}
           <div>
             <label className="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t("learningMaterial.formFileLabel", { defaultValue: "Tệp tin đính kèm" })} <span className="text-error-500">*</span>
+              {t("learningMaterial.formFileLabel", { defaultValue: "Tệp tin đính kèm" })} <span className="text-rose-500">*</span>
             </label>
 
-            {formFileUrl ? (
-              <div className="flex items-center justify-between p-3 rounded-lg border border-brand-200 bg-brand-50/50 dark:border-brand-800/30 dark:bg-brand-950/20">
+            {fileUrl ? (
+              <div className={`flex items-center justify-between p-3 rounded-lg border bg-brand-50/50 dark:bg-brand-950/20 ${invalidFields.includes("fileUrl") ? "border-rose-500 dark:border-rose-500" : "border-brand-200 dark:border-brand-800/30"}`}>
                 <div className="flex items-center gap-3 overflow-hidden">
                   <FileText className="w-8 h-8 text-brand-500 shrink-0" />
                   <div className="overflow-hidden">
                     <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
-                      {selectedFile ? selectedFile.name : formFileUrl.split("/").pop()}
+                      {selectedFile ? selectedFile.name : fileUrl.split("/").pop()}
                     </p>
                     <p className="text-xs text-gray-400">
-                      {formFileType || "Document"}
+                      {fileType || "Document"}
                     </p>
                   </div>
                 </div>
@@ -286,7 +389,7 @@ export function MaterialFormModal({
                 </button>
               </div>
             ) : (
-              <div className="relative flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-6 bg-gray-50 dark:bg-gray-900/50 hover:border-brand-500 dark:hover:border-brand-400 transition-colors group cursor-pointer">
+              <div className={`relative flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-6 bg-gray-50 dark:bg-gray-900/50 hover:border-brand-500 dark:hover:border-brand-400 transition-colors group cursor-pointer ${invalidFields.includes("fileUrl") ? "border-rose-500 dark:border-rose-500" : "border-gray-300 dark:border-gray-700"}`}>
                 <input
                   type="file"
                   id="material-file-upload"
@@ -305,9 +408,16 @@ export function MaterialFormModal({
             )}
           </div>
 
-          {/* Form-level error */}
-          {formError && (
-            <p className="text-sm text-error-500 dark:text-error-400">{formError}</p>
+          {/* Error block */}
+          {errors.length > 0 && (
+            <div className="p-3 text-sm text-rose-500 bg-rose-50 dark:bg-rose-950/20 dark:text-rose-400 rounded-lg space-y-1">
+              {errors.map((err, idx) => (
+                <div key={idx} className="flex items-start gap-1.5">
+                  <span className="shrink-0">•</span>
+                  <span>{err}</span>
+                </div>
+              ))}
+            </div>
           )}
 
           {/* Buttons */}
@@ -321,7 +431,7 @@ export function MaterialFormModal({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || uploading || !formFileUrl}
+              disabled={isSubmitting || uploading}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 disabled:opacity-50"
             >
               {isSubmitting

@@ -19,6 +19,7 @@ interface SearchableSelectProps {
   onClear?: () => void;
   searchPlaceholder?: string;
   noResultsText?: string;
+  isError?: boolean;
 }
 
 export function SearchableSelect({
@@ -31,6 +32,7 @@ export function SearchableSelect({
   onClear,
   searchPlaceholder = "Tìm kiếm...",
   noResultsText = "Không tìm thấy kết quả",
+  isError = false,
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -116,8 +118,12 @@ export function SearchableSelect({
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex h-11 w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-500 focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 disabled:opacity-50 disabled:cursor-not-allowed text-left transition-all ${
-          isOpen ? "border-brand-500 ring-2 ring-brand-500/20" : ""
+        className={`flex h-11 w-full items-center justify-between rounded-lg border bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-2 dark:bg-gray-900 dark:text-white/90 disabled:opacity-50 disabled:cursor-not-allowed text-left transition-all ${
+          isError
+            ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10 dark:border-rose-500"
+            : isOpen
+            ? "border-brand-500 ring-2 ring-brand-500/20 dark:border-gray-700"
+            : "border-gray-300 focus:border-brand-500 focus:ring-brand-500/20 dark:border-gray-700"
         }`}
       >
         <span className={`block truncate ${selectedOption ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-white/30"}`}>

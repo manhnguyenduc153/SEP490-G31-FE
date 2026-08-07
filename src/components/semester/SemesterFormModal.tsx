@@ -4,6 +4,7 @@ import { Modal } from "@/components/ui/modal";
 import { SemesterItem, SemesterSaveDto } from "@/services/semester.api";
 import DatePicker from "@/components/form/date-picker";
 import { useTranslation } from "react-i18next";
+import { z } from "zod";
 
 interface SemesterFormModalProps {
   isOpen: boolean;
@@ -24,7 +25,8 @@ export function SemesterFormModal({
   const [name, setName] = useState("");
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [invalidFields, setInvalidFields] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -39,46 +41,72 @@ export function SemesterFormModal({
       setStartDate(null);
       setEndDate(null);
     }
-    setError(null);
+    setErrors([]);
+    setInvalidFields([]);
   }, [editingItem, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!code.trim() || !name.trim() || !startDate || !endDate) {
-      setError(t("semester.requiredFieldsError", { defaultValue: "Vui lòng điền đầy đủ các trường bắt buộc." }));
-      return;
-    }
 
-    if (endDate < startDate) {
-      setError(t("backendMessages.ERR_SEMESTER_END_DATE_BEFORE_START_DATE", { defaultValue: "Ngày kết thúc không được trước ngày bắt đầu" }));
-      return;
-    }
+    // Zod Validation Schema using detailed translation keys with field names
+    const semesterSchema = z.object({
+      code: z.string().trim()
+        .min(1, t("semester.errorEmptyCode", { defaultValue: "Mã học kỳ không được để trống." }))
+        .min(5, t("semester.errorMinLengthCode", { defaultValue: "Mã học kỳ phải có ít nhất 5 ký tự." }))
+        .max(50, t("semester.errorLengthCode", { defaultValue: "Mã học kỳ không được vượt quá 50 ký tự." })),
+      name: z.string().trim()
+        .min(1, t("semester.errorEmptyName", { defaultValue: "Tên học kỳ không được để trống." }))
+        .min(5, t("semester.errorMinLengthName", { defaultValue: "Tên học kỳ phải có ít nhất 5 ký tự." }))
+        .max(200, t("semester.errorLengthName", { defaultValue: "Tên học kỳ không được vượt quá 200 ký tự." })),
+      startDate: z.any().refine(val => val instanceof Date, t("semester.errorEmptyStartDate", { defaultValue: "Ngày bắt đầu không được để trống." })),
+      endDate: z.any().refine(val => val instanceof Date, t("semester.errorEmptyEndDate", { defaultValue: "Ngày kết thúc không được để trống." })),
+    }).refine((data) => !(data.startDate instanceof Date && data.endDate instanceof Date) || data.endDate >= data.startDate, {
+      message: t("backendMessages.ERR_SEMESTER_END_DATE_BEFORE_START_DATE", { defaultValue: "Ngày kết thúc không được trước ngày bắt đầu" }),
+      path: ["endDate"],
+    }).refine((data) => {
+      if (!(data.startDate instanceof Date && data.endDate instanceof Date)) return true;
+      const minEndDate = new Date(data.startDate);
+      minEndDate.setMonth(minEndDate.getMonth() + 1);
+      return data.endDate >= minEndDate;
+    }, {
+      message: t("backendMessages.ERR_SEMESTER_DURATION_MIN_ONE_MONTH", { defaultValue: "Thời gian học kỳ phải tối thiểu là 1 tháng" }),
+      path: ["endDate"],
+    }).refine((data) => {
+      if (!(data.startDate instanceof Date && data.endDate instanceof Date)) return true;
+      const maxEndDate = new Date(data.startDate);
+      maxEndDate.setMonth(maxEndDate.getMonth() + 3);
+      return data.endDate <= maxEndDate;
+    }, {
+      message: t("backendMessages.ERR_SEMESTER_DURATION_MAX_THREE_MONTHS", { defaultValue: "Thời gian học kỳ không được vượt quá 3 tháng" }),
+      path: ["endDate"],
+    });
 
-    const minEndDate = new Date(startDate);
-    minEndDate.setMonth(minEndDate.getMonth() + 1);
+    const result = semesterSchema.safeParse({ code, name, startDate, endDate });
 
-    const maxEndDate = new Date(startDate);
-    maxEndDate.setMonth(maxEndDate.getMonth() + 3);
-
-    if (endDate < minEndDate) {
-      setError(t("backendMessages.ERR_SEMESTER_DURATION_MIN_ONE_MONTH", { defaultValue: "Thời gian học kỳ phải tối thiểu là 1 tháng" }));
-      return;
-    }
-
-    if (endDate > maxEndDate) {
-      setError(t("backendMessages.ERR_SEMESTER_DURATION_MAX_THREE_MONTHS", { defaultValue: "Thời gian học kỳ không được vượt quá 3 tháng" }));
+    if (!result.success) {
+      const fieldErrors: string[] = [];
+      const fields: string[] = [];
+      result.error.issues.forEach((err) => {
+        fieldErrors.push(err.message);
+        if (err.path.length > 0) {
+          fields.push(err.path[0] as string);
+        }
+      });
+      setErrors(fieldErrors);
+      setInvalidFields(fields);
       return;
     }
 
     setIsSubmitting(true);
-    setError(null);
+    setErrors([]);
+    setInvalidFields([]);
 
     const dto: SemesterSaveDto = {
       id: editingItem?.id,
       code: code.trim(),
       name: name.trim(),
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
+      startDate: startDate!.toISOString(),
+      endDate: endDate!.toISOString(),
       status: editingItem ? editingItem.status : 1,
     };
 
@@ -97,10 +125,15 @@ export function SemesterFormModal({
         );
         onClose();
       } else {
-        setError(res.message ? t(`backendMessages.${res.message}`) : t("semester.saveError", { defaultValue: "Đã xảy ra lỗi khi lưu học kỳ." }));
+        setErrors([res.message ? t(`backendMessages.${res.message}`) : t("semester.saveError", { defaultValue: "Đã xảy ra lỗi khi lưu học kỳ." })]);
+        if (res.message === "ERR_SEMESTER_CODE_EXISTS") {
+          setInvalidFields(["code"]);
+        } else if (res.message === "ERR_SEMESTER_NAME_EXISTS") {
+          setInvalidFields(["name"]);
+        }
       }
     } catch (err: any) {
-      setError(t("backendMessages.ERR_SYSTEM_ERROR"));
+      setErrors([t("backendMessages.ERR_SYSTEM_ERROR")]);
     } finally {
       setIsSubmitting(false);
     }
@@ -116,13 +149,7 @@ export function SemesterFormModal({
           {editingItem ? t("semester.formEditDesc") : t("semester.formCreateDesc")}
         </p>
 
-        {error && (
-          <div className="p-3 text-sm text-rose-500 bg-rose-50 dark:bg-rose-950/20 dark:text-rose-400 rounded-lg">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+        <form onSubmit={handleSubmit} className="space-y-4 mt-2" noValidate>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -130,12 +157,20 @@ export function SemesterFormModal({
               </label>
               <input
                 type="text"
-                required
                 maxLength={50}
                 value={code}
-                onChange={(e) => setCode(e.target.value)}
+                onChange={(e) => {
+                  setCode(e.target.value);
+                  if (invalidFields.includes("code")) {
+                    setInvalidFields(prev => prev.filter(f => f !== "code"));
+                  }
+                }}
                 placeholder={t("semester.formCodePlaceholder")}
-                className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs"
+                className={`w-full rounded-lg border bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:outline-hidden shadow-theme-xs ${
+                  invalidFields.includes("code")
+                    ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10 dark:border-rose-500"
+                    : "border-gray-300 focus:border-brand-300 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                }`}
               />
             </div>
 
@@ -145,12 +180,20 @@ export function SemesterFormModal({
               </label>
               <input
                 type="text"
-                required
                 maxLength={200}
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  if (invalidFields.includes("name")) {
+                    setInvalidFields(prev => prev.filter(f => f !== "name"));
+                  }
+                }}
                 placeholder={t("semester.formNamePlaceholder")}
-                className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs"
+                className={`w-full rounded-lg border bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:outline-hidden shadow-theme-xs ${
+                  invalidFields.includes("name")
+                    ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10 dark:border-rose-500"
+                    : "border-gray-300 focus:border-brand-300 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                }`}
               />
             </div>
           </div>
@@ -166,8 +209,12 @@ export function SemesterFormModal({
                 placeholder="dd/MM/yyyy"
                 dateFormat="d/m/Y"
                 defaultDate={startDate || undefined}
+                isError={invalidFields.includes("startDate")}
                 onChange={(dates) => {
                   setStartDate(dates && dates.length > 0 ? dates[0] : null);
+                  if (invalidFields.includes("startDate")) {
+                    setInvalidFields(prev => prev.filter(f => f !== "startDate"));
+                  }
                 }}
               />
             </div>
@@ -182,12 +229,27 @@ export function SemesterFormModal({
                 placeholder="dd/MM/yyyy"
                 dateFormat="d/m/Y"
                 defaultDate={endDate || undefined}
+                isError={invalidFields.includes("endDate")}
                 onChange={(dates) => {
                   setEndDate(dates && dates.length > 0 ? dates[0] : null);
+                  if (invalidFields.includes("endDate")) {
+                    setInvalidFields(prev => prev.filter(f => f !== "endDate"));
+                  }
                 }}
               />
             </div>
           </div>
+
+          {errors.length > 0 && (
+            <div className="p-3 text-sm text-rose-500 bg-rose-50 dark:bg-rose-955/20 dark:text-rose-400 rounded-lg space-y-1">
+              {errors.map((err, idx) => (
+                <div key={idx} className="flex items-start gap-1.5">
+                  <span className="shrink-0">•</span>
+                  <span>{err}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
             <button

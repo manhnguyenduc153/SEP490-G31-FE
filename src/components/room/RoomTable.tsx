@@ -70,8 +70,6 @@ export default function RoomTable() {
   // ── Create / Edit modal ──
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<RoomItem | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
 
   // ── Delete confirm modal ──
   const [deleteTarget, setDeleteTarget] = useState<RoomItem | null>(null);
@@ -171,62 +169,15 @@ export default function RoomTable() {
   // ── Open create modal ──
   const openCreateModal = () => {
     setEditingItem(null);
-    setFormError(null);
     setIsModalOpen(true);
   };
 
   // ── Open edit modal ──
   const openEditModal = (item: RoomItem) => {
     setEditingItem(item);
-    setFormError(null);
     setIsModalOpen(true);
   };
 
-  // ── Submit create / edit ──
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleSubmit = async (formData: any) => {
-    if (!formData.code?.trim()) {
-      setFormError(t("backendMessages.ERR_CODE_EMPTY", { defaultValue: "Mã không được để trống" }));
-      return;
-    }
-    if (!formData.name?.trim()) {
-      setFormError(t("backendMessages.ERR_NAME_EMPTY", { defaultValue: "Tên không được để trống" }));
-      return;
-    }
-    setIsSubmitting(true);
-    setFormError(null);
-    try {
-      if (editingItem) {
-        const res = await roomApi.update(editingItem.id, formData);
-        if (res.success && res.data) {
-          setItems((prev) =>
-            prev.map((i) => (i.id === editingItem.id ? res.data : i))
-          );
-          showToast(t("room.updateSuccess", { name: res.data.name }));
-          setIsModalOpen(false);
-          triggerRefresh();
-        } else {
-          setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("room.updateError"));
-        }
-      } else {
-        const res = await roomApi.create(formData);
-        if (res.success && res.data) {
-          setCurrentPage(1);
-          setSearchTerm("");
-          setDebouncedSearchTerm("");
-          triggerRefresh();
-          showToast(t("room.createSuccess", { name: res.data.name }));
-          setIsModalOpen(false);
-        } else {
-          setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("room.createError"));
-        }
-      }
-    } catch {
-      setFormError(t("room.systemError"));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   // ── Open delete confirm ──
   const openDeleteModal = (item: RoomItem) => {
@@ -592,11 +543,21 @@ export default function RoomTable() {
       <RoomFormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        t={t}
         editingItem={editingItem}
-        formError={formError}
-        isSubmitting={isSubmitting}
-        onSubmit={handleSubmit}
+        onSubmitSuccess={(savedItem, isEdit) => {
+          if (isEdit) {
+            setItems((prev) =>
+              prev.map((i) => (i.id === savedItem.id ? savedItem : i))
+            );
+            showToast(t("room.updateSuccess", { name: savedItem.name }));
+          } else {
+            setCurrentPage(1);
+            setSearchTerm("");
+            setDebouncedSearchTerm("");
+            showToast(t("room.createSuccess", { name: savedItem.name }));
+          }
+          triggerRefresh();
+        }}
       />
 
       {/* ── Delete Confirm Modal ── */}

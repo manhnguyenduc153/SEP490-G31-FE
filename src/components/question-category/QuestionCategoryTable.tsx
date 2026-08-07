@@ -19,7 +19,6 @@ import {
   QuestionCategoryItem,
 } from "@/services/questionCategory.api";
 import { commonApi } from "@/services/common.api";
-import { CodeHelper } from "@/helpers/CodeHelper";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { useTranslation } from "react-i18next";
 
@@ -82,15 +81,13 @@ export default function QuestionCategoryTable() {
   // ── Create / Edit modal ──
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<QuestionCategoryItem | null>(null);
-  const [formCode, setFormCode] = useState("");
-  const [formName, setFormName] = useState("");
-  const [formDesc, setFormDesc] = useState("");
-  const [formCourseId, setFormCourseId] = useState<number | null>(null);
-  const [formCourseName, setFormCourseName] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [viewCode, setViewCode] = useState("");
+  const [viewName, setViewName] = useState("");
+  const [viewDesc, setViewDesc] = useState("");
+  const [viewCourseName, setViewCourseName] = useState<string | null>(null);
+  const [viewError, setViewError] = useState<string | null>(null);
 
   // ── Delete confirm modal ──
   const [deleteTarget, setDeleteTarget] = useState<QuestionCategoryItem | null>(null);
@@ -175,109 +172,42 @@ export default function QuestionCategoryTable() {
   // ── Open create modal ──
   const openCreateModal = () => {
     setEditingItem(null);
-    setFormCode(CodeHelper.generate("QC"));
-    setFormName("");
-    setFormDesc("");
-    setFormCourseId(null);
-    setFormError(null);
     setIsModalOpen(true);
   };
 
   // ── Open edit modal ──
   const openEditModal = (item: QuestionCategoryItem) => {
     setEditingItem(item);
-    setFormCode(item.code);
-    setFormName(item.name);
-    setFormDesc(item.description ?? "");
-    setFormCourseId(item.courseId ?? null);
-    setFormError(null);
     setIsModalOpen(true);
   };
 
   // ── Open view modal ──
   const openViewModal = async (item: QuestionCategoryItem) => {
-    setFormCode("");
-    setFormName("");
-    setFormDesc("");
-    setFormCourseName(null);
-    setFormError(null);
+    setViewCode("");
+    setViewName("");
+    setViewDesc("");
+    setViewCourseName(null);
+    setViewError(null);
     setIsLoadingDetail(true);
     setIsViewModalOpen(true);
 
     try {
       const res = await questionCategoryApi.getById(item.id);
       if (res.success && res.data) {
-        setFormCode(res.data.code);
-        setFormName(res.data.name);
-        setFormDesc(res.data.description ?? "");
-        setFormCourseName(res.data.courseName ?? item.courseName ?? null);
+        setViewCode(res.data.code);
+        setViewName(res.data.name);
+        setViewDesc(res.data.description ?? "");
+        setViewCourseName(res.data.courseName ?? item.courseName ?? null);
       } else {
-        setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("questionCategory.systemError"));
+        setViewError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("questionCategory.systemError"));
       }
     } catch {
-      setFormError(t("questionCategory.systemError"));
+      setViewError(t("questionCategory.systemError"));
     } finally {
       setIsLoadingDetail(false);
     }
   };
 
-  // ── Submit create / edit ──
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formCode.trim()) {
-      setFormError(t("backendMessages.ERR_CODE_EMPTY"));
-      return;
-    }
-    if (!formName.trim()) {
-      setFormError(t("backendMessages.ERR_NAME_EMPTY"));
-      return;
-    }
-    setIsSubmitting(true);
-    setFormError(null);
-    try {
-      if (editingItem) {
-        // Edit
-        const res = await questionCategoryApi.update(editingItem.id, {
-          id: editingItem.id,
-          code: formCode.trim(),
-          name: formName.trim(),
-          description: formDesc.trim() || null,
-          courseId: formCourseId,
-        });
-        if (res.success && res.data) {
-          setItems((prev) =>
-            prev.map((i) => (i.id === editingItem.id ? res.data : i))
-          );
-          showToast(t("questionCategory.updateSuccess", { name: res.data.name }));
-          setIsModalOpen(false);
-        } else {
-          setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("questionCategory.updateError"));
-        }
-      } else {
-        // Create
-        const res = await questionCategoryApi.create({
-          code: formCode.trim(),
-          name: formName.trim(),
-          description: formDesc.trim() || null,
-          courseId: formCourseId,
-        });
-        if (res.success && res.data) {
-          setCurrentPage(1);
-          setSearchTerm("");
-          setDebouncedSearchTerm("");
-          triggerRefresh();
-          showToast(t("questionCategory.createSuccess", { name: res.data.name }));
-          setIsModalOpen(false);
-        } else {
-          setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("questionCategory.createError"));
-        }
-      }
-    } catch {
-      setFormError(t("questionCategory.systemError"));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   // ── Open delete confirm ──
   const openDeleteModal = (item: QuestionCategoryItem) => {
@@ -606,20 +536,22 @@ export default function QuestionCategoryTable() {
       <CategoryFormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        t={t}
         editingItem={editingItem}
-        formCode={formCode}
-        setFormCode={setFormCode}
-        formName={formName}
-        setFormName={setFormName}
-        formDesc={formDesc}
-        setFormDesc={setFormDesc}
-        formCourseId={formCourseId}
-        setFormCourseId={setFormCourseId}
         courses={courses}
-        formError={formError}
-        isSubmitting={isSubmitting}
-        handleSubmit={handleSubmit}
+        onSubmitSuccess={(savedItem, isEdit) => {
+          if (isEdit) {
+            setItems((prev) =>
+              prev.map((i) => (i.id === savedItem.id ? savedItem : i))
+            );
+            showToast(t("questionCategory.updateSuccess", { name: savedItem.name }));
+          } else {
+            setCurrentPage(1);
+            setSearchTerm("");
+            setDebouncedSearchTerm("");
+            showToast(t("questionCategory.createSuccess", { name: savedItem.name }));
+            triggerRefresh();
+          }
+        }}
       />
 
       {/* ── View Modal ── */}
@@ -627,12 +559,12 @@ export default function QuestionCategoryTable() {
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
         t={t}
-        formCode={formCode}
-        formName={formName}
-        formDesc={formDesc}
-        formCourseName={formCourseName}
+        formCode={viewCode}
+        formName={viewName}
+        formDesc={viewDesc}
+        formCourseName={viewCourseName}
         isLoadingDetail={isLoadingDetail}
-        formError={formError}
+        formError={viewError}
       />
 
       {/* ── Delete Confirm Modal ── */}
