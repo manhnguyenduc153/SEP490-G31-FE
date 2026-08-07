@@ -1,10 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import { examApi, ExamItem, ExamAttemptDto, ExamAnswerDto } from "@/services/exam.api";
 import { questionPassageApi, QuestionPassageItem } from "@/services/questionPassage.api";
+import { QuestionItem } from "@/services/question.api";
+import { HighlightableText } from "@/components/exam/HighlightableText";
+import { OneTimeAudioPlayer } from "@/components/exam/OneTimeAudioPlayer";
 import { ENV } from "@/config/env";
 import {
   Rocket,
@@ -16,11 +19,13 @@ import {
   HelpCircle,
   ArrowLeft,
   ChevronRight,
+  ChevronLeft,
   History,
   Award,
   AlertTriangle,
   FileText,
-  Volume2
+  Volume2,
+  Save
 } from "lucide-react";
 
 const getFileUrl = (url?: string) => {
@@ -29,6 +34,17 @@ const getFileUrl = (url?: string) => {
     return url;
   }
   return `${ENV.API_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
+};
+
+// Writing-task questions often reuse the passage prompt as the question content (e.g. "Task 1"),
+// so once the passage text is already shown, showing it again as the question content is redundant.
+const normalizeText = (s?: string | null) => (s || "").replace(/\s+/g, " ").trim();
+const isSameAsPassageContent = (questionContent?: string | null, passageContent?: string | null) =>
+  !!passageContent && normalizeText(questionContent) === normalizeText(passageContent);
+
+const countWords = (text?: string | null) => {
+  const trimmed = (text || "").trim();
+  return trimmed === "" ? 0 : trimmed.split(/\s+/).length;
 };
 
 interface StudentExamTakerProps {
@@ -60,18 +76,25 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
   const [uploadingAudioQId, setUploadingAudioQId] = useState<number | null>(null);
   const [viewState, setViewState] = useState<"ready" | "taking" | "result">("ready");
 
-  const checkIfPendingGrading = (att?: ExamAttemptDto | null) => {
-    if (!att || !exam) return false;
+  // True if the exam contains manually-graded content (Writing/Speaking/Essay) — for these,
+  // per-question "correct/incorrect" and the aggregate correct/incorrect/unanswered stats never
+  // apply, whether or not the attempt has been graded yet.
+  const isManualGradedExam = () => {
+    if (!exam) return false;
     const typeStr = String(exam.type || "").toLowerCase();
     const titleStr = String(exam.title || "").toLowerCase();
-    const isManualGradedExam =
+    return (
       typeStr.includes("speaking") ||
       typeStr.includes("writing") ||
       titleStr.includes("speaking") ||
       titleStr.includes("writing") ||
-      exam.questions?.some((q) => q.skillType === 3 || q.skillType === 4 || q.questionType === 3);
+      exam.questions?.some((q) => q.skillType === 3 || q.skillType === 4 || q.questionType === 3)
+    );
+  };
 
-    return isManualGradedExam && (att.score === null || att.score === undefined || att.score === 0);
+  const checkIfPendingGrading = (att?: ExamAttemptDto | null) => {
+    if (!att || !exam) return false;
+    return isManualGradedExam() && (att.score === null || att.score === undefined || att.score === 0);
   };
   
   // Right side panel tab for Results view
@@ -79,6 +102,11 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
 
   // State of chosen answers for the active attempt
   const [chosenAnswers, setChosenAnswers] = useState<Record<number, string>>({});
+
+  // Save-progress states (manual button + auto-save)
+  const [isSavingProgress, setIsSavingProgress] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const saveDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Timer states
   const [timeLeft, setTimeLeft] = useState<number>(0); // in seconds
@@ -103,16 +131,13 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
   });
   const closeConfirm = () => setConfirmModal(prev => ({ ...prev, open: false }));
 
-  const [questionPassages, setQuestionPassages] = useState<QuestionPassageItem[]>([]);
-
   // Load Exam Details and Past Attempts
   const loadExamAndAttempts = async () => {
     setIsLoading(true);
     try {
-      const [examRes, attemptsRes, passRes] = await Promise.all([
+      const [examRes, attemptsRes] = await Promise.all([
         examApi.getStudentExamDetail(examId),
-        examApi.getStudentAttempts(examId),
-        questionPassageApi.getAll(1, 1000)
+        examApi.getStudentAttempts(examId)
       ]);
 
       if (examRes.success && examRes.data) {
@@ -127,9 +152,6 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
         );
         router.push("/exams");
         return;
-      }
-      if (passRes.success && passRes.data) {
-        setQuestionPassages(passRes.data.items || []);
       }
       if (attemptsRes.success && attemptsRes.data) {
         setAttempts(attemptsRes.data);
@@ -167,33 +189,81 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
     };
   }, [examId]);
 
-  // Group exam questions by QuestionPassage
-  const groupedPassageMap = React.useMemo(() => {
+  // Group exam questions by their embedded passage snapshot (exam.questions[].passage, populated
+  // by the student-detail endpoint) — NOT a separate QuestionPassage list fetch, which requires
+  // the admin-only QuestionPassage.View permission students don't have and would 403 for them.
+  const groupedPassageMap = React.useMemo((): {
+    passageGroups: { passage: QuestionPassageItem; questions: QuestionItem[] }[];
+    standaloneQs: QuestionItem[];
+  } => {
     if (!exam || !exam.questions || exam.questions.length === 0) {
       return { passageGroups: [], standaloneQs: [] };
     }
 
-    const passageMap = new Map<number, { passage: QuestionPassageItem; questions: any[] }>();
-    const assignedQIds = new Set<number>();
+    const passageMap = new Map<number, { passage: QuestionPassageItem; questions: QuestionItem[] }>();
+    const standaloneQs: QuestionItem[] = [];
 
-    questionPassages.forEach((p) => {
-      const matchingQs = (exam?.questions || []).filter(
-        (q) => q.passageId === p.id || (q.code && p.code && q.code.startsWith(p.code))
-      );
-
-      if (matchingQs.length > 0) {
-        passageMap.set(p.id, { passage: p, questions: matchingQs });
-        matchingQs.forEach((q) => assignedQIds.add(q.id));
+    exam.questions.forEach((q) => {
+      const p = q.passage;
+      if (p && p.id != null) {
+        if (!passageMap.has(p.id)) {
+          passageMap.set(p.id, { passage: p, questions: [] });
+        }
+        passageMap.get(p.id)!.questions.push(q);
+      } else {
+        standaloneQs.push(q);
       }
     });
-
-    const standaloneQs = (exam?.questions || []).filter((q) => !assignedQIds.has(q.id));
 
     return {
       passageGroups: Array.from(passageMap.values()),
       standaloneQs,
     };
-  }, [exam, questionPassages]);
+  }, [exam]);
+
+  // Ordered "parts" (đề) for the split-pane / paginated taking layout: one part per passage,
+  // plus a trailing part for any questions that aren't attached to a passage.
+  type ExamPart = { passage: QuestionPassageItem | null; questions: QuestionItem[] };
+  const parts: ExamPart[] = React.useMemo(() => {
+    const list: ExamPart[] = groupedPassageMap.passageGroups.map(({ passage, questions }) => ({ passage, questions }));
+    if (groupedPassageMap.standaloneQs.length > 0) {
+      list.push({ passage: null, questions: groupedPassageMap.standaloneQs });
+    }
+    return list;
+  }, [groupedPassageMap]);
+
+  const [currentPartIndex, setCurrentPartIndex] = useState(0);
+
+  // Reset to the first part whenever a fresh attempt/exam is loaded
+  useEffect(() => {
+    setCurrentPartIndex(0);
+  }, [exam?.id, currentAttempt?.id]);
+
+  const questionIdToPartIndex = React.useMemo(() => {
+    const map = new Map<number, number>();
+    parts.forEach((part, idx) => {
+      part.questions.forEach((q) => map.set(q.id, idx));
+    });
+    return map;
+  }, [parts]);
+
+  const isListeningExam = React.useMemo(() => {
+    if (!exam) return false;
+    const typeStr = String(exam.type || "").toLowerCase();
+    const titleStr = String(exam.title || "").toLowerCase();
+    return (
+      typeStr.includes("listening") ||
+      titleStr.includes("listening") ||
+      exam.questions?.some((q) => q.skillType === 1 || q.passage?.skillType === 1)
+    );
+  }, [exam]);
+
+  // Listening exams have exactly one recording for the whole test (per the actual data),
+  // even though audioUrl is technically stored per-passage — use the first one found.
+  const examAudioUrl = React.useMemo(() => {
+    const withAudio = parts.find((p) => p.passage?.audioUrl);
+    return withAudio?.passage?.audioUrl || "";
+  }, [parts]);
 
   // Timer Logic
   const startTimer = (startTimeStr: string, durationMinutes: number | null | undefined) => {
@@ -249,8 +319,13 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
       if (res.success && res.data) {
         currentAttemptRef.current = res.data;
         setCurrentAttempt(res.data);
-        chosenAnswersRef.current = {};
-        setChosenAnswers({});
+        // Restore previously saved answers if this resumes an existing in-progress attempt
+        const savedAnswers: Record<number, string> = {};
+        res.data.answers.forEach(ans => {
+          if (ans.answerContent) savedAnswers[ans.questionId] = ans.answerContent;
+        });
+        chosenAnswersRef.current = savedAnswers;
+        setChosenAnswers(savedAnswers);
         setViewState("taking");
         startTimer(res.data.startTime, exam.duration);
         showToast(t("exams.startExam"), "success");
@@ -407,6 +482,71 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
     }
   };
 
+  // Persist the student's current answers for the in-progress attempt without submitting it,
+  // so the attempt can be resumed with saved progress after a reload / crash / power loss.
+  // `silent` skips the toast/spinner for background auto-saves so they don't interrupt the student.
+  const saveProgress = useCallback(async (options: { silent?: boolean } = {}) => {
+    const activeExam = examRef.current;
+    const activeAttempt = currentAttemptRef.current;
+    const activeAnswers = chosenAnswersRef.current;
+    if (!activeExam || !activeAttempt || activeAttempt.status !== 1) return;
+
+    const answersPayload = Object.entries(activeAnswers).map(([qId, content]) => ({
+      questionId: Number(qId),
+      answerContent: content
+    }));
+
+    const exitsKey = `tabExits_${activeAttempt.id}`;
+    const logKey = `examLogs_${activeAttempt.id}`;
+    const exitsCount = Number(localStorage.getItem(exitsKey) || "0");
+    const logs = localStorage.getItem(logKey) || "[]";
+
+    if (!options.silent) setIsSavingProgress(true);
+    try {
+      const res = await examApi.saveProgress(activeExam.id, {
+        attemptId: activeAttempt.id,
+        tabExitsCount: exitsCount,
+        log: logs,
+        answers: answersPayload
+      });
+      if (res.success) {
+        setLastSavedAt(new Date());
+        if (!options.silent) showToast(t("exams.saveProgressSuccess"), "success");
+      } else if (!options.silent) {
+        showToast(res.message || t("exams.saveProgressError"), "error");
+      }
+    } catch {
+      if (!options.silent) showToast(t("exams.saveProgressError"), "error");
+    } finally {
+      if (!options.silent) setIsSavingProgress(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t]);
+
+  // Debounced auto-save: fires shortly after the student stops changing answers.
+  useEffect(() => {
+    if (viewState !== "taking") return;
+    if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
+    saveDebounceRef.current = setTimeout(() => {
+      saveProgress({ silent: true });
+    }, 4000);
+    return () => {
+      if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chosenAnswers, viewState]);
+
+  // Safety-net auto-save on a fixed interval, in case the student keeps typing continuously
+  // (which would otherwise keep resetting the debounce above) or navigates away unexpectedly.
+  useEffect(() => {
+    if (viewState !== "taking") return;
+    const interval = setInterval(() => {
+      saveProgress({ silent: true });
+    }, 30000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewState]);
+
   const handleSubmitClick = () => {
     if (!exam) return;
     const unansweredCount = exam.questions ? exam.questions.filter(q => !chosenAnswers[q.id]).length : 0;
@@ -434,37 +574,14 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
       onConfirm: async () => {
         closeConfirm();
         if (timerRef.current) clearInterval(timerRef.current);
-        // Auto-submit whatever answers the student has so far
+        // Save progress (not a final submit) so the attempt stays resumable later
         if (exam && currentAttempt) {
           try {
-            const answersPayload = Object.entries(chosenAnswers).map(([qId, content]) => ({
-              questionId: Number(qId),
-              answerContent: content
-            }));
-            const logKey = `examLogs_${currentAttempt.id}`;
-            const exitsKey = `tabExits_${currentAttempt.id}`;
-            const exitsCount = Number(localStorage.getItem(exitsKey) || "0");
-            let logs: any[] = [];
-            try { logs = JSON.parse(localStorage.getItem(logKey) || "[]"); } catch {}
-            logs.push({ type: "submit", time: new Date().toISOString() });
-            localStorage.setItem(logKey, JSON.stringify(logs));
-            const payload = {
-              attemptId: currentAttempt.id,
-              tabExitsCount: exitsCount,
-              log: JSON.stringify(logs),
-              answers: answersPayload
-            };
-            const res = await examApi.submitAttempt(exam.id, payload);
-            if (res.success && res.data) {
-              setSelectedPastAttempt(res.data);
-              // Reload attempts list before going back to ready
-              try {
-                const r = await examApi.getStudentAttempts(exam.id);
-                if (r.success && r.data) setAttempts(r.data);
-              } catch {}
-            }
+            await saveProgress();
+            const r = await examApi.getStudentAttempts(exam.id);
+            if (r.success && r.data) setAttempts(r.data);
           } catch (err) {
-            console.error("Auto-submit on leave failed:", err);
+            console.error("Save progress on leave failed:", err);
           }
         }
         setCurrentAttempt(null);
@@ -474,11 +591,18 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
     });
   };
 
-  // Scroll helper
+  // Scroll helper — jumps to whichever part the question belongs to first, if needed
   const scrollToQuestion = (questionId: number) => {
-    const el = document.getElementById(`question-${questionId}`);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    const targetPart = questionIdToPartIndex.get(questionId);
+    const scroll = () => {
+      const el = document.getElementById(`question-${questionId}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
+    if (targetPart !== undefined && targetPart !== currentPartIndex) {
+      setCurrentPartIndex(targetPart);
+      requestAnimationFrame(() => requestAnimationFrame(scroll));
+    } else {
+      scroll();
     }
   };
 
@@ -658,6 +782,168 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
     const questions = exam.questions || [];
     const answeredCount = Object.keys(chosenAnswers).filter(k => chosenAnswers[Number(k)]).length;
     const isLowTime = exam.duration && timeLeft > 0 && timeLeft <= 60;
+    const currentPart = parts[currentPartIndex] ?? { passage: null, questions: [] };
+
+    // One question card — shared by every part (passage-backed or standalone) to avoid
+    // duplicating the MCQ / textarea / speaking-upload JSX per rendering site.
+    const renderQuestionCard = (q: any, passage: QuestionPassageItem | null) => {
+      const globalIdx = questions.findIndex((x) => x.id === q.id);
+      const chosenValue = chosenAnswers[q.id] || "";
+      const isMultiple = q.questionType === 2;
+      const isSpeakingQ = q.skillType === 3 || passage?.skillType === 3 ||
+        String(exam?.type || "").toLowerCase().includes("speaking") ||
+        String(exam?.title || "").toLowerCase().includes("speaking");
+      // Writing/Speaking are graded manually by staff per submission, not auto-scored per
+      // question, so showing a per-question point value here would be misleading.
+      const isManuallyGradedQ = isSpeakingQ || q.skillType === 4 || passage?.skillType === 4;
+
+      return (
+        <div
+          key={q.id}
+          id={`question-${q.id}`}
+          className="p-5 bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 rounded-xl shadow-xs space-y-3 scroll-mt-6"
+        >
+          <div className="flex items-start justify-between gap-3 border-b border-gray-200/60 dark:border-gray-800 pb-2.5">
+            <h4 className="text-sm font-bold text-brand-600 dark:text-brand-400 flex items-center gap-2">
+              {t("exams.question")} {globalIdx + 1}
+              {!isManuallyGradedQ && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 dark:bg-brand-950/20 text-brand-600 font-black border border-brand-100 dark:border-brand-900/30">
+                  {q.point || 1} {t("exams.points")}
+                </span>
+              )}
+            </h4>
+            {isMultiple && (
+              <span className="text-[9px] px-2 py-0.5 rounded bg-purple-50 text-purple-600 font-bold border border-purple-100">
+                {t("exams.multipleSelectLabel")}
+              </span>
+            )}
+          </div>
+
+          {isSameAsPassageContent(q.content, passage?.content) ? null : (q.skillType === 2 || q.skillType === 4) ? (
+            <HighlightableText
+              text={q.content}
+              storageKey={`${currentAttempt.id}_q${q.id}`}
+              className="text-sm font-semibold text-gray-855 dark:text-gray-200 whitespace-pre-wrap leading-relaxed"
+            />
+          ) : (
+            <p className="text-sm font-semibold text-gray-855 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
+              {q.content}
+            </p>
+          )}
+
+          {/* Speaking: always show audio upload regardless of questionType */}
+          {isSpeakingQ && (
+            <div className="p-4 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5 font-sans">
+                  <Volume2 className="w-4 h-4 text-amber-600" />
+                  {t("exams.uploadSpeakingAudioLabel")}
+                </label>
+                {uploadingAudioQId === q.id && (
+                  <span className="text-xs text-amber-600 animate-pulse font-semibold">
+                    {t("exams.uploadingAudio")}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-3">
+                <input
+                  type="file"
+                  accept="audio/*"
+                  id={`speaking-file-${q.id}`}
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setUploadingAudioQId(q.id);
+                      try {
+                        const res = await questionPassageApi.uploadFile(file);
+                        if (res.success && res.data) {
+                          setChosenAnswers(prev => ({ ...prev, [q.id]: res.data }));
+                          showToast(t("exams.audioFileAttached"), "success");
+                        } else {
+                          showToast(res.message || "Không thể tải file audio", "error");
+                        }
+                      } catch (err: any) {
+                        showToast(err.message || "Lỗi upload file", "error");
+                      } finally {
+                        setUploadingAudioQId(null);
+                      }
+                    }
+                  }}
+                />
+                <label
+                  htmlFor={`speaking-file-${q.id}`}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs rounded-xl cursor-pointer transition-colors shadow-xs inline-flex items-center gap-2"
+                >
+                  <Volume2 className="w-4 h-4" />
+                  {uploadingAudioQId === q.id ? t("exams.uploadingAudio") : t("exams.selectAudioFileBtn")}
+                </label>
+              </div>
+
+              {chosenValue && (chosenValue.startsWith("/uploads") || chosenValue.startsWith("http") || chosenValue.startsWith("data:")) && (
+                <div className="space-y-1.5 pt-2 border-t border-amber-200/50">
+                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <CheckCircle className="w-3.5 h-3.5" /> {t("exams.audioFileAttached")}:
+                  </span>
+                  <audio controls src={getFileUrl(chosenValue)} className="w-full h-9 rounded-lg" />
+                </div>
+              )}
+            </div>
+          )}
+
+          {q.questionType === 3 && !isSpeakingQ ? (
+            <div className="space-y-1.5 mt-3">
+              <label className="text-xs text-gray-400 font-bold uppercase tracking-wider block">{t("exams.studentSelectYourAnswer")}</label>
+              <textarea
+                value={chosenValue}
+                onChange={(e) => handleTextAnswerChange(q.id, e.target.value)}
+                placeholder={t("exams.studentAnswerPlaceholder")}
+                rows={16}
+                className="w-full min-h-[360px] resize-y rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-900 dark:text-white"
+              />
+              <div className="text-right text-xs font-semibold text-gray-400 dark:text-gray-500">
+                {t("exams.wordCount")}: {countWords(chosenValue)}
+              </div>
+            </div>
+          ) : !isSpeakingQ ? (
+            <div className="grid grid-cols-1 gap-3 mt-3">
+              {q.questionAnswers.map((option: any, optIdx: number) => {
+                const optLabel = String.fromCharCode(65 + optIdx);
+                const isSelected = isMultiple
+                  ? chosenValue.split(",").map(s => s.trim()).includes(option.content)
+                  : chosenValue === option.content;
+
+                return (
+                  <div
+                    key={option.id}
+                    onClick={() => handleSelectChoice(q.id, option.content, isMultiple)}
+                    className={`p-3.5 rounded-xl border flex items-center gap-3 cursor-pointer transition-all duration-200 select-none ${
+                      isSelected
+                        ? "bg-brand-50 border-brand-500 dark:bg-brand-950/20 dark:border-brand-500 ring-2 ring-brand-500/10"
+                        : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 hover:bg-gray-50 hover:border-brand-300"
+                    }`}
+                  >
+                    <div
+                      className={`w-7 h-7 rounded-lg font-black text-xs flex items-center justify-center shrink-0 transition-colors ${
+                        isSelected
+                          ? "bg-brand-500 text-white"
+                          : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                      }`}
+                    >
+                      {optLabel}
+                    </div>
+                    <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                      {option.content}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      );
+    };
 
     return (
       <>
@@ -675,345 +961,158 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                 <h2 className="text-sm font-extrabold text-gray-900 dark:text-white leading-tight">{exam.title}</h2>
               </div>
             </div>
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-base tabular-nums transition-colors ${
-              isLowTime ? "bg-rose-500 text-white animate-pulse" : "bg-brand-500 text-white"
-            }`}>
-              <Clock className="w-4 h-4 shrink-0" />
-              {exam.duration ? formatTime(timeLeft) : formatTime(elapsedTime)}
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:flex flex-col items-end">
+                <button
+                  type="button"
+                  onClick={() => saveProgress()}
+                  disabled={isSavingProgress}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg transition-colors disabled:opacity-60"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  {isSavingProgress ? t("exams.savingProgress") : t("exams.btnSaveProgress")}
+                </button>
+                {lastSavedAt && (
+                  <span className="text-[10px] text-gray-400 mt-1">
+                    {t("exams.lastSavedAt", { time: lastSavedAt.toLocaleTimeString("vi-VN") })}
+                  </span>
+                )}
+              </div>
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-base tabular-nums transition-colors ${
+                isLowTime ? "bg-rose-500 text-white animate-pulse" : "bg-brand-500 text-white"
+              }`}>
+                <Clock className="w-4 h-4 shrink-0" />
+                {exam.duration ? formatTime(timeLeft) : formatTime(elapsedTime)}
+              </div>
             </div>
           </div>
 
-          {/* Body: questions left + panel right */}
+          {/* Listening: pinned, single-play audio bar for the whole test */}
+          {isListeningExam && examAudioUrl && (
+            <div className="px-6 py-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shrink-0">
+              <OneTimeAudioPlayer
+                src={getFileUrl(examAudioUrl)}
+                storageKey={`examAudio_${currentAttempt.id}`}
+                autoStart
+              />
+            </div>
+          )}
+
+          {/* Body: passage (đề) left, questions right, answer sheet far right */}
           <div className="flex flex-1 overflow-hidden">
 
-            {/* Left: scrollable question list */}
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
-              {groupedPassageMap.passageGroups.map(({ passage, questions: groupQs }) => (
-                <div
-                  key={passage.id}
-                  className="p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm space-y-4"
-                >
-                  {/* Passage Header */}
-                  <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
-                    <div>
-                      <span className="text-xs font-mono font-bold text-gray-400">({passage.code})</span>
-                      <h3 className="text-base font-bold text-gray-900 dark:text-white mt-0.5">{passage.title}</h3>
+            {/* Passage + Questions + Part pager */}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 flex overflow-hidden">
+
+                {/* Passage / prompt pane */}
+                {currentPart.passage && (
+                  <div className="w-1/2 shrink-0 overflow-y-auto px-6 py-5 border-r border-gray-200 dark:border-gray-800 space-y-4">
+                    <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
+                      <div>
+                        <span className="text-xs font-mono font-bold text-gray-400">({currentPart.passage.code})</span>
+                        <h3 className="text-base font-bold text-gray-900 dark:text-white mt-0.5">{currentPart.passage.title}</h3>
+                      </div>
+                      <span className="text-xs font-semibold text-gray-500">({t("exams.questionsCount", { count: currentPart.questions.length })})</span>
                     </div>
-                    <span className="text-xs font-semibold text-gray-500">({t("exams.questionsCount", { count: groupQs.length })})</span>
-                  </div>
 
-                  {/* Reading Passage Text */}
-                  {passage.content && (
-                    <div className="p-4 bg-gray-50 dark:bg-gray-950/40 rounded-xl text-gray-800 dark:text-gray-200 text-sm font-serif leading-relaxed whitespace-pre-wrap border border-gray-150 dark:border-gray-800">
-                      <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 font-sans">
-                        📖 {t("exams.passageContentTitle").toUpperCase()}
-                      </span>
-                      {passage.content}
-                    </div>
-                  )}
-
-                  {/* Listening Audio File */}
-                  {passage.audioUrl && (
-                    <div className="p-3.5 bg-blue-50/60 dark:bg-blue-950/30 rounded-xl border border-blue-100 dark:border-blue-900/50 space-y-2">
-                      <span className="text-xs font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1.5 font-sans">
-                        <Volume2 className="w-4 h-4" /> {t("exams.listeningAudioTitle")}
-                      </span>
-                      <audio controls src={getFileUrl(passage.audioUrl)} className="w-full h-9 rounded-lg" />
-                    </div>
-                  )}
-
-                  {/* Group Questions */}
-                  <div className="space-y-4 pt-2">
-                    {groupQs.map((q) => {
-                      const globalIdx = questions.findIndex((x) => x.id === q.id);
-                      const chosenValue = chosenAnswers[q.id] || "";
-                      const isMultiple = q.questionType === 2;
-                      const isSpeakingQ = q.skillType === 3 || (passage as any)?.skillType === 3 ||
-                        String(exam?.type || "").toLowerCase().includes("speaking") ||
-                        String(exam?.title || "").toLowerCase().includes("speaking");
-
-                      return (
-                        <div
-                          key={q.id}
-                          id={`question-${q.id}`}
-                          className="p-5 bg-gray-50/50 dark:bg-gray-950/30 border border-gray-200/80 dark:border-gray-800 rounded-xl shadow-xs space-y-3 scroll-mt-6"
-                        >
-                          <div className="flex items-start justify-between gap-3 border-b border-gray-200/60 dark:border-gray-800 pb-2.5">
-                            <h4 className="text-sm font-bold text-brand-600 dark:text-brand-400 flex items-center gap-2">
-                              {t("exams.question")} {globalIdx + 1}
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 dark:bg-brand-950/20 text-brand-600 font-black border border-brand-100 dark:border-brand-900/30">
-                                {q.point || 1} {t("exams.points")}
-                              </span>
-                            </h4>
-                            {isMultiple && (
-                              <span className="text-[9px] px-2 py-0.5 rounded bg-purple-50 text-purple-600 font-bold border border-purple-100">
-                                {t("exams.multipleSelectLabel")}
-                              </span>
-                            )}
-                          </div>
-
-                          <p className="text-sm font-semibold text-gray-855 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
-                            {q.content}
-                          </p>
-
-                          {/* Speaking: always show audio upload regardless of questionType */}
-                          {isSpeakingQ && (
-                            <div className="p-4 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-3">
-                              <div className="flex items-center justify-between">
-                                <label className="text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5 font-sans">
-                                  <Volume2 className="w-4 h-4 text-amber-600" />
-                                  {t("exams.uploadSpeakingAudioLabel")}
-                                </label>
-                                {uploadingAudioQId === q.id && (
-                                  <span className="text-xs text-amber-600 animate-pulse font-semibold">
-                                    {t("exams.uploadingAudio")}
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className="flex flex-col sm:flex-row items-center gap-3">
-                                <input
-                                  type="file"
-                                  accept="audio/*"
-                                  id={`speaking-file-${q.id}`}
-                                  className="hidden"
-                                  onChange={async (e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                      setUploadingAudioQId(q.id);
-                                      try {
-                                        const res = await questionPassageApi.uploadFile(file);
-                                        if (res.success && res.data) {
-                                          setChosenAnswers(prev => ({ ...prev, [q.id]: res.data }));
-                                          showToast(t("exams.audioFileAttached"), "success");
-                                        } else {
-                                          showToast(res.message || "Không thể tải file audio", "error");
-                                        }
-                                      } catch (err: any) {
-                                        showToast(err.message || "Lỗi upload file", "error");
-                                      } finally {
-                                        setUploadingAudioQId(null);
-                                      }
-                                    }
-                                  }}
-                                />
-                                <label
-                                  htmlFor={`speaking-file-${q.id}`}
-                                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs rounded-xl cursor-pointer transition-colors shadow-xs inline-flex items-center gap-2"
-                                >
-                                  <Volume2 className="w-4 h-4" />
-                                  {uploadingAudioQId === q.id ? t("exams.uploadingAudio") : t("exams.selectAudioFileBtn")}
-                                </label>
-                              </div>
-
-                              {chosenValue && (chosenValue.startsWith("/uploads") || chosenValue.startsWith("http") || chosenValue.startsWith("data:")) && (
-                                <div className="space-y-1.5 pt-2 border-t border-amber-200/50">
-                                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                                    <CheckCircle className="w-3.5 h-3.5" /> {t("exams.audioFileAttached")}:
-                                  </span>
-                                  <audio controls src={getFileUrl(chosenValue)} className="w-full h-9 rounded-lg" />
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {q.questionType === 3 && !isSpeakingQ ? (
-                            <div className="space-y-1.5 mt-3">
-                              <label className="text-xs text-gray-400 font-bold uppercase tracking-wider block">{t("exams.studentSelectYourAnswer")}</label>
-                              <textarea
-                                value={chosenValue}
-                                onChange={(e) => handleTextAnswerChange(q.id, e.target.value)}
-                                placeholder={t("exams.studentAnswerPlaceholder")}
-                                rows={4}
-                                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-900 dark:text-white"
-                              />
-                            </div>
-                          ) : !isSpeakingQ ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-                              {q.questionAnswers.map((option: any, optIdx: number) => {
-                                const optLabel = String.fromCharCode(65 + optIdx);
-                                const isSelected = isMultiple
-                                  ? chosenValue.split(",").map(s => s.trim()).includes(option.content)
-                                  : chosenValue === option.content;
-
-                                return (
-                                  <div
-                                    key={option.id}
-                                    onClick={() => handleSelectChoice(q.id, option.content, isMultiple)}
-                                    className={`p-3.5 rounded-xl border flex items-center gap-3 cursor-pointer transition-all duration-200 select-none ${
-                                      isSelected
-                                        ? "bg-brand-50 border-brand-500 dark:bg-brand-950/20 dark:border-brand-500 ring-2 ring-brand-500/10"
-                                        : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 hover:bg-gray-50 hover:border-brand-300"
-                                    }`}
-                                  >
-                                    <div
-                                      className={`w-7 h-7 rounded-lg font-black text-xs flex items-center justify-center shrink-0 transition-colors ${
-                                        isSelected
-                                          ? "bg-brand-500 text-white"
-                                          : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                                      }`}
-                                    >
-                                      {optLabel}
-                                    </div>
-                                    <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">
-                                      {option.content}
-                                    </span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-
-              {/* Render Standalone Questions */}
-              {groupedPassageMap.standaloneQs.map((q) => {
-                const globalIdx = questions.findIndex((x) => x.id === q.id);
-                const chosenValue = chosenAnswers[q.id] || "";
-                const isMultiple = q.questionType === 2;
-                const isSpeakingQ = q.skillType === 3 ||
-                  String(exam?.type || "").toLowerCase().includes("speaking") ||
-                  String(exam?.title || "").toLowerCase().includes("speaking");
-
-                return (
-                  <div
-                    key={q.id}
-                    id={`question-${q.id}`}
-                    className="p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm space-y-4 scroll-mt-6"
-                  >
-                    <div className="flex items-start justify-between gap-3 border-b border-gray-100 dark:border-gray-800 pb-3">
-                      <h4 className="text-sm font-bold text-brand-600 dark:text-brand-400 flex items-center gap-2">
-                        {t("exams.question")} {globalIdx + 1}
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 dark:bg-brand-950/20 text-brand-600 font-black border border-brand-100 dark:border-brand-900/30">
-                          {q.point || 1} {t("exams.points")}
+                    {currentPart.passage.content && (
+                      <div className="p-4 bg-gray-50 dark:bg-gray-950/40 rounded-xl border border-gray-150 dark:border-gray-800">
+                        <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 font-sans">
+                          📖 {t("exams.passageContentTitle").toUpperCase()}
                         </span>
-                      </h4>
-                      {isMultiple && (
-                        <span className="text-[9px] px-2 py-0.5 rounded bg-purple-50 text-purple-600 font-bold border border-purple-100">
-                          {t("exams.multipleSelectLabel")}
-                        </span>
-                      )}
-                    </div>
-
-                    <p className="text-sm font-semibold text-gray-855 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
-                      {q.content}
-                    </p>
-
-                    {/* Speaking: always show audio upload regardless of questionType */}
-                    {isSpeakingQ && (
-                      <div className="p-4 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-3">
-                        <div className="flex items-center justify-between">
-                          <label className="text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5 font-sans">
-                            <Volume2 className="w-4 h-4 text-amber-600" />
-                            {t("exams.uploadSpeakingAudioLabel")}
-                          </label>
-                          {uploadingAudioQId === q.id && (
-                            <span className="text-xs text-amber-600 animate-pulse font-semibold">
-                              {t("exams.uploadingAudio")}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row items-center gap-3">
-                          <input
-                            type="file"
-                            accept="audio/*"
-                            id={`speaking-file-${q.id}`}
-                            className="hidden"
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                setUploadingAudioQId(q.id);
-                                try {
-                                  const res = await questionPassageApi.uploadFile(file);
-                                  if (res.success && res.data) {
-                                    setChosenAnswers(prev => ({ ...prev, [q.id]: res.data }));
-                                    showToast(t("exams.audioFileAttached"), "success");
-                                  } else {
-                                    showToast(res.message || "Không thể tải file audio", "error");
-                                  }
-                                } catch (err: any) {
-                                  showToast(err.message || "Lỗi upload file", "error");
-                                } finally {
-                                  setUploadingAudioQId(null);
-                                }
-                              }
-                            }}
+                        {(currentPart.passage.skillType === 2 || currentPart.passage.skillType === 4) ? (
+                          <HighlightableText
+                            text={currentPart.passage.content}
+                            storageKey={`${currentAttempt.id}_p${currentPart.passage.id}`}
+                            className="text-gray-800 dark:text-gray-200 text-sm font-serif leading-relaxed whitespace-pre-wrap"
                           />
-                          <label
-                            htmlFor={`speaking-file-${q.id}`}
-                            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs rounded-xl cursor-pointer transition-colors shadow-xs inline-flex items-center gap-2"
-                          >
-                            <Volume2 className="w-4 h-4" />
-                            {uploadingAudioQId === q.id ? t("exams.uploadingAudio") : t("exams.selectAudioFileBtn")}
-                          </label>
-                        </div>
-
-                        {chosenValue && (chosenValue.startsWith("/uploads") || chosenValue.startsWith("http") || chosenValue.startsWith("data:")) && (
-                          <div className="space-y-1.5 pt-2 border-t border-amber-200/50">
-                            <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                              <CheckCircle className="w-3.5 h-3.5" /> {t("exams.audioFileAttached")}:
-                            </span>
-                            <audio controls src={getFileUrl(chosenValue)} className="w-full h-9 rounded-lg" />
+                        ) : (
+                          <div className="text-gray-800 dark:text-gray-200 text-sm font-serif leading-relaxed whitespace-pre-wrap">
+                            {currentPart.passage.content}
                           </div>
                         )}
                       </div>
                     )}
 
-                    {q.questionType === 3 && !isSpeakingQ ? (
-                      <div className="space-y-1.5 mt-3">
-                        <label className="text-xs text-gray-400 font-bold uppercase tracking-wider block">{t("exams.studentSelectYourAnswer")}</label>
-                        <textarea
-                          value={chosenValue}
-                          onChange={(e) => handleTextAnswerChange(q.id, e.target.value)}
-                          placeholder={t("exams.studentAnswerPlaceholder")}
-                          rows={4}
-                          className="w-full rounded-xl border border-gray-200 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                    {currentPart.passage.attachmentUrl && (
+                      <div className="p-3 bg-emerald-50/40 dark:bg-emerald-950/10 rounded-xl border border-emerald-100 dark:border-emerald-900/40">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={getFileUrl(currentPart.passage.attachmentUrl)}
+                          alt=""
+                          className="max-h-96 w-full object-contain rounded-lg"
                         />
                       </div>
-                    ) : !isSpeakingQ ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-                        {q.questionAnswers.map((option, optIdx) => {
-                          const optLabel = String.fromCharCode(65 + optIdx);
-                          const isSelected = isMultiple
-                            ? chosenValue.split(",").map(s => s.trim()).includes(option.content)
-                            : chosenValue === option.content;
-
-                          return (
-                            <div
-                              key={option.id}
-                              onClick={() => handleSelectChoice(q.id, option.content, isMultiple)}
-                              className={`p-4 rounded-xl border flex items-center gap-3 cursor-pointer transition-all duration-200 select-none ${
-                                isSelected
-                                  ? "bg-brand-50 border-brand-500 dark:bg-brand-950/20 dark:border-brand-500 ring-2 ring-brand-500/10"
-                                  : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 hover:bg-gray-50 hover:border-brand-300"
-                              }`}
-                            >
-                              <div className={`w-8 h-8 rounded-lg font-black text-xs flex items-center justify-center shrink-0 border transition-colors ${
-                                isSelected ? "bg-brand-500 text-white border-brand-500" : "bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-600"
-                              }`}>
-                                {optLabel}
-                              </div>
-                              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 leading-tight">{option.content}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : null}
+                    )}
                   </div>
-                );
-              })}
-              {/* spacer */}
-              <div className="h-10" />
+                )}
+
+                {/* Questions pane */}
+                <div className={`${currentPart.passage ? "w-1/2" : "flex-1"} overflow-y-auto px-6 py-5 space-y-4`}>
+                  {currentPart.questions.length > 0 ? (
+                    currentPart.questions.map((q) => renderQuestionCard(q, currentPart.passage))
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-sm text-gray-400 font-semibold">
+                      {t("exams.noPassageContent")}
+                    </div>
+                  )}
+                  <div className="h-4" />
+                </div>
+              </div>
+
+              {/* Part pager: page-turn control to move between parts/đề */}
+              {parts.length > 1 && (
+                <div className="shrink-0 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPartIndex((i) => Math.max(0, i - 1))}
+                    disabled={currentPartIndex === 0}
+                    className="shrink-0 inline-flex items-center gap-1 px-3 py-2 text-xs font-bold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" /> {t("exams.btnPrevPart")}
+                  </button>
+
+                  <div className="flex-1 flex items-center gap-2 overflow-x-auto">
+                    {parts.map((part, idx) => {
+                      const total = part.questions.length;
+                      const answered = part.questions.filter((q) => !!chosenAnswers[q.id]).length;
+                      const isActive = idx === currentPartIndex;
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setCurrentPartIndex(idx)}
+                          className={`shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold border transition-colors ${
+                            isActive
+                              ? "bg-brand-500 border-brand-500 text-white shadow-sm"
+                              : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-brand-400"
+                          }`}
+                        >
+                          {part.passage?.title || t("exams.partLabel", { number: idx + 1 })}
+                          <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${isActive ? "bg-white/20" : "bg-black/5 dark:bg-white/10"}`}>
+                            {answered}/{total}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPartIndex((i) => Math.min(parts.length - 1, i + 1))}
+                    disabled={currentPartIndex === parts.length - 1}
+                    className="shrink-0 inline-flex items-center gap-1 px-3 py-2 text-xs font-bold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {t("exams.btnNextPart")} <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Right: sticky panel */}
+            {/* Right: sticky answer-sheet panel (number grid scoped to the current part) */}
             <div className="w-72 xl:w-80 shrink-0 overflow-y-auto border-l border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col">
-              
+
               {/* Phiếu trả lời */}
               <div className="p-5 space-y-4 flex-1">
                 <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
@@ -1024,7 +1123,8 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                 </div>
 
                 <div className="grid grid-cols-5 gap-2">
-                  {questions.map((q, idx) => {
+                  {currentPart.questions.map((q) => {
+                    const idx = questions.findIndex((x) => x.id === q.id);
                     const isAnswered = !!chosenAnswers[q.id];
                     return (
                       <button
@@ -1043,7 +1143,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                   })}
                 </div>
 
-                {/* Unanswered warning */}
+                {/* Unanswered warning (exam-wide, gates final submission) */}
                 {answeredCount < questions.length && (
                   <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 rounded-xl text-xs">
                     <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
@@ -1222,9 +1322,11 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                           )}
                         </div>
 
-                        <p className="text-sm font-bold text-gray-855 dark:text-gray-250 leading-relaxed whitespace-pre-wrap">
-                          {q.content}
-                        </p>
+                        {!isSameAsPassageContent(q.content, passage.content) && (
+                          <p className="text-sm font-bold text-gray-855 dark:text-gray-250 leading-relaxed whitespace-pre-wrap">
+                            {q.content}
+                          </p>
+                        )}
 
                         {studentAnswer && (studentAnswer.startsWith("/uploads") || studentAnswer.startsWith("http") || studentAnswer.startsWith("data:") || studentAnswer.includes(".mp3") || studentAnswer.includes(".wav") || studentAnswer.includes(".m4a")) ? (
                           <div className="p-3 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-900/40 space-y-2 mt-3">
@@ -1254,7 +1356,11 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                               let pillStyle = "bg-gray-50 border-gray-200 text-gray-600";
 
                               if (isStudentSelect) {
-                                if (isCorrectOption) {
+                                // Color the student's own pick from the attempt's correctness verdict
+                                // (always available, used for the badge above) — not option.isCorrect,
+                                // which the backend masks to false whenever ShowAnswerAfter is off,
+                                // which would otherwise render a genuinely correct pick as red.
+                                if (isCorrect) {
                                   borderStyle = "border-emerald-500 bg-emerald-50/10";
                                   pillStyle = "bg-emerald-500 border-emerald-500 text-white";
                                 } else {
@@ -1330,6 +1436,11 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                       <span className="text-[9px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-bold uppercase">
                         {t("exams.attemptUnanswered")}
                       </span>
+                    ) : (checkIfPendingGrading(attempt) || q.questionType === 3 || q.skillType === 3 || q.skillType === 4) ? (
+                      <span className="inline-flex items-center gap-1 text-[9px] px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400 font-bold uppercase border border-amber-200 dark:border-amber-900/40">
+                        <Clock className="w-3 h-3 text-amber-500" />
+                        {t("exams.statusPendingGrade")}
+                      </span>
                     ) : isCorrect ? (
                       <span className="inline-flex items-center gap-1 text-[9px] px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-bold uppercase">
                         <CheckCircle className="w-3 h-3" />
@@ -1375,7 +1486,11 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                         let pillStyle = "bg-gray-50 border-gray-200 text-gray-600";
 
                         if (isStudentSelect) {
-                          if (isCorrectOption) {
+                          // Color the student's own pick from the attempt's correctness verdict
+                          // (always available, used for the badge above) — not option.isCorrect,
+                          // which the backend masks to false whenever ShowAnswerAfter is off,
+                          // which would otherwise render a genuinely correct pick as red.
+                          if (isCorrect) {
                             borderStyle = "border-emerald-500 bg-emerald-50/10";
                             pillStyle = "bg-emerald-500 border-emerald-500 text-white";
                           } else {
@@ -1476,7 +1591,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                         {t("exams.statusPendingGrade")}
                       </span>
                     </div>
-                  ) : (
+                  ) : isManualGradedExam() ? null : (
                     <>
                       <div className="flex justify-between items-center text-xs font-semibold">
                         <span className="text-gray-500 flex items-center gap-1.5">
@@ -1527,16 +1642,6 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                     </div>
                   );
                 })()}
-
-                {/* Warning message if answers are hidden */}
-                {!canShowAnswers && (
-                  <div className="flex gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 rounded-xl mt-3 text-left">
-                    <AlertTriangle className="w-4.5 h-4.5 text-amber-500 shrink-0 mt-0.5" />
-                    <p className="text-[10px] text-amber-850 dark:text-amber-450 leading-relaxed font-semibold">
-                      {t("exams.answersHiddenWarning")}
-                    </p>
-                  </div>
-                )}
               </div>
 
               {/* Close / Return Button */}

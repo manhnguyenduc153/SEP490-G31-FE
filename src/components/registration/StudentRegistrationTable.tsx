@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   Table,
   TableBody,
@@ -14,6 +15,7 @@ import { courseApi, CourseItem } from "@/services/course.api";
 import { StudentRegistrationModal } from "./StudentRegistrationModal";
 import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
 import { useTranslation } from "react-i18next";
+import { Modal } from "@/components/ui/modal";
 import { authApi } from "@/services/auth.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { AngleDownIcon, AngleUpIcon } from "@/icons";
@@ -96,36 +98,55 @@ export default function StudentRegistrationTable() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [registrationToEdit, setRegistrationToEdit] = useState<StudentRegistrationDto | null>(null);
 
+  // Delete Confirm Modal State
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [deleteConfirmStudentName, setDeleteConfirmStudentName] = useState<string>("");
+  const [deleteConfirmCourseName, setDeleteConfirmCourseName] = useState<string>("");
+
   // Toast
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [toastType, setToastType] = useState<"success" | "error">("success");
+  const [toasts, setToasts] = useState<{ id: number; message: string; type: "success" | "error" }[]>([]);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (!toastMessage) return;
-    const timer = setTimeout(() => setToastMessage(null), 3000);
-    return () => clearTimeout(timer);
-  }, [toastMessage]);
+    setMounted(true);
+  }, []);
 
   const showToast = (msg: string, type: "success" | "error" = "success") => {
-    setToastMessage(msg);
-    setToastType(type);
+    if (!msg) return;
+    const messages = msg
+      .split(/\r?\n/)
+      .map((m) => m.trim())
+      .filter(Boolean);
+
+    messages.forEach((message, index) => {
+      const id = Date.now() + index;
+      setToasts((prev) => [...prev, { id, message, type }]);
+
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 4000);
+    });
   };
 
   const triggerRefresh = () => setRefreshKey((k) => k + 1);
 
-  const handleDelete = async (id: number) => {
-    if (window.confirm(t("registration.confirmDelete", { defaultValue: "Bạn có chắc chắn muốn xóa đăng ký này không?" }))) {
-      try {
-        const res = await semesterApi.deleteStudentRegistration(id);
-        if (res.success) {
-          showToast(t("registration.toastDeleteSuccess", { defaultValue: "Xóa đăng ký thành công!" }));
-          triggerRefresh();
-        } else {
-          showToast(res.message ? t(`backendMessages.${res.message}`) : t("registration.toastDeleteError", { defaultValue: "Lỗi khi xóa đăng ký." }), "error");
-        }
-      } catch (err: any) {
-         showToast(err.message || t("registration.toastSystemError"), "error");
+  const handleDelete = (id: number, studentName: string, courseName: string) => {
+    setDeleteConfirmId(id);
+    setDeleteConfirmStudentName(studentName);
+    setDeleteConfirmCourseName(courseName);
+  };
+
+  const executeDelete = async (id: number) => {
+    try {
+      const res = await semesterApi.deleteStudentRegistration(id);
+      if (res.success) {
+        showToast(t("registration.toastDeleteSuccess", { defaultValue: "Xóa đăng ký thành công!" }));
+        triggerRefresh();
+      } else {
+        showToast(res.message ? t(`backendMessages.${res.message}`) : t("registration.toastDeleteError", { defaultValue: "Lỗi khi xóa đăng ký." }), "error");
       }
+    } catch (err: any) {
+       showToast(err.message || t("registration.toastSystemError"), "error");
     }
   };
 
@@ -243,25 +264,29 @@ export default function StudentRegistrationTable() {
   const semesterName = selectedSemester ? selectedSemester.name : "";
 
   return (
-    <div className="bg-white dark:bg-gray-900 border border-gray-150 dark:border-gray-800 rounded-2xl shadow-xs">
-      {/* Toast */}
-      {toastMessage && (
-        <div
-          className={`fixed top-5 right-5 z-[99999] flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg text-sm font-medium text-white transition-all duration-300 ${
-            toastType === "success" ? "bg-green-500" : "bg-red-500"
-          }`}
-        >
-          {toastType === "success" ? (
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          ) : (
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          )}
-          {toastMessage}
-        </div>
+    <div className="bg-white dark:bg-gray-900 border border-gray-155 dark:border-gray-800 rounded-2xl shadow-xs">
+      {/* Toast Container */}
+      {mounted && typeof document !== "undefined" && createPortal(
+        <div className="fixed bottom-5 right-5 z-[999999] flex flex-col gap-2 max-w-md w-full sm:w-auto">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className="flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5"
+            >
+              {toast.type === "success" ? (
+                <svg className="w-5 h-5 text-emerald-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 text-rose-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+              <span className="text-sm font-medium">{toast.message}</span>
+            </div>
+          ))}
+        </div>,
+        document.body
       )}
 
       {/* Card Header */}
@@ -396,7 +421,7 @@ export default function StudentRegistrationTable() {
                 <TableCell isHeader className="px-6 py-4 text-left">{t("registration.colContact")}</TableCell>
                 <TableCell isHeader className="px-6 py-4 text-left">{t("registration.colCourse")}</TableCell>
                 <TableCell isHeader className="px-6 py-4 text-left">{t("registration.colPreferredSlots")}</TableCell>
-                <TableCell isHeader className="px-6 py-4 text-left">Hình thức học</TableCell>
+                <TableCell isHeader className="px-6 py-4 text-left">{t("registration.colEnrollType")}</TableCell>
                 <TableCell isHeader className="px-6 py-4 text-left">{t("registration.colStatus")}</TableCell>
                 <TableCell isHeader className="px-6 py-4 text-center">{t("registration.colActions", { defaultValue: "Thao tác" })}</TableCell>
               </TableRow>
@@ -469,9 +494,11 @@ export default function StudentRegistrationTable() {
                 <TableCell isHeader className="px-6 py-4 text-left">
                   <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">{t("registration.colPreferredSlots")}</p>
                 </TableCell>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider">
-                  Hình thức học
-                </th>
+                <TableCell isHeader className="px-6 py-4 text-left">
+                  <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">
+                    {t("registration.colEnrollType")}
+                  </p>
+                </TableCell>
                 <TableCell isHeader className="px-6 py-4 text-left">
                   <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => handleSort("status")}>
                     <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">{t("registration.colStatus")}</p>
@@ -518,15 +545,15 @@ export default function StudentRegistrationTable() {
                       )}
                     </div>
                   </TableCell>
-                  <td className="px-6 py-4 whitespace-nowrap text-theme-sm">
+                   <TableCell className="px-6 py-4 whitespace-nowrap text-theme-sm">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
                       item.enrollType === 1
                         ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400"
                         : "bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400"
                     }`}>
-                      {item.enrollType === 1 ? "Online" : "Offline"}
+                      {item.enrollType === 1 ? t("registration.enrollTypeOnline") : t("registration.enrollTypeOffline")}
                     </span>
-                  </td>
+                  </TableCell>
                   <TableCell className="px-6 py-4 whitespace-nowrap text-theme-sm">
                     <span className={`inline-flex items-center text-xs font-semibold px-2.5 py-0.5 rounded-full ${getStatusBadgeClass(item.status)}`}>
                       {getStatusText(item.status)}
@@ -557,7 +584,7 @@ export default function StudentRegistrationTable() {
                           disabled={item.status === 1}
                           onClick={() => {
                             if (item.status === 1) return;
-                            handleDelete(item.id);
+                            handleDelete(item.id, item.studentName || "", item.courseName || "");
                           }}
                           className={`p-1.5 rounded-md transition-colors ${
                             item.status === 1
@@ -629,6 +656,51 @@ export default function StudentRegistrationTable() {
         onSuccess={() => triggerRefresh()}
         registrationToEdit={registrationToEdit}
       />
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteConfirmId !== null}
+        onClose={() => setDeleteConfirmId(null)}
+        showCloseButton={false}
+        className="max-w-[450px] p-6 lg:p-8"
+      >
+        <div className="flex flex-col items-center text-center">
+          <div className="p-3.5 bg-rose-50 dark:bg-rose-950/20 rounded-2xl text-rose-500 mb-4 border border-rose-100 dark:border-rose-900/30">
+            <Trash2 className="w-8 h-8" />
+          </div>
+          <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+            {t("registration.confirmDeleteTitle", { defaultValue: "Xác nhận xóa đăng ký" })}
+          </h4>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">
+            {t("registration.confirmDeleteText", {
+              courseName: deleteConfirmCourseName,
+              studentName: deleteConfirmStudentName,
+              defaultValue: `Bạn có chắc chắn muốn xóa đăng ký học khóa ${deleteConfirmCourseName} của học sinh ${deleteConfirmStudentName} không?`
+            })}
+          </p>
+          <div className="flex items-center justify-center gap-3 mt-6 w-full pt-4 border-t border-gray-100 dark:border-gray-800">
+            <button
+              onClick={() => setDeleteConfirmId(null)}
+              type="button"
+              className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-850 dark:border-gray-700 dark:hover:bg-gray-750 transition-colors w-1/2"
+            >
+              {t("common.cancel", { defaultValue: "Hủy" })}
+            </button>
+            <button
+              onClick={() => {
+                if (deleteConfirmId !== null) {
+                  executeDelete(deleteConfirmId);
+                }
+                setDeleteConfirmId(null);
+              }}
+              type="button"
+              className="px-4 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-sm w-1/2 flex items-center justify-center gap-1.5"
+            >
+              {t("common.delete", { defaultValue: "Xóa" })}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -109,6 +109,8 @@ export interface AutoScheduleConstraintDto {
   timePreferences: string[];
   allowConsecutiveDays: boolean;
   allowWeekend: boolean;
+  teacherIds?: number[];
+  roomIds?: number[];
 }
 
 export const classApi = {
@@ -235,5 +237,9 @@ export const classApi = {
     }[];
   }): Promise<ApiResponse<ClassItem[]>> {
     return api.post<ClassItem[]>(ENDPOINTS.SEMESTER.SAVE_SCHEDULE_DRAFT, dto);
+  },
+
+  async rollbackSemesterSchedule(semesterId: number): Promise<ApiResponse<ClassItem[]>> {
+    return api.post<ClassItem[]>(ENDPOINTS.SEMESTER.ROLLBACK_SCHEDULE_DRAFT(semesterId), {});
   },
 };

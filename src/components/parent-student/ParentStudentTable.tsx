@@ -61,8 +61,6 @@ export default function ParentStudentTable({
   // ── Modal states ──
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ParentStudentItem | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // ── Delete modal ──
   const [deletingItem, setDeletingItem] = useState<ParentStudentItem | null>(null);
@@ -120,40 +118,12 @@ export default function ParentStudentTable({
 
   const openCreateModal = () => {
     setEditingItem(null);
-    setFormError(null);
     setIsFormOpen(true);
   };
 
   const openEditModal = (item: ParentStudentItem) => {
     setEditingItem(item);
-    setFormError(null);
     setIsFormOpen(true);
-  };
-
-  const handleFormSubmit = async (dto: ParentStudentSaveDto) => {
-    setIsSubmitting(true);
-    setFormError(null);
-    try {
-      const isEdit = !!editingItem;
-      const res = isEdit
-        ? await parentStudentApi.update(editingItem!.id, dto)
-        : await parentStudentApi.create(dto);
-
-      if (res.statusCode === 200 || res.statusCode === 201) {
-        setIsFormOpen(false);
-        setRefreshKey((k) => k + 1);
-      } else {
-        setFormError(
-          res.message
-            ? t(`backendMessages.${res.message}`, { defaultValue: res.message })
-            : t("parentStudent.systemError")
-        );
-      }
-    } catch {
-      setFormError(t("parentStudent.systemError"));
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   const handleViewChildren = (item: ParentStudentItem) => {
@@ -459,12 +429,12 @@ export default function ParentStudentTable({
       <ParentStudentFormModal
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
-        t={t}
         studentId={studentId}
         editingItem={editingItem}
-        formError={formError}
-        isSubmitting={isSubmitting}
-        onSubmit={handleFormSubmit}
+        onSubmitSuccess={(savedItem, isEdit) => {
+          setIsFormOpen(false);
+          setRefreshKey((k) => k + 1);
+        }}
       />
 
       {/* Delete Confirm Modal */}

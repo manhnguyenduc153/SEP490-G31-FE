@@ -103,7 +103,7 @@ function WeekGrid({ events, weekStart, onEventClick }: { events: ScheduleEvent[]
 
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = addDays(weekStart, i);
-    return { date: d, iso: toISO(d), label: `${d.getDate()}/${d.getMonth() + 1}`, dayLabel: DAY_LABELS[d.getDay()] };
+    return { date: d, iso: toISO(d), label: `${d.getDate()}/${d.getMonth() + 1}`, dayLabel: t(`common.day${d.getDay()}`, { defaultValue: DAY_LABELS[d.getDay()] }) };
   });
 
   const todayISO = toISO(new Date());
