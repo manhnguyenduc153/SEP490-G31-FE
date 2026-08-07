@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { roomApi } from "@/services/room.api";
 import { classApi } from "@/services/class.api";
+import { commonApi } from "@/services/common.api";
 import { ArrowLeft, BookOpen, FileText, Info, CheckSquare } from "lucide-react";
 import ClassDetailInfoTab from "./ClassDetailInfoTab";
 import ClassDetailSyllabusTab from "./ClassDetailSyllabusTab";
@@ -36,7 +37,7 @@ export default function StudentClassDetail({
 
   // Load rooms
   useEffect(() => {
-    roomApi.getAll(1, 100)
+    commonApi.getRooms(1, 100)
       .then((res) => {
         if (res.success && res.data) {
           setRooms(res.data.items || []);

@@ -49,6 +49,27 @@ export function SemesterFormModal({
       return;
     }
 
+    if (endDate < startDate) {
+      setError(t("backendMessages.ERR_SEMESTER_END_DATE_BEFORE_START_DATE", { defaultValue: "Ngày kết thúc không được trước ngày bắt đầu" }));
+      return;
+    }
+
+    const minEndDate = new Date(startDate);
+    minEndDate.setMonth(minEndDate.getMonth() + 1);
+
+    const maxEndDate = new Date(startDate);
+    maxEndDate.setMonth(maxEndDate.getMonth() + 3);
+
+    if (endDate < minEndDate) {
+      setError(t("backendMessages.ERR_SEMESTER_DURATION_MIN_ONE_MONTH", { defaultValue: "Thời gian học kỳ phải tối thiểu là 1 tháng" }));
+      return;
+    }
+
+    if (endDate > maxEndDate) {
+      setError(t("backendMessages.ERR_SEMESTER_DURATION_MAX_THREE_MONTHS", { defaultValue: "Thời gian học kỳ không được vượt quá 3 tháng" }));
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
@@ -144,7 +165,7 @@ export function SemesterFormModal({
                 disabled={hasSchedules}
                 placeholder="dd/MM/yyyy"
                 dateFormat="d/m/Y"
-                defaultDate={editingItem?.startDate ? new Date(editingItem.startDate) : undefined}
+                defaultDate={startDate || undefined}
                 onChange={(dates) => {
                   setStartDate(dates && dates.length > 0 ? dates[0] : null);
                 }}
@@ -160,7 +181,7 @@ export function SemesterFormModal({
                 disabled={hasSchedules}
                 placeholder="dd/MM/yyyy"
                 dateFormat="d/m/Y"
-                defaultDate={editingItem?.endDate ? new Date(editingItem.endDate) : undefined}
+                defaultDate={endDate || undefined}
                 onChange={(dates) => {
                   setEndDate(dates && dates.length > 0 ? dates[0] : null);
                 }}

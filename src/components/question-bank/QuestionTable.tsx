@@ -260,7 +260,7 @@ export default function QuestionTable() {
             {t("questionBank.title", { defaultValue: "Ngân hàng câu hỏi & Bộ đề bài" })}
           </h3>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Quản lý các bộ đề bài (Reading, Listening, Writing) và các câu hỏi con đi kèm.
+            {t("questionBank.description", { defaultValue: "Quản lý các bộ đề bài (Reading, Listening, Writing) và các câu hỏi con đi kèm." })}
           </p>
         </div>
 

@@ -372,7 +372,9 @@ export default function QuestionCategoryTable() {
               }}
               className="h-11 px-3 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
             >
-              <option value="" className="dark:bg-gray-900">Tất cả khóa học</option>
+              <option value="" className="dark:bg-gray-900">
+                {t("questionCategory.allCourses", { defaultValue: "Tất cả khóa học" })}
+              </option>
               {courses.map((c) => (
                 <option key={c.id} value={c.id} className="dark:bg-gray-900">
                   {c.name} ({c.code})

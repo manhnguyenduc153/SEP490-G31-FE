@@ -597,7 +597,7 @@ export default function ClassDetailAttendanceTab({
                         <th className="px-3 py-3.5 w-24 uppercase tracking-wider">{t("class.studentCode", { defaultValue: "Mã học sinh" })}</th>
                         <th className="px-3 py-3.5 w-44 uppercase tracking-wider">{t("class.studentName", { defaultValue: "Học sinh" })}</th>
                         {reportData.sessions.map((s) => (
-                          <th key={s.scheduleId} className="px-2 py-3.5 text-center min-w-[85px] uppercase tracking-wider" title={s.date ? new Date(s.date).toLocaleDateString("vi-VN") : ""}>
+                          <th key={s.scheduleId} className="px-2 py-3.5 text-center min-w-[85px] uppercase tracking-wider" title={s.date ? new Date(s.date).toLocaleDateString(t("locale", { defaultValue: "vi-VN" })) : ""}>
                             {t("class.lessonShort", { defaultValue: "B." })} {s.lessonNo}
                             {s.date && (
                               <span className="block text-[8px] font-normal text-gray-400 dark:text-gray-500 mt-0.5">
@@ -606,25 +606,34 @@ export default function ClassDetailAttendanceTab({
                             )}
                           </th>
                         ))}
+                        <th className="px-3 py-3.5 w-24 text-center uppercase tracking-wider">{t("class.attendanceRate", { defaultValue: "Tỉ lệ hiện diện" })}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-900">
-                      {reportData.students.map((st, idx) => (
-                        <tr key={st.studentId} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
-                          <td className="px-3 py-3 text-center font-medium text-gray-500">{idx + 1}</td>
-                          <td className="px-3 py-3 font-semibold text-gray-900 dark:text-white">{st.studentCode || "-"}</td>
-                          <td className="px-3 py-3 font-semibold text-gray-900 dark:text-white">
-                            <span className="truncate block max-w-[150px]" title={st.studentName || ""}>
-                              {st.studentName}
-                            </span>
-                          </td>
-                          {st.attendances.map((att) => (
-                            <td key={att.scheduleId} className="px-2 py-3 text-center">
-                              {getStatusReportBadge(att.status)}
+                      {reportData.students.map((st, idx) => {
+                        const presentCount = st.attendances.filter((att: any) => att.status === 1).length;
+                        const totalSessions = reportData.sessions.length;
+                        const percentage = totalSessions > 0 ? Math.round((presentCount / totalSessions) * 100) : 0;
+                        return (
+                          <tr key={st.studentId} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
+                            <td className="px-3 py-3 text-center font-medium text-gray-500">{idx + 1}</td>
+                            <td className="px-3 py-3 font-semibold text-gray-900 dark:text-white">{st.studentCode || "-"}</td>
+                            <td className="px-3 py-3 font-semibold text-gray-900 dark:text-white">
+                              <span className="truncate block max-w-[150px]" title={st.studentName || ""}>
+                                {st.studentName}
+                              </span>
                             </td>
-                          ))}
-                        </tr>
-                      ))}
+                            {st.attendances.map((att) => (
+                              <td key={att.scheduleId} className="px-2 py-3 text-center">
+                                {getStatusReportBadge(att.status)}
+                              </td>
+                            ))}
+                            <td className="px-3 py-3 text-center font-bold text-gray-805 dark:text-gray-200">
+                              {percentage}%
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

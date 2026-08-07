@@ -39,6 +39,27 @@ export default function RecentRegistrations({ data, loading }: Props) {
     );
   }
 
+  const getLocalizedSlot = (slot: string) => {
+    switch (slot.trim().toLowerCase()) {
+      case "morning":
+        return t("registration.slotMorning", { defaultValue: "Sáng" });
+      case "afternoon":
+        return t("registration.slotAfternoon", { defaultValue: "Chiều" });
+      case "evening":
+        return t("registration.slotEvening", { defaultValue: "Tối" });
+      default:
+        return slot;
+    }
+  };
+
+  const getLocalizedSlots = (slotsString: string) => {
+    if (!slotsString) return t("registration.slotDefault", { defaultValue: "Mặc định" });
+    return slotsString
+      .split(",")
+      .map((s) => getLocalizedSlot(s))
+      .join(", ");
+  };
+
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-4 pb-3 pt-4 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6">
       <div className="flex flex-col gap-2 mb-4 sm:flex-row sm:items-center sm:justify-between">
@@ -94,7 +115,7 @@ export default function RecentRegistrations({ data, loading }: Props) {
                   {registration.courseName}
                 </td>
                 <td className="py-3 px-4 text-gray-500 dark:text-gray-400">
-                  {registration.preferredSlots}
+                  {getLocalizedSlots(registration.preferredSlots)}
                 </td>
                 <td className="py-3 px-4 text-gray-500 dark:text-gray-400">
                   {new Date(registration.registrationDate).toLocaleDateString("vi-VN")}
