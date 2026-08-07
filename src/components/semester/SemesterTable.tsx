@@ -508,7 +508,7 @@ export default function SemesterTable() {
                       )}
 
                       {/* Auto Schedule Solver */}
-                      {hasPermission("Semester.Scheduling") && (
+                      {false && hasPermission("Semester.Scheduling") && (
                         <button
                           type="button"
                           onClick={() => {

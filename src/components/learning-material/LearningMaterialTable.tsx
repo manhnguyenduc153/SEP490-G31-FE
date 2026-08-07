@@ -94,17 +94,6 @@ export default function LearningMaterialTable() {
   // Create / Edit modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<LearningMaterialItem | null>(null);
-  const [formCode, setFormCode] = useState("");
-  const [formName, setFormName] = useState("");
-  const [formTitle, setFormTitle] = useState("");
-  const [formDesc, setFormDesc] = useState("");
-  const [formClassId, setFormClassId] = useState<number | null>(null);
-  const [formCourseId, setFormCourseId] = useState<number | null>(null);
-  const [formFileUrl, setFormFileUrl] = useState("");
-  const [formFileType, setFormFileType] = useState("");
-  const [formStatus, setFormStatus] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
 
   // View modal
   const [viewingItem, setViewingItem] = useState<LearningMaterialItem | null>(null);
@@ -322,31 +311,11 @@ export default function LearningMaterialTable() {
 
   const openCreateModal = () => {
     setEditingItem(null);
-    setFormCode(CodeHelper.generate("LM"));
-    setFormName("");
-    setFormTitle("");
-    setFormDesc("");
-    setFormClassId(null);
-    setFormCourseId(null);
-    setFormFileUrl("");
-    setFormFileType("");
-    setFormStatus(1);
-    setFormError(null);
     setIsModalOpen(true);
   };
 
   const openEditModal = (item: LearningMaterialItem) => {
     setEditingItem(item);
-    setFormCode(item.code);
-    setFormName(item.name);
-    setFormTitle(item.title || "");
-    setFormDesc(item.description || "");
-    setFormClassId(item.classId || null);
-    setFormCourseId(item.courseId || null);
-    setFormFileUrl(item.fileUrl || "");
-    setFormFileType(item.fileType || "");
-    setFormStatus(item.status);
-    setFormError(null);
     setIsModalOpen(true);
   };
 
@@ -373,76 +342,7 @@ export default function LearningMaterialTable() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formCode.trim()) {
-      setFormError(t("backendMessages.ERR_CODE_EMPTY"));
-      return;
-    }
-    if (!formName.trim()) {
-      setFormError(t("backendMessages.ERR_NAME_EMPTY"));
-      return;
-    }
-    if (!formFileUrl) {
-      setFormError(t("learningMaterial.fileRequired", { defaultValue: "Vui lòng tải lên tài liệu đính kèm" }));
-      return;
-    }
 
-    setIsSubmitting(true);
-    setFormError(null);
-
-    const dto = {
-      code: formCode.trim(),
-      name: formName.trim(),
-      title: formTitle.trim() || formName.trim(),
-      description: formDesc.trim() || null,
-      classId: formClassId,
-      courseId: formCourseId,
-      fileUrl: formFileUrl,
-      fileType: formFileType,
-      status: formStatus,
-    };
-
-    try {
-      if (editingItem) {
-        const res = await learningMaterialApi.update(editingItem.id, {
-          ...dto,
-          id: editingItem.id,
-        });
-        if (res.success && res.data) {
-          showToast(t("learningMaterial.updateSuccess", { name: res.data.name }));
-          setIsModalOpen(false);
-          triggerRefresh();
-        } else {
-          setFormError(
-            res.message
-              ? t(`backendMessages.${res.message}`, { defaultValue: res.message })
-              : t("learningMaterial.updateError")
-          );
-        }
-      } else {
-        const res = await learningMaterialApi.create(dto);
-        if (res.success && res.data) {
-          showToast(t("learningMaterial.createSuccess", { name: res.data.name }));
-          setIsModalOpen(false);
-          setCurrentPage(1);
-          setSearchTerm("");
-          setDebouncedSearchTerm("");
-          triggerRefresh();
-        } else {
-          setFormError(
-            res.message
-              ? t(`backendMessages.${res.message}`, { defaultValue: res.message })
-              : t("learningMaterial.createError")
-          );
-        }
-      }
-    } catch {
-      setFormError(t("learningMaterial.systemError"));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const openDeleteModal = (item: LearningMaterialItem) => {
     setDeleteTarget(item);
@@ -943,30 +843,18 @@ export default function LearningMaterialTable() {
       <MaterialFormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        t={t}
         editingItem={editingItem}
-        formCode={formCode}
-        setFormCode={setFormCode}
-        formName={formName}
-        setFormName={setFormName}
-        formTitle={formTitle}
-        setFormTitle={setFormTitle}
-        formDesc={formDesc}
-        setFormDesc={setFormDesc}
-        formClassId={formClassId}
-        setFormClassId={setFormClassId}
-        formCourseId={formCourseId}
-        setFormCourseId={setFormCourseId}
-        formFileUrl={formFileUrl}
-        setFormFileUrl={setFormFileUrl}
-        formFileType={formFileType}
-        setFormFileType={setFormFileType}
-        formStatus={formStatus}
-        setFormStatus={setFormStatus}
-        formError={formError}
-        setFormError={setFormError}
-        isSubmitting={isSubmitting}
-        handleSubmit={handleSubmit}
+        onSubmitSuccess={(savedItem, isEdit) => {
+          if (isEdit) {
+            showToast(t("learningMaterial.updateSuccess", { name: savedItem.name }));
+          } else {
+            showToast(t("learningMaterial.createSuccess", { name: savedItem.name }));
+            setCurrentPage(1);
+            setSearchTerm("");
+            setDebouncedSearchTerm("");
+          }
+          triggerRefresh();
+        }}
       />
 
       {/* View Detail Modal */}

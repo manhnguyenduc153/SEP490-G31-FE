@@ -1,19 +1,14 @@
 "use client";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { PermissionNode } from "./types";
+import { useTranslation } from "react-i18next";
+import { z } from "zod";
+import { authApi } from "@/services/auth.api";
 
 interface CreateRoleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  t: any;
-  newRoleName: string;
-  setNewRoleName: (val: string) => void;
-  newRoleDesc: string;
-  setNewRoleDesc: (val: string) => void;
-  newRoleStatus: "Active" | "Inactive";
-  setNewRoleStatus: (val: "Active" | "Inactive") => void;
   dynamicPermissionTree: PermissionNode[];
   expandedCategories: Set<string>;
   toggleCategoryExpand: (id: string) => void;
@@ -21,7 +16,8 @@ interface CreateRoleModalProps {
   toggleCategorySelection: (node: PermissionNode, isCreate: boolean) => void;
   toggleChildSelection: (childId: string, parentId: string, isCreate: boolean) => void;
   newRolePermissions: Set<string>;
-  handleAddRoleSubmit: (e: React.FormEvent) => void;
+  setNewRolePermissions: (val: Set<string>) => void;
+  onSubmitSuccess: (newRoleName: string) => void;
 }
 
 const getFeatureDisplayName = (featureName: string, t: any) => {
@@ -54,13 +50,6 @@ const getFeatureDisplayName = (featureName: string, t: any) => {
 export function CreateRoleModal({
   isOpen,
   onClose,
-  t,
-  newRoleName,
-  setNewRoleName,
-  newRoleDesc,
-  setNewRoleDesc,
-  newRoleStatus,
-  setNewRoleStatus,
   dynamicPermissionTree,
   expandedCategories,
   toggleCategoryExpand,
@@ -68,14 +57,107 @@ export function CreateRoleModal({
   toggleCategorySelection,
   toggleChildSelection,
   newRolePermissions,
-  handleAddRoleSubmit,
+  setNewRolePermissions,
+  onSubmitSuccess,
 }: CreateRoleModalProps) {
+  const { t } = useTranslation();
+
+  const [name, setName] = useState("");
+  const [desc, setDesc] = useState("");
+  const [status, setStatus] = useState<"Active" | "Inactive">("Active");
+
+  const [errors, setErrors] = useState<string[]>([]);
+  const [invalidFields, setInvalidFields] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setName("");
+      setDesc("");
+      setStatus("Active");
+      setNewRolePermissions(new Set());
+      setErrors([]);
+      setInvalidFields([]);
+    }
+  }, [isOpen, setNewRolePermissions]);
+
+  const clearField = (field: string) => {
+    if (invalidFields.includes(field)) {
+      setInvalidFields((prev) => prev.filter((f) => f !== field));
+    }
+  };
+
+  const inputClass = (field: string) =>
+    `w-full rounded-lg border bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:outline-hidden focus:ring-3 dark:text-white/90 dark:placeholder:text-white/30 shadow-theme-xs ${
+      invalidFields.includes(field)
+        ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10 dark:border-rose-500"
+        : "border-gray-300 focus:border-brand-300 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:focus:border-brand-800"
+    }`;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const schema = z.object({
+      name: z
+        .string()
+        .trim()
+        .min(1, t("roles.errorEmptyName", { defaultValue: "Tên vai trò không được để trống." }))
+        .min(5, t("roles.errorMinLengthName", { defaultValue: "Tên vai trò phải có ít nhất 5 ký tự." }))
+        .max(100, t("roles.errorMaxLengthName", { defaultValue: "Tên vai trò không được vượt quá 100 ký tự." })),
+    });
+
+    const result = schema.safeParse({ name });
+
+    if (!result.success) {
+      const fieldErrors: string[] = [];
+      const fields: string[] = [];
+      result.error.issues.forEach((err) => {
+        fieldErrors.push(err.message);
+        if (err.path.length > 0) fields.push(err.path[0] as string);
+      });
+      setErrors(fieldErrors);
+      setInvalidFields(fields);
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrors([]);
+    setInvalidFields([]);
+
+    try {
+      const createRes = await authApi.createRole(name.trim());
+      if (createRes.success) {
+        if (newRolePermissions.size > 0) {
+          const assignRes = await authApi.assignRolePermissions(name.trim(), Array.from(newRolePermissions));
+          if (!assignRes.success) {
+            const assignErrMsg = assignRes.message
+              ? t(`backendMessages.${assignRes.message}`, { defaultValue: assignRes.message })
+              : t("roles.assignError", { defaultValue: "Lỗi gán quyền cho vai trò." });
+            setErrors([assignErrMsg]);
+            setIsSubmitting(false);
+            return;
+          }
+        }
+        onSubmitSuccess(name.trim());
+        onClose();
+      } else {
+        const createErrMsg = createRes.message
+          ? t(`backendMessages.${createRes.message}`, { defaultValue: createRes.message })
+          : t("roles.createError", { defaultValue: "Lỗi khi tạo vai trò." });
+        setErrors([createErrMsg]);
+        if (createRes.message === "ERR_ROLE_DUPLICATE") {
+          setInvalidFields(["name"]);
+        }
+      }
+    } catch {
+      setErrors([t("roles.systemError", { defaultValue: "Lỗi hệ thống." })]);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      className="max-w-[900px] p-6 sm:p-8"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} className="max-w-[900px] p-6 sm:p-8">
       <div className="flex flex-col gap-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
           {t("roles.createTitle")}
@@ -84,21 +166,20 @@ export function CreateRoleModal({
           {t("roles.createDesc")}
         </p>
 
-        <form onSubmit={handleAddRoleSubmit} className="mt-2 flex flex-col">
+        <form onSubmit={handleSubmit} className="mt-2 flex flex-col" noValidate>
           <div className="flex flex-col md:flex-row gap-6">
             {/* Left Column: Info */}
             <div className="flex-1 space-y-4">
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t("roles.formNameLabel")} <span className="text-error-500">*</span>
+                  {t("roles.formNameLabel")} <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
-                  required
-                  value={newRoleName}
-                  onChange={(e) => setNewRoleName(e.target.value)}
+                  value={name}
+                  onChange={(e) => { setName(e.target.value); clearField("name"); }}
                   placeholder={t("roles.formNamePlaceholder")}
-                  className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs"
+                  className={inputClass("name")}
                 />
               </div>
 
@@ -107,8 +188,8 @@ export function CreateRoleModal({
                   {t("roles.formDescLabel")}
                 </label>
                 <textarea
-                  value={newRoleDesc}
-                  onChange={(e) => setNewRoleDesc(e.target.value)}
+                  value={desc}
+                  onChange={(e) => setDesc(e.target.value)}
                   placeholder={t("roles.formDescPlaceholder")}
                   rows={3}
                   className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 shadow-theme-xs resize-none"
@@ -121,29 +202,16 @@ export function CreateRoleModal({
                 </label>
                 <div className="relative z-20 bg-transparent">
                   <select
-                    value={newRoleStatus}
-                    onChange={(e) => setNewRoleStatus(e.target.value as "Active" | "Inactive")}
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as "Active" | "Inactive")}
                     className="w-full py-2.5 pl-3 pr-8 text-sm text-gray-800 bg-transparent border border-gray-300 rounded-lg appearance-none dark:bg-dark-900 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                   >
                     <option value="Active" className="dark:bg-gray-900 text-gray-800 dark:text-white">{t("roles.statusActive")}</option>
                     <option value="Inactive" className="dark:bg-gray-900 text-gray-800 dark:text-white">{t("roles.statusInactive")}</option>
                   </select>
                   <span className="absolute z-30 text-gray-500 -translate-y-1/2 right-3 top-1/2 dark:text-gray-400 pointer-events-none">
-                    <svg
-                      className="stroke-current"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 16 16"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M3.8335 5.9165L8.00016 10.0832L12.1668 5.9165"
-                        stroke=""
-                        strokeWidth="1.2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
+                    <svg className="stroke-current" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <path d="M3.8335 5.9165L8.00016 10.0832L12.1668 5.9165" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </span>
                 </div>
@@ -305,6 +373,18 @@ export function CreateRoleModal({
             </div>
           </div>
 
+          {/* Error block */}
+          {errors.length > 0 && (
+            <div className="p-3 text-sm text-rose-500 bg-rose-50 dark:bg-rose-950/20 dark:text-rose-400 rounded-lg space-y-1 mt-4">
+              {errors.map((err, idx) => (
+                <div key={idx} className="flex items-start gap-1.5">
+                  <span className="shrink-0">•</span>
+                  <span>{err}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-white/[0.05]">
             <button
               type="button"
@@ -315,9 +395,10 @@ export function CreateRoleModal({
             </button>
             <button
               type="submit"
-              className="px-4 py-2.5 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 transition-colors shadow-theme-xs"
+              disabled={isSubmitting}
+              className="px-4 py-2.5 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 transition-colors shadow-theme-xs disabled:opacity-55 disabled:cursor-not-allowed"
             >
-              {t("roles.btnSave")}
+              {isSubmitting ? t("roles.btnSaving", { defaultValue: "Đang lưu..." }) : t("roles.btnSave")}
             </button>
           </div>
         </form>

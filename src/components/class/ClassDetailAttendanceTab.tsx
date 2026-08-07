@@ -73,10 +73,26 @@ export default function ClassDetailAttendanceTab({
   useEffect(() => {
     if (itemDetail?.schedules && itemDetail.schedules.length > 0 && selectedScheduleId === null) {
       const savedScheduleId = sessionStorage.getItem(`attendance_schedule_${itemDetail.id}`);
+      let initialized = false;
       if (savedScheduleId) {
-        setSelectedScheduleId(Number(savedScheduleId));
-      } else {
-        setSelectedScheduleId(itemDetail.schedules[0].id);
+        const parsedId = Number(savedScheduleId);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const exists = itemDetail.schedules.some((s: any) => s.id === parsedId);
+        if (exists) {
+          setSelectedScheduleId(parsedId);
+          initialized = true;
+        }
+      }
+      
+      if (!initialized) {
+        const todayStr = new Date().toDateString();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const todaySchedule = itemDetail.schedules.find((s: any) => s.scheduleDate && new Date(s.scheduleDate).toDateString() === todayStr);
+        if (todaySchedule) {
+          setSelectedScheduleId(todaySchedule.id);
+        } else {
+          setSelectedScheduleId(itemDetail.schedules[0].id);
+        }
       }
     }
   }, [itemDetail, selectedScheduleId]);
@@ -169,6 +185,14 @@ export default function ClassDetailAttendanceTab({
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const activeSchedule = itemDetail?.schedules?.find((s: any) => s.id === selectedScheduleId);
+  
+  const canMark = useMemo(() => {
+    if (!activeSchedule) return false;
+    if (isAdmin) return true;
+    const hasSavePermission = permissions.includes("Attendance.SaveAttendance");
+    const isToday = activeSchedule.scheduleDate && new Date(activeSchedule.scheduleDate).toDateString() === new Date().toDateString();
+    return hasSavePermission && isToday;
+  }, [activeSchedule, isAdmin, permissions]);
   
   const currentScheduleAttendance = useMemo(() => {
     const scheduleId = selectedScheduleId;
@@ -426,7 +450,7 @@ export default function ClassDetailAttendanceTab({
               </span>
             </div>
 
-            {hasPermission("Attendance.SaveAttendance") && (
+            {canMark && (
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -490,7 +514,7 @@ export default function ClassDetailAttendanceTab({
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-center gap-1.5">
-                              {!hasPermission("Attendance.SaveAttendance") ? (
+                              {!canMark ? (
                                 attendance.status === 1 ? (
                                   <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-450 border border-emerald-200/50">
                                     {t("class.present", { defaultValue: "Có mặt" })}
@@ -535,7 +559,7 @@ export default function ClassDetailAttendanceTab({
               </div>
 
               {/* Submit panel */}
-              {hasPermission("Attendance.SaveAttendance") && (
+              {canMark && (
                 <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-800">
                   <button
                     type="button"
@@ -597,7 +621,7 @@ export default function ClassDetailAttendanceTab({
                         <th className="px-3 py-3.5 w-24 uppercase tracking-wider">{t("class.studentCode", { defaultValue: "Mã học sinh" })}</th>
                         <th className="px-3 py-3.5 w-44 uppercase tracking-wider">{t("class.studentName", { defaultValue: "Học sinh" })}</th>
                         {reportData.sessions.map((s) => (
-                          <th key={s.scheduleId} className="px-2 py-3.5 text-center min-w-[85px] uppercase tracking-wider" title={s.date ? new Date(s.date).toLocaleDateString("vi-VN") : ""}>
+                          <th key={s.scheduleId} className="px-2 py-3.5 text-center min-w-[85px] uppercase tracking-wider" title={s.date ? new Date(s.date).toLocaleDateString(t("locale", { defaultValue: "vi-VN" })) : ""}>
                             {t("class.lessonShort", { defaultValue: "B." })} {s.lessonNo}
                             {s.date && (
                               <span className="block text-[8px] font-normal text-gray-400 dark:text-gray-500 mt-0.5">
@@ -606,25 +630,34 @@ export default function ClassDetailAttendanceTab({
                             )}
                           </th>
                         ))}
+                        <th className="px-3 py-3.5 w-24 text-center uppercase tracking-wider">{t("class.attendanceRate", { defaultValue: "Tỉ lệ hiện diện" })}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-900">
-                      {reportData.students.map((st, idx) => (
-                        <tr key={st.studentId} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
-                          <td className="px-3 py-3 text-center font-medium text-gray-500">{idx + 1}</td>
-                          <td className="px-3 py-3 font-semibold text-gray-900 dark:text-white">{st.studentCode || "-"}</td>
-                          <td className="px-3 py-3 font-semibold text-gray-900 dark:text-white">
-                            <span className="truncate block max-w-[150px]" title={st.studentName || ""}>
-                              {st.studentName}
-                            </span>
-                          </td>
-                          {st.attendances.map((att) => (
-                            <td key={att.scheduleId} className="px-2 py-3 text-center">
-                              {getStatusReportBadge(att.status)}
+                      {reportData.students.map((st, idx) => {
+                        const presentCount = st.attendances.filter((att: any) => att.status === 1).length;
+                        const totalSessions = reportData.sessions.length;
+                        const percentage = totalSessions > 0 ? Math.round((presentCount / totalSessions) * 100) : 0;
+                        return (
+                          <tr key={st.studentId} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
+                            <td className="px-3 py-3 text-center font-medium text-gray-500">{idx + 1}</td>
+                            <td className="px-3 py-3 font-semibold text-gray-900 dark:text-white">{st.studentCode || "-"}</td>
+                            <td className="px-3 py-3 font-semibold text-gray-900 dark:text-white">
+                              <span className="truncate block max-w-[150px]" title={st.studentName || ""}>
+                                {st.studentName}
+                              </span>
                             </td>
-                          ))}
-                        </tr>
-                      ))}
+                            {st.attendances.map((att) => (
+                              <td key={att.scheduleId} className="px-2 py-3 text-center">
+                                {getStatusReportBadge(att.status)}
+                              </td>
+                            ))}
+                            <td className="px-3 py-3 text-center font-bold text-gray-805 dark:text-gray-200">
+                              {percentage}%
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
