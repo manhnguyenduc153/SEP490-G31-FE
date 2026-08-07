@@ -1,5 +1,6 @@
 import { api, ApiResponse } from "./api";
 import { ENDPOINTS } from "@/constants/endpoints";
+import type { QuestionPassageItem } from "./questionPassage.api";
 
 // ─── DTOs ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,9 @@ export interface QuestionItem {
   categoryId?: number | null;
   categoryName?: string | null;
   passageId?: number | null;
+  // Read-only passage/prompt/recording snapshot embedded by the exam student-detail endpoint,
+  // so exam takers can see it without needing the admin-only QuestionPassage.View permission.
+  passage?: QuestionPassageItem | null;
   point?: number | null;
   createdAt: string;
   createdBy?: string | null;
