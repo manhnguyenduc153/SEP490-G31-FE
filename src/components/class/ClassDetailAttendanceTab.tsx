@@ -73,10 +73,26 @@ export default function ClassDetailAttendanceTab({
   useEffect(() => {
     if (itemDetail?.schedules && itemDetail.schedules.length > 0 && selectedScheduleId === null) {
       const savedScheduleId = sessionStorage.getItem(`attendance_schedule_${itemDetail.id}`);
+      let initialized = false;
       if (savedScheduleId) {
-        setSelectedScheduleId(Number(savedScheduleId));
-      } else {
-        setSelectedScheduleId(itemDetail.schedules[0].id);
+        const parsedId = Number(savedScheduleId);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const exists = itemDetail.schedules.some((s: any) => s.id === parsedId);
+        if (exists) {
+          setSelectedScheduleId(parsedId);
+          initialized = true;
+        }
+      }
+      
+      if (!initialized) {
+        const todayStr = new Date().toDateString();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const todaySchedule = itemDetail.schedules.find((s: any) => s.scheduleDate && new Date(s.scheduleDate).toDateString() === todayStr);
+        if (todaySchedule) {
+          setSelectedScheduleId(todaySchedule.id);
+        } else {
+          setSelectedScheduleId(itemDetail.schedules[0].id);
+        }
       }
     }
   }, [itemDetail, selectedScheduleId]);
@@ -169,6 +185,14 @@ export default function ClassDetailAttendanceTab({
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const activeSchedule = itemDetail?.schedules?.find((s: any) => s.id === selectedScheduleId);
+  
+  const canMark = useMemo(() => {
+    if (!activeSchedule) return false;
+    if (isAdmin) return true;
+    const hasSavePermission = permissions.includes("Attendance.SaveAttendance");
+    const isToday = activeSchedule.scheduleDate && new Date(activeSchedule.scheduleDate).toDateString() === new Date().toDateString();
+    return hasSavePermission && isToday;
+  }, [activeSchedule, isAdmin, permissions]);
   
   const currentScheduleAttendance = useMemo(() => {
     const scheduleId = selectedScheduleId;
@@ -426,7 +450,7 @@ export default function ClassDetailAttendanceTab({
               </span>
             </div>
 
-            {hasPermission("Attendance.SaveAttendance") && (
+            {canMark && (
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -490,7 +514,7 @@ export default function ClassDetailAttendanceTab({
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-center gap-1.5">
-                              {!hasPermission("Attendance.SaveAttendance") ? (
+                              {!canMark ? (
                                 attendance.status === 1 ? (
                                   <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-450 border border-emerald-200/50">
                                     {t("class.present", { defaultValue: "Có mặt" })}
@@ -535,7 +559,7 @@ export default function ClassDetailAttendanceTab({
               </div>
 
               {/* Submit panel */}
-              {hasPermission("Attendance.SaveAttendance") && (
+              {canMark && (
                 <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-800">
                   <button
                     type="button"
