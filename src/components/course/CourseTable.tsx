@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Table,
   TableBody,
@@ -62,36 +63,37 @@ export default function CourseTable() {
   const triggerRefresh = () => setRefreshKey((k) => k + 1);
 
   // ── Toast ──
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [toastType, setToastType] = useState<"success" | "error">("success");
+  const [toasts, setToasts] = useState<{ id: number; message: string; type: "success" | "error" }[]>([]);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // ── Create / Edit modal ──
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<CourseItem | null>(null);
-  const [formCode, setFormCode] = useState("");
-  const [formName, setFormName] = useState("");
-  const [formDuration, setFormDuration] = useState("");
-  const [formPrice, setFormPrice] = useState("");
-  const [formStatus, setFormStatus] = useState<number>(1);
-  const [formDesc, setFormDesc] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
 
   // ── Delete (Deactivate) confirm modal ──
   const [deleteTarget, setDeleteTarget] = useState<CourseItem | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // ── Toast auto-hide ──
-  useEffect(() => {
-    if (!toastMessage) return;
-    const timer = setTimeout(() => setToastMessage(null), 3000);
-    return () => clearTimeout(timer);
-  }, [toastMessage]);
-
   const showToast = (msg: string, type: "success" | "error" = "success") => {
-    setToastMessage(msg);
-    setToastType(type);
+    if (!msg) return;
+    const messages = msg
+      .split(/\r?\n/)
+      .map((m) => m.trim())
+      .filter(Boolean);
+
+    messages.forEach((message, index) => {
+      const id = Date.now() + index;
+      setToasts((prev) => [...prev, { id, message, type }]);
+
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 4000);
+    });
   };
 
   // ── Debounce search ──
@@ -187,106 +189,16 @@ export default function CourseTable() {
   // ── Open create modal ──
   const openCreateModal = () => {
     setEditingItem(null);
-    setFormCode(CodeHelper.generate("CR"));
-    setFormName("");
-    setFormDuration("");
-    setFormPrice("");
-    setFormStatus(1);
-    setFormDesc("");
-    setFormError(null);
     setIsModalOpen(true);
   };
 
   // ── Open edit modal ──
   const openEditModal = (item: CourseItem) => {
     setEditingItem(item);
-    setFormCode(item.code);
-    setFormName(item.name);
-    setFormDuration(item.duration !== null && item.duration !== undefined ? String(item.duration) : "");
-    setFormPrice(item.price !== null && item.price !== undefined ? String(item.price) : "");
-    setFormStatus(item.status);
-    setFormDesc(item.description ?? "");
-    setFormError(null);
     setIsModalOpen(true);
   };
 
-  // ── Submit create / edit ──
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formCode.trim()) {
-      setFormError(t("backendMessages.ERR_CODE_EMPTY"));
-      return;
-    }
-    if (!formName.trim()) {
-      setFormError(t("backendMessages.ERR_NAME_EMPTY"));
-      return;
-    }
-    
-    // Client-side validations
-    const priceVal = formPrice.trim() ? Number(formPrice) : null;
-    const durationVal = formDuration.trim() ? Number(formDuration) : null;
-
-    if (priceVal !== null && (isNaN(priceVal) || priceVal < 0)) {
-      setFormError(t("backendMessages.ERR_PRICE_NEGATIVE"));
-      return;
-    }
-
-    if (durationVal !== null && (isNaN(durationVal) || !Number.isInteger(durationVal) || durationVal < 0)) {
-      setFormError(t("backendMessages.ERR_DURATION_NEGATIVE"));
-      return;
-    }
-
-    setIsSubmitting(true);
-    setFormError(null);
-    try {
-      const payload = {
-        code: formCode.trim(),
-        name: formName.trim(),
-        status: formStatus,
-        duration: durationVal,
-        price: priceVal,
-        description: formDesc.trim() || null,
-      };
-
-      if (editingItem) {
-        // Edit
-        const res = await courseApi.update(editingItem.id, {
-          id: editingItem.id,
-          ...payload,
-        });
-        if (res.success && res.data) {
-          setItems((prev) =>
-            prev.map((i) => (i.id === editingItem.id ? res.data : i))
-          );
-          showToast(t("course.updateSuccess", { name: res.data.name }));
-          setIsModalOpen(false);
-          triggerRefresh();
-        } else {
-          setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("course.updateError"));
-        }
-      } else {
-        // Create
-        const res = await courseApi.create(payload);
-        if (res.success && res.data) {
-          setCurrentPage(1);
-          setSearchTerm("");
-          setDebouncedSearchTerm("");
-          setStatusFilter("all");
-          triggerRefresh();
-          showToast(t("course.createSuccess", { name: res.data.name }));
-          setIsModalOpen(false);
-        } else {
-          setFormError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("course.createError"));
-        }
-      }
-    } catch {
-      setFormError(t("course.systemError"));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // ── Open delete (deactive) confirm ──
+    // ── Open delete (deactive) confirm ──
   const openDeleteModal = (item: CourseItem) => {
     setDeleteTarget(item);
     setIsDeleteModalOpen(true);
@@ -331,24 +243,28 @@ export default function CourseTable() {
 
   return (
     <div className="bg-white dark:bg-gray-900 border border-gray-155 dark:border-gray-800 rounded-2xl shadow-xs">
-      {/* Toast */}
-      {toastMessage && (
-        <div
-          className={`fixed top-5 right-5 z-[99999] flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg text-sm font-medium text-white transition-all duration-300 ${
-            toastType === "success" ? "bg-green-500" : "bg-red-500"
-          }`}
-        >
-          {toastType === "success" ? (
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          ) : (
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          )}
-          {toastMessage}
-        </div>
+      {/* Toast Container */}
+      {mounted && typeof document !== "undefined" && createPortal(
+        <div className="fixed bottom-5 right-5 z-[999999] flex flex-col gap-2 max-w-md w-full sm:w-auto">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className="flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5"
+            >
+              {toast.type === "success" ? (
+                <svg className="w-5 h-5 text-emerald-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 text-rose-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+              <span className="text-sm font-medium">{toast.message}</span>
+            </div>
+          ))}
+        </div>,
+        document.body
       )}
 
       {/* Header */}
@@ -632,26 +548,25 @@ export default function CourseTable() {
       <CourseFormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        t={t}
         editingItem={editingItem}
-        formCode={formCode}
-        setFormCode={setFormCode}
-        formName={formName}
-        setFormName={setFormName}
-        formDuration={formDuration}
-        setFormDuration={setFormDuration}
-        formPrice={formPrice}
-        setFormPrice={setFormPrice}
-        formStatus={formStatus}
-        setFormStatus={setFormStatus}
-        formDesc={formDesc}
-        setFormDesc={setFormDesc}
-        formError={formError}
-        isSubmitting={isSubmitting}
-        handleSubmit={handleSubmit}
+        onSubmitSuccess={(savedItem, isEdit) => {
+          if (isEdit) {
+            setItems((prev) =>
+              prev.map((i) => (i.id === savedItem.id ? savedItem : i))
+            );
+            showToast(t("course.updateSuccess", { name: savedItem.name }));
+          } else {
+            setCurrentPage(1);
+            setSearchTerm("");
+            setDebouncedSearchTerm("");
+            setStatusFilter("all");
+            showToast(t("course.createSuccess", { name: savedItem.name }));
+          }
+          triggerRefresh();
+        }}
       />
 
-      {/* ── Delete (Deactivate) Confirm Modal ── */}
+            {/* ── Delete (Deactivate) Confirm Modal ── */}
       <DeleteConfirmModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}

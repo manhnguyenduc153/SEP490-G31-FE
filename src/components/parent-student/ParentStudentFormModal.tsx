@@ -8,7 +8,6 @@ import {
   ParentStudentSaveDto,
   ChildItem
 } from "@/services/parentStudent.api";
-
 import { studentApi, StudentItem } from "@/services/student.api";
 import {
   User,
@@ -17,24 +16,21 @@ import {
   Users,
   GraduationCap,
   Info,
-  AlertCircle,
   Plus,
   Save,
   Loader2,
   Edit2,
   Trash2
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { z } from "zod";
 
 interface ParentStudentFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  t: any;
   studentId?: number;             // ID học sinh hiện tại (nếu tạo từ trang học sinh)
   editingItem: ParentStudentItem | null;
-  formError: string | null;
-  isSubmitting: boolean;
-  onSubmit: (dto: ParentStudentSaveDto) => void;
+  onSubmitSuccess: (savedItem: ParentStudentItem, isEdit: boolean) => void;
 }
 
 const RELATIONSHIP_OPTIONS = ["Cha", "Mẹ", "Anh", "Chị", "Ông", "Bà", "Khác"];
@@ -42,20 +38,13 @@ const RELATIONSHIP_OPTIONS = ["Cha", "Mẹ", "Anh", "Chị", "Ông", "Bà", "Kh�
 export function ParentStudentFormModal({
   isOpen,
   onClose,
-  t,
   studentId,
   editingItem,
-  formError,
-  isSubmitting,
-  onSubmit,
+  onSubmitSuccess,
 }: ParentStudentFormModalProps) {
+  const { t } = useTranslation();
   const isEdit = !!editingItem;
-  const [localFormError, setLocalFormError] = useState<string | null>(null);
 
-  // Sync external formError prop
-  useEffect(() => {
-    setLocalFormError(formError);
-  }, [formError]);
   const [name, setName] = useState("");
   const [parentPhone, setParentPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -72,6 +61,11 @@ export function ParentStudentFormModal({
   const [students, setStudents] = useState<StudentItem[]>([]);
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   const [alreadyLinkedStudentIds, setAlreadyLinkedStudentIds] = useState<Set<number>>(new Set());
+
+  // Validation states
+  const [errors, setErrors] = useState<string[]>([]);
+  const [invalidFields, setInvalidFields] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Lấy toàn bộ danh sách học sinh và phụ huynh khi modal mở
   useEffect(() => {
@@ -92,7 +86,6 @@ export function ParentStudentFormModal({
             const linkedIds = new Set<number>();
             const items = parentStudentRes.data.items || [];
             items.forEach((item: ParentStudentItem) => {
-              // Nếu đang sửa phụ huynh này, bỏ qua các con của chính họ
               if (isEdit && editingItem && item.id === editingItem.id) {
                 return;
               }
@@ -119,7 +112,6 @@ export function ParentStudentFormModal({
       setParentPhone(editingItem.parentPhone || "");
       setEmail(editingItem.email || "");
 
-      // Mối quan hệ chung
       const rel = editingItem.relationship || "";
       const isPredefined = RELATIONSHIP_OPTIONS.includes(rel);
       setRelationship(rel);
@@ -134,7 +126,6 @@ export function ParentStudentFormModal({
         setCustomRelationship("");
       }
 
-      // Populate danh sách ID học sinh
       if (editingItem.children && editingItem.children.length > 0) {
         setSelectedChildrenIds(editingItem.children.map(c => c.studentId));
       } else {
@@ -148,18 +139,26 @@ export function ParentStudentFormModal({
       setSelectedRelationship("");
       setCustomRelationship("");
 
-      // Nếu truyền studentId từ ngoài vào, tự động điền 1 dòng học sinh đó
       if (studentId) {
         setSelectedChildrenIds([studentId]);
       } else {
         setSelectedChildrenIds([]);
       }
     }
+    setErrors([]);
+    setInvalidFields([]);
   }, [editingItem, isOpen, studentId]);
+
+  const clearField = (field: string) => {
+    if (invalidFields.includes(field)) {
+      setInvalidFields((prev) => prev.filter((f) => f !== field));
+    }
+  };
 
   const handleRelationshipSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     setSelectedRelationship(value);
+    clearField("relationship");
     if (value === "Khác") {
       setRelationship(customRelationship);
     } else {
@@ -171,22 +170,18 @@ export function ParentStudentFormModal({
     const value = e.target.value;
     setCustomRelationship(value);
     setRelationship(value);
+    clearField("relationship");
   };
 
-  // Thêm một dòng học sinh mới
   const handleAddChildRow = () => {
     setSelectedChildrenIds(prev => [...prev, 0]);
   };
 
-  // Xóa một dòng học sinh
   const handleRemoveChildRow = (index: number) => {
-    // Nếu tạo phụ huynh từ màn học sinh cụ thể (có studentId), không cho xóa dòng đầu tiên
     if (studentId && index === 0) return;
-    
     setSelectedChildrenIds(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Cập nhật thông tin dòng học sinh
   const handleChildRowChange = (index: number, value: number) => {
     setSelectedChildrenIds(prev => {
       const updated = [...prev];
@@ -195,45 +190,124 @@ export function ParentStudentFormModal({
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const inputClass = (field: string, isIconInput = false) =>
+    `w-full rounded-lg border bg-white dark:bg-gray-700 py-2.5 px-3 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 transition ${
+      isIconInput ? "pl-9" : ""
+    } ${
+      invalidFields.includes(field)
+        ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10"
+        : "border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500/10"
+    }`;
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Lọc các studentId hợp lệ (>0) và loại bỏ trùng lặp
-    const cleanChildrenIds = Array.from(new Set(selectedChildrenIds.filter(id => id > 0)));
+    const parentSchema = z.object({
+      name: z
+        .string()
+        .trim()
+        .min(1, t("parentStudent.errorEmptyName", { defaultValue: "Tên phụ huynh không được để trống." }))
+        .min(5, t("parentStudent.errorMinLengthName", { defaultValue: "Tên phụ huynh phải có ít nhất 5 ký tự." })),
+      relationship: z
+        .string()
+        .trim()
+        .min(1, t("parentStudent.errorEmptyRelationship", { defaultValue: "Vui lòng chọn mối quan hệ." })),
+      email: isEdit
+        ? z.string().optional()
+        : z
+            .string()
+            .trim()
+            .min(1, t("parentStudent.errorEmptyEmail", { defaultValue: "Email không được để trống." }))
+            .email(t("parentStudent.errorInvalidEmail", { defaultValue: "Email không đúng định dạng." })),
+      parentPhone: z
+        .string()
+        .trim()
+        .refine(
+          (val) => {
+            if (!val) return true;
+            return /^[0-9+() -]*$/.test(val) && val.length >= 9 && val.length <= 20;
+          },
+          t("parentStudent.errorInvalidPhone", { defaultValue: "Số điện thoại không hợp lệ (từ 9 đến 20 số)." })
+        )
+        .optional(),
+    });
 
-    // Kiểm tra trùng lặp trong form
-    const hasDuplicates = selectedChildrenIds.filter(id => id > 0).some((id, idx, arr) => arr.indexOf(id) !== idx);
-    if (hasDuplicates) {
-      setLocalFormError(t("parentStudent.errDuplicateStudent", { defaultValue: "Không thể chọn trùng học sinh liên kết!" }));
+    const result = parentSchema.safeParse({ name, relationship, email, parentPhone });
+
+    if (!result.success) {
+      const fieldErrors: string[] = [];
+      const fields: string[] = [];
+      result.error.issues.forEach((err) => {
+        fieldErrors.push(err.message);
+        if (err.path.length > 0) fields.push(err.path[0] as string);
+      });
+      setErrors(fieldErrors);
+      setInvalidFields(fields);
       return;
     }
 
-    // Kiểm tra học sinh đã được liên kết với phụ huynh khác
+    const cleanChildrenIds = Array.from(new Set(selectedChildrenIds.filter(id => id > 0)));
+
+    const hasDuplicates = selectedChildrenIds.filter(id => id > 0).some((id, idx, arr) => arr.indexOf(id) !== idx);
+    if (hasDuplicates) {
+      setErrors([t("parentStudent.errDuplicateStudent", { defaultValue: "Không thể chọn trùng học sinh liên kết!" })]);
+      return;
+    }
+
     const linkedDuplicate = cleanChildrenIds.find((id) => alreadyLinkedStudentIds.has(id));
     if (linkedDuplicate) {
       const studentName = students.find((s) => s.id === linkedDuplicate)?.name || `ID: ${linkedDuplicate}`;
-      setLocalFormError(
+      setErrors([
         t("parentStudent.errStudentAlreadyLinked", {
           defaultValue: `Học sinh "${studentName}" đã được liên kết với phụ huynh khác!`,
           name: studentName,
         })
-      );
+      ]);
       return;
     }
 
+    setIsSubmitting(true);
+    setErrors([]);
+    setInvalidFields([]);
+
     const payload: ParentStudentSaveDto = {
       id: editingItem?.id,
-      name,
-      parentPhone,
-      email,
-      relationship,
+      name: name.trim(),
+      parentPhone: parentPhone.trim() || null,
+      email: email.trim(),
+      relationship: relationship.trim(),
       studentIds: cleanChildrenIds
     };
 
-    onSubmit(payload);
+    try {
+      let res;
+      if (isEdit) {
+        res = await parentStudentApi.update(editingItem!.id, payload);
+      } else {
+        res = await parentStudentApi.create(payload);
+      }
+
+      if (res.statusCode === 200 || res.statusCode === 201) {
+        onSubmitSuccess(res.data, isEdit);
+        onClose();
+      } else {
+        const msg = res.message
+          ? t(`backendMessages.${res.message}`, { defaultValue: res.message })
+          : t("parentStudent.systemError", { defaultValue: "Đã xảy ra lỗi hệ thống." });
+        setErrors([msg]);
+        if (res.message === "ERR_PHONE_DUPLICATE") {
+          setInvalidFields(["parentPhone"]);
+        } else if (res.message === "ERR_EMAIL_EMPTY" || res.message === "ERR_EMAIL_ALREADY_EXISTS_WITH_DIFFERENT_ROLE") {
+          setInvalidFields(["email"]);
+        }
+      }
+    } catch {
+      setErrors([t("parentStudent.systemError", { defaultValue: "Đã xảy ra lỗi hệ thống." })]);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  // Map danh sách học sinh sang định dạng Option cho SearchableSelect (loại bỏ học sinh đã được chọn ở hàng khác và học sinh đã có phụ huynh khác)
   const getStudentOptionsForIndex = (currentIndex: number) => {
     const currentValue = selectedChildrenIds[currentIndex];
     return students
@@ -241,15 +315,10 @@ export function ParentStudentFormModal({
         const isSelectedElsewhere = selectedChildrenIds.some(
           (id, idx) => id === s.id && idx !== currentIndex
         );
-        
-        // Nếu học sinh là giá trị đang được chọn của dòng hiện tại, cho phép hiển thị
         if (s.id === currentValue) {
           return !isSelectedElsewhere;
         }
-
-        // Loại bỏ học sinh đã được liên kết với phụ huynh khác
         const isLinkedToOther = alreadyLinkedStudentIds.has(s.id);
-
         return !isSelectedElsewhere && !isLinkedToOther;
       })
       .map((s) => ({
@@ -259,11 +328,7 @@ export function ParentStudentFormModal({
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      className="max-w-3xl w-full"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} className="max-w-3xl w-full">
       <div className="p-6">
         {/* Header */}
         <div className="mb-6 flex items-start gap-4 pb-4 border-b border-gray-100 dark:border-white/10">
@@ -272,21 +337,16 @@ export function ParentStudentFormModal({
           </div>
           <div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-              {isEdit
-                ? t("parentStudent.editTitle")
-                : t("parentStudent.createTitle")}
+              {isEdit ? t("parentStudent.editTitle") : t("parentStudent.createTitle")}
             </h2>
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 leading-normal">
-              {isEdit
-                ? t("parentStudent.editDesc")
-                : t("parentStudent.createDesc")}
+              {isEdit ? t("parentStudent.editDesc") : t("parentStudent.createDesc")}
             </p>
           </div>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Chú ý về tài khoản tự động */}
+        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
           {!isEdit && (
             <div className="flex items-start gap-3 rounded-xl bg-blue-50/70 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 px-4 py-3.5 shadow-sm">
               <div className="p-1.5 bg-blue-100/80 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400 shrink-0">
@@ -309,7 +369,7 @@ export function ParentStudentFormModal({
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300">
                 {t("parentStudent.formNameLabel")}
-                <span className="text-red-500 ml-1">*</span>
+                <span className="text-rose-500 ml-1">*</span>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 dark:text-gray-500">
@@ -318,10 +378,9 @@ export function ParentStudentFormModal({
                 <input
                   type="text"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => { setName(e.target.value); clearField("name"); }}
                   placeholder={t("parentStudent.formNamePlaceholder")}
-                  className="pl-9 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition"
-                  required
+                  className={inputClass("name", true)}
                 />
               </div>
             </div>
@@ -330,7 +389,7 @@ export function ParentStudentFormModal({
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300">
                 {t("parentStudent.formRelationshipLabel")}
-                <span className="text-red-500 ml-1">*</span>
+                <span className="text-rose-500 ml-1">*</span>
               </label>
               <div className="space-y-2">
                 <div className="relative">
@@ -340,8 +399,11 @@ export function ParentStudentFormModal({
                   <select
                     value={selectedRelationship}
                     onChange={handleRelationshipSelectChange}
-                    className="pl-9 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition"
-                    required
+                    className={`pl-9 w-full rounded-lg border bg-white dark:bg-gray-700 px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 transition ${
+                      invalidFields.includes("relationship")
+                        ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10"
+                        : "border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500/10"
+                    }`}
                   >
                     <option value="">{t("parentStudent.formRelationshipPlaceholder")}</option>
                     {RELATIONSHIP_OPTIONS.map((opt) => (
@@ -362,8 +424,7 @@ export function ParentStudentFormModal({
                       value={customRelationship}
                       onChange={handleCustomRelationshipChange}
                       placeholder={t("parentStudent.relationshipCustomPlaceholder", { defaultValue: "Mối quan hệ khác (Dì, Dượng...)..." })}
-                      className="pl-9 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition"
-                      required
+                      className={inputClass("relationship", true)}
                     />
                   </div>
                 )}
@@ -374,7 +435,7 @@ export function ParentStudentFormModal({
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300">
                 {t("parentStudent.formEmailLabel")}
-                <span className="text-red-500 ml-1">*</span>
+                <span className="text-rose-500 ml-1">*</span>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 dark:text-gray-500">
@@ -383,15 +444,12 @@ export function ParentStudentFormModal({
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => { setEmail(e.target.value); clearField("email"); }}
                   placeholder={t("parentStudent.formEmailPlaceholder")}
                   disabled={isEdit}
-                  className={`pl-9 w-full rounded-lg border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition ${
-                    isEdit
-                      ? "bg-gray-100 dark:bg-gray-800/80 border-gray-250 dark:border-gray-700 text-gray-500 cursor-not-allowed"
-                      : "bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white focus:border-blue-500"
+                  className={`${inputClass("email", true)} ${
+                    isEdit ? "bg-gray-100 dark:bg-gray-800/80 border-gray-250 dark:border-gray-700 text-gray-500 cursor-not-allowed" : ""
                   }`}
-                  required={!isEdit}
                 />
               </div>
               {isEdit && (
@@ -413,9 +471,9 @@ export function ParentStudentFormModal({
                 <input
                   type="tel"
                   value={parentPhone}
-                  onChange={(e) => setParentPhone(e.target.value)}
+                  onChange={(e) => { setParentPhone(e.target.value); clearField("parentPhone"); }}
                   placeholder={t("parentStudent.formPhonePlaceholder")}
-                  className="pl-9 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition"
+                  className={inputClass("parentPhone", true)}
                 />
               </div>
             </div>
@@ -426,7 +484,7 @@ export function ParentStudentFormModal({
             <div className="flex items-center justify-between border-b border-gray-100 dark:border-white/10 pb-2">
               <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 flex items-center gap-1.5">
                 <GraduationCap className="h-4.5 w-4.5 text-blue-500" />
-                          {t("parentStudent.formChildrenLabel", { defaultValue: "Con cái" })} ({selectedChildrenIds.filter(id => id > 0).length})
+                {t("parentStudent.formChildrenLabel", { defaultValue: "Con cái" })} ({selectedChildrenIds.filter(id => id > 0).length})
               </h3>
               <button
                 type="button"
@@ -446,21 +504,18 @@ export function ParentStudentFormModal({
               <div className="grid grid-cols-1 gap-3">
                 {selectedChildrenIds.map((childId, index) => (
                   <div
-                              key={`${childId}-${index}`}
-                    className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-white/[0.02] border border-gray-150 dark:border-gray-800 rounded-xl relative group animate-fadeIn"
+                    key={`${childId}-${index}`}
+                    className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-white/[0.02] border border-gray-155 dark:border-gray-800 rounded-xl relative group animate-fadeIn"
                   >
-                    {/* Select Học sinh Searchable */}
                     <div className="flex-1">
                       <SearchableSelect
                         value={childId || ""}
                         onChange={(value) => handleChildRowChange(index, Number(value))}
-                        disabled={!!studentId && index === 0} // Dòng mặc định khi gọi từ học sinh thì không sửa
+                        disabled={!!studentId && index === 0}
                         options={getStudentOptionsForIndex(index)}
                         placeholder="-- Chọn học sinh --"
                       />
                     </div>
-
-                    {/* Nút xóa */}
                     {!(studentId && index === 0) && (
                       <button
                         type="button"
@@ -477,22 +532,18 @@ export function ParentStudentFormModal({
             )}
           </div>
 
-          {/* Form Error */}
-          {localFormError && (
-            <div className="rounded-xl bg-red-50/70 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 px-4 py-3.5 flex items-start gap-3 animate-fadeIn">
-              <div className="p-1.5 bg-red-100 dark:bg-red-900/30 rounded-lg text-red-600 dark:text-red-400 shrink-0">
-                <AlertCircle className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-red-800 dark:text-red-300">
-                  {t("parentStudent.systemErrorTitle", { defaultValue: "Lỗi hệ thống" })}
-                </p>
-                <p className="mt-0.5 text-xs text-red-700 dark:text-red-400 leading-relaxed">
-                  {localFormError}
-                </p>
-              </div>
+          {/* Error block */}
+          {errors.length > 0 && (
+            <div className="p-3 text-sm text-rose-500 bg-rose-50 dark:bg-rose-950/20 dark:text-rose-400 rounded-lg space-y-1">
+              {errors.map((err, idx) => (
+                <div key={idx} className="flex items-start gap-1.5">
+                  <span className="shrink-0">•</span>
+                  <span>{err}</span>
+                </div>
+              ))}
             </div>
           )}
+
           {/* Buttons */}
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
             <button

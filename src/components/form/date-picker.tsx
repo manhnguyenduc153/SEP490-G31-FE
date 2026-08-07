@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import flatpickr from "flatpickr";
 import "flatpickr/dist/flatpickr.css";
 import Label from "./Label";
 import { CalenderIcon } from "../../icons";
 import Hook = flatpickr.Options.Hook;
 import DateOption = flatpickr.Options.DateOption;
+import { useTranslation } from "react-i18next";
+import { Vietnamese } from "flatpickr/dist/l10n/vn";
 
 type PropsType = {
   id: string;
@@ -18,6 +20,7 @@ type PropsType = {
   dateFormat?: string;
   staticOption?: boolean;
   disabled?: boolean;
+  isError?: boolean;
 };
 
 export default function DatePicker({
@@ -30,23 +33,55 @@ export default function DatePicker({
   dateFormat,
   staticOption,
   disabled,
+  isError,
 }: PropsType) {
+  const { i18n } = useTranslation();
+  const fpRef = useRef<any>(null);
+  const onChangeRef = useRef(onChange);
+
+  // Sync onChange prop to ref
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
   useEffect(() => {
     const flatPickr = flatpickr(`#${id}`, {
+      locale: i18n.language === "vi" ? Vietnamese : "default",
       mode: mode || "single",
       static: staticOption !== undefined ? staticOption : true,
       monthSelectorType: "static",
       dateFormat: dateFormat || "d/m/Y",
       defaultDate,
-      onChange,
+      onChange: (selectedDates, dateStr, instance) => {
+        if (onChangeRef.current) {
+          if (Array.isArray(onChangeRef.current)) {
+            onChangeRef.current.forEach((hook) => hook(selectedDates, dateStr, instance));
+          } else {
+            onChangeRef.current(selectedDates, dateStr, instance);
+          }
+        }
+      },
     });
 
+    fpRef.current = Array.isArray(flatPickr) ? flatPickr[0] : flatPickr;
+
     return () => {
-      if (!Array.isArray(flatPickr)) {
-        flatPickr.destroy();
+      if (fpRef.current) {
+        fpRef.current.destroy();
       }
     };
-  }, [mode, onChange, id, defaultDate, dateFormat, staticOption]);
+  }, [mode, id, dateFormat, staticOption, i18n.language]);
+
+  // Sync defaultDate when changed from outside
+  useEffect(() => {
+    if (fpRef.current && defaultDate) {
+      const currentSelected = fpRef.current.selectedDates[0];
+      const newDateVal = defaultDate instanceof Date ? defaultDate : new Date(defaultDate as any);
+      if (!currentSelected || currentSelected.getTime() !== newDateVal.getTime()) {
+        fpRef.current.setDate(defaultDate, false);
+      }
+    }
+  }, [defaultDate]);
 
   return (
     <div>
@@ -57,10 +92,12 @@ export default function DatePicker({
           id={id}
           disabled={disabled}
           placeholder={placeholder}
-          className={`h-11 w-full rounded-lg border appearance-none px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 focus:ring-brand-500/20 dark:border-gray-700 dark:focus:border-brand-800 ${
+          className={`h-11 w-full rounded-lg border appearance-none px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 ${
             disabled
               ? "cursor-not-allowed bg-gray-50/60 dark:bg-gray-950/40 text-gray-450 dark:text-gray-500"
-              : "bg-transparent text-gray-800 border-gray-300 focus:border-brand-300 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+              : isError
+              ? "bg-transparent text-gray-800 border-rose-500 focus:border-rose-500 focus:ring-rose-500/10 dark:border-rose-500"
+              : "bg-transparent text-gray-800 border-gray-300 focus:border-brand-300 focus:ring-brand-500/20 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
           }`}
         />
 

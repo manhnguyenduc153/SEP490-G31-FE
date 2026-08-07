@@ -25,6 +25,21 @@ export default function ClassStatusChart({ data, loading }: Props) {
     );
   }
 
+  const getLocalizedStatusName = (name: string) => {
+    switch (name.toLowerCase()) {
+      case "planning":
+        return t("class.statusPlanning", { defaultValue: "Sắp mở" });
+      case "active":
+        return t("class.statusActive", { defaultValue: "Đang diễn ra" });
+      case "completed":
+        return t("class.statusCompleted", { defaultValue: "Hoàn thành" });
+      case "cancelled":
+        return t("class.statusCancelled", { defaultValue: "Đã hủy" });
+      default:
+        return name;
+    }
+  };
+
   const options: ApexOptions = {
     colors: ["#465fff", "#34D399", "#FBBF24"],
     chart: {
@@ -53,7 +68,7 @@ export default function ClassStatusChart({ data, loading }: Props) {
       colors: ["transparent"],
     },
     xaxis: {
-      categories: data.map((d) => d.statusName),
+      categories: data.map((d) => getLocalizedStatusName(d.statusName)),
       axisBorder: {
         show: false,
       },

@@ -746,6 +746,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
         </div>
 
         <div className="flex items-center gap-3">
+           {/* Temporarily hidden Import Excel & Download Template buttons
            <button
              type="button"
              disabled={isStarted}
@@ -772,6 +773,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
              <Download className="w-4 h-4 text-gray-500 dark:text-gray-400 shrink-0" />
              {t("class.downloadTemplate")}
            </a>
+           */}
           <input
             type="file"
             ref={excelInputRef}
@@ -864,14 +866,14 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                   value={formCode}
                   onChange={(e) => setFormCode(e.target.value)}
                   placeholder={t("class.formCodePlaceholder")}
-                  className={`w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white ${
-                    isStarted ? "bg-gray-50/60 dark:bg-gray-950/45 text-gray-400 cursor-not-allowed" : "text-gray-855"
+                  className={`w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-955 dark:text-white ${
+                    isStarted ? "bg-gray-50/60 dark:bg-gray-955/45 text-gray-400 cursor-not-allowed" : "text-gray-855"
                   }`}
                 />
               </div>
 
-              {/* Nhóm Ngày bắt đầu, Ngày kết thúc, Số buổi dự kiến trên cùng 1 dòng */}
-              <div className="col-span-1 sm:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-5">
+              {/* Nhóm Ngày bắt đầu, Ngày kết thúc trên cùng 1 dòng */}
+              <div className="col-span-1 sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-5">
                 {/* Ngày bắt đầu */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
@@ -885,7 +887,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                       value={formStartDate}
                       disabled={isStarted || !!formSemesterId}
                       onChange={(e) => setFormStartDate(e.target.value)}
-                      className={`w-full rounded-lg border border-gray-200 bg-transparent disabled:bg-gray-50/60 dark:disabled:bg-gray-950/40 pl-3 pr-10 py-2 text-sm focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-955 dark:text-white ${
+                      className={`w-full rounded-lg border border-gray-200 bg-transparent disabled:bg-gray-50/60 dark:disabled:bg-gray-955 pl-3 pr-10 py-2 text-sm focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-955 dark:text-white ${
                         isStarted ? "cursor-not-allowed text-gray-400" : "text-gray-855"
                       }`}
                     />
@@ -921,28 +923,6 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                   <span className="text-[10px] text-gray-400 flex items-center gap-1 mt-1">
                     <Info className="w-3 h-3 text-gray-400 shrink-0" />
                     <span>{formSemesterId ? t("class.endDateHelpSemester") : t("class.endDateHelpCalc")}</span>
-                  </span>
-                </div>
-
-                {/* Số buổi dự kiến */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    {t("class.formExpectedLessonsLabel")} {!formSemesterId && <span className="text-rose-500">*</span>}
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={200}
-                    disabled={isStarted || !!formSemesterId}
-                    value={formSemesterId ? "" : formExpectedLessons}
-                    onChange={(e) => setFormExpectedLessons(Number(e.target.value))}
-                    placeholder={formSemesterId ? t("class.expectedLessonsPlaceholderSemester") : t("class.expectedLessonsPlaceholder")}
-                    className={`w-full rounded-lg border border-gray-200 bg-transparent disabled:bg-gray-50/60 dark:disabled:bg-gray-955/40 px-3 py-2 text-sm focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-955 dark:text-white ${
-                      isStarted ? "cursor-not-allowed text-gray-400" : "text-gray-855"
-                    }`}
-                  />
-                  <span className="text-[10px] text-gray-400 block mt-1">
-                    {formSemesterId ? t("class.expectedLessonsHelpSemester") : t("class.expectedLessonsHelpManual")}
                   </span>
                 </div>
               </div>
@@ -1022,8 +1002,8 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                 )}
               </div>
 
-              {/* Loại lớp học & URL */}
-              <div className="col-span-1 sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {/* Loại lớp học, URL & Trạng thái */}
+              <div className="col-span-1 sm:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-5">
                 {/* Loại lớp học: Offline / Online */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
@@ -1067,8 +1047,25 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                     value={formUrl}
                     onChange={(e) => setFormUrl(e.target.value)}
                     placeholder="https://meet.google.com/..."
-                    className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white text-gray-805 placeholder:text-gray-400"
+                    className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-955 dark:text-white text-gray-805 placeholder:text-gray-400"
                   />
+                </div>
+
+                {/* Trạng thái lớp học */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                    {t("class.formStatusLabel")}
+                  </label>
+                  <select
+                    value={formStatus}
+                    onChange={(e) => setFormStatus(Number(e.target.value))}
+                    className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-955 dark:text-white text-gray-805"
+                  >
+                    <option value={0} className="dark:bg-gray-950">{t("class.statusPlanning")}</option>
+                    <option value={1} className="dark:bg-gray-950">{t("class.statusActive")}</option>
+                    <option value={2} className="dark:bg-gray-950">{t("class.statusCompleted")}</option>
+                    <option value={3} className="dark:bg-gray-950">{t("class.statusCancelled")}</option>
+                  </select>
                 </div>
               </div>
 
@@ -1331,7 +1328,9 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                         className="w-full px-2 py-1 text-xs border border-gray-205 dark:border-gray-800 rounded-md bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 disabled:bg-gray-50 dark:disabled:bg-gray-950/60 disabled:text-gray-400"
                       >
                         {FIXED_SLOTS.map((slot) => (
-                          <option key={slot.index} value={slot.start}>{slot.label}</option>
+                          <option key={slot.index} value={slot.start}>
+                            {t(`classSchedules.ca${slot.index + 1}`)} ({slot.start} - {slot.end})
+                          </option>
                         ))}
                       </select>
                     </div>

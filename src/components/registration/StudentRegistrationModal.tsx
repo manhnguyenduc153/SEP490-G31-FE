@@ -3,10 +3,11 @@
 import React, { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/modal";
 import * as XLSX from "xlsx";
+import { z } from "zod";
 import { studentApi, StudentItem } from "@/services/student.api";
 import { courseApi, CourseItem } from "@/services/course.api";
 import { semesterApi, StudentRegistrationSaveDto, StudentRegistrationDto, SemesterItem } from "@/services/semester.api";
-import { CheckCircle2, AlertTriangle, XCircle, FileSpreadsheet, PlusCircle, Check, Sun, Sunset, Moon, Search } from "lucide-react";
+import { CheckCircle2, AlertTriangle, XCircle, FileSpreadsheet, PlusCircle, Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
@@ -62,6 +63,10 @@ export function StudentRegistrationModal({
   const [formStatus, setFormStatus] = useState<number>(0);
   const [formEnrollType, setFormEnrollType] = useState<number>(0); // 0 = Offline, 1 = Online
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
+
+  // Manual form validation state
+  const [manualErrors, setManualErrors] = useState<string[]>([]);
+  const [manualInvalidFields, setManualInvalidFields] = useState<string[]>([]);
 
   // Excel Import States
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([]);
@@ -124,6 +129,8 @@ export function StudentRegistrationModal({
       setActiveTab("excel");
       setModalSemesterId(defaultSemesterId || "");
     }
+    setManualErrors([]);
+    setManualInvalidFields([]);
   }, [isOpen, defaultSemesterId, registrationToEdit]);
 
   // Load existing registrations whenever selected semester changes to check duplicates
@@ -317,30 +324,50 @@ export function StudentRegistrationModal({
   // Submit Manual Form
   const handleConfirmManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!modalSemesterId) {
-      showToast(t("registration.toastSelectSemesterExcel"), "error");
-      return;
-    }
-    if (!formStudentId) {
-      showToast(t("registration.toastSelectStudent"), "error");
-      return;
-    }
-    if (!formCourseId) {
-      showToast(t("registration.toastSelectCourse"), "error");
+
+    // Zod schema for manual registration
+    const slots = Object.entries(formSlots)
+      .filter(([_, checked]) => checked)
+      .map(([key]) => key);
+
+    const registrationSchema = z.object({
+      semesterId: z.union([z.number(), z.literal("")]).refine(
+        (v) => v !== "",
+        t("registration.errorSelectSemester", { defaultValue: "Vui lòng chọn học kỳ." })
+      ),
+      studentId: z.union([z.number(), z.literal("")]).refine(
+        (v) => v !== "",
+        t("registration.errorSelectStudent", { defaultValue: "Vui lòng chọn học viên." })
+      ),
+      courseId: z.union([z.number(), z.literal("")]).refine(
+        (v) => v !== "",
+        t("registration.errorSelectCourse", { defaultValue: "Vui lòng chọn khóa học." })
+      ),
+      slots: z.array(z.string()).min(1, t("registration.errorSelectSlot", { defaultValue: "Vui lòng chọn ít nhất một ca học." })),
+    });
+
+    const result = registrationSchema.safeParse({
+      semesterId: modalSemesterId,
+      studentId: registrationToEdit ? registrationToEdit.studentId : formStudentId,
+      courseId: formCourseId,
+      slots,
+    });
+
+    if (!result.success) {
+      const fieldErrors: string[] = [];
+      const fields: string[] = [];
+      result.error.issues.forEach((err) => {
+        fieldErrors.push(err.message);
+        if (err.path.length > 0) {
+          fields.push(err.path[0] as string);
+        }
+      });
+      setManualErrors(fieldErrors);
+      setManualInvalidFields(fields);
       return;
     }
 
     const selectedStudent = students.find((s) => s.id === formStudentId);
-    if (!selectedStudent && !registrationToEdit) return;
-
-    const slots = Object.entries(formSlots)
-      .filter(([_, isChecked]) => isChecked)
-      .map(([slotKey]) => slotKey);
-
-    if (slots.length === 0) {
-      showToast(t("registration.toastSelectSlot"), "error");
-      return;
-    }
 
     // Check duplicate registration
     const emailToCheck = registrationToEdit ? registrationToEdit.studentEmail : selectedStudent?.email;
@@ -353,10 +380,13 @@ export function StudentRegistrationModal({
     );
 
     if (isDuplicate) {
-      showToast(t("registration.toastDuplicateError", { defaultValue: "Học viên này đã được đăng ký cho khóa học này trong học kỳ hiện tại!" }), "error");
+      setManualErrors([t("registration.toastDuplicateError", { defaultValue: "Học viên này đã được đăng ký cho khóa học này trong học kỳ hiện tại!" })]);
+      setManualInvalidFields(["courseId", "studentId"]);
       return;
     }
 
+    setManualErrors([]);
+    setManualInvalidFields([]);
     setIsSubmittingManual(true);
     try {
       const payload: StudentRegistrationSaveDto = {
@@ -387,17 +417,16 @@ export function StudentRegistrationModal({
         onSuccess();
         onClose();
       } else {
-        showToast(
+        setManualErrors([
           res.message
-            ? t(`backendMessages.${res.message}`, { defaultValue: "Học viên này đã được đăng ký cho khóa học trong học kỳ này!" })
+            ? t(`backendMessages.${res.message}`, { defaultValue: res.message })
             : registrationToEdit
             ? t("registration.toastUpdateError", { defaultValue: "Lỗi cập nhật đăng ký." })
-            : t("registration.toastRegisterError"),
-          "error"
-        );
+            : t("registration.toastRegisterError")
+        ]);
       }
     } catch (err: any) {
-      showToast(err.message || t("registration.toastSystemError"), "error");
+      setManualErrors([err.message || t("registration.toastSystemError")]);
     } finally {
       setIsSubmittingManual(false);
     }
@@ -426,9 +455,13 @@ export function StudentRegistrationModal({
                 onChange={(value) => {
                   setModalSemesterId(value ? Number(value) : "");
                   setPreviewRows([]);
+                  if (manualInvalidFields.includes("semesterId")) {
+                    setManualInvalidFields(prev => prev.filter(f => f !== "semesterId"));
+                  }
                 }}
                 options={semesters.map((s) => ({ value: s.id, label: s.name }))}
                 placeholder={t("registration.modalSemesterSelect")}
+                isError={manualInvalidFields.includes("semesterId")}
               />
             </div>
           </div>
@@ -638,12 +671,18 @@ export function StudentRegistrationModal({
                   ) : (
                     <SearchableSelect
                       value={formStudentId}
-                      onChange={(value) => setFormStudentId(value ? Number(value) : "")}
+                      onChange={(value) => {
+                        setFormStudentId(value ? Number(value) : "");
+                        if (manualInvalidFields.includes("studentId")) {
+                          setManualInvalidFields(prev => prev.filter(f => f !== "studentId"));
+                        }
+                      }}
                       options={students.map((s) => ({
                         value: s.id,
                         label: `${s.name} (${s.code} - ${s.email || "No email"})`
                       }))}
                       placeholder={t("registration.modalManualSelectStudentPlaceholder")}
+                      isError={manualInvalidFields.includes("studentId")}
                     />
                   )}
                 </div>
@@ -655,12 +694,18 @@ export function StudentRegistrationModal({
                   </label>
                   <SearchableSelect
                     value={formCourseId}
-                    onChange={(value) => setFormCourseId(value ? Number(value) : "")}
+                    onChange={(value) => {
+                      setFormCourseId(value ? Number(value) : "");
+                      if (manualInvalidFields.includes("courseId")) {
+                        setManualInvalidFields(prev => prev.filter(f => f !== "courseId"));
+                      }
+                    }}
                     options={courses.map((c) => ({
                       value: c.id,
                       label: c.name
                     }))}
                     placeholder={t("registration.modalManualSelectCoursePlaceholder")}
+                    isError={manualInvalidFields.includes("courseId")}
                   />
                 </div>
 
@@ -694,12 +739,21 @@ export function StudentRegistrationModal({
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 block">
                     {t("registration.modalManualSlots")} <span className="text-rose-500">*</span>
                   </label>
-                  <div className="flex flex-wrap gap-4 items-center bg-gray-50 dark:bg-gray-955/40 border border-gray-250 dark:border-gray-800 px-4 py-3 rounded-lg">
+                <div className={`flex flex-wrap gap-4 items-center bg-gray-50 dark:bg-gray-955/40 border px-4 py-3 rounded-lg ${
+                    manualInvalidFields.includes("slots")
+                      ? "border-rose-500 dark:border-rose-500"
+                      : "border-gray-250 dark:border-gray-800"
+                  }`}>
                     <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={formSlots.Morning}
-                        onChange={(e) => setFormSlots((prev) => ({ ...prev, Morning: e.target.checked }))}
+                        onChange={(e) => {
+                          setFormSlots((prev) => ({ ...prev, Morning: e.target.checked }));
+                          if (manualInvalidFields.includes("slots")) {
+                            setManualInvalidFields(prev => prev.filter(f => f !== "slots"));
+                          }
+                        }}
                         className="rounded border-gray-300 text-brand-500 focus:ring-brand-500 cursor-pointer"
                       />
                       <span>{t("registration.slotMorning")}</span>
@@ -709,7 +763,12 @@ export function StudentRegistrationModal({
                       <input
                         type="checkbox"
                         checked={formSlots.Afternoon}
-                        onChange={(e) => setFormSlots((prev) => ({ ...prev, Afternoon: e.target.checked }))}
+                        onChange={(e) => {
+                          setFormSlots((prev) => ({ ...prev, Afternoon: e.target.checked }));
+                          if (manualInvalidFields.includes("slots")) {
+                            setManualInvalidFields(prev => prev.filter(f => f !== "slots"));
+                          }
+                        }}
                         className="rounded border-gray-300 text-brand-500 focus:ring-brand-500 cursor-pointer"
                       />
                       <span>{t("registration.slotAfternoon")}</span>
@@ -719,7 +778,12 @@ export function StudentRegistrationModal({
                       <input
                         type="checkbox"
                         checked={formSlots.Evening}
-                        onChange={(e) => setFormSlots((prev) => ({ ...prev, Evening: e.target.checked }))}
+                        onChange={(e) => {
+                          setFormSlots((prev) => ({ ...prev, Evening: e.target.checked }));
+                          if (manualInvalidFields.includes("slots")) {
+                            setManualInvalidFields(prev => prev.filter(f => f !== "slots"));
+                          }
+                        }}
                         className="rounded border-gray-300 text-brand-500 focus:ring-brand-500 cursor-pointer"
                       />
                       <span>{t("registration.slotEvening")}</span>
@@ -748,7 +812,18 @@ export function StudentRegistrationModal({
               </div>
             )}
 
-            <div className="flex justify-end gap-3 mt-4 border-t border-gray-100 dark:border-gray-800 pt-4">
+            <div className="flex flex-col gap-3">
+              {manualErrors.length > 0 && (
+                <div className="p-3 text-sm text-rose-500 bg-rose-50 dark:bg-rose-950/20 dark:text-rose-400 rounded-lg space-y-1">
+                  {manualErrors.map((err, idx) => (
+                    <div key={idx} className="flex items-start gap-1.5">
+                      <span className="shrink-0">•</span>
+                      <span>{err}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex justify-end gap-3 border-t border-gray-100 dark:border-gray-800 pt-4">
               <button
                 type="button"
                 onClick={onClose}
@@ -768,6 +843,7 @@ export function StudentRegistrationModal({
                   ? t("registration.modalManualBtnUpdate", { defaultValue: "Cập nhật" })
                   : t("registration.modalManualBtnSubmit")}
               </button>
+            </div>
             </div>
           </form>
         )}
