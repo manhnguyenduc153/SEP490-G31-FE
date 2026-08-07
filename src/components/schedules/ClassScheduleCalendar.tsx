@@ -918,6 +918,29 @@ export default function ClassScheduleCalendar() {
     });
   }, [reloadTrigger]);
 
+  // Restore draft schedule from localStorage on mount
+  useEffect(() => {
+    if (mounted) {
+      const storedClasses = localStorage.getItem("semester_draft_classes");
+      const storedSemesterId = localStorage.getItem("semester_draft_id");
+      if (storedClasses && storedSemesterId) {
+        try {
+          const parsedClasses = JSON.parse(storedClasses);
+          const parsedSemesterId = Number(storedSemesterId);
+          setDraftClasses(parsedClasses);
+          setDraftSemesterId(parsedSemesterId);
+          const newDraftEvents = parsedClasses.flatMap((cls: ClassItem) => mapDraftClass(cls));
+          setDraftEvents(newDraftEvents);
+          if (parsedClasses.length > 0 && parsedClasses[0].startDate) {
+            setWeekStart(getWeekStart(new Date(parsedClasses[0].startDate)));
+          }
+        } catch (e) {
+          console.error("Failed to parse stored draft classes", e);
+        }
+      }
+    }
+  }, [mounted]);
+
   // Load schedules from DB
   useEffect(() => {
     async function load() {
@@ -1213,6 +1236,7 @@ export default function ClassScheduleCalendar() {
     const updatedDraftClasses = [...draftClasses];
     updatedDraftClasses[clsIndex] = cls;
     setDraftClasses(updatedDraftClasses);
+    localStorage.setItem("semester_draft_classes", JSON.stringify(updatedDraftClasses));
 
     const newDraftEvents = updatedDraftClasses.flatMap((c) => mapDraftClass(c));
     setDraftEvents(newDraftEvents);
@@ -1422,6 +1446,8 @@ export default function ClassScheduleCalendar() {
       if (res.success && res.data) {
         setDraftClasses(res.data);
         setDraftSemesterId(params.semesterId);
+        localStorage.setItem("semester_draft_classes", JSON.stringify(res.data));
+        localStorage.setItem("semester_draft_id", String(params.semesterId));
         const newDraftEvents = res.data.flatMap((cls) => mapDraftClass(cls));
         setDraftEvents(newDraftEvents);
         setShowScheduleModal(false);
@@ -1473,6 +1499,8 @@ export default function ClassScheduleCalendar() {
         setDraftClasses(null);
         setDraftEvents([]);
         setDraftSemesterId(null);
+        localStorage.removeItem("semester_draft_classes");
+        localStorage.removeItem("semester_draft_id");
         showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: "Lưu chính thức thời khóa biểu thành công!" }) : "Lưu chính thức thời khóa biểu thành công!", "success");
         // Reload calendar from DB
         const dbRes = await classApi.getClassSchedules();
@@ -1497,6 +1525,8 @@ export default function ClassScheduleCalendar() {
     setDraftClasses(null);
     setDraftEvents([]);
     setDraftSemesterId(null);
+    localStorage.removeItem("semester_draft_classes");
+    localStorage.removeItem("semester_draft_id");
     showToast(t("classSchedules.toastCancelDraftSuccess", { defaultValue: "Đã hủy bản nháp lịch học hiện tại." }), "success");
   };
 
