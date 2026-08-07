@@ -1076,9 +1076,11 @@ export function ExamForm({ id }: ExamFormProps) {
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between gap-2">
                                           <span className="font-bold text-gray-500">{q.code}</span>
-                                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 font-semibold text-gray-600 dark:text-gray-400">
-                                            {q.point || 1} điểm
-                                          </span>
+                                          {examSkillType !== 4 && (
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 font-semibold text-gray-600 dark:text-gray-400">
+                                              {q.point || 1} điểm
+                                            </span>
+                                          )}
                                         </div>
                                         <p className="font-medium text-gray-900 dark:text-white line-clamp-2 mt-0.5">
                                           {q.content || q.name}
@@ -1135,16 +1137,19 @@ export function ExamForm({ id }: ExamFormProps) {
               )}
             </div>
 
-            {/* Points preview footer */}
-            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-white/[0.05] flex justify-between items-center text-xs">
-              <span className="font-semibold text-gray-500">{t("exams.formPointPerQuestion", { defaultValue: "Điểm mỗi câu (ước tính):" })}</span>
-              <span className="font-bold text-brand-500">
-                {selectedQuestionIds.length > 0
-                  ? (totalScore / selectedQuestionIds.length).toFixed(2)
-                  : 0}
-                {t("exams.formPointUnit", { defaultValue: "đ" })}
-              </span>
-            </div>
+            {/* Points preview footer — Writing is graded manually by staff per submission,
+                not auto-scored per question, so a per-question point split doesn't apply. */}
+            {examSkillType !== 4 && (
+              <div className="mt-3 pt-3 border-t border-gray-100 dark:border-white/[0.05] flex justify-between items-center text-xs">
+                <span className="font-semibold text-gray-500">{t("exams.formPointPerQuestion", { defaultValue: "Điểm mỗi câu (ước tính):" })}</span>
+                <span className="font-bold text-brand-500">
+                  {selectedQuestionIds.length > 0
+                    ? (totalScore / selectedQuestionIds.length).toFixed(2)
+                    : 0}
+                  {t("exams.formPointUnit", { defaultValue: "đ" })}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Guidelines Infobox */}
