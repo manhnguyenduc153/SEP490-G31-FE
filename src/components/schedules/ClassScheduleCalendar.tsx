@@ -10,8 +10,9 @@ import { useModal } from "@/hooks/useModal";
 import { Modal } from "@/components/ui/modal";
 import { classApi, ClassItem, ClassScheduleItem, ClassSaveDto } from "@/services/class.api";
 import { semesterApi, SemesterItem } from "@/services/semester.api";
-import { ChevronLeft, ChevronRight, CalendarClock, Save, X, Loader2, AlertTriangle, Cpu, Check, AlertCircle, Edit, DoorOpen } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarClock, Save, X, Loader2, AlertTriangle, Cpu, Check, AlertCircle, Edit, DoorOpen, RotateCcw } from "lucide-react";
 import { roomApi, RoomItem } from "@/services/room.api";
+import { teacherApi } from "@/services/teacher.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useTranslation } from "react-i18next";
 import { commonApi } from "@/services/common.api";
@@ -187,7 +188,7 @@ function WeekGrid({ events, weekStart, onEventClick, onEventDrop, isEventEditabl
   for (let i = 0; i < 7; i++) {
     const d = addDays(weekStart, i);
     const dayOfWeek = d.getDay();
-    days.push({ date: d, iso: toISO(d), label: `${d.getDate()}/${d.getMonth() + 1}`, dayLabel: DAY_LABELS[dayOfWeek] });
+    days.push({ date: d, iso: toISO(d), label: `${d.getDate()}/${d.getMonth() + 1}`, dayLabel: t(`common.day${dayOfWeek}`, { defaultValue: DAY_LABELS[dayOfWeek] }) });
   }
 
   const todayISO = toISO(new Date());
@@ -309,6 +310,8 @@ interface AutoScheduleModalProps {
     timePreferences: string[];
     allowConsecutiveDays: boolean;
     allowWeekend: boolean;
+    teacherIds?: number[];
+    roomIds?: number[];
   }) => void;
   loading: boolean;
   showToast: (msg: string, type?: "success" | "error") => void;
@@ -322,7 +325,16 @@ function AutoScheduleModal({ isOpen, onClose, semesters, onGenerate, loading, sh
   const [sessionsPerWeek, setSessionsPerWeek] = useState<number>(2);
   const [timePreferences, setTimePreferences] = useState<string[]>(["Morning", "Afternoon", "Evening"]);
   const [allowConsecutiveDays, setAllowConsecutiveDays] = useState<boolean>(false);
-  const [allowWeekend, setAllowWeekend] = useState<boolean>(false);
+  const [allowWeekend, setAllowWeekend] = useState<boolean>(true);
+
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [rooms, setRooms] = useState<any[]>([]);
+  const [selectedTeachers, setSelectedTeachers] = useState<number[]>([]);
+  const [selectedRooms, setSelectedRooms] = useState<number[]>([]);
+
+  const [teacherKeyword, setTeacherKeyword] = useState<string>("");
+  const [roomKeyword, setRoomKeyword] = useState<string>("");
+
   const [loadingStep, setLoadingStep] = useState(0);
 
   const togglePref = (pref: string) => {
@@ -333,6 +345,37 @@ function AutoScheduleModal({ isOpen, onClose, semesters, onGenerate, loading, sh
 
   const selectedSemesterName = semesters.find(s => s.id === semesterId)?.name || "";
   const semesterOptions = semesters.map((s) => ({ value: s.id, label: `${s.code} — ${s.name}` }));
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedTeachers([]);
+      setSelectedRooms([]);
+      setTeacherKeyword("");
+      setRoomKeyword("");
+    }
+  }, [isOpen]);
+
+  // Load teachers based on keyword
+  useEffect(() => {
+    if (isOpen) {
+      commonApi.getTeachers(1, 1000, teacherKeyword, 1).then((res) => {
+        if (res.success && res.data) {
+          setTeachers(res.data.items || []);
+        }
+      });
+    }
+  }, [isOpen, teacherKeyword]);
+
+  // Load rooms based on keyword
+  useEffect(() => {
+    if (isOpen) {
+      commonApi.getRooms(1, 1000, roomKeyword, true).then((res) => {
+        if (res.success && res.data) {
+          setRooms(res.data.items || []);
+        }
+      });
+    }
+  }, [isOpen, roomKeyword]);
 
   useEffect(() => {
     if (!loading) {
@@ -361,6 +404,14 @@ function AutoScheduleModal({ isOpen, onClose, semesters, onGenerate, loading, sh
       showToast(t("semester.errClassSizeValidation", { defaultValue: "Sĩ số tối thiểu không lớn hơn sĩ số tối đa." }), "error");
       return;
     }
+    if (selectedTeachers.length === 0) {
+      showToast(t("semester.errSelectTeacher", { defaultValue: "Vui lòng chọn ít nhất một giáo viên để xếp lịch." }), "error");
+      return;
+    }
+    if (selectedRooms.length === 0) {
+      showToast(t("semester.errSelectRoom", { defaultValue: "Vui lòng chọn ít nhất một phòng học để xếp lịch." }), "error");
+      return;
+    }
     onGenerate({
       semesterId,
       maxClassSize,
@@ -369,12 +420,14 @@ function AutoScheduleModal({ isOpen, onClose, semesters, onGenerate, loading, sh
       timePreferences: timePreferences.map(p => p.toLowerCase()),
       allowConsecutiveDays,
       allowWeekend,
+      teacherIds: selectedTeachers,
+      roomIds: selectedRooms,
     });
   };
 
   if (!isOpen) return null;
   return (
-    <Modal isOpen={isOpen} onClose={onClose} className="max-w-[600px] p-6 sm:p-8" showCloseButton={!loading}>
+    <Modal isOpen={isOpen} onClose={onClose} className="max-w-[1200px] w-full p-6 sm:p-8" showCloseButton={!loading}>
       <div className="flex flex-col gap-4">
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -411,119 +464,255 @@ function AutoScheduleModal({ isOpen, onClose, semesters, onGenerate, loading, sh
               <strong>{t("semester.autoScheduleNoteTitle", { defaultValue: "Lưu ý:" })}</strong> {t("semester.autoScheduleNoteBody", { defaultValue: "Quá trình này sử dụng AI để tự động tạo lớp học và thời khóa biểu tối ưu theo các ràng buộc được chỉ định bên dưới." })}
             </div>
 
-            <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-              <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t("semester.semesterLabel", { defaultValue: "Học kỳ" })} <span className="text-rose-500">*</span>
-                </label>
-                <SearchableSelect
-                  options={semesterOptions}
-                  value={semesterId || ""}
-                  onChange={(val) => setSemesterId(val as number)}
-                  placeholder="Chọn học kỳ..."
-                />
-              </div>
+            <form className="grid grid-cols-1 lg:grid-cols-12 gap-8" onSubmit={(e) => e.preventDefault()}>
+              {/* Cột trái: Form cấu hình cũ */}
+              <div className="lg:col-span-5 space-y-4 text-left">
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t("semester.semesterLabel", { defaultValue: "Học kỳ" })} <span className="text-rose-500">*</span>
+                  </label>
+                  <SearchableSelect
+                    options={semesterOptions}
+                    value={semesterId || ""}
+                    onChange={(val) => setSemesterId(val as number)}
+                    placeholder={t("semester.formSemesterPlaceholder", { defaultValue: "Chọn học kỳ..." })}
+                  />
+                </div>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {t("semester.autoScheduleMaxClassSize", { defaultValue: "Sĩ số tối đa" })} <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={5}
+                      max={100}
+                      required
+                      value={maxClassSize}
+                      onChange={(e) => setMaxClassSize(Number(e.target.value))}
+                      className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 dark:border-gray-750 dark:bg-gray-900 dark:text-white/90 focus:border-brand-300 focus:outline-hidden"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {t("semester.autoScheduleMinClassSize", { defaultValue: "Sĩ số tối thiểu" })} <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={50}
+                      required
+                      value={minClassSize}
+                      onChange={(e) => setMinClassSize(Number(e.target.value))}
+                      className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-855 dark:text-gray-250 dark:border-gray-700 dark:bg-gray-900 dark:text-white focus:border-brand-300 focus:outline-hidden"
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t("semester.autoScheduleMaxClassSize", { defaultValue: "Sĩ số tối đa" })} <span className="text-rose-500">*</span>
+                    {t("semester.autoScheduleSessionsPerWeek", { defaultValue: "Số buổi mỗi tuần" })} <span className="text-rose-500">*</span>
                   </label>
-                  <input
-                    type="number"
-                    min={5}
-                    max={100}
-                    required
-                    value={maxClassSize}
-                    onChange={(e) => setMaxClassSize(Number(e.target.value))}
-                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 dark:border-gray-750 dark:bg-gray-900 dark:text-white/90 focus:border-brand-300 focus:outline-hidden"
-                  />
+                  <select
+                    value={sessionsPerWeek}
+                    onChange={(e) => setSessionsPerWeek(Number(e.target.value))}
+                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-855 dark:text-gray-250 dark:border-gray-700 dark:bg-gray-900 dark:text-white cursor-pointer"
+                  >
+                    <option value={1}>{t("semester.sessionsPerWeekOption", { count: 1, defaultValue: "1 buổi / tuần" })}</option>
+                    <option value={2}>{t("semester.sessionsPerWeekOption", { count: 2, defaultValue: "2 buổi / tuần" })}</option>
+                    <option value={3}>{t("semester.sessionsPerWeekOption", { count: 3, defaultValue: "3 buổi / tuần" })}</option>
+                    <option value={4}>{t("semester.sessionsPerWeekOption", { count: 4, defaultValue: "4 buổi / tuần" })}</option>
+                    <option value={5}>{t("semester.sessionsPerWeekOption", { count: 5, defaultValue: "5 buổi / tuần" })}</option>
+                    <option value={6}>{t("semester.sessionsPerWeekOption", { count: 6, defaultValue: "6 buổi / tuần" })}</option>
+                    <option value={7}>{t("semester.sessionsPerWeekOption", { count: 7, defaultValue: "7 buổi / tuần" })}</option>
+                  </select>
                 </div>
 
                 <div>
                   <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t("semester.autoScheduleMinClassSize", { defaultValue: "Sĩ số tối thiểu" })} <span className="text-rose-500">*</span>
+                    {t("semester.autoSchedulePreferences", { defaultValue: "Khung thời gian có thể xếp lớp" })}
                   </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={50}
-                    required
-                    value={minClassSize}
-                    onChange={(e) => setMinClassSize(Number(e.target.value))}
-                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-850 dark:text-gray-250 dark:border-gray-700 dark:bg-gray-900 dark:text-white focus:border-brand-300 focus:outline-hidden"
-                  />
+                  <div className="flex gap-3">
+                    {["Morning", "Afternoon", "Evening"].map((p) => {
+                      const label = p === "Morning" ? t("semester.autoSchedulePrefMorning", { defaultValue: "Sáng" }) : p === "Afternoon" ? t("semester.autoSchedulePrefAfternoon", { defaultValue: "Chiều" }) : t("semester.autoSchedulePrefEvening", { defaultValue: "Tối" });
+                      const active = timePreferences.includes(p);
+                      return (
+                        <button
+                          type="button"
+                          key={p}
+                          onClick={() => togglePref(p)}
+                          className={`flex-1 py-2 px-3 border text-xs font-semibold rounded-lg transition-all ${active
+                            ? "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-950/40 dark:border-blue-900 dark:text-blue-400"
+                            : "bg-white border-gray-200 text-gray-500 dark:bg-gray-900 dark:border-gray-800"
+                            }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-3 pt-2">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={allowConsecutiveDays}
+                      onChange={(e) => setAllowConsecutiveDays(e.target.checked)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-650 dark:text-gray-300">
+                      {t("semester.autoScheduleConsecutiveDays", { defaultValue: "Cho học liên tiếp" })}
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={allowWeekend}
+                      onChange={(e) => setAllowWeekend(e.target.checked)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-650 dark:text-gray-300">
+                      {t("semester.autoScheduleWeekend", { defaultValue: "Cho xếp lịch cuối tuần" })}
+                    </span>
+                  </label>
                 </div>
               </div>
 
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t("semester.autoScheduleSessionsPerWeek", { defaultValue: "Số buổi mỗi tuần" })} <span className="text-rose-500">*</span>
-                </label>
-                <select
-                  value={sessionsPerWeek}
-                  onChange={(e) => setSessionsPerWeek(Number(e.target.value))}
-                  className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-850 dark:text-gray-250 dark:border-gray-700 dark:bg-gray-900 dark:text-white cursor-pointer"
-                >
-                  <option value={1}>1 {t("semester.sessionPerWeekOption", { defaultValue: "buổi / tuần" })}</option>
-                  <option value={2}>2 {t("semester.sessionPerWeekOption", { defaultValue: "buổi / tuần" })}</option>
-                  <option value={3}>3 {t("semester.sessionPerWeekOption", { defaultValue: "buổi / tuần" })}</option>
-                  <option value={4}>4 {t("semester.sessionPerWeekOption", { defaultValue: "buổi / tuần" })}</option>
-                </select>
-              </div>
+              {/* Cột phải: Giáo viên và Phòng học dạng card */}
+              <div className="lg:col-span-7 space-y-6 text-left">
+                {/* Chỉ định Giáo viên */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="block text-sm font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                      {t("semester.autoScheduleTeachers", { defaultValue: "Chỉ định Giáo viên xếp lịch" })}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allSelected = teachers.length > 0 && selectedTeachers.length === teachers.length;
+                        setSelectedTeachers(allSelected ? [] : teachers.map(teach => teach.id));
+                      }}
+                      className="text-xs font-semibold text-blue-650 dark:text-blue-450 hover:underline cursor-pointer select-none"
+                    >
+                      {teachers.length > 0 && selectedTeachers.length === teachers.length
+                        ? t("common.deselectAll", { defaultValue: "Bỏ chọn tất cả" })
+                        : t("common.selectAll", { defaultValue: "Chọn tất cả" })}
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder={t("common.searchTeacher", { defaultValue: "Tìm giáo viên theo Tên hoặc Mã..." })}
+                    value={teacherKeyword}
+                    onChange={(e) => setTeacherKeyword(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-1.5 text-xs text-gray-800 focus:border-brand-300 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  />
+                  <div className="max-h-56 overflow-y-auto border border-gray-200 dark:border-gray-800 rounded-xl p-3 bg-gray-50/50 dark:bg-gray-950/20">
+                    {teachers.length === 0 ? (
+                      <p className="text-xs text-gray-400">{t("common.noData", { defaultValue: "Không có dữ liệu" })}</p>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {teachers.map((teach) => {
+                          const isSelected = selectedTeachers.includes(teach.id);
+                          return (
+                            <div
+                              key={teach.id}
+                              onClick={() => {
+                                if (isSelected) {
+                                  setSelectedTeachers(selectedTeachers.filter((id) => id !== teach.id));
+                                } else {
+                                  setSelectedTeachers([...selectedTeachers, teach.id]);
+                                }
+                              }}
+                              className={`p-2.5 rounded-lg border text-xs cursor-pointer flex flex-col justify-between transition-all select-none ${
+                                isSelected
+                                  ? "bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-950/20 dark:border-blue-700 dark:text-blue-400 font-medium shadow-xs"
+                                  : "bg-white border-gray-200 dark:border-gray-800 text-gray-655 dark:text-gray-300 hover:bg-gray-50/50"
+                              }`}
+                            >
+                              <div className="flex justify-between items-center w-full">
+                                <span className="truncate max-w-[85%] font-semibold">{teach.name}</span>
+                                {isSelected && <span className="text-blue-500 font-bold">✓</span>}
+                              </div>
+                              <span className="text-[10px] opacity-70 mt-0.5">{teach.code}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t("semester.autoSchedulePreferences", { defaultValue: "Khung thời gian có thể xếp lớp" })}
-                </label>
-                <div className="flex gap-3">
-                  {["Morning", "Afternoon", "Evening"].map((p) => {
-                    const label = p === "Morning" ? t("semester.autoSchedulePrefMorning", { defaultValue: "Sáng" }) : p === "Afternoon" ? t("semester.autoSchedulePrefAfternoon", { defaultValue: "Chiều" }) : t("semester.autoSchedulePrefEvening", { defaultValue: "Tối" });
-                    const active = timePreferences.includes(p);
-                    return (
-                      <button
-                        type="button"
-                        key={p}
-                        onClick={() => togglePref(p)}
-                        className={`flex-1 py-2 px-3 border text-xs font-semibold rounded-lg transition-all ${active
-                          ? "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-950/40 dark:border-blue-900 dark:text-blue-400"
-                          : "bg-white border-gray-200 text-gray-500 dark:bg-gray-900 dark:border-gray-800"
-                          }`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
+                {/* Chỉ định Phòng học */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="block text-sm font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                      {t("semester.autoScheduleRooms", { defaultValue: "Chỉ định Phòng học xếp lịch" })}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allSelected = rooms.length > 0 && selectedRooms.length === rooms.length;
+                        setSelectedRooms(allSelected ? [] : rooms.map(rm => rm.id));
+                      }}
+                      className="text-xs font-semibold text-blue-655 dark:text-blue-450 hover:underline cursor-pointer select-none"
+                    >
+                      {rooms.length > 0 && selectedRooms.length === rooms.length
+                        ? t("common.deselectAll", { defaultValue: "Bỏ chọn tất cả" })
+                        : t("common.selectAll", { defaultValue: "Chọn tất cả" })}
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder={t("common.searchRoom", { defaultValue: "Tìm phòng học theo Tên hoặc Mã..." })}
+                    value={roomKeyword}
+                    onChange={(e) => setRoomKeyword(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-1.5 text-xs text-gray-800 focus:border-brand-300 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  />
+                  <div className="max-h-56 overflow-y-auto border border-gray-200 dark:border-gray-800 rounded-xl p-3 bg-gray-50/50 dark:bg-gray-950/20">
+                    {rooms.length === 0 ? (
+                      <p className="text-xs text-gray-400">{t("common.noData", { defaultValue: "Không có dữ liệu" })}</p>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {rooms.map((rm) => {
+                          const isSelected = selectedRooms.includes(rm.id);
+                          return (
+                            <div
+                              key={rm.id}
+                              onClick={() => {
+                                if (isSelected) {
+                                  setSelectedRooms(selectedRooms.filter((id) => id !== rm.id));
+                                } else {
+                                  setSelectedRooms([...selectedRooms, rm.id]);
+                                }
+                              }}
+                              className={`p-2.5 rounded-lg border text-xs cursor-pointer flex flex-col justify-between transition-all select-none ${
+                                isSelected
+                                  ? "bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-950/20 dark:border-blue-700 dark:text-blue-400 font-medium shadow-xs"
+                                  : "bg-white border-gray-200 dark:border-gray-800 text-gray-650 dark:text-gray-300 hover:bg-gray-50/50"
+                              }`}
+                            >
+                              <div className="flex justify-between items-center w-full">
+                                <span className="truncate max-w-[85%] font-semibold">{rm.name}</span>
+                                {isSelected && <span className="text-blue-500 font-bold">✓</span>}
+                              </div>
+                              <span className="text-[10px] opacity-70 mt-0.5">
+                                 {rm.code} ({t("room.capacity", { defaultValue: "Sức chứa" })}: {rm.capacity ?? t("common.unknown", { defaultValue: "Chưa rõ" })})
+                               </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-3 pt-2">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={allowConsecutiveDays}
-                    onChange={(e) => setAllowConsecutiveDays(e.target.checked)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-650 dark:text-gray-300">
-                    {t("semester.autoScheduleConsecutiveDays", { defaultValue: "Cho học liên tiếp" })}
-                  </span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={allowWeekend}
-                    onChange={(e) => setAllowWeekend(e.target.checked)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-650 dark:text-gray-300">
-                    {t("semester.autoScheduleWeekend", { defaultValue: "Cho xếp lịch cuối tuần" })}
-                  </span>
-                </label>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
+              {/* Hàng nút dưới cùng (kéo dài cả 12 cột) */}
+              <div className="col-span-12 flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
                 <button
                   type="button"
                   onClick={onClose}
@@ -607,11 +796,11 @@ function EditRoomModal({ isOpen, onClose, event, rooms, onSave, saving }: EditRo
           </div>
           <div className="flex gap-2">
             <span className="font-semibold text-gray-700 dark:text-gray-300">{t("classSchedules.slotLabel", { defaultValue: "Ca học:" })}</span>
-            <span>{FIXED_SLOTS[event.slotIndex]?.label} · {event.startTime}–{event.endTime}</span>
+            <span>{t(`classSchedules.ca${event.slotIndex + 1}`, { defaultValue: FIXED_SLOTS[event.slotIndex]?.label })} · {event.startTime}–{event.endTime}</span>
           </div>
           <div className="flex gap-2">
             <span className="font-semibold text-gray-700 dark:text-gray-300">{t("classSchedules.scheduleDay", { defaultValue: "Lịch hàng tuần:" })}</span>
-            <span>{DAY_LABELS[new Date(event.scheduleDate).getDay()]}</span>
+            <span>{t(`common.day${new Date(event.scheduleDate).getDay()}`, { defaultValue: DAY_LABELS[new Date(event.scheduleDate).getDay()] })}</span>
           </div>
         </div>
 
@@ -708,6 +897,8 @@ export default function ClassScheduleCalendar() {
   const [draftEvents, setDraftEvents] = useState<ScheduleEvent[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
+  const [rollbackLoading, setRollbackLoading] = useState(false);
+  const [showRollbackConfirm, setShowRollbackConfirm] = useState(false);
   const [draftSemesterId, setDraftSemesterId] = useState<number | null>(null);
   const [reloadTrigger, setReloadTrigger] = useState(0);
 
@@ -728,6 +919,29 @@ export default function ClassScheduleCalendar() {
       if (res.success && res.data) setRooms(res.data.items || []);
     });
   }, [reloadTrigger]);
+
+  // Restore draft schedule from localStorage on mount
+  useEffect(() => {
+    if (mounted) {
+      const storedClasses = localStorage.getItem("semester_draft_classes");
+      const storedSemesterId = localStorage.getItem("semester_draft_id");
+      if (storedClasses && storedSemesterId) {
+        try {
+          const parsedClasses = JSON.parse(storedClasses);
+          const parsedSemesterId = Number(storedSemesterId);
+          setDraftClasses(parsedClasses);
+          setDraftSemesterId(parsedSemesterId);
+          const newDraftEvents = parsedClasses.flatMap((cls: ClassItem) => mapDraftClass(cls));
+          setDraftEvents(newDraftEvents);
+          if (parsedClasses.length > 0 && parsedClasses[0].startDate) {
+            setWeekStart(getWeekStart(new Date(parsedClasses[0].startDate)));
+          }
+        } catch (e) {
+          console.error("Failed to parse stored draft classes", e);
+        }
+      }
+    }
+  }, [mounted]);
 
   // Load schedules from DB
   useEffect(() => {
@@ -839,7 +1053,7 @@ export default function ClassScheduleCalendar() {
     if (teacherConflict) {
       showToast(t("classSchedules.teacherConflictWarning", { 
         teacher: draggedEvent.teacherName, 
-        slot: FIXED_SLOTS[targetSlotIdx].label, 
+        slot: t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label }), 
         date: targetDate, 
         defaultValue: `Giáo viên ${draggedEvent.teacherName} đã có lịch dạy vào ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!` 
       }), "error");
@@ -849,7 +1063,7 @@ export default function ClassScheduleCalendar() {
     if (roomConflict) {
       showToast(t("classSchedules.roomConflictWarning", { 
         room: draggedEvent.roomName, 
-        slot: FIXED_SLOTS[targetSlotIdx].label, 
+        slot: t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label }), 
         date: targetDate, 
         defaultValue: `Phòng ${draggedEvent.roomName} đã được sử dụng vào ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!` 
       }), "error");
@@ -948,7 +1162,7 @@ export default function ClassScheduleCalendar() {
             // Optimistic state is already correct — just show toast, no reload needed
             showToast(t("classSchedules.toastMoveSuccess", {
               classCode: draggedEvent.classCode,
-              slot: FIXED_SLOTS[targetSlotIdx].label,
+              slot: t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label }),
               date: targetDate,
               defaultValue: `Đã đổi lịch lớp ${draggedEvent.classCode} sang ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!`
             }), "success");
@@ -1015,7 +1229,7 @@ export default function ClassScheduleCalendar() {
 
     cls.scheduleDisplay = weeklySchedules
       .sort((a: any, b: any) => a.dayOfWeek - b.dayOfWeek)
-      .map((w: any) => `${DAY_LABELS[w.dayOfWeek]} ${w.startTime}-${w.endTime}`)
+      .map((w: any) => `${t(`common.day${w.dayOfWeek}`, { defaultValue: DAY_LABELS[w.dayOfWeek] })} ${w.startTime}-${w.endTime}`)
       .join(", ");
 
     const newSchedules = regenerateSchedulesForClass(cls, cls.startDate || targetDate, cls.endDate || targetDate);
@@ -1024,13 +1238,14 @@ export default function ClassScheduleCalendar() {
     const updatedDraftClasses = [...draftClasses];
     updatedDraftClasses[clsIndex] = cls;
     setDraftClasses(updatedDraftClasses);
+    localStorage.setItem("semester_draft_classes", JSON.stringify(updatedDraftClasses));
 
     const newDraftEvents = updatedDraftClasses.flatMap((c) => mapDraftClass(c));
     setDraftEvents(newDraftEvents);
 
     showToast(t("classSchedules.toastMoveSuccess", {
       classCode: draggedEvent.classCode,
-      slot: FIXED_SLOTS[targetSlotIdx].label,
+      slot: t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label }),
       date: targetDate,
       defaultValue: `Đã đổi lịch lớp ${draggedEvent.classCode} sang ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!`
     }), "success");
@@ -1203,6 +1418,8 @@ export default function ClassScheduleCalendar() {
     timePreferences: string[];
     allowConsecutiveDays: boolean;
     allowWeekend: boolean;
+    teacherIds?: number[];
+    roomIds?: number[];
   }) => {
     setScheduleLoading(true);
     const startTime = Date.now();
@@ -1216,6 +1433,8 @@ export default function ClassScheduleCalendar() {
           timePreferences: params.timePreferences,
           allowConsecutiveDays: params.allowConsecutiveDays,
           allowWeekend: params.allowWeekend,
+          teacherIds: params.teacherIds,
+          roomIds: params.roomIds,
         },
       });
 
@@ -1229,6 +1448,9 @@ export default function ClassScheduleCalendar() {
       if (res.success && res.data) {
         setDraftClasses(res.data);
         setDraftSemesterId(params.semesterId);
+        localStorage.setItem("semester_draft_classes", JSON.stringify(res.data));
+        localStorage.setItem("semester_original_draft_classes", JSON.stringify(res.data));
+        localStorage.setItem("semester_draft_id", String(params.semesterId));
         const newDraftEvents = res.data.flatMap((cls) => mapDraftClass(cls));
         setDraftEvents(newDraftEvents);
         setShowScheduleModal(false);
@@ -1280,6 +1502,9 @@ export default function ClassScheduleCalendar() {
         setDraftClasses(null);
         setDraftEvents([]);
         setDraftSemesterId(null);
+        localStorage.removeItem("semester_draft_classes");
+        localStorage.removeItem("semester_original_draft_classes");
+        localStorage.removeItem("semester_draft_id");
         showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: "Lưu chính thức thời khóa biểu thành công!" }) : "Lưu chính thức thời khóa biểu thành công!", "success");
         // Reload calendar from DB
         const dbRes = await classApi.getClassSchedules();
@@ -1304,7 +1529,65 @@ export default function ClassScheduleCalendar() {
     setDraftClasses(null);
     setDraftEvents([]);
     setDraftSemesterId(null);
+    localStorage.removeItem("semester_draft_classes");
+    localStorage.removeItem("semester_original_draft_classes");
+    localStorage.removeItem("semester_draft_id");
     showToast(t("classSchedules.toastCancelDraftSuccess", { defaultValue: "Đã hủy bản nháp lịch học hiện tại." }), "success");
+  };
+
+  const handleRevertDraft = () => {
+    const originalClasses = localStorage.getItem("semester_original_draft_classes");
+    if (originalClasses) {
+      try {
+        const parsedClasses = JSON.parse(originalClasses);
+        setDraftClasses(parsedClasses);
+        localStorage.setItem("semester_draft_classes", originalClasses);
+        const newDraftEvents = parsedClasses.flatMap((cls: ClassItem) => mapDraftClass(cls));
+        setDraftEvents(newDraftEvents);
+        showToast(t("classSchedules.toastRevertDraftSuccess", { defaultValue: "Đã khôi phục về bản lịch gốc ban đầu!" }), "success");
+        if (parsedClasses.length > 0 && parsedClasses[0].startDate) {
+          setWeekStart(getWeekStart(new Date(parsedClasses[0].startDate)));
+        }
+      } catch (e) {
+        console.error("Failed to parse original draft classes", e);
+        showToast("Lỗi khi giải nén lịch gốc.", "error");
+      }
+    } else {
+      showToast("Không tìm thấy dữ liệu bản lịch gốc để khôi phục.", "error");
+    }
+  };
+
+  const handleRollbackSemesterSchedule = () => {
+    if (!selectedSemesterId) return;
+    setShowRollbackConfirm(true);
+  };
+
+  const executeRollback = async () => {
+    if (!selectedSemesterId) return;
+    setRollbackLoading(true);
+    try {
+      const res = await classApi.rollbackSemesterSchedule(selectedSemesterId);
+      if (res.success) {
+        showToast(
+          res.message
+            ? t(`backendMessages.${res.message}`, { defaultValue: "Khôi phục lịch gốc học kỳ thành công!" })
+            : "Khôi phục lịch gốc học kỳ thành công!",
+          "success"
+        );
+        setReloadTrigger((prev) => prev + 1); // trigger calendar reload
+      } else {
+        showToast(
+          res.message
+            ? t(`backendMessages.${res.message}`, { defaultValue: res.message })
+            : t("classSchedules.toastRollbackError", { defaultValue: "Khôi phục lịch gốc thất bại." }),
+          "error"
+        );
+      }
+    } catch (err: any) {
+      showToast(t("classSchedules.toastRollbackSystemError", { defaultValue: "Lỗi hệ thống xảy ra khi khôi phục lịch gốc." }), "error");
+    } finally {
+      setRollbackLoading(false);
+    }
   };
 
   // ── Month view ──────────────────────────────────────────────────────────────
@@ -1435,6 +1718,13 @@ export default function ClassScheduleCalendar() {
               {t("classSchedules.cancelDraft", { defaultValue: "Hủy bản nháp" })}
             </button>
             <button
+              onClick={handleRevertDraft}
+              className="px-4 py-2 rounded-xl border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 text-sm font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors flex items-center gap-1.5"
+            >
+              <RotateCcw className="w-4 h-4" />
+              {t("classSchedules.revertDraft", { defaultValue: "Khôi phục gốc" })}
+            </button>
+            <button
               onClick={handleSaveDraft}
               disabled={saveLoading}
               className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
@@ -1545,6 +1835,19 @@ export default function ClassScheduleCalendar() {
             {t("classSchedules.autoScheduleBtn", { defaultValue: "Xếp lịch tự động" })}
           </button>
 
+          {/* Rollback Semester Schedule button */}
+          {selectedSemesterId && !(draftClasses && draftClasses.length > 0) && (
+            <button
+              type="button"
+              onClick={handleRollbackSemesterSchedule}
+              disabled={rollbackLoading}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-rose-300 dark:border-rose-700 text-rose-600 dark:text-rose-450 hover:bg-rose-50 dark:hover:bg-rose-950/20 text-sm font-semibold transition-colors shadow-sm disabled:opacity-40"
+            >
+              {rollbackLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+              {t("classSchedules.rollbackSemesterBtn", { defaultValue: "Khôi phục gốc học kỳ" })}
+            </button>
+          )}
+
           <div className="flex rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden bg-gray-50 dark:bg-gray-850">
             <button
               type="button"
@@ -1628,7 +1931,7 @@ export default function ClassScheduleCalendar() {
             <div className="flex flex-wrap gap-2 px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30">
               {FIXED_SLOTS.map((s) => (
                 <span key={s.index} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${SLOT_COLORS[s.index]}`}>
-                  {s.label} · {s.time}
+                  {t(`classSchedules.ca${s.index + 1}`, { defaultValue: s.label })} · {s.time}
                 </span>
               ))}
             </div>
@@ -1765,6 +2068,47 @@ export default function ClassScheduleCalendar() {
         loading={scheduleLoading}
         showToast={showToast}
       />
+
+      {/* Rollback Confirmation Modal */}
+      <Modal
+        isOpen={showRollbackConfirm}
+        onClose={() => setShowRollbackConfirm(false)}
+        showCloseButton={false}
+        className="max-w-[450px] p-6 lg:p-8"
+      >
+        <div className="flex flex-col items-center text-center">
+          <div className="p-3.5 bg-rose-50 dark:bg-rose-950/20 rounded-2xl text-rose-500 mb-4 border border-rose-100 dark:border-rose-900/30">
+            <AlertTriangle className="w-8 h-8" />
+          </div>
+          <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+            {t("classSchedules.confirmRollbackTitle", { defaultValue: "Xác nhận khôi phục lịch học" })}
+          </h4>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">
+            {t("classSchedules.confirmRollbackText", {
+              defaultValue: "Bạn có chắc chắn muốn khôi phục toàn bộ lịch học của học kỳ này về bản gốc được tạo tự động đầu tiên? Mọi chỉnh sửa kéo thả thủ công sau đó sẽ bị mất hoàn toàn."
+            })}
+          </p>
+          <div className="flex items-center justify-center gap-3 mt-6 w-full pt-4 border-t border-gray-100 dark:border-gray-800">
+            <button
+              onClick={() => setShowRollbackConfirm(false)}
+              type="button"
+              className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-850 dark:border-gray-700 dark:hover:bg-gray-750 transition-colors w-1/2"
+            >
+              {t("classSchedules.btnCancel", { defaultValue: "Hủy" })}
+            </button>
+            <button
+              onClick={() => {
+                setShowRollbackConfirm(false);
+                executeRollback();
+              }}
+              type="button"
+              className="px-4 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-sm w-1/2 flex items-center justify-center gap-1.5"
+            >
+              {t("classSchedules.btnConfirmRollback", { defaultValue: "Xác nhận khôi phục" })}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

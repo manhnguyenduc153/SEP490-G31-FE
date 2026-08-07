@@ -848,6 +848,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
           selectedClasses={items.filter(c => selectedIds.includes(c.id))}
           isSubmitting={isScheduling}
           t={t}
+          showToast={showToast}
         />
       )}
     </div>
