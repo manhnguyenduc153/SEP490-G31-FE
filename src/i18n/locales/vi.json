@@ -2466,7 +2466,12 @@
     "excelColEmail": "Email",
     "excelColPhone": "Số điện thoại",
     "excelColCourse": "Khóa học",
-    "excelColPreferredSlots": "Ca mong muốn"
+    "excelColPreferredSlots": "Ca mong muốn",
+    "confirmDelete": "Bạn có chắc chắn muốn xóa đăng ký này không?",
+    "confirmDeleteTitle": "Xác nhận xóa đăng ký học viên",
+    "confirmDeleteText": "Bạn có chắc chắn muốn xóa đăng ký học khóa {{courseName}} của học sinh {{studentName}} không?",
+    "toastDeleteSuccess": "Xóa đăng ký thành công!",
+    "toastDeleteError": "Lỗi khi xóa đăng ký."
   },
   "classGradeReport": {
     "title": "Bảng điểm tổng hợp của Lớp học",
@@ -2709,6 +2714,14 @@
     "editModeActiveBtn": "Đang chỉnh sửa",
     "editModeBannerTitle": "Chế độ chỉnh sửa lịch đang BẬT",
     "editModeDisabledHint": "Không thể chỉnh sửa khi đang có lịch nháp",
-    "autoScheduleDisabledHint": "Không thể xếp lịch tự động khi đang ở chế độ chỉnh sửa"
+    "autoScheduleDisabledHint": "Không thể xếp lịch tự động khi đang ở chế độ chỉnh sửa",
+    "revertDraft": "Khôi phục gốc",
+    "toastRevertDraftSuccess": "Đã khôi phục về bản lịch gốc ban đầu!",
+    "rollbackSemesterBtn": "Khôi phục gốc học kỳ",
+    "confirmRollbackTitle": "Xác nhận khôi phục lịch học",
+    "confirmRollbackText": "Bạn có chắc chắn muốn khôi phục toàn bộ lịch học của học kỳ này về bản gốc được tạo tự động đầu tiên? Mọi chỉnh sửa kéo thả thủ công sau đó sẽ bị mất hoàn toàn.",
+    "btnConfirmRollback": "Xác nhận khôi phục",
+    "toastRollbackError": "Khôi phục lịch gốc thất bại.",
+    "toastRollbackSystemError": "Lỗi hệ thống xảy ra khi khôi phục lịch gốc."
   }
 }

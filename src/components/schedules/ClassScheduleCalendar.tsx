@@ -897,6 +897,8 @@ export default function ClassScheduleCalendar() {
   const [draftEvents, setDraftEvents] = useState<ScheduleEvent[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
+  const [rollbackLoading, setRollbackLoading] = useState(false);
+  const [showRollbackConfirm, setShowRollbackConfirm] = useState(false);
   const [draftSemesterId, setDraftSemesterId] = useState<number | null>(null);
   const [reloadTrigger, setReloadTrigger] = useState(0);
 
@@ -1555,6 +1557,39 @@ export default function ClassScheduleCalendar() {
     }
   };
 
+  const handleRollbackSemesterSchedule = () => {
+    if (!selectedSemesterId) return;
+    setShowRollbackConfirm(true);
+  };
+
+  const executeRollback = async () => {
+    if (!selectedSemesterId) return;
+    setRollbackLoading(true);
+    try {
+      const res = await classApi.rollbackSemesterSchedule(selectedSemesterId);
+      if (res.success) {
+        showToast(
+          res.message
+            ? t(`backendMessages.${res.message}`, { defaultValue: "Khôi phục lịch gốc học kỳ thành công!" })
+            : "Khôi phục lịch gốc học kỳ thành công!",
+          "success"
+        );
+        setReloadTrigger((prev) => prev + 1); // trigger calendar reload
+      } else {
+        showToast(
+          res.message
+            ? t(`backendMessages.${res.message}`, { defaultValue: res.message })
+            : t("classSchedules.toastRollbackError", { defaultValue: "Khôi phục lịch gốc thất bại." }),
+          "error"
+        );
+      }
+    } catch (err: any) {
+      showToast(t("classSchedules.toastRollbackSystemError", { defaultValue: "Lỗi hệ thống xảy ra khi khôi phục lịch gốc." }), "error");
+    } finally {
+      setRollbackLoading(false);
+    }
+  };
+
   // ── Month view ──────────────────────────────────────────────────────────────
   const fcEvents = allDisplayEvents.map((ev) => ({
     id: ev.id,
@@ -1800,6 +1835,19 @@ export default function ClassScheduleCalendar() {
             {t("classSchedules.autoScheduleBtn", { defaultValue: "Xếp lịch tự động" })}
           </button>
 
+          {/* Rollback Semester Schedule button */}
+          {selectedSemesterId && !(draftClasses && draftClasses.length > 0) && (
+            <button
+              type="button"
+              onClick={handleRollbackSemesterSchedule}
+              disabled={rollbackLoading}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-rose-300 dark:border-rose-700 text-rose-600 dark:text-rose-450 hover:bg-rose-50 dark:hover:bg-rose-950/20 text-sm font-semibold transition-colors shadow-sm disabled:opacity-40"
+            >
+              {rollbackLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+              {t("classSchedules.rollbackSemesterBtn", { defaultValue: "Khôi phục gốc học kỳ" })}
+            </button>
+          )}
+
           <div className="flex rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden bg-gray-50 dark:bg-gray-850">
             <button
               type="button"
@@ -2020,6 +2068,47 @@ export default function ClassScheduleCalendar() {
         loading={scheduleLoading}
         showToast={showToast}
       />
+
+      {/* Rollback Confirmation Modal */}
+      <Modal
+        isOpen={showRollbackConfirm}
+        onClose={() => setShowRollbackConfirm(false)}
+        showCloseButton={false}
+        className="max-w-[450px] p-6 lg:p-8"
+      >
+        <div className="flex flex-col items-center text-center">
+          <div className="p-3.5 bg-rose-50 dark:bg-rose-950/20 rounded-2xl text-rose-500 mb-4 border border-rose-100 dark:border-rose-900/30">
+            <AlertTriangle className="w-8 h-8" />
+          </div>
+          <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+            {t("classSchedules.confirmRollbackTitle", { defaultValue: "Xác nhận khôi phục lịch học" })}
+          </h4>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">
+            {t("classSchedules.confirmRollbackText", {
+              defaultValue: "Bạn có chắc chắn muốn khôi phục toàn bộ lịch học của học kỳ này về bản gốc được tạo tự động đầu tiên? Mọi chỉnh sửa kéo thả thủ công sau đó sẽ bị mất hoàn toàn."
+            })}
+          </p>
+          <div className="flex items-center justify-center gap-3 mt-6 w-full pt-4 border-t border-gray-100 dark:border-gray-800">
+            <button
+              onClick={() => setShowRollbackConfirm(false)}
+              type="button"
+              className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-850 dark:border-gray-700 dark:hover:bg-gray-750 transition-colors w-1/2"
+            >
+              {t("classSchedules.btnCancel", { defaultValue: "Hủy" })}
+            </button>
+            <button
+              onClick={() => {
+                setShowRollbackConfirm(false);
+                executeRollback();
+              }}
+              type="button"
+              className="px-4 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-sm w-1/2 flex items-center justify-center gap-1.5"
+            >
+              {t("classSchedules.btnConfirmRollback", { defaultValue: "Xác nhận khôi phục" })}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -2463,7 +2463,12 @@
     "excelColEmail": "Email",
     "excelColPhone": "Phone",
     "excelColCourse": "Course",
-    "excelColPreferredSlots": "Preferred Slots"
+    "excelColPreferredSlots": "Preferred Slots",
+    "confirmDelete": "Are you sure you want to delete this registration?",
+    "confirmDeleteTitle": "Confirm Delete Student Registration",
+    "confirmDeleteText": "Are you sure you want to delete the registration for course {{courseName}} of student {{studentName}}?",
+    "toastDeleteSuccess": "Registration deleted successfully!",
+    "toastDeleteError": "Error deleting student registration."
   },
   "classGradeReport": {
     "title": "Class Grade Report",
@@ -2701,6 +2706,14 @@
     "editModeActiveBtn": "Editing mode ON",
     "editModeBannerTitle": "Schedule Editing mode is ACTIVE",
     "editModeDisabledHint": "Cannot edit schedule when draft schedules exist",
-    "autoScheduleDisabledHint": "Cannot auto-schedule when in editing mode"
+    "autoScheduleDisabledHint": "Cannot auto-schedule when in editing mode",
+    "revertDraft": "Revert to Original",
+    "toastRevertDraftSuccess": "Successfully reverted to the original draft schedule!",
+    "rollbackSemesterBtn": "Rollback Semester",
+    "confirmRollbackTitle": "Confirm Rollback Schedule",
+    "confirmRollbackText": "Are you sure you want to rollback all classes in this semester to the original automatically scheduled draft? All manual drag-and-drop edits will be permanently lost.",
+    "btnConfirmRollback": "Confirm Rollback",
+    "toastRollbackError": "Failed to rollback semester schedule.",
+    "toastRollbackSystemError": "System error occurred while rolling back semester schedule."
   }
 }
