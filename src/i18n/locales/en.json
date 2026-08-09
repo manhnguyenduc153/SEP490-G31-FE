@@ -2939,5 +2939,25 @@
     "title": "Question Bank & Passages",
     "description": "Manage passages (Reading, Listening, Writing) and their associated sub-questions.",
     "showing": "Showing {{start}} to {{end}} of {{total}} entries"
+  },
+  "notification": {
+    "title": {
+      "classCreated": "New Class Created",
+      "classStatusChanged": "Class Status Updated",
+      "studentsAdded": "Added to Class",
+      "teacherAssigned": "Class Teaching Assignment",
+      "examCreated": "New Exam Assigned",
+      "homeworkCreated": "New Homework Assigned",
+      "upcomingClass": "Upcoming Class"
+    },
+    "content": {
+      "classCreated": "Class {{className}} ({{classCode}}) has been created.",
+      "classStatusChanged": "Class {{className}} {{classCode}} status changed from '{{oldStatus}}' to '{{newStatus}}'.",
+      "studentsAdded": "You have been registered into class {{className}} ({{classCode}}).",
+      "teacherAssigned": "You have been assigned to teach class {{className}} ({{classCode}}).",
+      "examCreated": "You have a new exam: '{{examTitle}}' in class {{className}}.",
+      "homeworkCreated": "You have a new homework assignment: '{{homeworkTitle}}' in class {{className}}.",
+      "upcomingClass": "Class {{className}} {{classCode}} has been scheduled."
+    }
   }
 }

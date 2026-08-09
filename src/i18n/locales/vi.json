@@ -2949,5 +2949,25 @@
     "title": "Ngân hàng câu hỏi & Bộ đề bài",
     "description": "Quản lý các bộ đề bài (Reading, Listening, Writing) và các câu hỏi con đi kèm.",
     "showing": "Hiển thị {{start}} đến {{end}} trong tổng số {{total}} mục"
+  },
+  "notification": {
+    "title": {
+      "classCreated": "Lớp học mới được tạo",
+      "classStatusChanged": "Cập nhật trạng thái lớp học",
+      "studentsAdded": "Bạn đã được thêm vào lớp học",
+      "teacherAssigned": "Bạn đã được phân công dạy lớp học",
+      "examCreated": "Bài kiểm tra mới",
+      "homeworkCreated": "Bài tập về nhà mới",
+      "upcomingClass": "Lớp học sắp diễn ra"
+    },
+    "content": {
+      "classCreated": "Lớp học {{className}} ({{classCode}}) đã được tạo mới.",
+      "classStatusChanged": "Lớp học {{className}} {{classCode}} đã đổi trạng thái từ '{{oldStatus}}' sang '{{newStatus}}'.",
+      "studentsAdded": "Bạn đã được đăng ký vào lớp học {{className}} ({{classCode}}).",
+      "teacherAssigned": "Bạn đã được phân công giảng dạy lớp học {{className}} ({{classCode}}).",
+      "examCreated": "Bạn có bài kiểm tra mới: '{{examTitle}}' trong lớp {{className}}.",
+      "homeworkCreated": "Bạn có bài tập về nhà mới: '{{homeworkTitle}}' trong lớp {{className}}.",
+      "upcomingClass": "Lớp {{className}} {{classCode}} đã được lên lịch."
+    }
   }
 }
