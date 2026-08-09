@@ -7,6 +7,7 @@ import { useDropzone } from "react-dropzone";
 import { X, UploadCloud, File, FileAudio, FileText, FileVideo } from "lucide-react";
 import { ENV } from "@/config/env";
 import { useTranslation } from "react-i18next";
+import { z } from "zod";
 
 interface HomeworkFormProps {
   classId: number;
@@ -17,9 +18,11 @@ interface HomeworkFormProps {
   showToast: (msg: string, type?: "success" | "error") => void;
 }
 
+type HomeworkFormState = Omit<HomeworkSaveDto, "totalScore"> & { totalScore: string };
+
 export default function HomeworkForm({ classId, classTeacherId, editingItem, onCancel, onSuccess, showToast }: HomeworkFormProps) {
   const { t } = useTranslation();
-  const [formData, setFormData] = useState<HomeworkSaveDto>({
+  const [formData, setFormData] = useState<HomeworkFormState>({
     classId,
     teacherId: classTeacherId || 0,
     title: "",
@@ -27,12 +30,13 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
     attachmentUrls: [],
     skill: "General",
     dueDate: "",
-    totalScore: 10,
+    totalScore: "10",
     status: 1,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [formErrors, setFormErrors] = useState<string[]>([]);
 
   useEffect(() => {
     if (editingItem) {
@@ -44,7 +48,7 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
         attachmentUrls: editingItem.attachmentUrls || [],
         skill: editingItem.skill || "General",
         dueDate: editingItem.dueDate ? editingItem.dueDate.substring(0, 16) : "",
-        totalScore: editingItem.totalScore,
+        totalScore: String(editingItem.totalScore),
         status: editingItem.status,
       });
     } else {
@@ -54,6 +58,8 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
         teacherId: classTeacherId || 0,
       }));
     }
+    setFieldErrors({});
+    setFormErrors([]);
   }, [classId, classTeacherId, editingItem]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -64,9 +70,10 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
       delete next[name];
       return next;
     });
+    setFormErrors([]);
     setFormData(prev => ({
       ...prev,
-      [name]: name === "totalScore" || name === "status" ? Number(value) : value,
+      [name]: name === "status" ? Number(value) : value,
     }));
   };
 
@@ -83,40 +90,38 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
     ) : null;
 
   const validateForm = () => {
+    const homeworkSchema = z.object({
+      classId: z.number().int().positive(t("homework.validationClassRequired")),
+      teacherId: z.number().int().positive(t("homework.validationTeacherRequired")),
+      title: z.string().trim()
+        .min(1, t("homework.validationTitleRequired"))
+        .max(500, t("homework.validationTitleMax")),
+      dueDate: z.string().refine(
+        (value) => !value || new Date(value).getTime() > Date.now(),
+        t("homework.validationDueDateFuture")
+      ),
+      totalScore: z.string().trim()
+        .min(1, t("homework.validationTotalScoreRequired"))
+        .refine((value) => !value || Number.isFinite(Number(value)), t("homework.validationTotalScoreRequired"))
+        .refine((value) => !value || (Number(value) >= 0 && Number(value) <= 1000), t("homework.validationTotalScoreRange")),
+      status: z.number().refine((value) => [0, 1].includes(value), t("homework.validationStatusRequired")),
+    });
+
+    const validation = homeworkSchema.safeParse(formData);
+    if (validation.success) {
+      setFieldErrors({});
+      setFormErrors([]);
+      return true;
+    }
+
     const errors: Record<string, string> = {};
-    const title = formData.title.trim();
-
-    if (!classId || classId <= 0) {
-      errors.classId = t("homework.validationClassRequired");
-    }
-
-    if (!formData.teacherId || formData.teacherId <= 0) {
-      errors.teacherId = t("homework.validationTeacherRequired");
-    }
-
-    if (!title) {
-      errors.title = t("homework.validationTitleRequired");
-    } else if (title.length > 500) {
-      errors.title = t("homework.validationTitleMax");
-    }
-
-    if (!Number.isFinite(formData.totalScore)) {
-      errors.totalScore = t("homework.validationTotalScoreRequired");
-    } else if (formData.totalScore < 0 || formData.totalScore > 1000) {
-      errors.totalScore = t("homework.validationTotalScoreRange");
-    }
-
-    if (![0, 1].includes(formData.status)) {
-      errors.status = t("homework.validationStatusRequired");
-    }
-
+    validation.error.issues.forEach((issue) => {
+      const field = String(issue.path[0] || "form");
+      if (!errors[field]) errors[field] = issue.message;
+    });
     setFieldErrors(errors);
-
-    if (errors.classId || errors.teacherId) {
-      showToast(errors.classId || errors.teacherId, "error");
-    }
-
-    return Object.keys(errors).length === 0;
+    setFormErrors(Object.values(errors));
+    return false;
   };
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -155,27 +160,38 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
     if (!validateForm()) return;
 
     setIsSubmitting(true);
+    const payload: HomeworkSaveDto = {
+      ...formData,
+      title: formData.title.trim(),
+      totalScore: Number(formData.totalScore),
+    };
     try {
       if (editingItem) {
-        const res = await homeworkApi.updateHomework(editingItem.id, formData);
+        const res = await homeworkApi.updateHomework(editingItem.id, payload);
         if (res.success) {
           showToast(t("homework.updateSuccess"), "success");
           onSuccess();
         } else {
-          showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("homework.updateError"), "error");
+          const message = res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("homework.updateError");
+          setFormErrors([message]);
+          showToast(message, "error");
         }
       } else {
-        const res = await homeworkApi.createHomework(formData);
+        const res = await homeworkApi.createHomework(payload);
         if (res.success) {
           showToast(t("homework.createSuccess"), "success");
           onSuccess();
         } else {
-          showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("homework.createError"), "error");
+          const message = res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("homework.createError");
+          setFormErrors([message]);
+          showToast(message, "error");
         }
       }
     } catch (err) {
       console.error(err);
-      showToast(t("homework.systemError"), "error");
+      const message = t("homework.systemError");
+      setFormErrors([message]);
+      showToast(message, "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -196,7 +212,7 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6" noValidate>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold">
           {editingItem ? t("homework.editTitle") : t("homework.createTitle")}
@@ -242,8 +258,10 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
             name="dueDate"
             value={formData.dueDate}
             onChange={handleChange}
-            className="w-full px-4 py-2 border rounded-lg focus:ring focus:ring-brand-500/20"
+            className={inputClassName("dueDate")}
+            aria-invalid={Boolean(fieldErrors.dueDate)}
           />
+          {renderError("dueDate")}
         </div>
 
         <div>
@@ -327,6 +345,12 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
           )}
         </div>
       </div>
+
+      {formErrors.length > 0 && (
+        <div className="rounded-lg bg-rose-50 p-3 text-sm text-rose-600 dark:bg-rose-500/10 dark:text-rose-400">
+          {formErrors.map((error, index) => <div key={`${error}-${index}`}>• {error}</div>)}
+        </div>
+      )}
 
       <div className="flex justify-end gap-3 pt-6 border-t">
         <button

@@ -5,6 +5,7 @@ import { EyeIcon, CalenderIcon } from "@/icons";
 import { CodeHelper } from "@/helpers/CodeHelper";
 import { ENV } from "@/config/env";
 import { X } from "lucide-react";
+import { z } from "zod";
 
 interface TeacherFormProps {
   onCancel: () => void;
@@ -41,7 +42,8 @@ export function TeacherForm({
   });
 
   const [isUploading, setIsUploading] = useState(false);
-  const [clientError, setClientError] = useState<string | null>(null);
+  const [clientErrors, setClientErrors] = useState<string[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [certFiles, setCertFiles] = useState<File[]>([]);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -96,13 +98,22 @@ export function TeacherForm({
     setAvatarFile(null);
     setCertFiles([]);
     setCertPreview(null);
+    setClientErrors([]);
+    setFieldErrors({});
   }, [editingItem]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    setFieldErrors((current) => {
+      if (!current[name]) return current;
+      const next = { ...current };
+      delete next[name];
+      return next;
+    });
+    setClientErrors([]);
     
     setFormData((prev) => {
-      let parsedValue: any = value;
+      let parsedValue: string | number | boolean | null = value;
       if (name === "status") {
         parsedValue = value ? parseInt(value) : null;
       } else if (name === "gender") {
@@ -209,36 +220,52 @@ export function TeacherForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setClientError(null);
+    setClientErrors([]);
+    setFieldErrors({});
 
-    const email = formData.email?.trim() || "";
-    const phone = formData.phone?.trim() || "";
-    if (!formData.name.trim() || !formData.code.trim()) {
-      setClientError(t("teacher.validationRequired"));
-      return;
-    }
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setClientError(t("teacher.validationEmailInvalid"));
-      return;
-    }
-    if (phone && !/^\+?[0-9][0-9\s().-]{6,19}$/.test(phone)) {
-      setClientError(t("teacher.validationPhoneInvalid"));
-      return;
-    }
-    if (formData.dob && new Date(`${formData.dob}T00:00:00`) > new Date()) {
-      setClientError(t("teacher.validationDobFuture"));
-      return;
-    }
-    if ((formData.address?.length || 0) > 500) {
-      setClientError(t("teacher.validationAddressMax"));
-      return;
-    }
-    if (![0, 1, 2].includes(Number(formData.status))) {
-      setClientError(t("teacher.validationStatusInvalid"));
+    const teacherSchema = z.object({
+      code: z.string().trim()
+        .min(1, t("teacher.validationCodeRequired"))
+        .max(50, t("teacher.validationCodeMax")),
+      name: z.string().trim()
+        .min(1, t("teacher.validationNameRequired"))
+        .max(200, t("teacher.validationNameMax")),
+      email: z.string().trim()
+        .max(150, t("teacher.validationEmailMax"))
+        .refine((value) => !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value), t("teacher.validationEmailInvalid")),
+      phone: z.string().trim()
+        .max(20, t("teacher.validationPhoneMax"))
+        .refine((value) => !value || /^\+?[0-9][0-9\s().-]{6,19}$/.test(value), t("teacher.validationPhoneInvalid")),
+      dob: z.string().refine(
+        (value) => !value || new Date(`${value}T00:00:00`) <= new Date(),
+        t("teacher.validationDobFuture")
+      ),
+      address: z.string().max(500, t("teacher.validationAddressMax")),
+      status: z.number().refine((value) => [0, 1, 2].includes(value), t("teacher.validationStatusInvalid")),
+    });
+
+    const validation = teacherSchema.safeParse({
+      code: formData.code || "",
+      name: formData.name || "",
+      email: formData.email || "",
+      phone: formData.phone || "",
+      dob: formData.dob || "",
+      address: formData.address || "",
+      status: Number(formData.status),
+    });
+
+    if (!validation.success) {
+      const nextFieldErrors: Record<string, string> = {};
+      validation.error.issues.forEach((issue) => {
+        const field = String(issue.path[0] || "form");
+        if (!nextFieldErrors[field]) nextFieldErrors[field] = issue.message;
+      });
+      setFieldErrors(nextFieldErrors);
+      setClientErrors(Object.values(nextFieldErrors));
       return;
     }
 
-    let finalFormData = { ...formData };
+    const finalFormData = { ...formData };
     
     // Clean up empty strings to null for backend optional fields
     if (finalFormData.dob === "") finalFormData.dob = null;
@@ -279,7 +306,7 @@ export function TeacherForm({
       }
       await onSubmit(finalFormData);
       setIsUploading(false);
-    } catch (err) {
+    } catch {
       alert("Lỗi upload file");
       setIsUploading(false);
     }
@@ -303,6 +330,18 @@ export function TeacherForm({
     ? formData.certificates?.[selectedCertificate.index] || null
     : null;
   const selectedCertificateUrl = certFile ? certPreview : getImageUrl(existingCertificate);
+  const inputClassName = (field: string, disabled = false) =>
+    `w-full rounded-lg border px-4 py-2 text-sm focus:outline-hidden focus:ring-3 ${
+      fieldErrors[field]
+        ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10 dark:border-rose-500"
+        : "border-gray-300 focus:border-brand-300 focus:ring-brand-500/10 dark:border-gray-700"
+    } ${disabled
+      ? "cursor-not-allowed bg-gray-50 text-gray-500 dark:bg-gray-800/50 dark:text-gray-400"
+      : "bg-transparent text-gray-800 dark:bg-gray-900 dark:text-white/90"
+    }`;
+  const renderFieldError = (field: string) => fieldErrors[field] ? (
+    <p className="mt-1 text-xs font-medium text-rose-500">{fieldErrors[field]}</p>
+  ) : null;
 
   return (
     <>
@@ -317,13 +356,13 @@ export function TeacherForm({
           </p>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <div className="grid grid-cols-1 items-stretch gap-5 lg:grid-cols-3">
             
             {/* Left Column: Basic Info (takes 2/3 space on large screens) */}
             <div className="flex h-full flex-col space-y-2 lg:col-span-2">
               <h4 className="font-medium text-gray-900 dark:text-white mb-2 border-b pb-1.5 dark:border-gray-800 text-sm">
-                Thông tin cơ bản
+                {t("teacher.basicInfo")}
               </h4>
 
               <div className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2">
@@ -340,8 +379,10 @@ export function TeacherForm({
                     value={formData.name}
                     onChange={handleChange}
                     placeholder={t("teacher.formNamePlaceholder")}
-                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                    className={inputClassName("name")}
+                    aria-invalid={Boolean(fieldErrors.name)}
                   />
+                  {renderFieldError("name")}
                 </div>
 
                 {/* Code */}
@@ -358,8 +399,10 @@ export function TeacherForm({
                     value={formData.code}
                     onChange={handleChange}
                     placeholder={t("teacher.formCodePlaceholder")}
-                    className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400 cursor-not-allowed"
+                    className={inputClassName("code", true)}
+                    aria-invalid={Boolean(fieldErrors.code)}
                   />
+                  {renderFieldError("code")}
                 </div>
 
                 {/* Dob */}
@@ -374,7 +417,8 @@ export function TeacherForm({
                       ref={dobInputRef}
                       value={formData.dob || ""}
                       onChange={handleChange}
-                      className="w-full rounded-lg border border-gray-300 bg-transparent pl-4 pr-10 py-2.5 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:hidden"
+                      className={`${inputClassName("dob")} pr-10 py-2.5 [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:hidden`}
+                      aria-invalid={Boolean(fieldErrors.dob)}
                     />
                     <button 
                       type="button"
@@ -384,6 +428,7 @@ export function TeacherForm({
                       <CalenderIcon className="w-5 h-5" />
                     </button>
                   </div>
+                  {renderFieldError("dob")}
                 </div>
 
                 {/* Gender */}
@@ -415,8 +460,10 @@ export function TeacherForm({
                     value={formData.email || ""}
                     onChange={handleChange}
                     placeholder={t("teacher.formEmailPlaceholder")}
-                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                    className={inputClassName("email")}
+                    aria-invalid={Boolean(fieldErrors.email)}
                   />
+                  {renderFieldError("email")}
                 </div>
 
                 {/* Phone */}
@@ -431,8 +478,10 @@ export function TeacherForm({
                     value={formData.phone || ""}
                     onChange={handleChange}
                     placeholder={t("teacher.formPhonePlaceholder")}
-                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                    className={inputClassName("phone")}
+                    aria-invalid={Boolean(fieldErrors.phone)}
                   />
+                  {renderFieldError("phone")}
                 </div>
 
                 {/* Status */}
@@ -445,12 +494,14 @@ export function TeacherForm({
                     required
                     value={formData.status}
                     onChange={handleChange}
-                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                    className={inputClassName("status")}
+                    aria-invalid={Boolean(fieldErrors.status)}
                   >
                     <option value={1}>{t("teacher.statusActive")}</option>
                     <option value={0}>{t("teacher.statusInactive")}</option>
                     <option value={2}>{t("teacher.statusOnLeave")}</option>
                   </select>
+                  {renderFieldError("status")}
                 </div>
               </div>
 
@@ -466,8 +517,10 @@ export function TeacherForm({
                   value={formData.address || ""}
                   onChange={handleChange}
                   placeholder={t("teacher.formAddressPlaceholder")}
-                  className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                  className={inputClassName("address")}
+                  aria-invalid={Boolean(fieldErrors.address)}
                 />
+                {renderFieldError("address")}
               </div>
 
               {/* Description */}
@@ -679,9 +732,10 @@ export function TeacherForm({
           </div>
 
           {/* Form-level error */}
-          {(clientError || formError) && (
+          {(clientErrors.length > 0 || formError) && (
             <div className="mt-6 p-4 rounded-lg bg-error-50 dark:bg-error-500/10 border border-error-200 dark:border-error-500/20 text-sm text-error-600 dark:text-error-400">
-              {clientError || formError}
+              {clientErrors.map((error, index) => <div key={`${error}-${index}`}>• {error}</div>)}
+              {formError && <div>• {formError}</div>}
             </div>
           )}
 
