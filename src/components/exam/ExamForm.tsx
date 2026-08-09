@@ -7,8 +7,9 @@ import { questionApi, QuestionItem } from "@/services/question.api";
 import { questionCategoryApi, QuestionCategoryItem } from "@/services/questionCategory.api";
 import { questionPassageApi, QuestionPassageItem } from "@/services/questionPassage.api";
 import { examApi, ExamSaveDto } from "@/services/exam.api";
+import { authApi } from "@/services/auth.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { ChevronDown, ChevronUp, BookOpen, Volume2, PenTool, Mic } from "lucide-react";
+import { ChevronDown, ChevronUp, BookOpen, Volume2, PenTool, XCircle } from "lucide-react";
 
 import { ENV } from "@/config/env";
 
@@ -62,7 +63,10 @@ export function ExamForm({ id }: ExamFormProps) {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [categories, setCategories] = useState<QuestionCategoryItem[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
-  const [selectedSkillType, setSelectedSkillType] = useState<number | null>(2); // Default to Reading (2)
+  // The exam's declared skill (top "KỸ NĂNG BÀI THI" selector) — every exam must pick exactly
+  // one skill now (no "Tất cả"/mixed option), and the question picker is always locked to it so
+  // mismatched-skill questions can neither be shown nor stay selected.
+  const [examSkillType, setExamSkillType] = useState<number>(2); // Default to Reading (2)
   const [questionPassages, setQuestionPassages] = useState<QuestionPassageItem[]>([]);
   const [questions, setQuestions] = useState<QuestionItem[]>([]);
   const [expandedPassageIds, setExpandedPassageIds] = useState<number[]>([]);
@@ -70,6 +74,10 @@ export function ExamForm({ id }: ExamFormProps) {
   const [loadingData, setLoadingData] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  // Synchronous re-entrancy guard: `isSubmitting` state only disables the button after React
+  // re-renders, leaving a window for a fast double-click to fire handleSubmit twice. A ref is
+  // updated immediately, closing that window.
+  const isSubmittingRef = React.useRef(false);
 
   // Helper to format date for datetime-local input
   const formatDateTimeLocal = (dateStr?: string | null) => {
@@ -85,12 +93,20 @@ export function ExamForm({ id }: ExamFormProps) {
   // Selected class object (for time validation hints)
   const selectedClass = classes.find((c) => c.id === classId) ?? null;
 
+  // Auto-dismiss the error/warning alert, mirroring the success toast used after redirect
+  useEffect(() => {
+    if (!formError) return;
+    const timeout = setTimeout(() => setFormError(null), 3000);
+    return () => clearTimeout(timeout);
+  }, [formError]);
+
   // Load dropdown options
   useEffect(() => {
     async function loadOptions() {
       try {
+        const isTeacher = authApi.getRole().toLowerCase() === "teacher";
         const [clsRes, qRes, catRes, passRes] = await Promise.all([
-          classApi.getAll(1, 1000),
+          isTeacher ? classApi.getTeacherClasses(1, 1000) : classApi.getAll(1, 1000),
           questionApi.getAll(1, 1000),
           questionCategoryApi.getAll(1, 1000),
           questionPassageApi.getAll(1, 1000),
@@ -201,7 +217,7 @@ export function ExamForm({ id }: ExamFormProps) {
       if (selectedCategoryId !== null && p.categoryId !== selectedCategoryId) {
         return false;
       }
-      if (selectedSkillType !== null && p.skillType !== selectedSkillType) {
+      if (p.skillType !== examSkillType) {
         return false;
       }
       if (questionSearch.trim()) {
@@ -217,7 +233,7 @@ export function ExamForm({ id }: ExamFormProps) {
       }
       return true;
     });
-  }, [questionPassages, selectedCategoryId, selectedSkillType, questionSearch, passageChildQuestionsMap, selectedClass, categories]);
+  }, [questionPassages, selectedCategoryId, examSkillType, questionSearch, passageChildQuestionsMap, selectedClass, categories]);
 
   // All question IDs mapped to passages
   const passageQuestionIds = useMemo(() => {
@@ -242,7 +258,7 @@ export function ExamForm({ id }: ExamFormProps) {
       }
 
       if (selectedCategoryId !== null && q.categoryId !== selectedCategoryId) return false;
-      if (selectedSkillType !== null && q.skillType !== selectedSkillType) return false;
+      if (q.skillType !== examSkillType) return false;
       if (questionSearch.trim()) {
         const term = questionSearch.toLowerCase();
         return (
@@ -253,7 +269,21 @@ export function ExamForm({ id }: ExamFormProps) {
       }
       return true;
     });
-  }, [questions, passageQuestionIds, selectedCategoryId, selectedSkillType, questionSearch, selectedClass, categories]);
+  }, [questions, passageQuestionIds, selectedCategoryId, examSkillType, questionSearch, selectedClass, categories]);
+
+  // Resolves the effective skill of a question for pruning purposes — passage-child questions
+  // are classified by their parent passage's skill (mirrors the grouping shown in the picker).
+  const getQuestionSkillType = (questionId: number): number | undefined => {
+    const q = questions.find((x) => x.id === questionId);
+    if (!q) return undefined;
+    if (q.passageId) {
+      const passage = questionPassages.find((p) => p.id === q.passageId);
+      if (passage && passage.skillType !== undefined && passage.skillType !== null) {
+        return passage.skillType;
+      }
+    }
+    return q.skillType;
+  };
 
   const handleToggleQuestion = (questionId: number) => {
     setSelectedQuestionIds((prev) =>
@@ -312,6 +342,16 @@ export function ExamForm({ id }: ExamFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    try {
+      await submitExamForm();
+    } finally {
+      isSubmittingRef.current = false;
+    }
+  };
+
+  const submitExamForm = async () => {
     if (!title.trim()) return;
 
     // ── Validation ──────────────────────────────────────────────────────────
@@ -395,6 +435,19 @@ export function ExamForm({ id }: ExamFormProps) {
       if (examEnd <= examStart) {
         setFormError(t("exams.formValidationEndBeforeStart", { defaultValue: "Thời gian kết thúc không được trước hoặc bằng thời gian bắt đầu." }));
         return;
+      }
+
+      if (duration) {
+        const windowMinutes = (examEnd.getTime() - examStart.getTime()) / 60000;
+        if (windowMinutes < duration) {
+          setFormError(
+            t("exams.formValidationWindowLessThanDuration", {
+              duration,
+              defaultValue: `Khoảng thời gian làm bài (từ lúc bắt đầu đến lúc kết thúc) không được ít hơn thời lượng bài kiểm tra (${duration} phút).`,
+            })
+          );
+          return;
+        }
       }
     }
 
@@ -523,7 +576,7 @@ export function ExamForm({ id }: ExamFormProps) {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-12">
+    <div className="w-full space-y-6 pb-12">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -544,8 +597,9 @@ export function ExamForm({ id }: ExamFormProps) {
       </div>
 
       {formError && (
-        <div className="p-4 rounded-xl bg-error-50 border border-error-200 text-error-700 text-sm dark:bg-error-500/10 dark:border-error-500/20 dark:text-error-400">
-          {formError}
+        <div className="fixed bottom-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
+          <XCircle className="w-5 h-5 text-rose-500 shrink-0" />
+          <span className="text-sm font-medium">{formError}</span>
         </div>
       )}
 
@@ -583,23 +637,25 @@ export function ExamForm({ id }: ExamFormProps) {
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                 {t("exams.formExamSkillLabel", { defaultValue: "Kỹ năng bài thi (Exam Skill)" })} <span className="text-error-500">*</span>
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {[
                   { type: 2, label: t("question.skillReading", { defaultValue: "Reading" }), icon: BookOpen, color: "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800" },
                   { type: 1, label: t("question.skillListening", { defaultValue: "Listening" }), icon: Volume2, color: "text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/30 border-blue-300 dark:border-blue-800" },
                   { type: 4, label: t("question.skillWriting", { defaultValue: "Writing" }), icon: PenTool, color: "text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/30 border-purple-300 dark:border-purple-800" },
-                  { type: 3, label: t("question.skillSpeaking", { defaultValue: "Speaking" }), icon: Mic, color: "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800" },
-                  { type: null, label: t("exams.tabAll", { defaultValue: "Tất cả" }), icon: null, color: "text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700" },
                 ].map((s) => {
                   const Icon = s.icon;
-                  const isSelected = selectedSkillType === s.type;
+                  const isSelected = examSkillType === s.type;
                   return (
                     <button
-                      key={s.type ?? "all"}
+                      key={s.type}
                       type="button"
                       onClick={() => {
-                        if (selectedSkillType !== s.type) {
-                          setSelectedSkillType(s.type);
+                        if (examSkillType !== s.type) {
+                          setExamSkillType(s.type);
+                          // Switching skill locks the picker to it — drop any already-selected
+                          // questions from other skills so they don't get silently submitted
+                          // while hidden from view.
+                          setSelectedQuestionIds((prev) => prev.filter((qid) => getQuestionSkillType(qid) === s.type));
                         }
                       }}
                       className={`px-2.5 py-2 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
@@ -877,34 +933,6 @@ export function ExamForm({ id }: ExamFormProps) {
                 </select>
               </div>
 
-              {/* Skill Tabs */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 custom-scrollbar">
-                {[
-                  { type: null, label: t("exams.tabAll", { defaultValue: "Tất cả" }) },
-                  { type: 2, label: t("question.skillReading", { defaultValue: "Reading" }), icon: BookOpen },
-                  { type: 1, label: t("question.skillListening", { defaultValue: "Listening" }), icon: Volume2 },
-                  { type: 4, label: t("question.skillWriting", { defaultValue: "Writing" }), icon: PenTool },
-                  { type: 3, label: t("question.skillSpeaking", { defaultValue: "Speaking" }), icon: Mic },
-                ].map((s) => {
-                  const Icon = s.icon;
-                  const isSelected = selectedSkillType === s.type;
-                  return (
-                    <button
-                      key={s.type ?? "all"}
-                      type="button"
-                      onClick={() => setSelectedSkillType(s.type)}
-                      className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-                        isSelected
-                          ? "bg-brand-500 text-white shadow-xs"
-                          : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                      }`}
-                    >
-                      {Icon && <Icon className="w-3.5 h-3.5" />}
-                      <span>{s.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
 
               {/* Text Search */}
               <input

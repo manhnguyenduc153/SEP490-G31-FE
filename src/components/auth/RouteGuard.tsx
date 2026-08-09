@@ -25,7 +25,7 @@ const routePermissions: Record<string, string | string[]> = {
   "/attendance": "Attendance.View",
   "/homework": "HomeworkManagement.View",
   "/my-homework": "StudentHomework.View",
-   "/users": "User",
+  "/users": "User",
   "/roles": "Role",
   "/child-profile": "ParentStudent",
   "/child-progress": "ChildProgress",
@@ -40,7 +40,7 @@ export const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }
   useEffect(() => {
     // 1. Lấy permission tương ứng với route hiện tại
     const requiredPermission = routePermissions[pathname];
-    
+
     // Nếu route không yêu cầu permission đặc biệt -> cho phép truy cập
     if (!requiredPermission) {
       setIsAuthorized(true);

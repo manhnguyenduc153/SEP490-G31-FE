@@ -14,6 +14,7 @@ import { courseApi, CourseItem } from "@/services/course.api";
 import { StudentRegistrationModal } from "./StudentRegistrationModal";
 import PaginationWithIcon from "@/components/tables/DataTables/TableOne/PaginationWithIcon";
 import { useTranslation } from "react-i18next";
+import { Modal } from "@/components/ui/modal";
 import { authApi } from "@/services/auth.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { AngleDownIcon, AngleUpIcon } from "@/icons";
@@ -96,6 +97,11 @@ export default function StudentRegistrationTable() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [registrationToEdit, setRegistrationToEdit] = useState<StudentRegistrationDto | null>(null);
 
+  // Delete Confirm Modal State
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [deleteConfirmStudentName, setDeleteConfirmStudentName] = useState<string>("");
+  const [deleteConfirmCourseName, setDeleteConfirmCourseName] = useState<string>("");
+
   // Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<"success" | "error">("success");
@@ -113,19 +119,23 @@ export default function StudentRegistrationTable() {
 
   const triggerRefresh = () => setRefreshKey((k) => k + 1);
 
-  const handleDelete = async (id: number) => {
-    if (window.confirm(t("registration.confirmDelete", { defaultValue: "Bạn có chắc chắn muốn xóa đăng ký này không?" }))) {
-      try {
-        const res = await semesterApi.deleteStudentRegistration(id);
-        if (res.success) {
-          showToast(t("registration.toastDeleteSuccess", { defaultValue: "Xóa đăng ký thành công!" }));
-          triggerRefresh();
-        } else {
-          showToast(res.message ? t(`backendMessages.${res.message}`) : t("registration.toastDeleteError", { defaultValue: "Lỗi khi xóa đăng ký." }), "error");
-        }
-      } catch (err: any) {
-         showToast(err.message || t("registration.toastSystemError"), "error");
+  const handleDelete = (id: number, studentName: string, courseName: string) => {
+    setDeleteConfirmId(id);
+    setDeleteConfirmStudentName(studentName);
+    setDeleteConfirmCourseName(courseName);
+  };
+
+  const executeDelete = async (id: number) => {
+    try {
+      const res = await semesterApi.deleteStudentRegistration(id);
+      if (res.success) {
+        showToast(t("registration.toastDeleteSuccess", { defaultValue: "Xóa đăng ký thành công!" }));
+        triggerRefresh();
+      } else {
+        showToast(res.message ? t(`backendMessages.${res.message}`) : t("registration.toastDeleteError", { defaultValue: "Lỗi khi xóa đăng ký." }), "error");
       }
+    } catch (err: any) {
+       showToast(err.message || t("registration.toastSystemError"), "error");
     }
   };
 
@@ -557,7 +567,7 @@ export default function StudentRegistrationTable() {
                           disabled={item.status === 1}
                           onClick={() => {
                             if (item.status === 1) return;
-                            handleDelete(item.id);
+                            handleDelete(item.id, item.studentName || "", item.courseName || "");
                           }}
                           className={`p-1.5 rounded-md transition-colors ${
                             item.status === 1
@@ -629,6 +639,51 @@ export default function StudentRegistrationTable() {
         onSuccess={() => triggerRefresh()}
         registrationToEdit={registrationToEdit}
       />
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteConfirmId !== null}
+        onClose={() => setDeleteConfirmId(null)}
+        showCloseButton={false}
+        className="max-w-[450px] p-6 lg:p-8"
+      >
+        <div className="flex flex-col items-center text-center">
+          <div className="p-3.5 bg-rose-50 dark:bg-rose-950/20 rounded-2xl text-rose-500 mb-4 border border-rose-100 dark:border-rose-900/30">
+            <Trash2 className="w-8 h-8" />
+          </div>
+          <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+            {t("registration.confirmDeleteTitle", { defaultValue: "Xác nhận xóa đăng ký" })}
+          </h4>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">
+            {t("registration.confirmDeleteText", {
+              courseName: deleteConfirmCourseName,
+              studentName: deleteConfirmStudentName,
+              defaultValue: `Bạn có chắc chắn muốn xóa đăng ký học khóa ${deleteConfirmCourseName} của học sinh ${deleteConfirmStudentName} không?`
+            })}
+          </p>
+          <div className="flex items-center justify-center gap-3 mt-6 w-full pt-4 border-t border-gray-100 dark:border-gray-800">
+            <button
+              onClick={() => setDeleteConfirmId(null)}
+              type="button"
+              className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-850 dark:border-gray-700 dark:hover:bg-gray-750 transition-colors w-1/2"
+            >
+              {t("common.cancel", { defaultValue: "Hủy" })}
+            </button>
+            <button
+              onClick={() => {
+                if (deleteConfirmId !== null) {
+                  executeDelete(deleteConfirmId);
+                }
+                setDeleteConfirmId(null);
+              }}
+              type="button"
+              className="px-4 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-sm w-1/2 flex items-center justify-center gap-1.5"
+            >
+              {t("common.delete", { defaultValue: "Xóa" })}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

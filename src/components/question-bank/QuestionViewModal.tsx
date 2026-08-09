@@ -101,6 +101,21 @@ export function QuestionViewModal({ isOpen, onClose, passage, childQuestions = [
           </div>
         )}
 
+        {/* Passage Image Section */}
+        {passage.attachmentUrl && (
+          <div>
+            <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+              🖼️ {t("questionPassage.imagePreviewLabel", { defaultValue: "Hình ảnh minh họa:" })}
+            </h4>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={getFileUrl(passage.attachmentUrl)}
+              alt=""
+              className="max-h-72 rounded-xl border border-gray-100 dark:border-gray-800"
+            />
+          </div>
+        )}
+
         {/* Audio Player Section */}
         {passage.audioUrl && (
           <div className="p-3.5 bg-blue-50/60 dark:bg-blue-950/30 rounded-xl border border-blue-100 dark:border-blue-900/50 space-y-2">

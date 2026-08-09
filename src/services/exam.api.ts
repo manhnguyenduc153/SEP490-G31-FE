@@ -154,6 +154,10 @@ export const examApi = {
     return api.post<ExamAttemptDto>(`/api/Exam/${examId}/submit`, dto);
   },
 
+  async saveProgress(examId: number, dto: ExamSubmitDto): Promise<ApiResponse<boolean>> {
+    return api.post<boolean>(`/api/Exam/${examId}/save-progress`, dto);
+  },
+
   async gradeAttempt(attemptId: number, dto: { score: number; teacherComment?: string }): Promise<ApiResponse<ExamAttemptDto>> {
     return api.put<ExamAttemptDto>(`/api/Exam/attempt/${attemptId}/grade`, dto);
   },

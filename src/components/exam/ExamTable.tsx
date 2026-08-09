@@ -386,9 +386,11 @@ export function ExamTable() {
               <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-32 text-theme-sm">
                 {t("exam.colDuration")}
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-36 text-theme-sm">
-                {t("exam.colStatus")}
-              </TableCell>
+              {activeTab === "in-use" && (
+                <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-36 text-theme-sm">
+                  {t("exam.colStatus")}
+                </TableCell>
+              )}
               <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-28 text-theme-sm">
                 {t("exam.colSubmissions")}
               </TableCell>
@@ -407,7 +409,9 @@ export function ExamTable() {
                   <TableCell className="px-6 py-5"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-10 mx-auto" /></TableCell>
                   <TableCell className="px-6 py-5"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-8 mx-auto" /></TableCell>
                   <TableCell className="px-6 py-5"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-16 mx-auto" /></TableCell>
-                  <TableCell className="px-6 py-5"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-24 mx-auto" /></TableCell>
+                  {activeTab === "in-use" && (
+                    <TableCell className="px-6 py-5"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-24 mx-auto" /></TableCell>
+                  )}
                   <TableCell className="px-6 py-5"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-8 mx-auto" /></TableCell>
                   <TableCell className="px-6 py-5">
                     <div className="flex justify-center gap-2">
@@ -420,7 +424,7 @@ export function ExamTable() {
             ) : error ? (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={activeTab === "in-use" ? 8 : 7}
                   className="px-6 py-10 text-center text-error-500 dark:text-error-400 font-medium"
                 >
                   {error}
@@ -429,7 +433,7 @@ export function ExamTable() {
             ) : items.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={activeTab === "in-use" ? 8 : 7}
                   className="px-6 py-10 text-center text-gray-500 dark:text-gray-400"
                 >
                   {t("exam.noResults")}
@@ -485,22 +489,24 @@ export function ExamTable() {
                   </TableCell>
 
                   {/* Status Badge */}
-                  <TableCell className="px-6 py-4 text-center">
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ${
-                        item.status === 1
-                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
-                          : "bg-yellow-50 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400"
-                      }`}
-                    >
+                  {activeTab === "in-use" && (
+                    <TableCell className="px-6 py-4 text-center">
                       <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          item.status === 1 ? "bg-emerald-500" : "bg-yellow-500"
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ${
+                          item.status === 1
+                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+                            : "bg-yellow-50 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400"
                         }`}
-                      />
-                      {item.status === 1 ? t("exam.statusPublished") : t("exam.statusDraft")}
-                    </span>
-                  </TableCell>
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            item.status === 1 ? "bg-emerald-500" : "bg-yellow-500"
+                          }`}
+                        />
+                        {item.status === 1 ? t("exam.statusPublished") : t("exam.statusDraft")}
+                      </span>
+                    </TableCell>
+                  )}
 
                   {/* Submission Count */}
                   <TableCell className="px-6 py-4 text-center">
