@@ -7,6 +7,9 @@ import EnrollmentChart from "@/components/dashboard/EnrollmentChart";
 import PopularCoursesChart from "@/components/dashboard/PopularCoursesChart";
 import RecentRegistrations from "@/components/dashboard/RecentRegistrations";
 import LowAttendanceAlerts from "@/components/dashboard/LowAttendanceAlerts";
+import TeacherWorkloadChart from "@/components/dashboard/TeacherWorkloadChart";
+import ExamGradeDistributionChart from "@/components/dashboard/ExamGradeDistributionChart";
+import GradingProgressCard from "@/components/dashboard/GradingProgressCard";
 import { useTranslation } from "react-i18next";
 
 export default function Dashboard() {
@@ -36,10 +39,26 @@ export default function Dashboard() {
 
   return (
     <div className="grid grid-cols-12 gap-4 md:gap-6">
+      {/* 1. Key Metrics Overview */}
       <div className="col-span-12">
         <ManagerMetrics metrics={data?.metrics ?? null} loading={loading} />
       </div>
 
+      {/* 2. Operational Utilization Row */}
+      <div className="col-span-12">
+        <TeacherWorkloadChart data={data?.teacherWorkload ?? null} loading={loading} />
+      </div>
+
+      {/* 3. Academic Quality & Grading Progress Row */}
+      <div className="col-span-12 xl:col-span-7">
+        <ExamGradeDistributionChart data={data?.examGradeDistribution ?? null} loading={loading} />
+      </div>
+
+      <div className="col-span-12 xl:col-span-5">
+        <GradingProgressCard data={data?.gradingProgress ?? null} loading={loading} />
+      </div>
+
+      {/* 4. Enrollment & Class Statistics Row */}
       <div className="col-span-12 xl:col-span-7">
         <EnrollmentChart data={data?.monthlyEnrollments ?? null} loading={loading} />
       </div>
@@ -48,6 +67,7 @@ export default function Dashboard() {
         <ClassStatusChart data={data?.classStatusDistribution ?? null} loading={loading} />
       </div>
 
+      {/* 5. Course Popularity, Attendance Alerts, and Recent Registrations */}
       <div className="col-span-12 xl:col-span-5">
         <PopularCoursesChart data={data?.coursePopularity ?? null} loading={loading} />
       </div>
