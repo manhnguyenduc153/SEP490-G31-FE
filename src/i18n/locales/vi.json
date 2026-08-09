@@ -2439,7 +2439,14 @@
     "ERR_UNAUTHORIZED": "Bạn không có quyền thực hiện hành động này",
     "ERR_SYSTEM_ERROR": "Đã xảy ra lỗi hệ thống",
     "ERR_SEMESTER_NAME_EXISTS": "Tên học kỳ đã tồn tại trên hệ thống",
-    "ERR_DESCRIPTION_MAX_LENGTH": "Mô tả không hợp lệ (tối đa 1000 ký tự)."
+    "ERR_DESCRIPTION_MAX_LENGTH": "Mô tả không hợp lệ (tối đa 1000 ký tự).",
+    "ERR_INVALID_DAY_OF_WEEK": "Thứ trong tuần không hợp lệ.",
+    "ERR_NO_CLASSES_SELECTED": "Chưa có lớp học nào được chọn để xếp lịch.",
+    "ERR_CLASSES_NOT_FOUND": "Không tìm thấy danh sách lớp học được chọn.",
+    "ERR_NO_PENDING_REGISTRATIONS_FOUND": "Không tìm thấy học viên nào đang chờ xếp lớp trong học kỳ này!",
+    "ERR_NO_DRAFT_CLASSES_GENERATED": "Không tạo được lớp học nháp nào. Vui lòng kiểm tra lại số lượng đăng ký học viên.",
+    "ERR_NO_DRAFT_CLASSES_MATCH_TIME_PREFERENCES": "Không có lớp học nháp nào khớp với khung thời gian ưu tiên đã chọn.",
+    "ERR_INVALID_REQUEST": "Yêu cầu không hợp lệ."
   },
   "permissions": {
     "category": {
@@ -2545,7 +2552,10 @@
     "SAVE_ATTENDANCE_SUCCESS": "Lưu thông tin điểm danh thành công!",
     "ERR_SCHEDULE_NOT_FOUND": "Không tìm thấy ca học/lịch học!",
     "ERR_CLASS_NOT_FOUND": "Không tìm thấy lớp học!",
-    "GET_ATTENDANCE_REPORT_SUCCESS": "Lấy báo cáo điểm danh thành công!"
+    "GET_ATTENDANCE_REPORT_SUCCESS": "Lấy báo cáo điểm danh thành công!",
+    "GET_ATTENDANCE_SUCCESS": "Lấy thông tin điểm danh thành công",
+    "GET_MY_ATTENDANCE_SUCCESS": "Lấy thông tin điểm danh cá nhân thành công",
+    "GET_MY_ATTENDANCE_DETAILS_SUCCESS": "Lấy chi tiết điểm danh cá nhân thành công"
   },
   "signin": {
     "backToDashboard": "Quay lại bảng điều khiển",
