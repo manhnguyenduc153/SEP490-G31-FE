@@ -1446,6 +1446,7 @@
     "classCount": "{{count}} classes",
     "listTitle": "Homework list",
     "selectClassEmptyState": "Select a class to manage homework.",
+    "selectClassEmptyStateStudent": "Select a class to view homework.",
     "title": "Homework Management",
     "description": "Manage homework by class.",
     "deleteSuccess": "Homework deleted successfully",
@@ -2791,7 +2792,8 @@
     "noDate": "No date",
     "scoreName": "Score",
     "totalHomeworkShort": "Total HW",
-    "totalSessionsShort": "Total Sessions"
+    "totalSessionsShort": "Total Sessions",
+    "classNotStarted": "This class has not held any sessions yet."
   },
   "profile": {
     "updateSuccess": "Profile updated successfully!",
@@ -2877,7 +2879,8 @@
     "colSessionNo": "Session",
     "colDate": "Date",
     "colStatus": "Status",
-    "colNote": "Note"
+    "colNote": "Note",
+    "classNotStarted": "This class has not held any sessions yet."
   },
   "classSchedules": {
     "draftPendingTitle": "Draft schedule waiting for confirmation",
@@ -2934,6 +2937,7 @@
   },
   "questionBank": {
     "title": "Question Bank & Passages",
-    "description": "Manage passages (Reading, Listening, Writing) and their associated sub-questions."
+    "description": "Manage passages (Reading, Listening, Writing) and their associated sub-questions.",
+    "showing": "Showing {{start}} to {{end}} of {{total}} entries"
   }
 }

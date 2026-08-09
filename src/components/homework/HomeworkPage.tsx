@@ -140,7 +140,9 @@ export default function HomeworkPage({ studentMode = false }: { studentMode?: bo
 
       {selectedClassId === null && (
         <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-10 text-center text-sm text-gray-500 shadow-xs dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400">
-          {t("homework.selectClassEmptyState", { defaultValue: "Chọn một lớp học để quản lý bài tập." })}
+          {studentMode
+            ? t("homework.selectClassEmptyStateStudent", { defaultValue: "Chọn một lớp học để xem bài tập." })
+            : t("homework.selectClassEmptyState", { defaultValue: "Chọn một lớp học để quản lý bài tập." })}
         </div>
       )}
 

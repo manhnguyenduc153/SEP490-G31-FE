@@ -1441,6 +1441,7 @@
     "classCount": "{{count}} lớp",
     "listTitle": "Danh sách bài tập",
     "selectClassEmptyState": "Chọn một lớp học để quản lý bài tập.",
+    "selectClassEmptyStateStudent": "Chọn một lớp học để xem bài tập.",
     "title": "Quản lý bài tập",
     "description": "Quản lý bài tập theo lớp học.",
     "deleteSuccess": "Xóa bài tập thành công",
@@ -2801,7 +2802,8 @@
     "noDate": "Chưa có ngày",
     "scoreName": "Điểm",
     "totalHomeworkShort": "Tổng BT",
-    "totalSessionsShort": "Tổng buổi"
+    "totalSessionsShort": "Tổng buổi",
+    "classNotStarted": "Lớp học chưa diễn ra buổi nào."
   },
   "profile": {
     "updateSuccess": "Cập nhật hồ sơ thành công!",
@@ -2887,7 +2889,8 @@
     "colSessionNo": "Buổi",
     "colDate": "Ngày",
     "colStatus": "Trạng thái",
-    "colNote": "Ghi chú"
+    "colNote": "Ghi chú",
+    "classNotStarted": "Lớp học chưa diễn ra buổi nào."
   },
   "classSchedules": {
     "draftPendingTitle": "Bản nháp lịch học đang chờ xác nhận",
@@ -2944,6 +2947,7 @@
   },
   "questionBank": {
     "title": "Ngân hàng câu hỏi & Bộ đề bài",
-    "description": "Quản lý các bộ đề bài (Reading, Listening, Writing) và các câu hỏi con đi kèm."
+    "description": "Quản lý các bộ đề bài (Reading, Listening, Writing) và các câu hỏi con đi kèm.",
+    "showing": "Hiển thị {{start}} đến {{end}} trong tổng số {{total}} mục"
   }
 }
