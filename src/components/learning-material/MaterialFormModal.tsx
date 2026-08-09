@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/modal";
-import { LearningMaterialItem, QuestionCategorySaveDto } from "@/services/learningMaterial.api";
+import { LearningMaterialItem } from "@/services/learningMaterial.api";
 import { commonApi } from "@/services/common.api";
 import { teacherApi } from "@/services/teacher.api";
 import { learningMaterialApi } from "@/services/learningMaterial.api";

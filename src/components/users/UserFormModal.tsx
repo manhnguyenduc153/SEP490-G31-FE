@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/modal";
-import { UserItem, UserSaveDto } from "@/services/user.api";
+import { UserItem } from "@/services/user.api";
 import { userApi } from "@/services/user.api";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
@@ -119,14 +119,14 @@ export function UserFormModal({
         res = await userApi.update(editingItem.id, {
           id: editingItem.id,
           email: email.trim(),
-          phone: phone.trim() || null,
+          phone: phone.trim() || "",
           roleName,
         });
       } else {
         res = await userApi.create({
           username: username.trim(),
           email: email.trim(),
-          phone: phone.trim() || null,
+          phone: phone.trim() || "",
           roleName,
         });
       }
