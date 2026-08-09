@@ -54,9 +54,18 @@ export default function RecentRegistrations({ data, loading }: Props) {
 
   const getLocalizedSlots = (slotsString: string) => {
     if (!slotsString) return t("registration.slotDefault", { defaultValue: "Mặc định" });
+    try {
+      const parsed = JSON.parse(slotsString);
+      if (Array.isArray(parsed)) {
+        return parsed.map((s) => getLocalizedSlot(String(s))).join(", ");
+      }
+    } catch (e) {
+      // Fallback to comma-separated parsing
+    }
     return slotsString
+      .replace(/[\[\]\"']/g, "")
       .split(",")
-      .map((s) => getLocalizedSlot(s))
+      .map((s) => getLocalizedSlot(s.trim()))
       .join(", ");
   };
 

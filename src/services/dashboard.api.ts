@@ -45,6 +45,31 @@ export interface LowAttendanceAlert {
   status: "Warning" | "Critical";
 }
 
+export interface RoomUtilization {
+  roomId: number;
+  roomName: string;
+  totalSlots: number;
+  occupiedSlots: number;
+  utilizationRate: number;
+}
+
+export interface TeacherWorkload {
+  teacherId: number;
+  teacherName: string;
+  teacherCode: string;
+  totalSessions: number;
+}
+
+export interface GradingProgress {
+  pendingHomeworksCount: number;
+  pendingExamsCount: number;
+}
+
+export interface ExamGradeDistribution {
+  scoreBand: string;
+  studentCount: number;
+}
+
 export interface DashboardData {
   metrics: DashboardMetrics;
   monthlyEnrollments: MonthlyEnrollment[];
@@ -52,6 +77,10 @@ export interface DashboardData {
   classStatusDistribution: ClassStatusDistribution[];
   recentRegistrations: RecentRegistration[];
   lowAttendanceAlerts: LowAttendanceAlert[];
+  roomUtilization: RoomUtilization[];
+  teacherWorkload: TeacherWorkload[];
+  gradingProgress: GradingProgress;
+  examGradeDistribution: ExamGradeDistribution[];
 }
 
 // ─── API Call ────────────────────────────────────────────────────────────────

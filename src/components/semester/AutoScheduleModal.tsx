@@ -128,17 +128,33 @@ export function AutoScheduleModal({
       // Clear layout timers
       timers.forEach((t) => clearTimeout(t));
 
+      const getFriendlyAutoScheduleError = (msg: string) => {
+        if (msg.startsWith("ERR_CLASS_NO_STUDENTS_")) {
+          const code = msg.replace("ERR_CLASS_NO_STUDENTS_", "");
+          return t("class.errClassNoStudents", { code });
+        }
+        if (msg.startsWith("ERR_CLASS_NO_COURSE_")) {
+          const code = msg.replace("ERR_CLASS_NO_COURSE_", "");
+          return t("class.errClassNoCourse", { code });
+        }
+        if (msg.startsWith("ERR_CLASS_STUDENTS_EXCEED_ROOM_CAPACITY_")) {
+          const code = msg.replace("ERR_CLASS_STUDENTS_EXCEED_ROOM_CAPACITY_", "");
+          return t("class.errClassExceedCapacity", { code });
+        }
+        return t(`backendMessages.${msg}`, { defaultValue: msg });
+      };
+
       if (res.success) {
         setLoadingStep(4);
         setTimeout(() => {
-          showToast(res.message ? t(`backendMessages.${res.message}`) : t("semester.successAutoSchedule", { defaultValue: "Lập lịch tự động học kỳ thành công!" }), "success");
+          showToast(res.message ? getFriendlyAutoScheduleError(res.message) : t("semester.successAutoSchedule", { defaultValue: "Lập lịch tự động học kỳ thành công!" }), "success");
           onSuccess();
           onClose();
           setIsScheduling(false);
           setLoadingStep(0);
         }, 1500);
       } else {
-        showToast(res.message ? t(`backendMessages.${res.message}`) : t("semester.errAutoScheduleConflict", { defaultValue: "Xếp lịch thất bại do xung đột ràng buộc hoặc bận lịch giáo viên." }), "error");
+        showToast(res.message ? getFriendlyAutoScheduleError(res.message) : t("semester.errAutoScheduleConflict", { defaultValue: "Xếp lịch thất bại do xung đột ràng buộc hoặc bận lịch giáo viên." }), "error");
         setIsScheduling(false);
         setLoadingStep(0);
       }
