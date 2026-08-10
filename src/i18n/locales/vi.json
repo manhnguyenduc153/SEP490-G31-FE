@@ -153,7 +153,29 @@
     "enrolledStudents": "Học viên nhập học",
     "popularCoursesTitle": "Phân bổ khóa học phổ biến",
     "loadError": "Không thể tải dữ liệu",
-    "retry": "Thử lại"
+    "retry": "Thử lại",
+    "roomUtilization": "Hiệu suất sử dụng phòng học",
+    "roomUtilizationDesc": "Tính toán dựa trên số ca xếp lịch trong 30 ngày gần đây.",
+    "roomOverutilized": "Quá tải",
+    "roomOptimal": "Tối ưu",
+    "roomUnderutilized": "Hiệu suất thấp",
+    "slotsUnit": "ca",
+    "roomRate": "Tỷ lệ sử dụng",
+    "teacherWorkloadTitle": "Tải dạy của Giáo viên",
+    "teacherWorkloadDesc": "Số ca giảng dạy thực tế trong 30 ngày gần đây.",
+    "teacherSessions": "Số ca dạy",
+    "sessionsUnit": "ca",
+    "gradeDistributionTitle": "Phổ điểm Thi kiểm tra",
+    "gradeDistributionDesc": "Phân bổ điểm số của học sinh qua các kỳ thi.",
+    "studentsUnit": "HV",
+    "studentsCount": "Số lượng học viên",
+    "gradingProgressTitle": "Tiến độ Chấm bài của Giáo viên",
+    "gradingProgressDesc": "Thống kê số lượng bài làm của học sinh chưa được chấm điểm.",
+    "pendingHomeworks": "Bài tập về nhà chưa chấm",
+    "pendingExams": "Bài kiểm tra chưa chấm",
+    "actionRequired": "Cần giáo viên chấm điểm",
+    "gradingWarning": "Hiện tại đang tồn {{count}} bài nộp chưa được chấm điểm. Hãy nhắc nhở giáo viên!",
+    "gradingAllClear": "Tuyệt vời! Tất cả các bài nộp của học sinh đã được chấm điểm đầy đủ."
   },
   "userDropdown": {
     "editProfile": "Chỉnh sửa hồ sơ",
@@ -1374,9 +1396,9 @@
     "classFallback": "Lớp học",
     "colStatus": "Trạng thái",
     "colActions": "Thao tác",
-    "colContentFile": "Nội dung / File",
+    "colContentFile": "Nội dung và file",
     "colDueDate": "Hạn nộp",
-    "colScoreFeedback": "Điểm / Nhận xét",
+    "colScoreFeedback": "Điểm và nhận xét",
     "colSkill": "Kỹ năng",
     "colStudent": "Học sinh",
     "colSubmitTime": "Thời gian nộp",
@@ -1430,6 +1452,7 @@
     "validationTeacherRequired": "Không xác định được giáo viên.",
     "validationTitleMax": "Tiêu đề không được vượt quá 500 ký tự.",
     "validationTitleRequired": "Tiêu đề không được để trống.",
+    "validationDueDateFuture": "Hạn nộp phải lớn hơn thời gian hiện tại.",
     "validationTotalScoreRange": "Tổng điểm phải nằm trong khoảng 0 đến 1000.",
     "validationTotalScoreRequired": "Tổng điểm là bắt buộc.",
     "loadListError": "Lỗi khi tải danh sách bài tập",
@@ -1439,6 +1462,7 @@
     "classCount": "{{count}} lớp",
     "listTitle": "Danh sách bài tập",
     "selectClassEmptyState": "Chọn một lớp học để quản lý bài tập.",
+    "selectClassEmptyStateStudent": "Chọn một lớp học để xem bài tập.",
     "title": "Quản lý bài tập",
     "description": "Quản lý bài tập theo lớp học.",
     "deleteSuccess": "Xóa bài tập thành công",
@@ -1507,8 +1531,14 @@
     "statusInactive": "Ngưng hoạt động",
     "statusOnLeave": "Đang nghỉ phép",
     "validationRequired": "Mã và tên giáo viên không được để trống.",
+    "validationCodeRequired": "Mã giáo viên không được để trống.",
+    "validationCodeMax": "Mã giáo viên không được vượt quá 50 ký tự.",
+    "validationNameRequired": "Tên giáo viên không được để trống.",
+    "validationNameMax": "Tên giáo viên không được vượt quá 200 ký tự.",
     "validationEmailInvalid": "Email không đúng định dạng.",
+    "validationEmailMax": "Email không được vượt quá 150 ký tự.",
     "validationPhoneInvalid": "Số điện thoại không đúng định dạng.",
+    "validationPhoneMax": "Số điện thoại không được vượt quá 20 ký tự.",
     "validationDobFuture": "Ngày sinh không được lớn hơn ngày hiện tại.",
     "validationAddressMax": "Địa chỉ không được vượt quá 500 ký tự.",
     "validationStatusInvalid": "Vui lòng chọn trạng thái giáo viên hợp lệ.",
@@ -1520,6 +1550,7 @@
     "editTitle": "Chỉnh sửa giáo viên",
     "createDesc": "Điền thông tin để thêm giáo viên mới.",
     "editDesc": "Cập nhật thông tin giáo viên.",
+    "basicInfo": "Thông tin cơ bản",
     "formCodeLabel": "Mã GV",
     "formCodePlaceholder": "Nhập mã giáo viên...",
     "formNameLabel": "Họ Tên",
@@ -1744,6 +1775,9 @@
     "errStartDateEmpty": "Ngày bắt đầu không được để trống",
     "errExpectedLessonsInvalid": "Số buổi dự kiến phải lớn hơn 0",
     "errCodeEmpty": "Mã lớp học không được để trống",
+    "errSemesterEmpty": "Học kỳ không được để trống",
+    "errTeacherEmpty": "Giáo viên không được để trống",
+    "errCourseEmpty": "Khóa học không được để trống",
     "importExcel": "Import Excel",
     "downloadTemplate": "Tải file mẫu (.xlsx)",
     "basicInfo": "Thông tin cơ bản",
@@ -1759,6 +1793,8 @@
     "endDateHelpSemester": "Theo ngày kết thúc của học kỳ",
     "endDateHelpCalc": "Tự tính dựa trên lịch & số buổi",
     "formExpectedLessonsLabel": "Số buổi dự kiến",
+    "formTypeLabel": "Loại lớp học",
+    "formUrlLabel": "Link lớp học",
     "expectedLessonsPlaceholderSemester": "Tự động tính",
     "expectedLessonsPlaceholder": "VD: 30",
     "expectedLessonsHelpSemester": "Sẽ tự động tính theo số buổi học trong học kỳ",
@@ -1898,6 +1934,8 @@
     "gradeTotalWeight": "Tổng trọng số",
     "gradeTotalWeightLimit": "Tối đa 100%",
     "gradeTotalWeightExceeded": "Tổng trọng số không được vượt quá 100%",
+    "gradeTotalWeightRequired": "Phải bằng 100%",
+    "gradeTotalWeightMustBe100": "Tổng trọng số phải bằng đúng 100%",
     "gradeCourseLoadError": "Không thể tải danh sách khóa học",
     "gradeCourseConnectionError": "Không thể kết nối tới máy chủ để tải danh sách khóa học",
     "gradeSaveError": "Không thể lưu cấu hình điểm",
@@ -1907,6 +1945,10 @@
     "gradeComponentEmpty": "Vui lòng thêm ít nhất một đầu điểm",
     "gradeComponentNameRequired": "Tên đầu điểm không được để trống",
     "gradeComponentNameMax": "Tên đầu điểm không được vượt quá 200 ký tự",
+    "gradeWeightRequired": "Trọng số không được để trống",
+    "gradeWeightInvalid": "Trọng số phải là một số hợp lệ",
+    "gradeWeightPlaceholder": "Nhập trọng số",
+    "gradeScorePlaceholder": "Nhập điểm",
     "gradeWeightRange": "Trọng số phải nằm trong khoảng từ 0 đến 100",
     "gradeScoreRange": "Điểm phải nằm trong khoảng từ 0 đến 10",
     "gradeRuleSaveSuccess": "Đã lưu cấu hình điểm",
@@ -2203,6 +2245,7 @@
     "ERR_HOMEWORK_TOTAL_SCORE_INVALID": "Tổng điểm phải nằm trong khoảng từ 0 đến 1000.",
     "ERR_HOMEWORK_STATUS_INVALID": "Trạng thái bài tập không hợp lệ.",
     "ERR_HOMEWORK_CLOSED": "Bài tập đã đóng và không thể nhận bài nộp.",
+    "ERR_SUBMISSION_CLOSED": "Đã quá hạn nộp bài tập.",
     "ERR_HOMEWORK_STUDENT_REQUIRED": "Không xác định được học sinh hợp lệ.",
     "ERR_HOMEWORK_STUDENT_NOT_FOUND": "Không tìm thấy học sinh.",
     "ERR_HOMEWORK_STUDENT_NOT_ENROLLED": "Học sinh không thuộc lớp học này.",
@@ -2454,7 +2497,14 @@
     "ERR_UNAUTHORIZED": "Bạn không có quyền thực hiện hành động này",
     "ERR_SYSTEM_ERROR": "Đã xảy ra lỗi hệ thống",
     "ERR_SEMESTER_NAME_EXISTS": "Tên học kỳ đã tồn tại trên hệ thống",
-    "ERR_DESCRIPTION_MAX_LENGTH": "Mô tả không hợp lệ (tối đa 1000 ký tự)."
+    "ERR_DESCRIPTION_MAX_LENGTH": "Mô tả không hợp lệ (tối đa 1000 ký tự).",
+    "ERR_INVALID_DAY_OF_WEEK": "Thứ trong tuần không hợp lệ.",
+    "ERR_NO_CLASSES_SELECTED": "Chưa có lớp học nào được chọn để xếp lịch.",
+    "ERR_CLASSES_NOT_FOUND": "Không tìm thấy danh sách lớp học được chọn.",
+    "ERR_NO_PENDING_REGISTRATIONS_FOUND": "Không tìm thấy học viên nào đang chờ xếp lớp trong học kỳ này!",
+    "ERR_NO_DRAFT_CLASSES_GENERATED": "Không tạo được lớp học nháp nào. Vui lòng kiểm tra lại số lượng đăng ký học viên.",
+    "ERR_NO_DRAFT_CLASSES_MATCH_TIME_PREFERENCES": "Không có lớp học nháp nào khớp với khung thời gian ưu tiên đã chọn.",
+    "ERR_INVALID_REQUEST": "Yêu cầu không hợp lệ."
   },
   "permissions": {
     "category": {
@@ -2560,7 +2610,10 @@
     "SAVE_ATTENDANCE_SUCCESS": "Lưu thông tin điểm danh thành công!",
     "ERR_SCHEDULE_NOT_FOUND": "Không tìm thấy ca học/lịch học!",
     "ERR_CLASS_NOT_FOUND": "Không tìm thấy lớp học!",
-    "GET_ATTENDANCE_REPORT_SUCCESS": "Lấy báo cáo điểm danh thành công!"
+    "GET_ATTENDANCE_REPORT_SUCCESS": "Lấy báo cáo điểm danh thành công!",
+    "GET_ATTENDANCE_SUCCESS": "Lấy thông tin điểm danh thành công",
+    "GET_MY_ATTENDANCE_SUCCESS": "Lấy thông tin điểm danh cá nhân thành công",
+    "GET_MY_ATTENDANCE_DETAILS_SUCCESS": "Lấy chi tiết điểm danh cá nhân thành công"
   },
   "signin": {
     "backToDashboard": "Quay lại bảng điều khiển",
@@ -2784,7 +2837,8 @@
     "noDate": "Chưa có ngày",
     "scoreName": "Điểm",
     "totalHomeworkShort": "Tổng BT",
-    "totalSessionsShort": "Tổng buổi"
+    "totalSessionsShort": "Tổng buổi",
+    "classNotStarted": "Lớp học chưa diễn ra buổi nào."
   },
   "profile": {
     "updateSuccess": "Cập nhật hồ sơ thành công!",
@@ -2870,7 +2924,8 @@
     "colSessionNo": "Buổi",
     "colDate": "Ngày",
     "colStatus": "Trạng thái",
-    "colNote": "Ghi chú"
+    "colNote": "Ghi chú",
+    "classNotStarted": "Lớp học chưa diễn ra buổi nào."
   },
   "classSchedules": {
     "draftPendingTitle": "Bản nháp lịch học đang chờ xác nhận",
@@ -2927,6 +2982,27 @@
   },
   "questionBank": {
     "title": "Ngân hàng câu hỏi & Bộ đề bài",
-    "description": "Quản lý các bộ đề bài (Reading, Listening, Writing) và các câu hỏi con đi kèm."
+    "description": "Quản lý các bộ đề bài (Reading, Listening, Writing) và các câu hỏi con đi kèm.",
+    "showing": "Hiển thị {{start}} đến {{end}} trong tổng số {{total}} mục"
+  },
+  "notification": {
+    "title": {
+      "classCreated": "Lớp học mới được tạo",
+      "classStatusChanged": "Cập nhật trạng thái lớp học",
+      "studentsAdded": "Bạn đã được thêm vào lớp học",
+      "teacherAssigned": "Bạn đã được phân công dạy lớp học",
+      "examCreated": "Bài kiểm tra mới",
+      "homeworkCreated": "Bài tập về nhà mới",
+      "upcomingClass": "Lớp học sắp diễn ra"
+    },
+    "content": {
+      "classCreated": "Lớp học {{className}} ({{classCode}}) đã được tạo mới.",
+      "classStatusChanged": "Lớp học {{className}} {{classCode}} đã đổi trạng thái từ '{{oldStatus}}' sang '{{newStatus}}'.",
+      "studentsAdded": "Bạn đã được đăng ký vào lớp học {{className}} ({{classCode}}).",
+      "teacherAssigned": "Bạn đã được phân công giảng dạy lớp học {{className}} ({{classCode}}).",
+      "examCreated": "Bạn có bài kiểm tra mới: '{{examTitle}}' trong lớp {{className}}.",
+      "homeworkCreated": "Bạn có bài tập về nhà mới: '{{homeworkTitle}}' trong lớp {{className}}.",
+      "upcomingClass": "Lớp {{className}} {{classCode}} đã được lên lịch."
+    }
   }
 }

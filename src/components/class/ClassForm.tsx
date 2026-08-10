@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { z } from "zod";
 import { classApi, ClassItem } from "@/services/class.api";
 import { courseApi, CourseItem } from "@/services/course.api";
 import { teacherApi, TeacherItem } from "@/services/teacher.api";
@@ -21,6 +22,42 @@ interface ClassFormProps {
   onSuccess: (message: string) => void;
   showToast: (msg: string, type?: "success" | "error") => void;
 }
+
+const getClassSchema = (t: any) =>
+  z
+    .object({
+      name: z.string().trim().min(1, t("class.errNameEmpty")),
+      code: z.string().trim().min(1, t("class.errCodeEmpty")),
+      semesterId: z.any().refine(val => typeof val === "number" && val > 0, { message: t("class.errSemesterEmpty") }),
+      teacherId: z.any().refine(val => typeof val === "number" && val > 0, { message: t("class.errTeacherEmpty") }),
+      courseId: z.any().refine(val => typeof val === "number" && val > 0, { message: t("class.errCourseEmpty") }),
+      startDate: z.string().nullable().or(z.literal("")),
+      expectedLessons: z.number().nullable(),
+    })
+    .refine(
+      (data) => {
+        if (!data.semesterId && (!data.startDate || data.startDate.trim() === "")) {
+          return false;
+        }
+        return true;
+      },
+      {
+        message: t("class.errStartDateEmpty"),
+        path: ["startDate"],
+      }
+    )
+    .refine(
+      (data) => {
+        if (!data.semesterId && (!data.expectedLessons || data.expectedLessons <= 0)) {
+          return false;
+        }
+        return true;
+      },
+      {
+        message: t("class.errExpectedLessonsInvalid"),
+        path: ["expectedLessons"],
+      }
+    );
 
 interface DayConfig {
   selected: boolean;
@@ -114,6 +151,15 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const clearError = (field: string) => {
+    setErrors((prev) => {
+      const copy = { ...prev };
+      delete copy[field];
+      return copy;
+    });
+  };
 
   // Conflict warning states
   const [conflicts, setConflicts] = useState<any[]>([]);
@@ -166,19 +212,42 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
     const delayDebounce = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await studentApi.getAll(1, 15, studentSearchText);
-        if (res.success && res.data) {
-          setSearchResults(res.data.items || []);
+        if (formSemesterId && formCourseId) {
+          const res = await semesterApi.getStudentRegistrations(
+            formSemesterId,
+            studentSearchText,
+            formCourseId,
+            0, // Status 0 = Pending (Chưa xếp lớp)
+            1,
+            1000
+          );
+          if (res.success && res.data) {
+            const mappedStudents: StudentItem[] = (res.data.items || []).map((reg) => ({
+              id: reg.studentId,
+              code: reg.studentCode || "",
+              name: reg.studentName,
+              email: reg.studentEmail,
+              phone: reg.studentPhone || "",
+              status: reg.status,
+              statusName: "",
+            }));
+            setSearchResults(mappedStudents);
+          } else {
+            setSearchResults([]);
+          }
+        } else {
+          setSearchResults([]);
         }
       } catch (err) {
         console.error("Search students error", err);
+        setSearchResults([]);
       } finally {
         setIsSearching(false);
       }
     }, 300);
 
     return () => clearTimeout(delayDebounce);
-  }, [studentSearchText, showDropdown]);
+  }, [studentSearchText, showDropdown, formSemesterId, formCourseId]);
 
   // Click outside to close dropdown
   useEffect(() => {
@@ -245,7 +314,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
       active = false;
       clearTimeout(timer);
     };
-  }, [formStartDate, formExpectedLessons, formTeacherId, dayConfigs]);
+  }, [formStartDate, formExpectedLessons, formTeacherId, dayConfigs, editingItem]);
 
   // Initialize values when editing
   useEffect(() => {
@@ -634,24 +703,26 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
 
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formName.trim()) {
-      const errMsg = t("class.errNameEmpty");
-      setFormError(errMsg);
-      showToast(errMsg, "error");
-      return;
-    }
+    
+    setErrors({});
+    const schema = getClassSchema(t);
+    const validationResult = schema.safeParse({
+      name: formName,
+      code: formCode,
+      semesterId: formSemesterId,
+      teacherId: formTeacherId,
+      courseId: formCourseId,
+      startDate: formStartDate,
+      expectedLessons: formExpectedLessons,
+    });
 
-    if (!formStartDate && !formSemesterId) {
-      const errMsg = t("class.errStartDateEmpty");
-      setFormError(errMsg);
-      showToast(errMsg, "error");
-      return;
-    }
-
-    if (!formSemesterId && (!formExpectedLessons || formExpectedLessons <= 0)) {
-      const errMsg = t("class.errExpectedLessonsInvalid");
-      setFormError(errMsg);
-      showToast(errMsg, "error");
+    if (!validationResult.success) {
+      const newErrors: Record<string, string> = {};
+      validationResult.error.issues.forEach((issue) => {
+        const path = issue.path[0] as string;
+        newErrors[path] = issue.message;
+      });
+      setErrors(newErrors);
       return;
     }
 
@@ -659,13 +730,6 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
       .filter(([_, config]) => config.selected);
 
     const finalCode = formCode.trim();
-
-    if (!finalCode) {
-      const errMsg = t("class.errCodeEmpty");
-      setFormError(errMsg);
-      showToast(errMsg, "error");
-      return;
-    }
 
     setIsSubmitting(true);
     setFormError(null);
@@ -812,18 +876,21 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div className="space-y-1.5 col-span-1 sm:col-span-2">
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                  {t("class.colSemester")}
+                  {t("class.colSemester")} <span className="text-rose-500">*</span>
                 </label>
                 <SearchableSelect
                   value={formSemesterId || ""}
                   disabled={isStarted}
+                  isError={!!errors.semesterId}
                   onChange={(value) => {
                     const id = value ? Number(value) : null;
                     setFormSemesterId(id);
+                    clearError("semesterId");
                     const matchedSem = semesters.find((s) => s.id === id);
                     if (matchedSem) {
                       setFormStartDate(matchedSem.startDate ? matchedSem.startDate.split("T")[0] : "");
                       setFormEndDate(matchedSem.endDate ? matchedSem.endDate.split("T")[0] : "");
+                      clearError("startDate");
                     } else {
                       setFormStartDate("");
                       setFormEndDate("");
@@ -835,6 +902,9 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                   }))}
                   placeholder={t("class.selectSemesterPlaceholder")}
                 />
+                {errors.semesterId && (
+                  <p className="text-xs text-red-500 font-medium mt-1 animate-fadeIn">{errors.semesterId}</p>
+                )}
               </div>
 
               {/* Tên lớp học */}
@@ -847,12 +917,22 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                   required
                   disabled={isStarted}
                   value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
+                  onChange={(e) => {
+                    setFormName(e.target.value);
+                    clearError("name");
+                  }}
                   placeholder={t("class.formNamePlaceholder")}
-                  className={`w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white ${
+                  className={`w-full rounded-lg border bg-transparent px-3 py-2 text-sm focus:outline-hidden dark:bg-gray-955 dark:text-white ${
+                    errors.name
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-gray-200 focus:border-brand-500 dark:border-gray-800"
+                  } ${
                     isStarted ? "bg-gray-50/60 dark:bg-gray-950/45 text-gray-400 cursor-not-allowed" : "text-gray-805"
                   }`}
                 />
+                {errors.name && (
+                  <p className="text-xs text-red-500 font-medium mt-1 animate-fadeIn">{errors.name}</p>
+                )}
               </div>
 
               {/* Mã lớp học */}
@@ -864,12 +944,22 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                   type="text"
                   disabled={isStarted}
                   value={formCode}
-                  onChange={(e) => setFormCode(e.target.value)}
+                  onChange={(e) => {
+                    setFormCode(e.target.value);
+                    clearError("code");
+                  }}
                   placeholder={t("class.formCodePlaceholder")}
-                  className={`w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-955 dark:text-white ${
+                  className={`w-full rounded-lg border bg-transparent px-3 py-2 text-sm focus:outline-hidden dark:bg-gray-955 dark:text-white ${
+                    errors.code
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-gray-200 focus:border-brand-500 dark:border-gray-800"
+                  } ${
                     isStarted ? "bg-gray-50/60 dark:bg-gray-955/45 text-gray-400 cursor-not-allowed" : "text-gray-855"
                   }`}
                 />
+                {errors.code && (
+                  <p className="text-xs text-red-500 font-medium mt-1 animate-fadeIn">{errors.code}</p>
+                )}
               </div>
 
               {/* Nhóm Ngày bắt đầu, Ngày kết thúc trên cùng 1 dòng */}
@@ -886,8 +976,15 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                       ref={startDateInputRef}
                       value={formStartDate}
                       disabled={isStarted || !!formSemesterId}
-                      onChange={(e) => setFormStartDate(e.target.value)}
-                      className={`w-full rounded-lg border border-gray-200 bg-transparent disabled:bg-gray-50/60 dark:disabled:bg-gray-955 pl-3 pr-10 py-2 text-sm focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-955 dark:text-white ${
+                      onChange={(e) => {
+                        setFormStartDate(e.target.value);
+                        clearError("startDate");
+                      }}
+                      className={`w-full rounded-lg border bg-transparent disabled:bg-gray-50/60 dark:disabled:bg-gray-955 pl-3 pr-10 py-2 text-sm focus:outline-hidden dark:bg-gray-955 dark:text-white ${
+                        errors.startDate
+                          ? "border-red-500 focus:border-red-500"
+                          : "border-gray-200 focus:border-brand-500 dark:border-gray-800"
+                      } ${
                         isStarted ? "cursor-not-allowed text-gray-400" : "text-gray-855"
                       }`}
                     />
@@ -901,6 +998,9 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                       </button>
                     )}
                   </div>
+                  {errors.startDate && (
+                    <p className="text-xs text-red-500 font-medium mt-1 animate-fadeIn">{errors.startDate}</p>
+                  )}
                   {formSemesterId && (
                     <span className="text-[10px] text-gray-400 flex items-center gap-1 mt-1">
                       <Info className="w-3 h-3 text-gray-400 shrink-0" />
@@ -920,20 +1020,18 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                     value={formEndDate}
                     className="w-full rounded-lg border border-gray-200 bg-gray-50 dark:bg-gray-955 disabled:bg-gray-50 dark:disabled:bg-gray-955/40 disabled:text-gray-400 dark:disabled:text-gray-650 px-3 py-2 text-sm text-gray-855 dark:border-gray-800"
                   />
-                  <span className="text-[10px] text-gray-400 flex items-center gap-1 mt-1">
-                    <Info className="w-3 h-3 text-gray-400 shrink-0" />
-                    <span>{formSemesterId ? t("class.endDateHelpSemester") : t("class.endDateHelpCalc")}</span>
-                  </span>
                 </div>
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                  {t("class.formTeacherLabel")}
+                  {t("class.formTeacherLabel")} <span className="text-rose-500">*</span>
                 </label>
                 <SearchableSelect
                   value={formTeacherId || ""}
+                  isError={!!errors.teacherId}
                   onChange={(value) => {
                     setFormTeacherId(value ? Number(value) : null);
+                    clearError("teacherId");
                     setFormNewTeacherEmail(null);
                     setFormNewTeacherName(null);
                   }}
@@ -943,6 +1041,9 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                   }))}
                   placeholder={t("class.formTeacherPlaceholder")}
                 />
+                {errors.teacherId && (
+                  <p className="text-xs text-red-500 font-medium mt-1 animate-fadeIn">{errors.teacherId}</p>
+                )}
                 {formNewTeacherEmail && (
                   <div className="mt-1.5 p-2 bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-150 dark:border-emerald-900/30 rounded-lg flex items-center justify-between gap-2">
                     <span className="text-[11px] text-emerald-800 dark:text-emerald-450 font-medium flex items-center gap-1.5">
@@ -967,13 +1068,15 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
               {/* Khóa học */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                  {t("class.formCourseLabel")}
+                  {t("class.formCourseLabel")} <span className="text-rose-500">*</span>
                 </label>
                 <SearchableSelect
                   value={formCourseId || ""}
                   disabled={isStarted}
+                  isError={!!errors.courseId}
                   onChange={(value) => {
                     setFormCourseId(value ? Number(value) : null);
+                    clearError("courseId");
                     setFormNewCourseName(null);
                   }}
                   options={courses.map((c) => ({
@@ -982,6 +1085,9 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                   }))}
                   placeholder={t("class.formCoursePlaceholder")}
                 />
+                {errors.courseId && (
+                  <p className="text-xs text-red-500 font-medium mt-1 animate-fadeIn">{errors.courseId}</p>
+                )}
                 {formNewCourseName && (
                   <div className="mt-1.5 p-2 bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-150 dark:border-emerald-900/30 rounded-lg flex items-center justify-between gap-2">
                     <span className="text-[11px] text-emerald-800 dark:text-emerald-450 font-medium flex items-center gap-1.5">
@@ -1007,7 +1113,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                 {/* Loại lớp học: Offline / Online */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    Loại lớp học <span className="text-rose-500">*</span>
+                    {t("class.formTypeLabel")} <span className="text-rose-500">*</span>
                   </label>
                   <div className="flex gap-2">
                     {[{ value: 0, label: "Offline", color: "brand" }, { value: 1, label: "Online", color: "emerald" }].map((opt) => (
@@ -1039,7 +1145,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                 {/* URL lớp học */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    Link lớp học
+                    {t("class.formUrlLabel")}
                     <span className="ml-1 text-[9px] text-gray-400 font-normal">(Google Meet, Zoom, ...)</span>
                   </label>
                   <input
@@ -1100,7 +1206,9 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                         </div>
                       ) : searchResults.length === 0 ? (
                         <div className="py-3 px-4 text-xs text-gray-400 italic">
-                          {t("class.noStudentsFound")}
+                          {(!formSemesterId || !formCourseId)
+                            ? t("class.selectSemesterAndCourseFirst", { defaultValue: "Vui lòng chọn Học kỳ và Khóa học trước" })
+                            : t("class.noStudentsFound")}
                         </div>
                       ) : (
                         <div className="py-1">
@@ -1402,11 +1510,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
         </div>
       )}
 
-      {/* Bottom Footer Actions Card */}
-      <div className="flex items-center justify-between p-5 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs">
-        <span className="text-xs text-gray-400">
-          2026© ClassHub | classhubedu@gmail.com
-        </span>
+      <div className="flex items-center justify-end p-5 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs">
 
         <div className="flex items-center gap-3">
           <button

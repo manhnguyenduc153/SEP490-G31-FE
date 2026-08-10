@@ -153,7 +153,29 @@
     "enrolledStudents": "Enrolled students",
     "popularCoursesTitle": "Popular Courses Distribution",
     "loadError": "Cannot load data",
-    "retry": "Retry"
+    "retry": "Retry",
+    "roomUtilization": "Room Utilization Efficiency",
+    "roomUtilizationDesc": "Calculated based on scheduled slots in the last 30 days.",
+    "roomOverutilized": "Overutilized",
+    "roomOptimal": "Optimal",
+    "roomUnderutilized": "Underutilized",
+    "slotsUnit": "slots",
+    "roomRate": "Utilization Rate",
+    "teacherWorkloadTitle": "Teacher Workload",
+    "teacherWorkloadDesc": "Actual teaching slots in the last 30 days.",
+    "teacherSessions": "Sessions taught",
+    "sessionsUnit": "slots",
+    "gradeDistributionTitle": "Exam Grade Distribution",
+    "gradeDistributionDesc": "Distribution of student grades across recent tests.",
+    "studentsUnit": "std",
+    "studentsCount": "Number of students",
+    "gradingProgressTitle": "Teacher Grading Progress",
+    "gradingProgressDesc": "Statistics of student submissions awaiting grades.",
+    "pendingHomeworks": "Pending homeworks to grade",
+    "pendingExams": "Pending exams to grade",
+    "actionRequired": "Teacher action required",
+    "gradingWarning": "There are currently {{count}} ungraded submissions. Remind the teachers!",
+    "gradingAllClear": "Excellent! All student submissions have been successfully graded."
   },
   "userDropdown": {
     "editProfile": "Edit profile",
@@ -1379,9 +1401,9 @@
     "classFallback": "Class",
     "colStatus": "Status",
     "colActions": "Actions",
-    "colContentFile": "Content / File",
+    "colContentFile": "Content and files",
     "colDueDate": "Due date",
-    "colScoreFeedback": "Score / Feedback",
+    "colScoreFeedback": "Score and feedback",
     "colSkill": "Skill",
     "colStudent": "Student",
     "colSubmitTime": "Submit time",
@@ -1435,6 +1457,7 @@
     "validationTeacherRequired": "Could not identify the teacher.",
     "validationTitleMax": "Title cannot exceed 500 characters.",
     "validationTitleRequired": "Title is required.",
+    "validationDueDateFuture": "Due date must be in the future.",
     "validationTotalScoreRange": "Total score must be between 0 and 1000.",
     "validationTotalScoreRequired": "Total score is required.",
     "loadListError": "Error loading homework list",
@@ -1444,6 +1467,7 @@
     "classCount": "{{count}} classes",
     "listTitle": "Homework list",
     "selectClassEmptyState": "Select a class to manage homework.",
+    "selectClassEmptyStateStudent": "Select a class to view homework.",
     "title": "Homework Management",
     "description": "Manage homework by class.",
     "deleteSuccess": "Homework deleted successfully",
@@ -1512,8 +1536,14 @@
     "statusInactive": "Inactive",
     "statusOnLeave": "On leave",
     "validationRequired": "Teacher code and name are required.",
+    "validationCodeRequired": "Teacher code is required.",
+    "validationCodeMax": "Teacher code cannot exceed 50 characters.",
+    "validationNameRequired": "Teacher name is required.",
+    "validationNameMax": "Teacher name cannot exceed 200 characters.",
     "validationEmailInvalid": "Email format is invalid.",
+    "validationEmailMax": "Email cannot exceed 150 characters.",
     "validationPhoneInvalid": "Phone number format is invalid.",
+    "validationPhoneMax": "Phone number cannot exceed 20 characters.",
     "validationDobFuture": "Date of birth cannot be in the future.",
     "validationAddressMax": "Address cannot exceed 500 characters.",
     "validationStatusInvalid": "Please select a valid teacher status.",
@@ -1525,6 +1555,7 @@
     "editTitle": "Edit Teacher",
     "createDesc": "Fill in the details to add a new teacher.",
     "editDesc": "Update teacher information.",
+    "basicInfo": "Basic information",
     "formCodeLabel": "Code",
     "formCodePlaceholder": "Enter teacher code...",
     "formNameLabel": "Full Name",
@@ -1749,6 +1780,9 @@
     "errStartDateEmpty": "Start date cannot be empty",
     "errExpectedLessonsInvalid": "Expected lessons must be greater than 0",
     "errCodeEmpty": "Class code cannot be empty",
+    "errSemesterEmpty": "Semester cannot be empty",
+    "errTeacherEmpty": "Teacher cannot be empty",
+    "errCourseEmpty": "Course cannot be empty",
     "importExcel": "Import Excel",
     "downloadTemplate": "Download Template (.xlsx)",
     "basicInfo": "Basic Information",
@@ -1764,6 +1798,8 @@
     "endDateHelpSemester": "According to the end date of the semester",
     "endDateHelpCalc": "Auto calculated based on schedules & lessons count",
     "formExpectedLessonsLabel": "Expected Lessons",
+    "formTypeLabel": "Class Type",
+    "formUrlLabel": "Class Link",
     "expectedLessonsPlaceholderSemester": "Auto calculated",
     "expectedLessonsPlaceholder": "e.g., 30",
     "expectedLessonsHelpSemester": "Will be auto-calculated according to semester schedule sessions",
@@ -1903,6 +1939,8 @@
     "gradeTotalWeight": "Total weight",
     "gradeTotalWeightLimit": "Maximum 100%",
     "gradeTotalWeightExceeded": "Total weight cannot exceed 100%",
+    "gradeTotalWeightRequired": "Must equal 100%",
+    "gradeTotalWeightMustBe100": "Total weight must equal 100%",
     "gradeCourseLoadError": "Could not load courses",
     "gradeCourseConnectionError": "Could not connect to server to load courses",
     "gradeSaveError": "Could not save score settings",
@@ -1912,6 +1950,10 @@
     "gradeComponentEmpty": "Please add at least one score component",
     "gradeComponentNameRequired": "Score component name is required",
     "gradeComponentNameMax": "Score component name cannot exceed 200 characters",
+    "gradeWeightRequired": "Weight is required",
+    "gradeWeightInvalid": "Weight must be a valid number",
+    "gradeWeightPlaceholder": "Enter weight",
+    "gradeScorePlaceholder": "Enter score",
     "gradeWeightRange": "Weight must be between 0 and 100",
     "gradeScoreRange": "Score must be between 0 and 10",
     "gradeRuleSaveSuccess": "Score settings saved",
@@ -2208,6 +2250,7 @@
     "ERR_HOMEWORK_TOTAL_SCORE_INVALID": "Total score must be between 0 and 1000.",
     "ERR_HOMEWORK_STATUS_INVALID": "Homework status is invalid.",
     "ERR_HOMEWORK_CLOSED": "Homework is closed and cannot accept submissions.",
+    "ERR_SUBMISSION_CLOSED": "The homework submission deadline has passed.",
     "ERR_HOMEWORK_STUDENT_REQUIRED": "A valid student is required.",
     "ERR_HOMEWORK_STUDENT_NOT_FOUND": "Student was not found.",
     "ERR_HOMEWORK_STUDENT_NOT_ENROLLED": "The student is not enrolled in this class.",
@@ -2462,7 +2505,14 @@
     "ERR_UNAUTHORIZED": "You are not authorized to perform this action",
     "ERR_SYSTEM_ERROR": "Internal server error occurred",
     "ERR_SEMESTER_NAME_EXISTS": "Semester name already exists.",
-    "ERR_DESCRIPTION_MAX_LENGTH": "Description is invalid (max 1000 chars)."
+    "ERR_DESCRIPTION_MAX_LENGTH": "Description is invalid (max 1000 chars).",
+    "ERR_INVALID_DAY_OF_WEEK": "Invalid day of week.",
+    "ERR_NO_CLASSES_SELECTED": "No classes selected for scheduling.",
+    "ERR_CLASSES_NOT_FOUND": "Selected classes not found.",
+    "ERR_NO_PENDING_REGISTRATIONS_FOUND": "No pending registrations found for this semester!",
+    "ERR_NO_DRAFT_CLASSES_GENERATED": "No draft classes generated. Please check student registrations.",
+    "ERR_NO_DRAFT_CLASSES_MATCH_TIME_PREFERENCES": "No draft classes matched the selected time preferences.",
+    "ERR_INVALID_REQUEST": "Invalid request."
   },
   "permissions": {
     "category": {
@@ -2555,7 +2605,10 @@
     "SAVE_ATTENDANCE_SUCCESS": "Attendance saved successfully!",
     "ERR_SCHEDULE_NOT_FOUND": "Schedule not found!",
     "ERR_CLASS_NOT_FOUND": "Class not found!",
-    "GET_ATTENDANCE_REPORT_SUCCESS": "Attendance report retrieved successfully!"
+    "GET_ATTENDANCE_REPORT_SUCCESS": "Attendance report retrieved successfully!",
+    "GET_ATTENDANCE_SUCCESS": "Successfully retrieved attendance details",
+    "GET_MY_ATTENDANCE_SUCCESS": "Successfully retrieved my attendance",
+    "GET_MY_ATTENDANCE_DETAILS_SUCCESS": "Successfully retrieved my attendance details"
   },
   "signin": {
     "backToDashboard": "Back to dashboard",
@@ -2774,7 +2827,8 @@
     "noDate": "No date",
     "scoreName": "Score",
     "totalHomeworkShort": "Total HW",
-    "totalSessionsShort": "Total Sessions"
+    "totalSessionsShort": "Total Sessions",
+    "classNotStarted": "This class has not held any sessions yet."
   },
   "profile": {
     "updateSuccess": "Profile updated successfully!",
@@ -2860,7 +2914,8 @@
     "colSessionNo": "Session",
     "colDate": "Date",
     "colStatus": "Status",
-    "colNote": "Note"
+    "colNote": "Note",
+    "classNotStarted": "This class has not held any sessions yet."
   },
   "classSchedules": {
     "draftPendingTitle": "Draft schedule waiting for confirmation",
@@ -2917,6 +2972,27 @@
   },
   "questionBank": {
     "title": "Question Bank & Passages",
-    "description": "Manage passages (Reading, Listening, Writing) and their associated sub-questions."
+    "description": "Manage passages (Reading, Listening, Writing) and their associated sub-questions.",
+    "showing": "Showing {{start}} to {{end}} of {{total}} entries"
+  },
+  "notification": {
+    "title": {
+      "classCreated": "New Class Created",
+      "classStatusChanged": "Class Status Updated",
+      "studentsAdded": "Added to Class",
+      "teacherAssigned": "Class Teaching Assignment",
+      "examCreated": "New Exam Assigned",
+      "homeworkCreated": "New Homework Assigned",
+      "upcomingClass": "Upcoming Class"
+    },
+    "content": {
+      "classCreated": "Class {{className}} ({{classCode}}) has been created.",
+      "classStatusChanged": "Class {{className}} {{classCode}} status changed from '{{oldStatus}}' to '{{newStatus}}'.",
+      "studentsAdded": "You have been registered into class {{className}} ({{classCode}}).",
+      "teacherAssigned": "You have been assigned to teach class {{className}} ({{classCode}}).",
+      "examCreated": "You have a new exam: '{{examTitle}}' in class {{className}}.",
+      "homeworkCreated": "You have a new homework assignment: '{{homeworkTitle}}' in class {{className}}.",
+      "upcomingClass": "Class {{className}} {{classCode}} has been scheduled."
+    }
   }
 }

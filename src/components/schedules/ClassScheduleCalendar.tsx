@@ -978,6 +978,7 @@ export default function ClassScheduleCalendar() {
   }, [selectedClassId, reloadTrigger]);
 
   const isEventEditable = useCallback((ev: ScheduleEvent): boolean => {
+    if (editSaving) return false; // Block editing while saving is in progress
     if (ev.isDraft) return true; // Temp draft always draggable
     if (!isEditMode) return false; // DB events only draggable when Edit Mode is ON
     if (ev.classStatus !== undefined && ev.classStatus !== null) {
@@ -985,7 +986,7 @@ export default function ClassScheduleCalendar() {
     }
     const cls = classes.find((c) => c.code === ev.classCode);
     return cls?.status === 0; // 0 = Planning
-  }, [classes, isEditMode]);
+  }, [classes, isEditMode, editSaving]);
 
   const regenerateSchedulesForClass = (cls: ClassItem, semesterStartStr: string, semesterEndStr: string): ClassScheduleItem[] => {
     const start = new Date(semesterStartStr);
@@ -1892,7 +1893,17 @@ export default function ClassScheduleCalendar() {
       ) : null}
 
       {/* Calendar area */}
-      <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] overflow-hidden">
+      <div className="relative rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] overflow-hidden">
+        {editSaving && (
+          <div className="absolute inset-0 bg-white/60 dark:bg-black/60 z-50 flex items-center justify-center backdrop-blur-[1px] transition-all">
+            <div className="flex flex-col items-center gap-3 px-5 py-4 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xl max-w-xs text-center animate-fadeIn">
+              <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
+              <p className="text-sm font-bold text-gray-800 dark:text-gray-200">
+                {t("classSchedules.editModeSaving", { defaultValue: "Đang lưu thay đổi..." })}
+              </p>
+            </div>
+          </div>
+        )}
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-500" />
@@ -1956,8 +1967,8 @@ export default function ClassScheduleCalendar() {
               headerToolbar={{ left: "prev,next today", center: "title", right: "" }}
               events={fcEvents}
               selectable={false}
-              editable={isEditMode || !!(draftClasses && draftClasses.length > 0)}
-              eventStartEditable={true}
+              editable={!editSaving && (isEditMode || !!(draftClasses && draftClasses.length > 0))}
+              eventStartEditable={!editSaving}
               eventDurationEditable={false}
               eventDrop={handleFcEventDrop}
               eventClick={handleFcEventClick}

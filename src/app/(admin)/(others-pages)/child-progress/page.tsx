@@ -442,7 +442,15 @@ export default function ChildProgressPage() {
 
           {/* ── Content for selected class ────────────────────────────────────── */}
           {selectedGrade && (
-            <div className="space-y-4 animate-fadeIn">
+            !isLoadingAtt && (sessions.length === 0 || attStats.recorded === 0) ? (
+              <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-12 text-center dark:border-gray-700 dark:bg-gray-900">
+                <Clock3 className="w-10 h-10 text-gray-300 mx-auto mb-3 animate-pulse" />
+                <p className="text-sm font-semibold text-gray-500">
+                  {t("childProgress.classNotStarted", { defaultValue: "Lớp học chưa diễn ra buổi nào." })}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4 animate-fadeIn">
 
               {/* 4 Summary Cards */}
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -791,7 +799,8 @@ export default function ChildProgressPage() {
                 )}
               </div>
             </div>
-          )}
+          )
+        )}
         </div>
       )}
     </div>

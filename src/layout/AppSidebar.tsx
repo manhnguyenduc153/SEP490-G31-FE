@@ -4,6 +4,34 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
+import {
+  CalendarDays,
+  BookOpen,
+  ClipboardPen,
+  Users,
+  Presentation,
+  FileCheck,
+  UserCheck,
+  User,
+  DoorOpen,
+  CalendarClock,
+  Grid3X3,
+  FileSpreadsheet,
+  ClipboardList,
+  Database,
+  FolderOpen,
+  Sliders,
+  School,
+  FileText,
+  FilePenLine,
+  UserCog,
+  Shield,
+  BarChart3,
+  CheckSquare,
+  FilePieChart,
+  HeartHandshake,
+  TrendingUp,
+} from "lucide-react";
 
 import {
   AiIcon,
@@ -38,7 +66,7 @@ type NavItem = {
   new?: boolean;
   permission?: string | string[];
   roles?: string[];
-  subItems?: { name: string; path: string; pro?: boolean; new?: boolean; permission?: string | string[]; roles?: string[] }[];
+  subItems?: { name: string; path: string; pro?: boolean; new?: boolean; permission?: string | string[]; roles?: string[]; icon?: React.ReactNode }[];
 };
 
 // ── NEW: School Management menu (rendered at top) ────────────────────────────
@@ -52,56 +80,56 @@ const schoolItems: NavItem[] = [
     icon: <DocsIcon />,
     name: "academicOperations",
     subItems: [
-      { name: "semesters", path: "/semesters", permission: "Semester.View" },
-      { name: "courses", path: "/courses", permission: "Course.View" },
-      { name: "registrations", path: "/registrations", permission: "StudentRegistration.View" },
-      { name: "classes", path: "/classes", permission: "Class.View" },
-      { name: "teachingClasses", path: "/teaching-classes", permission: "TeachingClass" },
-      { name: "teachingExams", path: "/teaching-exams", permission: "TeachingExam" },
-      { name: "teachers", path: "/teachers", permission: "Teacher.View" },
-      { name: "students", path: "/students", permission: "Student.View" },
-      { name: "rooms", path: "/rooms", permission: "Room.View" },
+      { name: "semesters", path: "/semesters", permission: "Semester.View", icon: <CalendarDays className="h-4 w-4" /> },
+      { name: "courses", path: "/courses", permission: "Course.View", icon: <BookOpen className="h-4 w-4" /> },
+      { name: "registrations", path: "/registrations", permission: "StudentRegistration.View", icon: <ClipboardPen className="h-4 w-4" /> },
+      { name: "classes", path: "/classes", permission: "Class.View", icon: <Users className="h-4 w-4" /> },
+      { name: "teachingClasses", path: "/teaching-classes", permission: "TeachingClass", icon: <Presentation className="h-4 w-4" /> },
+      { name: "teachingExams", path: "/teaching-exams", permission: "TeachingExam", icon: <FileCheck className="h-4 w-4" /> },
+      { name: "teachers", path: "/teachers", permission: "Teacher.View", icon: <UserCheck className="h-4 w-4" /> },
+      { name: "students", path: "/students", permission: "Student.View", icon: <User className="h-4 w-4" /> },
+      { name: "rooms", path: "/rooms", permission: "Room.View", icon: <DoorOpen className="h-4 w-4" /> },
     ],
   },
   {
     icon: <CalenderIcon />,
     name: "schedule",
     subItems: [
-      { name: "classSchedules", path: "/schedules", permission: "Schedule" },
-      { name: "teachingSchedules", path: "/teaching-schedules", permission: "TeachingSchedule" },
-      { name: "timetable", path: "/timetable", permission: "Timetable" },
+      { name: "classSchedules", path: "/schedules", permission: "Schedule", icon: <CalendarClock className="h-4 w-4" /> },
+      { name: "teachingSchedules", path: "/teaching-schedules", permission: "TeachingSchedule", icon: <CalendarDays className="h-4 w-4" /> },
+      { name: "timetable", path: "/timetable", permission: "Timetable", icon: <Grid3X3 className="h-4 w-4" /> },
     ],
   },
   {
     icon: <TableIcon />,
     name: "assessments",
     subItems: [
-      { name: "exams", path: "/exams", permission: "Exam.View" },
-      { name: "homework", path: "/homework", permission: "HomeworkManagement.View" },
-      { name: "questionBank", path: "/question-bank", permission: "Question" },
-      { name: "questionCategory", path: "/question-category", permission: "QuestionCategory" },
-      { name: "scoreSettings", path: "/scores", permission: "StudentGrade.ViewSettings" },
+      { name: "exams", path: "/exams", permission: "Exam.View", icon: <FileSpreadsheet className="h-4 w-4" /> },
+      { name: "homework", path: "/homework", permission: "HomeworkManagement.View", icon: <ClipboardList className="h-4 w-4" /> },
+      { name: "questionBank", path: "/question-bank", permission: "Question", icon: <Database className="h-4 w-4" /> },
+      { name: "questionCategory", path: "/question-category", permission: "QuestionCategory", icon: <FolderOpen className="h-4 w-4" /> },
+      { name: "scoreSettings", path: "/scores", permission: "StudentGrade.ViewSettings", icon: <Sliders className="h-4 w-4" /> },
     ],
   },
   {
     icon: <BoxCubeIcon />,
     name: "learning",
     subItems: [
-      { name: "myClasses", path: "/my-classes", permission: "MyClass" },
-      { name: "learningMaterials", path: "/learning-materials", permission: "LearningMaterial.View" },
-      { name: "myHomework", path: "/my-homework", permission: "StudentHomework.View" },
-      { name: "myAttendance", path: "/attendance", permission: "Attendance.View" },
-      { name: "myExams", path: "/my-exams", permission: "StudentExam" },
-      { name: "myScores", path: "/my-scores", permission: "MyGrade" },
-      { name: "studentProgress", path: "/student-progress", permission: "StudentProgress" },
+      { name: "myClasses", path: "/my-classes", permission: "MyClass", icon: <School className="h-4 w-4" /> },
+      { name: "learningMaterials", path: "/learning-materials", permission: "LearningMaterial.View", icon: <FileText className="h-4 w-4" /> },
+      { name: "myHomework", path: "/my-homework", permission: "StudentHomework.View", icon: <FilePenLine className="h-4 w-4" /> },
+      { name: "myAttendance", path: "/attendance", permission: "Attendance.View", icon: <UserCheck className="h-4 w-4" /> },
+      { name: "myExams", path: "/my-exams", permission: "StudentExam", icon: <FileCheck className="h-4 w-4" /> },
+      { name: "myScores", path: "/my-scores", permission: "MyGrade", icon: <FileSpreadsheet className="h-4 w-4" /> },
+      { name: "studentProgress", path: "/student-progress", permission: "StudentProgress", icon: <TrendingUp className="h-4 w-4" /> },
     ],
   },
   {
     icon: <LockIcon />,
     name: "administration",
     subItems: [
-      { name: "users", path: "/users", permission: "User.View" },
-      { name: "roles", path: "/roles", permission: "Role.View" },
+      { name: "users", path: "/users", permission: "User.View", icon: <UserCog className="h-4 w-4" /> },
+      { name: "roles", path: "/roles", permission: "Role.View", icon: <Shield className="h-4 w-4" /> },
     ],
   },
   {
@@ -109,18 +137,18 @@ const schoolItems: NavItem[] = [
     name: "reportsMenu",
     permission: ["ClassGradeReport", "AttendanceReport", "ExamReport"],
     subItems: [
-      { name: "classGradeReport", path: "/reports/class-grade", permission: "ClassGradeReport" },
-      { name: "attendanceReport", path: "/reports/attendance", permission: "AttendanceReport" },
-      { name: "examReport", path: "/reports/exam", permission: "ExamReport" },
+      { name: "classGradeReport", path: "/reports/class-grade", permission: "ClassGradeReport", icon: <BarChart3 className="h-4 w-4" /> },
+      { name: "attendanceReport", path: "/reports/attendance", permission: "AttendanceReport", icon: <CheckSquare className="h-4 w-4" /> },
+      { name: "examReport", path: "/reports/exam", permission: "ExamReport", icon: <FilePieChart className="h-4 w-4" /> },
     ],
   },
   {
     icon: <GroupIcon />,
     name: "parentServices",
     subItems: [
-      { name: "parents", path: "/parent-student", permission: "ParentStudent.View" },
-      { name: "childProgress", path: "/child-progress", permission: "ChildProgress" },
-      { name: "childSchedules", path: "/child-schedules", permission: "ChildSchedule" },
+      { name: "parents", path: "/parent-student", permission: "ParentStudent.View", icon: <HeartHandshake className="h-4 w-4" /> },
+      { name: "childProgress", path: "/child-progress", permission: "ChildProgress", icon: <TrendingUp className="h-4 w-4" /> },
+      { name: "childSchedules", path: "/child-schedules", permission: "ChildSchedule", icon: <CalendarDays className="h-4 w-4" /> },
     ],
   },
 ];
@@ -597,43 +625,56 @@ const AppSidebar: React.FC = () => {
                         if (menuType === "school" && !hasPermission(subItem.permission)) return false;
                         return true;
                       })
-                      .map((subItem) => (
-                        <li key={subItem.name}>
-                          <Link
-                            href={subItem.path}
-                            className={`menu-dropdown-item ${isActive(subItem.path)
-                              ? "menu-dropdown-item-active"
-                              : "menu-dropdown-item-inactive"
-                              }`}
-                          >
-                            <span suppressHydrationWarning>
-                              {menuType === "school" ? t(`sidebar.${subItem.name}`) : subItem.name}
-                            </span>
-                            <span className="flex items-center gap-1 ml-auto">
-                              {subItem.new && (
+                      .map((subItem) => {
+                        const subActive = isActive(subItem.path);
+                        return (
+                          <li key={subItem.name}>
+                            <Link
+                              href={subItem.path}
+                              className={`menu-dropdown-item flex items-center gap-2.5 ${subActive
+                                ? "menu-dropdown-item-active"
+                                : "menu-dropdown-item-inactive"
+                                }`}
+                            >
+                              {subItem.icon && (
                                 <span
-                                  className={`ml-auto ${isActive(subItem.path)
-                                    ? "menu-dropdown-badge-active"
-                                    : "menu-dropdown-badge-inactive"
-                                    } menu-dropdown-badge `}
+                                  className={`${subActive
+                                    ? "text-brand-500"
+                                    : "text-gray-400 group-hover:text-gray-500 dark:text-gray-400 dark:group-hover:text-gray-300"
+                                    }`}
                                 >
-                                  new
+                                  {subItem.icon}
                                 </span>
                               )}
-                              {subItem.pro && (
-                                <span
-                                  className={`ml-auto ${isActive(subItem.path)
-                                    ? "menu-dropdown-badge-pro-active"
-                                    : "menu-dropdown-badge-pro-inactive"
-                                    } menu-dropdown-badge-pro `}
-                                >
-                                  pro
-                                </span>
-                              )}
-                            </span>
-                          </Link>
-                        </li>
-                      ))}
+                              <span suppressHydrationWarning>
+                                {menuType === "school" ? t(`sidebar.${subItem.name}`) : subItem.name}
+                              </span>
+                              <span className="flex items-center gap-1 ml-auto">
+                                {subItem.new && (
+                                  <span
+                                    className={`ml-auto ${subActive
+                                      ? "menu-dropdown-badge-active"
+                                      : "menu-dropdown-badge-inactive"
+                                      } menu-dropdown-badge `}
+                                  >
+                                    new
+                                  </span>
+                                )}
+                                {subItem.pro && (
+                                  <span
+                                    className={`ml-auto ${subActive
+                                      ? "menu-dropdown-badge-pro-active"
+                                      : "menu-dropdown-badge-pro-inactive"
+                                      } menu-dropdown-badge-pro `}
+                                  >
+                                    pro
+                                  </span>
+                                )}
+                              </span>
+                            </Link>
+                          </li>
+                        );
+                      })}
                   </ul>
                 </div>
               )}
