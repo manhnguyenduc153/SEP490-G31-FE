@@ -212,19 +212,42 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
     const delayDebounce = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await studentApi.getAll(1, 15, studentSearchText);
-        if (res.success && res.data) {
-          setSearchResults(res.data.items || []);
+        if (formSemesterId && formCourseId) {
+          const res = await semesterApi.getStudentRegistrations(
+            formSemesterId,
+            studentSearchText,
+            formCourseId,
+            0, // Status 0 = Pending (Chưa xếp lớp)
+            1,
+            1000
+          );
+          if (res.success && res.data) {
+            const mappedStudents: StudentItem[] = (res.data.items || []).map((reg) => ({
+              id: reg.studentId,
+              code: reg.studentCode || "",
+              name: reg.studentName,
+              email: reg.studentEmail,
+              phone: reg.studentPhone || "",
+              status: reg.status,
+              statusName: "",
+            }));
+            setSearchResults(mappedStudents);
+          } else {
+            setSearchResults([]);
+          }
+        } else {
+          setSearchResults([]);
         }
       } catch (err) {
         console.error("Search students error", err);
+        setSearchResults([]);
       } finally {
         setIsSearching(false);
       }
     }, 300);
 
     return () => clearTimeout(delayDebounce);
-  }, [studentSearchText, showDropdown]);
+  }, [studentSearchText, showDropdown, formSemesterId, formCourseId]);
 
   // Click outside to close dropdown
   useEffect(() => {
@@ -1183,7 +1206,9 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                         </div>
                       ) : searchResults.length === 0 ? (
                         <div className="py-3 px-4 text-xs text-gray-400 italic">
-                          {t("class.noStudentsFound")}
+                          {(!formSemesterId || !formCourseId)
+                            ? t("class.selectSemesterAndCourseFirst", { defaultValue: "Vui lòng chọn Học kỳ và Khóa học trước" })
+                            : t("class.noStudentsFound")}
                         </div>
                       ) : (
                         <div className="py-1">
