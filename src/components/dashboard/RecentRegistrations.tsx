@@ -1,7 +1,5 @@
 "use client";
 import React from "react";
-import Badge from "../ui/badge/Badge";
-import Link from "next/link";
 import { RecentRegistration } from "@/services/dashboard.api";
 import { useTranslation } from "react-i18next";
 
@@ -77,15 +75,6 @@ export default function RecentRegistrations({ data, loading }: Props) {
             {t("dashboardPage.recentRegistrationsTitle")}
           </h3>
         </div>
-
-        <div className="flex items-center gap-3">
-          <Link
-            href="#"
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
-          >
-            {t("dashboardPage.viewAll")}
-          </Link>
-        </div>
       </div>
 
       <div className="max-w-full overflow-x-auto">
@@ -103,9 +92,6 @@ export default function RecentRegistrations({ data, loading }: Props) {
               </th>
               <th className="py-3 px-4 font-medium text-gray-500 dark:text-gray-400">
                 {t("dashboardPage.colRegistrationDate")}
-              </th>
-              <th className="py-3 pl-4 font-medium text-gray-500 text-right dark:text-gray-400">
-                {t("dashboardPage.colActions")}
               </th>
             </tr>
           </thead>
@@ -128,14 +114,6 @@ export default function RecentRegistrations({ data, loading }: Props) {
                 </td>
                 <td className="py-3 px-4 text-gray-500 dark:text-gray-400">
                   {new Date(registration.registrationDate).toLocaleDateString("vi-VN")}
-                </td>
-                <td className="py-3 pl-4 text-right">
-                  <Link
-                    href="#"
-                    className="text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-300 text-sm font-medium"
-                  >
-                    {t("dashboardPage.actionAssign")}
-                  </Link>
                 </td>
               </tr>
             ))}
