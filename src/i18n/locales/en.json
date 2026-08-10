@@ -2956,6 +2956,10 @@
     "showing": "Showing {{start}} to {{end}} of {{total}} entries"
   },
   "notification": {
+    "dropdownTitle": "Notifications",
+    "markAllAsRead": "Mark all as read",
+    "noNotifications": "No notifications",
+    "system": "System",
     "title": {
       "classCreated": "New Class Created",
       "classStatusChanged": "Class Status Updated",

@@ -297,15 +297,10 @@ export default function StudentRegistrationTable() {
             {t("registration.subtitle")}
           </p>
         </div>
-        
         {hasPermission("StudentRegistration.Create") && (
           <div className="flex flex-wrap items-center gap-3 self-start md:self-auto">
             <button
               onClick={() => {
-                if (selectedSemesterId === null) {
-                  showToast(t("registration.toastSelectSemester"), "error");
-                  return;
-                }
                 setIsModalOpen(true);
               }}
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-theme-xs transition-colors"
@@ -606,7 +601,7 @@ export default function StudentRegistrationTable() {
       )}
 
       {/* Pagination Footer */}
-      {selectedSemesterId !== null && (
+      {registrations.length > 0 && (
         <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between px-6 py-5 bg-gray-50/50 dark:bg-white/[0.01] border-t border-gray-100 dark:border-gray-800/40">
           <div className="flex flex-wrap items-center gap-4 pb-3 xl:pb-0 justify-center xl:justify-start">
             <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">

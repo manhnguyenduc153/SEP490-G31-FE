@@ -2966,6 +2966,10 @@
     "showing": "Hiển thị {{start}} đến {{end}} trong tổng số {{total}} mục"
   },
   "notification": {
+    "dropdownTitle": "Thông báo",
+    "markAllAsRead": "Đánh dấu tất cả đã đọc",
+    "noNotifications": "Không có thông báo nào",
+    "system": "Hệ thống",
     "title": {
       "classCreated": "Lớp học mới được tạo",
       "classStatusChanged": "Cập nhật trạng thái lớp học",
