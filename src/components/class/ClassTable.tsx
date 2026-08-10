@@ -496,16 +496,16 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
           {/* Type Selector (Offline/Online) */}
           <div className="md:col-span-2">
             <label className="block mb-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
-              Loại lớp học
+              {t("class.formTypeLabel", { defaultValue: "Loại lớp học" })}
             </label>
             <SearchableSelect
               value={selectedType !== null ? selectedType : ""}
               onChange={(value) => { setSelectedType(value !== "" ? Number(value) : null); setCurrentPage(1); }}
               options={[
-                { value: 0, label: "Offline" },
-                { value: 1, label: "Online" }
+                { value: 0, label: t("registration.enrollTypeOffline", { defaultValue: "Offline" }) },
+                { value: 1, label: t("registration.enrollTypeOnline", { defaultValue: "Online" }) }
               ]}
-              placeholder="Tất cả loại lớp"
+              placeholder={t("class.filterTypeAll", { defaultValue: "Tất cả loại lớp" })}
               onClear={() => { setSelectedType(null); setCurrentPage(1); }}
             />
           </div>

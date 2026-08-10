@@ -372,7 +372,7 @@ export default function QuestionCategoryTable() {
                 isHeader
                 className="px-6 py-4 border-r border-gray-100 dark:border-white/[0.05] text-center font-semibold text-gray-800 text-theme-sm dark:text-gray-200"
               >
-                Khóa học
+                {t("questionCategory.colCourse")}
               </TableCell>
               <TableCell
                 isHeader
@@ -445,7 +445,7 @@ export default function QuestionCategoryTable() {
                       </span>
                     ) : (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                        Tất cả khóa học
+                        {t("questionCategory.allCourses")}
                       </span>
                     )}
                   </TableCell>
@@ -464,7 +464,7 @@ export default function QuestionCategoryTable() {
                       <PermissionGuard requiredPermission="QuestionCategory.Edit">
                         <button
                           type="button"
-                          title="Chỉnh sửa"
+                          title={t("questionCategory.editTooltip")}
                           onClick={() => openEditModal(item)}
                           className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-955/30 rounded-md transition-colors"
                         >
@@ -474,7 +474,7 @@ export default function QuestionCategoryTable() {
                       <PermissionGuard requiredPermission="QuestionCategory.Delete">
                         <button
                           type="button"
-                          title="Xóa"
+                          title={t("questionCategory.deleteTooltip")}
                           onClick={() => openDeleteModal(item)}
                           className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-955/30 rounded-md transition-colors"
                         >
