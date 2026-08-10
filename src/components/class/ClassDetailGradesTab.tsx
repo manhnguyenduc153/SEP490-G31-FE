@@ -41,6 +41,9 @@ const componentToRule = (component: GradeComponentDto): ScoreRule => ({
   isSystem: component.isSystem,
 });
 
+const isLegacyAttendanceComponent = (component: GradeComponentDto) =>
+  component.code.trim().toLowerCase() === "attendance";
+
 const calculateAverage = (row: ScoreRow, rules: ScoreRule[]) => {
   const totalWeight = rules.reduce((sum, rule) => sum + Math.max(0, Number(rule.weight) || 0), 0);
   if (totalWeight <= 0) return 0;
@@ -72,16 +75,12 @@ export default function ClassDetailGradesTab({
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
-  const [role, setRole] = useState("");
-  const [currentUsername, setCurrentUsername] = useState("");
   const [permissions, setPermissions] = useState<string[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const r = authApi.getRole().toLowerCase();
-    setRole(r);
     setIsAdmin(r === "admin");
-    setCurrentUsername(localStorage.getItem("username") || "");
     setPermissions(authApi.getPermissions());
   }, []);
 
@@ -108,7 +107,9 @@ export default function ClassDetailGradesTab({
         throw new Error(settingsRes.message || t("class.gradeLoadError", { defaultValue: "Could not load gradebook" }));
       }
 
-      const activeRules = settingsRes.data.components.map(componentToRule);
+      const activeRules = settingsRes.data.components
+        .filter((component) => !isLegacyAttendanceComponent(component))
+        .map(componentToRule);
       const activeOverrides = buildOverrideMap(settingsRes.data.overrides || []);
       const scoreRows = await buildClassScoreRows(classId, activeOverrides);
 
@@ -157,7 +158,6 @@ export default function ClassDetailGradesTab({
       return {
         ...row,
         componentScores: nextComponentScores,
-        attendanceScore: nextComponentScores.attendance ?? row.attendanceScore,
         homeworkScore: nextComponentScores.homework ?? row.homeworkScore,
         examScore: nextComponentScores.exam ?? row.examScore,
       };
@@ -323,6 +323,9 @@ export default function ClassDetailGradesTab({
       const scoreVal = row.componentScores[rule.id];
       return <span className="font-semibold text-gray-800 dark:text-gray-250">{scoreVal !== undefined && scoreVal !== null ? scoreVal.toFixed(1) : "-"}</span>;
     }
+    const overrideScore = overrides[row.studentId]?.[rule.id];
+    const rawScore = row.rawComponentScores[rule.id] ?? 0;
+    const inputValue = overrideScore !== undefined ? overrideScore : (rawScore === 0 ? "" : rawScore);
     return (
       <input
         type="number"
@@ -330,9 +333,10 @@ export default function ClassDetailGradesTab({
         min={0}
         max={10}
         step={0.1}
-        value={row.componentScores[rule.id] ?? 0}
+        value={inputValue}
         onChange={(event) => updateScore(row.studentId, rule.id, event.target.value)}
-        className="mx-auto h-9 w-20 rounded-lg border border-gray-200 bg-white px-2 text-center text-sm font-semibold text-gray-800 outline-none [appearance:textfield] focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        placeholder={t("class.gradeScorePlaceholder", { defaultValue: "Enter score" })}
+        className="mx-auto h-9 w-28 rounded-lg border border-gray-200 bg-white px-2 text-center text-sm font-semibold text-gray-800 outline-none [appearance:textfield] focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
     );
   };

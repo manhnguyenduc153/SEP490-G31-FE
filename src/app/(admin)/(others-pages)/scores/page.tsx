@@ -8,12 +8,13 @@ import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { GradeComponentDto, GradeComponentSaveDto, studentGradeApi } from "@/services/score.api";
 import { CheckCircle, Plus, RefreshCw, Save, Trash2, XCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { z } from "zod";
 
 interface ScoreRule {
   id: string;
   backendId?: number;
   name: string;
-  weight: number;
+  weight: string;
   sortOrder: number;
   isSystem: boolean;
 }
@@ -22,7 +23,7 @@ const componentToRule = (component: GradeComponentDto): ScoreRule => ({
   id: component.code,
   backendId: component.id,
   name: component.name,
-  weight: Number(component.weight),
+  weight: String(component.weight),
   sortOrder: component.sortOrder,
   isSystem: component.isSystem,
 });
@@ -37,6 +38,8 @@ export default function ScoresPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<"success" | "error">("success");
+  const [formErrors, setFormErrors] = useState<string[]>([]);
+  const [ruleErrors, setRuleErrors] = useState<Record<string, { name?: string; weight?: string }>>({});
 
   const selectedCourse = useMemo(
     () => courses.find((item) => item.id === selectedCourseId),
@@ -87,6 +90,8 @@ export default function ScoresPage() {
         throw new Error(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("class.gradeSettingsLoadError"));
       }
       setRules(res.data.map(componentToRule));
+      setFormErrors([]);
+      setRuleErrors({});
     } catch (err) {
       showToast(err instanceof Error ? err.message : t("class.gradeSettingsLoadError", { defaultValue: "Could not load score settings" }), "error");
       setRules([]);
@@ -98,21 +103,24 @@ export default function ScoresPage() {
   useEffect(() => {
     if (!selectedCourseId) {
       setRules([]);
+      setFormErrors([]);
+      setRuleErrors({});
       return;
     }
     loadRules(Number(selectedCourseId));
   }, [loadRules, selectedCourseId]);
 
   const updateRule = (id: string, patch: Partial<ScoreRule>) => {
-    setRules((current) => {
-      const next = current.map((rule) => rule.id === id ? { ...rule, ...patch } : rule);
-      const nextTotal = next.reduce((sum, rule) => sum + Math.max(0, Number(rule.weight) || 0), 0);
-      if (patch.weight !== undefined && nextTotal > 100) {
-        showToast(t("class.gradeTotalWeightExceeded", { defaultValue: "Total weight cannot exceed 100%" }), "error");
-        return current;
-      }
+    setRules((current) => current.map((rule) => rule.id === id ? { ...rule, ...patch } : rule));
+    setRuleErrors((current) => {
+      if (!current[id]) return current;
+      const next = { ...current, [id]: { ...current[id] } };
+      if (patch.name !== undefined) delete next[id].name;
+      if (patch.weight !== undefined) delete next[id].weight;
+      if (!next[id].name && !next[id].weight) delete next[id];
       return next;
     });
+    setFormErrors([]);
   };
 
   const addRule = () => {
@@ -121,7 +129,7 @@ export default function ScoresPage() {
       {
         id: `custom_${Date.now()}`,
         name: t("class.gradeNewComponent", { defaultValue: "New component" }),
-        weight: 0,
+        weight: "",
         sortOrder: current.length + 1,
         isSystem: false,
       },
@@ -130,30 +138,58 @@ export default function ScoresPage() {
 
   const removeRule = (id: string) => {
     setRules((current) => current.filter((rule) => rule.id !== id));
+    setRuleErrors((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+    setFormErrors([]);
   };
 
   const saveRules = async () => {
     if (!selectedCourseId) return;
-    if (!rules.length) {
-      showToast(t("class.gradeComponentEmpty", { defaultValue: "Please add at least one score component" }), "error");
+    const scoreConfigSchema = z.object({
+      rules: z.array(z.object({
+        name: z.string().trim()
+          .min(1, t("class.gradeComponentNameRequired"))
+          .max(200, t("class.gradeComponentNameMax")),
+        weight: z.string().trim()
+          .min(1, t("class.gradeWeightRequired"))
+          .refine((value) => !value || Number.isFinite(Number(value)), t("class.gradeWeightInvalid"))
+          .refine((value) => !value || (Number(value) >= 0 && Number(value) <= 100), t("class.gradeWeightRange")),
+      })).min(1, t("class.gradeComponentEmpty")),
+    }).superRefine((data, context) => {
+      const sum = data.rules.reduce((total, rule) => total + (Number(rule.weight) || 0), 0);
+      if (sum !== 100) {
+        context.addIssue({
+          code: "custom",
+          path: ["totalWeight"],
+          message: t("class.gradeTotalWeightMustBe100"),
+        });
+      }
+    });
+
+    const validation = scoreConfigSchema.safeParse({ rules });
+    if (!validation.success) {
+      const nextRuleErrors: Record<string, { name?: string; weight?: string }> = {};
+      validation.error.issues.forEach((issue) => {
+        if (issue.path[0] === "rules" && typeof issue.path[1] === "number") {
+          const rule = rules[issue.path[1]];
+          const field = issue.path[2];
+          if (rule && (field === "name" || field === "weight")) {
+            nextRuleErrors[rule.id] = { ...nextRuleErrors[rule.id], [field]: issue.message };
+          }
+        }
+      });
+      const errors = [...new Set(validation.error.issues.map((issue) => issue.message))];
+      setRuleErrors(nextRuleErrors);
+      setFormErrors(errors);
+      showToast(errors[0], "error");
       return;
     }
-    if (totalWeight > 100) {
-      showToast(t("class.gradeTotalWeightExceeded", { defaultValue: "Total weight cannot exceed 100%" }), "error");
-      return;
-    }
-    if (rules.some((rule) => !rule.name.trim())) {
-      showToast(t("class.gradeComponentNameRequired"), "error");
-      return;
-    }
-    if (rules.some((rule) => rule.name.trim().length > 200)) {
-      showToast(t("class.gradeComponentNameMax"), "error");
-      return;
-    }
-    if (rules.some((rule) => !Number.isFinite(Number(rule.weight)) || Number(rule.weight) < 0 || Number(rule.weight) > 100)) {
-      showToast(t("class.gradeWeightRange"), "error");
-      return;
-    }
+
+    setRuleErrors({});
+    setFormErrors([]);
 
     setIsSaving(true);
     try {
@@ -161,7 +197,7 @@ export default function ScoresPage() {
         id: rule.backendId,
         code: rule.id,
         name: rule.name,
-        weight: Number(rule.weight) || 0,
+        weight: Number(rule.weight),
         sortOrder: index + 1,
         isSystem: rule.isSystem,
       }));
@@ -174,7 +210,9 @@ export default function ScoresPage() {
       setRules(res.data.map(componentToRule));
       showToast(t("class.gradeRuleSaveSuccess", { defaultValue: "Score settings saved" }), "success");
     } catch (err) {
-      showToast(err instanceof Error ? err.message : t("class.gradeSaveError", { defaultValue: "Could not save score settings" }), "error");
+      const message = err instanceof Error ? err.message : t("class.gradeSaveError", { defaultValue: "Could not save score settings" });
+      setFormErrors([message]);
+      showToast(message, "error");
     } finally {
       setIsSaving(false);
     }
@@ -255,9 +293,15 @@ export default function ScoresPage() {
             </div>
 
             <div className="mb-4 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300">
-              {t("class.gradeTotalWeight", { defaultValue: "Total weight" })}: <span className={`font-bold ${totalWeight > 100 ? "text-rose-600 dark:text-rose-400" : "text-gray-900 dark:text-white"}`}>{totalWeight}%</span>
-              <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">{t("class.gradeTotalWeightLimit", { defaultValue: "Maximum 100%" })}</span>
+              {t("class.gradeTotalWeight", { defaultValue: "Total weight" })}: <span className={`font-bold ${totalWeight !== 100 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}`}>{totalWeight}%</span>
+              <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">{t("class.gradeTotalWeightRequired", { defaultValue: "Must equal 100%" })}</span>
             </div>
+
+            {formErrors.length > 0 && (
+              <div className="mb-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-600 dark:bg-rose-500/10 dark:text-rose-400">
+                {formErrors.map((error, index) => <div key={`${error}-${index}`}>• {error}</div>)}
+              </div>
+            )}
 
             {isLoadingRules ? (
               <div className="flex items-center justify-center py-16 text-sm text-gray-500">
@@ -281,8 +325,10 @@ export default function ScoresPage() {
                           <input
                             value={rule.name}
                             onChange={(event) => updateRule(rule.id, { name: event.target.value })}
-                            className="h-9 w-full max-w-md rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-gray-800 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                            className={`h-9 w-full max-w-md rounded-lg border bg-white px-3 text-sm font-medium text-gray-800 outline-none focus:ring-2 dark:bg-gray-900 dark:text-white ${ruleErrors[rule.id]?.name ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10" : "border-gray-200 focus:border-brand-400 focus:ring-brand-500/10 dark:border-gray-700"}`}
+                            aria-invalid={Boolean(ruleErrors[rule.id]?.name)}
                           />
+                          {ruleErrors[rule.id]?.name && <p className="mt-1 text-xs text-rose-500">{ruleErrors[rule.id].name}</p>}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <input
@@ -292,9 +338,12 @@ export default function ScoresPage() {
                             max={100}
                             step={1}
                             value={rule.weight}
-                            onChange={(event) => updateRule(rule.id, { weight: Number(event.target.value) })}
-                            className="mx-auto h-9 w-24 rounded-lg border border-gray-200 bg-white px-2 text-center text-sm font-semibold text-gray-800 outline-none [appearance:textfield] focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            onChange={(event) => updateRule(rule.id, { weight: event.target.value })}
+                            placeholder={t("class.gradeWeightPlaceholder")}
+                            className={`mx-auto h-9 w-24 rounded-lg border bg-white px-2 text-center text-sm font-semibold text-gray-800 outline-none [appearance:textfield] focus:ring-2 dark:bg-gray-900 dark:text-white [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${ruleErrors[rule.id]?.weight ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10" : "border-gray-200 focus:border-brand-400 focus:ring-brand-500/10 dark:border-gray-700"}`}
+                            aria-invalid={Boolean(ruleErrors[rule.id]?.weight)}
                           />
+                          {ruleErrors[rule.id]?.weight && <p className="mt-1 text-xs text-rose-500">{ruleErrors[rule.id].weight}</p>}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <PermissionGuard requiredPermission="StudentGrade.Delete">
