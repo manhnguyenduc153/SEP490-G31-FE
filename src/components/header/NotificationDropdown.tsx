@@ -275,7 +275,7 @@ export default function NotificationDropdown() {
       >
         <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100 dark:border-gray-700">
           <h5 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-            Thông báo ({unreadCount})
+            {t("notification.dropdownTitle", { defaultValue: "Thông báo" })} ({unreadCount})
           </h5>
           <button
             onClick={toggleDropdown}
@@ -314,7 +314,7 @@ export default function NotificationDropdown() {
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
                 <path d="M13.73 21a2 2 0 0 1-3.46 0" />
               </svg>
-              <span className="text-sm">Không có thông báo nào</span>
+              <span className="text-sm">{t("notification.noNotifications", { defaultValue: "Không có thông báo nào" })}</span>
             </div>
           ) : (
             notifications.map((notif) => {
@@ -365,7 +365,7 @@ export default function NotificationDropdown() {
                       </span>
 
                       <span className="flex items-center gap-1.5 text-gray-500 text-[10px] dark:text-gray-400">
-                        <span>Hệ thống</span>
+                        <span>{t("notification.system", { defaultValue: "Hệ thống" })}</span>
                         <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
                         <span>{timeAgo(notif.sentAt)}</span>
                       </span>
@@ -383,7 +383,7 @@ export default function NotificationDropdown() {
             }}
             className="block w-full px-4 py-2 mt-3 text-sm font-medium text-center text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/40"
           >
-            Đánh dấu tất cả đã đọc
+            {t("notification.markAllAsRead", { defaultValue: "Đánh dấu tất cả đã đọc" })}
           </button>
         )}
       </Dropdown>
