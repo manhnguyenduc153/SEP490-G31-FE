@@ -152,6 +152,12 @@ export function QuestionViewModal({ isOpen, onClose, passage, childQuestions = [
                     </span>
                   </div>
 
+                  {q.instruction && (
+                    <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-lg px-2.5 py-1.5 whitespace-pre-wrap">
+                      {q.instruction}
+                    </p>
+                  )}
+
                   <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                     {q.content || q.name}
                   </p>

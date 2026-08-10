@@ -174,7 +174,7 @@ export default function ExamDetailPage() {
 
     const stdAns = studentAnswerContent.trim().toLowerCase();
 
-    if (q.questionType === 1 || q.questionType === 4) {
+    if (q.questionType === 1 || q.questionType === 4 || q.questionType === 6 || q.questionType === 7) {
       return correctOptions.includes(stdAns) || correctOptionIds.includes(stdAns);
     } else if (q.questionType === 2) {
       const stdAnswers = stdAns.split(",").map(s => s.trim());
@@ -597,8 +597,15 @@ export default function ExamDetailPage() {
               const showStudentResult = examViewMode === "student";
 
               return (
+                <React.Fragment key={q.id}>
+                {q.instruction && (
+                  <div className="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-xl">
+                    <p className="text-sm font-semibold text-blue-800 dark:text-blue-300 whitespace-pre-wrap leading-relaxed">
+                      {q.instruction}
+                    </p>
+                  </div>
+                )}
                 <div
-                  key={q.id}
                   className={`p-6 bg-white dark:bg-gray-900 border rounded-2xl space-y-4 shadow-theme-xs transition-all duration-205 ${
                     !showStudentResult || !studentAnswer
                       ? "border-gray-200 dark:border-gray-800"
@@ -660,7 +667,7 @@ export default function ExamDetailPage() {
                       </span>
                       <audio controls src={getFileUrl(studentAnswer)} className="w-full h-9 rounded-lg" />
                     </div>
-                  ) : q.questionType === 3 ? (
+                  ) : (q.questionType === 3 || q.questionType === 6) ? (
                     <div className="space-y-1.5">
                       <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
                         {showStudentResult ? t("exams.studentSelectYourAnswer") : t("exams.tabQuestions")}
@@ -732,6 +739,7 @@ export default function ExamDetailPage() {
                     </div>
                   )}
                 </div>
+                </React.Fragment>
               );
             })}
           </div>

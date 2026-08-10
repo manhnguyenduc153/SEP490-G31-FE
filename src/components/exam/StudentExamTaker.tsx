@@ -47,6 +47,45 @@ const countWords = (text?: string | null) => {
   return trimmed === "" ? 0 : trimmed.split(/\s+/).length;
 };
 
+// Fill-in-Blank authoring convention: a run of 3+ underscores ("___") inside a question's
+// content marks where the inline input goes (e.g. "You need to pay ___ for the visa.").
+// Returns null when no marker is present, so callers can fall back to the plain layout.
+const splitInlineBlank = (content?: string | null): { before: string; after: string } | null => {
+  const match = /_{3,}/.exec(content || "");
+  if (!match) return null;
+  return {
+    before: (content || "").slice(0, match.index).trimEnd(),
+    after: (content || "").slice(match.index + match[0].length).trimStart(),
+  };
+};
+
+// Note/Form/Table Completion (e.g. IELTS Listening) packs several Fill-in-Blank questions into
+// one continuous notes block instead of separate cards. Consecutive runs of 2+ Fill-in-Blank
+// (questionType 6) questions are grouped for that compact layout; everything else — and lone
+// Fill-in-Blank questions — keeps the regular one-card-per-question layout.
+type QuestionSegment =
+  | { kind: "notes"; questions: QuestionItem[] }
+  | { kind: "single"; question: QuestionItem };
+
+const segmentQuestions = (questions: QuestionItem[]): QuestionSegment[] => {
+  const segments: QuestionSegment[] = [];
+  let i = 0;
+  while (i < questions.length) {
+    if (questions[i].questionType === 6) {
+      let j = i;
+      while (j < questions.length && questions[j].questionType === 6) j++;
+      if (j - i >= 2) {
+        segments.push({ kind: "notes", questions: questions.slice(i, j) });
+        i = j;
+        continue;
+      }
+    }
+    segments.push({ kind: "single", question: questions[i] });
+    i++;
+  }
+  return segments;
+};
+
 interface StudentExamTakerProps {
   examId: number;
   onBack: () => void;
@@ -783,6 +822,10 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
     const answeredCount = Object.keys(chosenAnswers).filter(k => chosenAnswers[Number(k)]).length;
     const isLowTime = exam.duration && timeLeft > 0 && timeLeft <= 60;
     const currentPart = parts[currentPartIndex] ?? { passage: null, questions: [] };
+    // Listening passages are usually audio-only (already played via the pinned bar above) —
+    // only reserve a left pane when there's actual text/image content worth showing next to
+    // the questions, otherwise let the questions use the full width.
+    const showPassagePane = !!(currentPart.passage && (currentPart.passage.content || currentPart.passage.attachmentUrl));
 
     // One question card — shared by every part (passage-backed or standalone) to avoid
     // duplicating the MCQ / textarea / speaking-upload JSX per rendering site.
@@ -798,11 +841,18 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
       const isManuallyGradedQ = isSpeakingQ || q.skillType === 4 || passage?.skillType === 4;
 
       return (
-        <div
-          key={q.id}
-          id={`question-${q.id}`}
-          className="p-5 bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 rounded-xl shadow-xs space-y-3 scroll-mt-6"
-        >
+        <React.Fragment key={q.id}>
+          {q.instruction && (
+            <div className="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-xl">
+              <p className="text-sm font-semibold text-blue-800 dark:text-blue-300 whitespace-pre-wrap leading-relaxed">
+                {q.instruction}
+              </p>
+            </div>
+          )}
+          <div
+            id={`question-${q.id}`}
+            className="p-5 bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 rounded-xl shadow-xs space-y-3 scroll-mt-6"
+          >
           <div className="flex items-start justify-between gap-3 border-b border-gray-200/60 dark:border-gray-800 pb-2.5">
             <h4 className="text-sm font-bold text-brand-600 dark:text-brand-400 flex items-center gap-2">
               {t("exams.question")} {globalIdx + 1}
@@ -906,6 +956,32 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                 {t("exams.wordCount")}: {countWords(chosenValue)}
               </div>
             </div>
+          ) : q.questionType === 6 && !isSpeakingQ ? (
+            <div className="space-y-1.5 mt-3">
+              <label className="text-xs text-gray-400 font-bold uppercase tracking-wider block">{t("exams.studentSelectYourAnswer")}</label>
+              <input
+                type="text"
+                value={chosenValue}
+                onChange={(e) => handleTextAnswerChange(q.id, e.target.value)}
+                placeholder={t("exams.studentAnswerPlaceholder")}
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-900 dark:text-white"
+              />
+            </div>
+          ) : q.questionType === 7 && !isSpeakingQ ? (
+            <div className="mt-3">
+              <select
+                value={chosenValue}
+                onChange={(e) => handleSelectChoice(q.id, e.target.value, false)}
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-900 dark:text-white"
+              >
+                <option value="" disabled>{t("exams.studentSelectYourAnswer")}</option>
+                {q.questionAnswers.map((option: any) => (
+                  <option key={option.id} value={option.content}>
+                    {option.content}
+                  </option>
+                ))}
+              </select>
+            </div>
           ) : !isSpeakingQ ? (
             <div className="grid grid-cols-1 gap-3 mt-3">
               {q.questionAnswers.map((option: any, optIdx: number) => {
@@ -941,6 +1017,59 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
               })}
             </div>
           ) : null}
+          </div>
+        </React.Fragment>
+      );
+    };
+
+    // Note/Form/Table Completion: several Fill-in-Blank questions rendered as one continuous
+    // block (numbered inline inputs) instead of separate cards — see segmentQuestions().
+    const renderNotesGroup = (group: QuestionItem[]) => {
+      const firstQ = group[0];
+      return (
+        <div
+          key={`notes-${firstQ.id}`}
+          className="p-5 bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 rounded-xl shadow-xs space-y-2.5"
+        >
+          {group.map((q) => {
+            const globalIdx = questions.findIndex((x) => x.id === q.id);
+            const chosenValue = chosenAnswers[q.id] || "";
+            const inline = splitInlineBlank(q.content);
+            const inputEl = (
+              <input
+                type="text"
+                value={chosenValue}
+                onChange={(e) => handleTextAnswerChange(q.id, e.target.value)}
+                className="w-40 rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+              />
+            );
+            return (
+              <React.Fragment key={q.id}>
+                {q.instruction && (
+                  <p className="text-xs font-bold text-gray-600 dark:text-gray-300 tracking-wide whitespace-pre-wrap pt-2 first:pt-0">
+                    {q.instruction}
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center gap-2 text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-500 text-white text-[11px] font-black shrink-0">
+                    {globalIdx + 1}
+                  </span>
+                  {inline ? (
+                    <>
+                      {inline.before && <span className="whitespace-pre-wrap">{inline.before}</span>}
+                      {inputEl}
+                      {inline.after && <span className="whitespace-pre-wrap">{inline.after}</span>}
+                    </>
+                  ) : (
+                    <>
+                      <span className="whitespace-pre-wrap">{q.content}</span>
+                      {inputEl}
+                    </>
+                  )}
+                </div>
+              </React.Fragment>
+            );
+          })}
         </div>
       );
     };
@@ -1006,7 +1135,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
               <div className="flex-1 flex overflow-hidden">
 
                 {/* Passage / prompt pane */}
-                {currentPart.passage && (
+                {showPassagePane && currentPart.passage && (
                   <div className="w-1/2 shrink-0 overflow-y-auto px-6 py-5 border-r border-gray-200 dark:border-gray-800 space-y-4">
                     <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
                       <div>
@@ -1049,9 +1178,22 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                 )}
 
                 {/* Questions pane */}
-                <div className={`${currentPart.passage ? "w-1/2" : "flex-1"} overflow-y-auto px-6 py-5 space-y-4`}>
+                <div className={`${showPassagePane ? "w-1/2" : "flex-1"} overflow-y-auto px-6 py-5 space-y-4`}>
+                  {!showPassagePane && currentPart.passage && (
+                    <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3 mb-1">
+                      <div>
+                        <span className="text-xs font-mono font-bold text-gray-400">({currentPart.passage.code})</span>
+                        <h3 className="text-base font-bold text-gray-900 dark:text-white mt-0.5">{currentPart.passage.title}</h3>
+                      </div>
+                      <span className="text-xs font-semibold text-gray-500">({t("exams.questionsCount", { count: currentPart.questions.length })})</span>
+                    </div>
+                  )}
                   {currentPart.questions.length > 0 ? (
-                    currentPart.questions.map((q) => renderQuestionCard(q, currentPart.passage))
+                    segmentQuestions(currentPart.questions).map((seg) =>
+                      seg.kind === "notes"
+                        ? renderNotesGroup(seg.questions)
+                        : renderQuestionCard(seg.question, currentPart.passage)
+                    )
                   ) : (
                     <div className="flex items-center justify-center h-full text-sm text-gray-400 font-semibold">
                       {t("exams.noPassageContent")}
@@ -1280,10 +1422,18 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                     const isCorrect = attemptAns?.isCorrect;
                     const questionPoints = q.point || 1;
                     const isMultiple = q.questionType === 2;
+                    const inlineBlank = q.questionType === 6 ? splitInlineBlank(q.content) : null;
 
                     return (
+                      <React.Fragment key={q.id}>
+                      {q.instruction && (
+                        <div className="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-xl">
+                          <p className="text-sm font-semibold text-blue-800 dark:text-blue-300 whitespace-pre-wrap leading-relaxed">
+                            {q.instruction}
+                          </p>
+                        </div>
+                      )}
                       <div
-                        key={q.id}
                         className={`p-5 bg-white dark:bg-gray-900 border rounded-xl shadow-xs space-y-3 ${
                           !studentAnswer
                             ? "border-gray-200 dark:border-gray-800"
@@ -1335,12 +1485,22 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                             </span>
                             <audio controls src={getFileUrl(studentAnswer)} className="w-full h-9 rounded-lg" />
                           </div>
-                        ) : q.questionType === 3 ? (
+                        ) : (q.questionType === 3 || q.questionType === 6) ? (
                           <div className="space-y-1.5 mt-3">
                             <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">{t("exams.studentSelectYourAnswer")}</span>
-                            <p className="text-sm bg-gray-50 dark:bg-gray-950 p-3 rounded-xl border border-gray-150 dark:border-gray-850 font-semibold whitespace-pre-line text-gray-800 dark:text-gray-200">
-                              {studentAnswer || <span className="italic text-gray-400">{t("exams.attemptUnanswered")}</span>}
-                            </p>
+                            {inlineBlank ? (
+                              <p className="text-sm bg-gray-50 dark:bg-gray-950 p-3 rounded-xl border border-gray-150 dark:border-gray-850 font-semibold leading-relaxed whitespace-pre-wrap text-gray-800 dark:text-gray-200">
+                                {inlineBlank.before}{" "}
+                                <span className={studentAnswer ? (isCorrect ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400") : "italic text-gray-400"}>
+                                  {studentAnswer || t("exams.attemptUnanswered")}
+                                </span>{" "}
+                                {inlineBlank.after}
+                              </p>
+                            ) : (
+                              <p className="text-sm bg-gray-50 dark:bg-gray-950 p-3 rounded-xl border border-gray-150 dark:border-gray-850 font-semibold whitespace-pre-line text-gray-800 dark:text-gray-200">
+                                {studentAnswer || <span className="italic text-gray-400">{t("exams.attemptUnanswered")}</span>}
+                              </p>
+                            )}
                           </div>
                         ) : (
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
@@ -1398,6 +1558,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                           </div>
                         )}
                       </div>
+                      </React.Fragment>
                     );
                   })}
                 </div>
@@ -1412,10 +1573,18 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
               const isCorrect = attemptAns?.isCorrect;
               const questionPoints = q.point || 1;
               const isMultiple = q.questionType === 2;
+              const inlineBlank = q.questionType === 6 ? splitInlineBlank(q.content) : null;
 
               return (
+                <React.Fragment key={q.id}>
+                {q.instruction && (
+                  <div className="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-xl">
+                    <p className="text-sm font-semibold text-blue-800 dark:text-blue-300 whitespace-pre-wrap leading-relaxed">
+                      {q.instruction}
+                    </p>
+                  </div>
+                )}
                 <div
-                  key={q.id}
                   className={`p-6 bg-white dark:bg-gray-900 border rounded-2xl shadow-theme-xs space-y-4 ${
                     !studentAnswer
                       ? "border-gray-200 dark:border-gray-800"
@@ -1465,12 +1634,22 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                       </span>
                       <audio controls src={getFileUrl(studentAnswer)} className="w-full h-9 rounded-lg" />
                     </div>
-                  ) : q.questionType === 3 ? (
+                  ) : (q.questionType === 3 || q.questionType === 6) ? (
                     <div className="space-y-1 mt-3">
                       <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">{t("exams.studentSelectYourAnswer")}</span>
-                      <p className="text-sm bg-gray-50 dark:bg-gray-950 p-3 rounded-xl border border-gray-150 dark:border-gray-850 font-semibold whitespace-pre-line text-gray-800 dark:text-gray-200">
-                        {studentAnswer || <span className="italic text-gray-400">{t("exams.attemptUnanswered")}</span>}
-                      </p>
+                      {inlineBlank ? (
+                        <p className="text-sm bg-gray-50 dark:bg-gray-950 p-3 rounded-xl border border-gray-150 dark:border-gray-850 font-semibold leading-relaxed whitespace-pre-wrap text-gray-800 dark:text-gray-200">
+                          {inlineBlank.before}{" "}
+                          <span className={studentAnswer ? (isCorrect ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400") : "italic text-gray-400"}>
+                            {studentAnswer || t("exams.attemptUnanswered")}
+                          </span>{" "}
+                          {inlineBlank.after}
+                        </p>
+                      ) : (
+                        <p className="text-sm bg-gray-50 dark:bg-gray-950 p-3 rounded-xl border border-gray-150 dark:border-gray-850 font-semibold whitespace-pre-line text-gray-800 dark:text-gray-200">
+                          {studentAnswer || <span className="italic text-gray-400">{t("exams.attemptUnanswered")}</span>}
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
@@ -1528,6 +1707,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                     </div>
                   )}
                 </div>
+                </React.Fragment>
               );
             })}
           </div>
