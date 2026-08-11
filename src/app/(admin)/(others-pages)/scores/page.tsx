@@ -235,8 +235,8 @@ export default function ScoresPage() {
         <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xs dark:border-gray-800 dark:bg-gray-900">
           <div className="flex flex-col gap-3 border-b border-gray-100 px-6 py-5 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">{t("sidebar.scoreSettings")}</h2>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("class.gradeCourseWeightHelp")}</p>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t("sidebar.scoreSettings")}</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t("class.gradeCourseWeightHelp")}</p>
             </div>
             <PermissionGuard requiredPermission="StudentGrade.Create">
               <button onClick={addRule} disabled={!selectedCourseId} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">

@@ -102,8 +102,8 @@ export default function HomeworkPage({ studentMode = false }: { studentMode?: bo
       <div className="mb-6 overflow-hidden rounded-xl border border-gray-100 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="flex flex-col gap-3 border-b border-gray-100 px-6 py-5 dark:border-white/[0.05] sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">{studentMode ? t("homework.myHomework", { defaultValue: "Bài tập của tôi" }) : t("homework.title", { defaultValue: "Bài tập" })}</h2>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{studentMode ? t("homework.studentDescription", { defaultValue: "Xem và nộp bài tập của các lớp đang học." }) : t("homework.description", { defaultValue: "Quản lý toàn bộ bài tập." })}</p>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">{studentMode ? t("homework.myHomework", { defaultValue: "Bài tập của tôi" }) : t("homework.title", { defaultValue: "Bài tập" })}</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{studentMode ? t("homework.studentDescription", { defaultValue: "Xem và nộp bài tập của các lớp đang học." }) : t("homework.description", { defaultValue: "Quản lý toàn bộ bài tập." })}</p>
           </div>
           {!studentMode && <PermissionGuard requiredPermission="HomeworkManagement.Create">
             <button onClick={() => { setEditingItem(null); setActiveView("form"); }} disabled={!selectedClassId} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">

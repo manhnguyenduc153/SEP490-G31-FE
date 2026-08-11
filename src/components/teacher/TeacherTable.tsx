@@ -378,8 +378,8 @@ export default function TeacherTable({
       <div className="space-y-5 border-b border-gray-100 px-6 py-5 dark:border-white/[0.05]">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">{t("teacher.title")}</h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("teacher.description")}</p>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t("teacher.title")}</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t("teacher.description")}</p>
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
