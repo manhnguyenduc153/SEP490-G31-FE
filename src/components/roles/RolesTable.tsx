@@ -644,12 +644,6 @@ export default function RolesTable() {
                         </svg>
                       </button>
                       <button
-                        title={t("roles.editTooltip")}
-                        className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md transition-colors"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
                         onClick={() => openDeleteModal(role)}
                         title={t("roles.deleteTooltip")}
                         className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors"
