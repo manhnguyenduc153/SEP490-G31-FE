@@ -5,13 +5,12 @@ import { authApi } from "@/services/auth.api";
 
 // Mapping từ URL route sang Permission tương ứng
 const routePermissions: Record<string, string | string[]> = {
-  "/dashboard": "Dashboard",
   "/courses": "Course",
   "/classes": "Class",
   "/teachers": "Teacher",
   "/students": "Student",
   "/rooms": "Room",
-  "/schedules": "ClassSchedule",
+  "/schedules": "Schedule",
   "/exams": "Exam.View",
   "/my-exams": "StudentExam",
   "/my-classes": "MyClass",
