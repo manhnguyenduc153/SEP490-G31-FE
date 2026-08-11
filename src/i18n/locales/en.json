@@ -184,7 +184,7 @@
     "signOut": "Sign out"
   },
   "sidebar": {
-    "myAttendance": "My attendance",
+    "myAttendance": "My Attendance",
     "dashboard": "Dashboard",
     "academicOperations": "Academic Operations",
     "semesters": "Semesters",
@@ -203,12 +203,12 @@
     "timetable": "Timetable",
     "assessments": "Assessments",
     "exams": "Exams",
-    "homework": "Homework management",
-    "myHomework": "My homework",
+    "homework": "Homework Management",
+    "myHomework": "My Homework",
     "questionBank": "Question Bank",
     "questionCategory": "Question Category",
     "scores": "Scores",
-    "scoreSettings": "Score settings",
+    "scoreSettings": "Score Settings",
     "myScores": "Scores",
     "learning": "Learning",
     "learningMaterials": "Learning Materials",
@@ -649,6 +649,8 @@
     "formDescPlaceholder": "Enter description...",
     "btnCancel": "Cancel",
     "btnSave": "Save",
+    "btnUpdate": "Update",
+    "btnSaving": "Saving...",
     "deleteConfirmTitle": "Delete Category",
     "deleteConfirmDesc": "Are you sure you want to delete category \"{{name}}\"? This action cannot be undone.",
     "btnDelete": "Delete",
@@ -1746,6 +1748,7 @@
     "filterSemesterAll": "All Semesters",
     "filterCourseAll": "All Courses",
     "filterTeacherAll": "All Teachers",
+    "filterTypeAll": "All Class Types",
     "clearFiltersBtn": "Clear Filters",
     "searchLabel": "Search",
     "colSemester": "Semester",
@@ -2976,6 +2979,10 @@
     "showing": "Showing {{start}} to {{end}} of {{total}} entries"
   },
   "notification": {
+    "dropdownTitle": "Notifications",
+    "markAllAsRead": "Mark all as read",
+    "noNotifications": "No notifications",
+    "system": "System",
     "title": {
       "classCreated": "New Class Created",
       "classStatusChanged": "Class Status Updated",
