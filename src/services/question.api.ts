@@ -15,6 +15,9 @@ export interface QuestionItem {
   code: string;
   name: string; // Title
   content: string;
+  // Shared instruction shown once above a group of same-sub-format questions
+  // (e.g. "Which paragraph contains each of the following pieces of information?").
+  instruction?: string | null;
   questionType: number;
   questionTypeName: string;
   skillType?: number;
@@ -50,6 +53,7 @@ export interface QuestionSaveDto {
   code?: string;
   name?: string; // Title
   content: string;
+  instruction?: string | null;
   questionType: number;
   skillType?: number;
   difficultyLevel: number;

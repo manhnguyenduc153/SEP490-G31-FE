@@ -162,9 +162,10 @@ export function QuestionForm({ id }: QuestionFormProps) {
                 code: q.code || `Q_${idx + 1}`,
                 name: q.name || `Question ${idx + 1}`,
                 content: q.content,
+                instruction: q.instruction ?? "",
                 questionType: q.questionType,
                 difficultyLevel: q.difficultyLevel,
-                point: 1,
+                point: q.point ?? 1,
                 explanation: q.explanation ?? "",
                 mediaUrl: q.mediaUrl ?? "",
                 answers: (q.answers || q.questionAnswers || []).map((a) => ({
@@ -194,9 +195,10 @@ export function QuestionForm({ id }: QuestionFormProps) {
               code: qData.code,
               name: qData.name,
               content: qData.content,
+              instruction: qData.instruction ?? "",
               questionType: qData.questionType,
               difficultyLevel: qData.difficultyLevel,
-              point: 1,
+              point: qData.point ?? 1,
               explanation: qData.explanation ?? "",
               mediaUrl: qData.mediaUrl ?? "",
               answers: (qData.answers || qData.questionAnswers || []).map((a) => ({
@@ -255,18 +257,49 @@ export function QuestionForm({ id }: QuestionFormProps) {
     );
   };
 
+  // Switching into True/False/Not Given, Fill-in-Blank or Paragraph Matching needs a
+  // fundamentally different answer-list shape, so seed a sensible default for those.
+  const handleChangeQuestionType = (qIndex: number, newType: number) => {
+    setChildQuestions((prev) =>
+      prev.map((q, idx) => {
+        if (idx !== qIndex) return q;
+        let answers = q.answers;
+        if (newType === 4) {
+          answers = [
+            { content: "True", isCorrect: false },
+            { content: "False", isCorrect: false },
+            { content: "Not Given", isCorrect: false },
+          ];
+        } else if (newType === 6) {
+          answers = [{ content: "", isCorrect: true }];
+        } else if (newType === 7) {
+          answers = ["A", "B", "C", "D", "E"].map((label) => ({ content: label, isCorrect: false }));
+        }
+        return { ...q, questionType: newType, answers };
+      })
+    );
+  };
+
   // ── Answer Actions for Child Question ──
+  // Types 1 (SingleChoice) and 4 (TrueFalse/NotGiven) only ever allow one correct option
+  // at a time (ParagraphMatching's correct answer is set via its own dropdown, not this toggle).
+  const isSingleCorrectType = (questionType: number) => questionType === 1 || questionType === 4;
+
   const handleAddAnswer = (qIndex: number) => {
     setChildQuestions((prev) =>
       prev.map((q, idx) => {
         if (idx !== qIndex) return q;
         const currentAns = q.answers || [];
         const label = String.fromCharCode(65 + currentAns.length);
+        const isFillInBlank = q.questionType === 6;
+        const isParagraphMatching = q.questionType === 7;
         return {
           ...q,
           answers: [
             ...currentAns,
-            { content: t("questionPassage.answerPlaceholder", { label }), isCorrect: false },
+            isFillInBlank
+              ? { content: "", isCorrect: true }
+              : { content: isParagraphMatching ? label : t("questionPassage.answerPlaceholder", { label }), isCorrect: false },
           ],
         };
       })
@@ -278,13 +311,32 @@ export function QuestionForm({ id }: QuestionFormProps) {
       prev.map((q, idx) => {
         if (idx !== qIndex) return q;
         const currentAns = q.answers || [];
-        if (currentAns.length <= 2) {
-          alert(t("question.valMinAnswers"));
+        const minAllowed = q.questionType === 6 ? 1 : 2;
+        if (currentAns.length <= minAllowed) {
+          alert(minAllowed === 1 ? t("questionPassage.errMinOneAcceptedAnswer") : t("question.valMinAnswers"));
           return q;
+        }
+        let remaining = currentAns.filter((_, ai) => ai !== aIndex);
+        // Keep paragraph letters contiguous (A, B, C…) after removing one from the middle.
+        if (q.questionType === 7) {
+          remaining = remaining.map((a, i) => ({ ...a, content: String.fromCharCode(65 + i) }));
         }
         return {
           ...q,
-          answers: currentAns.filter((_, ai) => ai !== aIndex),
+          answers: remaining,
+        };
+      })
+    );
+  };
+
+  // Paragraph Matching: pick the single correct paragraph letter via dropdown.
+  const handleSetParagraphCorrect = (qIndex: number, letter: string) => {
+    setChildQuestions((prev) =>
+      prev.map((q, idx) => {
+        if (idx !== qIndex) return q;
+        return {
+          ...q,
+          answers: (q.answers || []).map((a) => ({ ...a, isCorrect: a.content === letter })),
         };
       })
     );
@@ -308,7 +360,7 @@ export function QuestionForm({ id }: QuestionFormProps) {
       prev.map((q, idx) => {
         if (idx !== qIndex) return q;
         const currentAns = q.answers || [];
-        const isSingleChoice = q.questionType === 1;
+        const isSingleChoice = isSingleCorrectType(q.questionType);
 
         return {
           ...q,
@@ -354,12 +406,14 @@ export function QuestionForm({ id }: QuestionFormProps) {
           validationFailed = true;
           break;
         }
-        if ((q.questionType === 1 || q.questionType === 2) && (!q.answers || q.answers.length === 0)) {
+        const needsAnswers = q.questionType === 1 || q.questionType === 2 || q.questionType === 4 || q.questionType === 6 || q.questionType === 7;
+        if (needsAnswers && (!q.answers || q.answers.length === 0)) {
           setFormError(t("questionPassage.errAnswersEmpty", { index: i + 1 }));
           validationFailed = true;
           break;
         }
-        if ((q.questionType === 1 || q.questionType === 2) && !q.answers?.some((a) => a.isCorrect)) {
+        // Fill-in-Blank has no "correct" toggle — every listed answer is an accepted variant.
+        if (needsAnswers && q.questionType !== 6 && !q.answers?.some((a) => a.isCorrect)) {
           setFormError(t("questionPassage.errNoCorrectAnswer", { index: i + 1 }));
           validationFailed = true;
           break;
@@ -409,7 +463,7 @@ export function QuestionForm({ id }: QuestionFormProps) {
       }
 
       if (res.success) {
-        sessionStorage.setItem("questionToastMessage", isEdit ? "Cập nhật bộ câu hỏi thành công!" : "Tạo mới bộ câu hỏi thành công!");
+        sessionStorage.setItem("questionToastMessage", isEdit ? t("questionPassage.updateSuccess") : t("questionPassage.createSuccess"));
         sessionStorage.setItem("questionToastType", "success");
         router.push("/question-bank");
       } else {
@@ -820,20 +874,59 @@ export function QuestionForm({ id }: QuestionFormProps) {
                 </button>
               </div>
 
+              {/* Group Instruction (optional) — shown once above this question, e.g. for the first
+                  question of a paragraph-matching or gap-fill group. Leave blank for other questions
+                  in the same group. */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t("questionPassage.colGroupInstruction")}
+                </label>
+                <textarea
+                  value={q.instruction ?? ""}
+                  onChange={(e) => handleUpdateQuestion(qIdx, "instruction", e.target.value)}
+                  placeholder={t("questionPassage.colGroupInstructionPlaceholder")}
+                  rows={2}
+                  className="w-full rounded-xl border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white resize-y"
+                />
+                <p className="mt-1 text-[11px] text-gray-400">{t("questionPassage.colGroupInstructionHint")}</p>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                 {/* Question Content */}
                 <div className="md:col-span-8">
                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    {t("questionPassage.colQuestionContent")} <span className="text-rose-500">*</span>
+                    {q.questionType === 7 ? t("questionPassage.colQuestionContentParagraphLabel") : t("questionPassage.colQuestionContent")}{" "}
+                    <span className="text-rose-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    required
-                    value={q.content}
-                    onChange={(e) => handleUpdateQuestion(qIdx, "content", e.target.value)}
-                    placeholder="e.g. What is the main idea of paragraph 1?"
-                    className="w-full rounded-xl border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                  />
+                  {q.questionType === 6 ? (
+                    <textarea
+                      required
+                      value={q.content}
+                      onChange={(e) => handleUpdateQuestion(qIdx, "content", e.target.value)}
+                      placeholder={t("questionPassage.colQuestionContentBlankPlaceholder")}
+                      rows={2}
+                      className="w-full rounded-xl border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white resize-y"
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      required
+                      value={q.content}
+                      onChange={(e) => handleUpdateQuestion(qIdx, "content", e.target.value)}
+                      placeholder={
+                        q.questionType === 7
+                          ? t("questionPassage.colQuestionContentParagraphPlaceholder")
+                          : "e.g. What is the main idea of paragraph 1?"
+                      }
+                      className="w-full rounded-xl border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                    />
+                  )}
+                  {q.questionType === 7 && (
+                    <p className="mt-1 text-[11px] text-gray-400">{t("questionPassage.colQuestionContentParagraphHint")}</p>
+                  )}
+                  {q.questionType === 6 && (
+                    <p className="mt-1 text-[11px] text-gray-400">{t("questionPassage.colQuestionContentBlankHint")}</p>
+                  )}
                 </div>
 
                 {/* Question Type */}
@@ -843,38 +936,52 @@ export function QuestionForm({ id }: QuestionFormProps) {
                   </label>
                   <select
                     value={q.questionType}
-                    onChange={(e) => handleUpdateQuestion(qIdx, "questionType", Number(e.target.value))}
+                    onChange={(e) => handleChangeQuestionType(qIdx, Number(e.target.value))}
                     className="w-full rounded-xl border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                   >
                     <option value={1} className="dark:bg-gray-900">{t("questionPassage.typeSingleChoice")}</option>
                     <option value={2} className="dark:bg-gray-900">{t("questionPassage.typeMultipleChoice")}</option>
                     <option value={3} className="dark:bg-gray-900">{t("questionPassage.typeEssayText")}</option>
-                    <option value={4} className="dark:bg-gray-900">{t("questionPassage.typeAudioRecord")}</option>
+                    <option value={4} className="dark:bg-gray-900">{t("questionPassage.typeTrueFalse")}</option>
+                    <option value={5} className="dark:bg-gray-900">{t("questionPassage.typeAudioRecord")}</option>
+                    <option value={6} className="dark:bg-gray-900">{t("questionPassage.typeFillInBlank")}</option>
+                    <option value={7} className="dark:bg-gray-900">{t("questionPassage.typeParagraphMatching")}</option>
                   </select>
                 </div>
               </div>
 
-              {/* Answer Options for Choice Questions */}
-              {(q.questionType === 1 || q.questionType === 2) && (
+              {/* Answer Options for Choice / True-False Questions */}
+              {(q.questionType === 1 || q.questionType === 2 || q.questionType === 4) && (
                 <div className="space-y-3 pt-2">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                       {t("questionPassage.answersTitle")}
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => handleAddAnswer(qIdx)}
-                      className="text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400"
-                    >
-                      {t("questionPassage.btnAddAnswer")}
-                    </button>
+                    <div className="flex items-center gap-3">
+                      {q.questionType === 4 && (
+                        <button
+                          type="button"
+                          onClick={() => handleChangeQuestionType(qIdx, 4)}
+                          className="text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400"
+                        >
+                          {t("questionPassage.btnUseTfngTemplate")}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleAddAnswer(qIdx)}
+                        className="text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400"
+                      >
+                        {t("questionPassage.btnAddAnswer")}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
                     {(q.answers || []).map((ans, aIdx) => (
                       <div key={aIdx} className="flex items-center gap-3">
                         <input
-                          type={q.questionType === 1 ? "radio" : "checkbox"}
+                          type={q.questionType === 2 ? "checkbox" : "radio"}
                           checked={ans.isCorrect}
                           onChange={() => handleToggleAnswerCorrect(qIdx, aIdx)}
                           className="w-4 h-4 text-brand-500 rounded focus:ring-brand-500 cursor-pointer"
@@ -887,6 +994,101 @@ export function QuestionForm({ id }: QuestionFormProps) {
                           value={ans.content}
                           onChange={(e) => handleUpdateAnswerText(qIdx, aIdx, e.target.value)}
                           placeholder={t("questionPassage.answerPlaceholder", { label: String.fromCharCode(65 + aIdx) })}
+                          className="flex-1 rounded-xl border border-gray-300 bg-transparent px-3 py-1.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAnswer(qIdx, aIdx)}
+                          className="p-1 text-gray-400 hover:text-rose-500"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Paragraph Letters + Correct Paragraph Dropdown for Paragraph Matching Questions */}
+              {q.questionType === 7 && (
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      {t("questionPassage.paragraphLettersTitle")}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => handleAddAnswer(qIdx)}
+                      className="text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400"
+                    >
+                      {t("questionPassage.btnAddParagraph")}
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {(q.answers || []).map((ans, aIdx) => (
+                      <span
+                        key={aIdx}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 px-2.5 py-1 text-xs font-semibold text-gray-700 dark:text-gray-300"
+                      >
+                        {ans.content}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAnswer(qIdx, aIdx)}
+                          className="text-gray-400 hover:text-rose-500"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      {t("questionPassage.correctParagraphLabel")}
+                    </label>
+                    <select
+                      value={(q.answers || []).find((a) => a.isCorrect)?.content ?? ""}
+                      onChange={(e) => handleSetParagraphCorrect(qIdx, e.target.value)}
+                      className="w-full rounded-xl border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                    >
+                      <option value="" disabled className="dark:bg-gray-900">
+                        {t("questionPassage.selectCorrectParagraphPlaceholder")}
+                      </option>
+                      {(q.answers || []).map((ans, aIdx) => (
+                        <option key={aIdx} value={ans.content} className="dark:bg-gray-900">
+                          {ans.content}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* Accepted Answers for Fill-in-the-Blank Questions */}
+              {q.questionType === 6 && (
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      {t("questionPassage.acceptedAnswersTitle")}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => handleAddAnswer(qIdx)}
+                      className="text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400"
+                    >
+                      {t("questionPassage.btnAddAcceptedAnswer")}
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {(q.answers || []).map((ans, aIdx) => (
+                      <div key={aIdx} className="flex items-center gap-3">
+                        <input
+                          type="text"
+                          value={ans.content}
+                          onChange={(e) => handleUpdateAnswerText(qIdx, aIdx, e.target.value)}
+                          placeholder={t("questionPassage.acceptedAnswerPlaceholder", { index: aIdx + 1 })}
                           className="flex-1 rounded-xl border border-gray-300 bg-transparent px-3 py-1.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                         />
                         <button
