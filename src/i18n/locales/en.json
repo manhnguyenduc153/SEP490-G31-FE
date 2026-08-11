@@ -493,6 +493,7 @@
     "tabAll": "All",
     "filterKeyword": "Keyword",
     "filterKeywordPlaceholder": "Search by name/code/content...",
+    "filterSearchPlaceholder": "Search by title or code...",
     "filterCategory": "Category",
     "filterCategoryAll": "All categories",
     "filterType": "Question Type",
@@ -764,7 +765,9 @@
     "errNoCorrectAnswer": "Question #{{index}} has no correct answer selected.",
     "errSaveFail": "Failed to save question group.",
     "errLoadDetail": "Failed to load passage details.",
-    "errNetwork": "Network error, please try again."
+    "errNetwork": "Network error, please try again.",
+    "createSuccess": "New question group created successfully!",
+    "updateSuccess": "Question group updated successfully!"
   },
   "semester": {
     "title": "Semester Management",
@@ -1299,7 +1302,14 @@
     "gradeText": "Grade {{level}}",
     "valGradeLevelInvalid": "Grade level must be between 1 and 12.",
     "createSuccessMsg": "Created new student successfully!",
-    "updateSuccessMsg": "Updated student information successfully!"
+    "updateSuccessMsg": "Updated student information successfully!",
+    "viewTitle": "Student Details",
+    "viewDesc": "Detailed information of the student profile.",
+    "noEmail": "Not updated",
+    "noPhone": "Not updated",
+    "noParentName": "Not updated",
+    "noParentPhone": "Not updated",
+    "btnClose": "Close"
   },
   "exam": {
     "pageTitle": "Exams Management",
@@ -1971,6 +1981,7 @@
     "home": "Home",
     "all": "All",
     "loading": "Loading...",
+    "noData": "No data",
     "entries": "entries",
     "btnSaving": "Saving...",
     "deleteConfirmTitle": "Confirm Delete",

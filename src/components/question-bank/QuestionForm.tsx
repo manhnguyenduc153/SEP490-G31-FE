@@ -463,7 +463,7 @@ export function QuestionForm({ id }: QuestionFormProps) {
       }
 
       if (res.success) {
-        sessionStorage.setItem("questionToastMessage", isEdit ? "Cập nhật bộ câu hỏi thành công!" : "Tạo mới bộ câu hỏi thành công!");
+        sessionStorage.setItem("questionToastMessage", isEdit ? t("questionPassage.updateSuccess") : t("questionPassage.createSuccess"));
         sessionStorage.setItem("questionToastType", "success");
         router.push("/question-bank");
       } else {
