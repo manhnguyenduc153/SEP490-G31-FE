@@ -196,52 +196,6 @@ export function CourseFormModal({
             </div>
           </div>
 
-          {/* Grid for Duration and Price */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                {t("course.formDurationLabel", { defaultValue: "Thời lượng (giờ)" })}
-              </label>
-              <input
-                type="number"
-                value={duration}
-                onChange={(e) => {
-                  setDuration(e.target.value);
-                  if (invalidFields.includes("duration")) {
-                    setInvalidFields(prev => prev.filter(f => f !== "duration"));
-                  }
-                }}
-                placeholder={t("course.formDurationPlaceholder", { defaultValue: "VD: 45" })}
-                className={`w-full rounded-lg border bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:outline-hidden shadow-theme-xs ${
-                  invalidFields.includes("duration")
-                    ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10 dark:border-rose-500"
-                    : "border-gray-300 focus:border-brand-300 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                }`}
-              />
-            </div>
-
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                {t("course.formPriceLabel", { defaultValue: "Học phí" })}
-              </label>
-              <input
-                type="number"
-                value={price}
-                onChange={(e) => {
-                  setPrice(e.target.value);
-                  if (invalidFields.includes("price")) {
-                    setInvalidFields(prev => prev.filter(f => f !== "price"));
-                  }
-                }}
-                placeholder={t("course.formPricePlaceholder", { defaultValue: "VD: 1500000" })}
-                className={`w-full rounded-lg border bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:outline-hidden shadow-theme-xs ${
-                  invalidFields.includes("price")
-                    ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10 dark:border-rose-500"
-                    : "border-gray-300 focus:border-brand-300 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                }`}
-              />
-            </div>
-          </div>
 
           {/* Status */}
           <div>
