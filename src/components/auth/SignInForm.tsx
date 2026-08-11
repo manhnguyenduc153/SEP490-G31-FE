@@ -22,6 +22,15 @@ export default function SignInForm() {
   const router = useRouter();
   const { t } = useTranslation();
 
+  const [mounted, setMounted] = useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return null;
+  }
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
