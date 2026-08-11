@@ -493,6 +493,7 @@
     "tabAll": "All",
     "filterKeyword": "Keyword",
     "filterKeywordPlaceholder": "Search by name/code/content...",
+    "filterSearchPlaceholder": "Search question sets...",
     "filterCategory": "Category",
     "filterCategoryAll": "All categories",
     "filterType": "Question Type",
@@ -2023,6 +2024,8 @@
     "btnDelete": "Delete",
     "permissionsModalTitle": "Role Permissions",
     "permissionsModalDesc": "Select permissions for role \"{{name}}\"",
+    "expandAll": "Expand All",
+    "collapseAll": "Collapse All",
     "btnSavePermissions": "Save Changes",
     "permissionsCount": "{{count}} permissions",
     "noDescription": "No description",
@@ -2499,6 +2502,7 @@
   },
   "permissions": {
     "category": {
+      "Dashboard": "Dashboard",
       "User": "User",
       "Role": "Role",
       "Product": "Product",
@@ -2595,6 +2599,7 @@
   },
   "signin": {
     "backToDashboard": "Back to dashboard",
+    "backToHome": "Back to home",
     "title": "Sign In",
     "description": "Enter your username and password to sign in!",
     "usernameLabel": "Username",

@@ -5,6 +5,7 @@ import { authApi } from "@/services/auth.api";
 
 // Mapping từ URL route sang Permission tương ứng
 const routePermissions: Record<string, string | string[]> = {
+  "/dashboard": "Dashboard",
   "/courses": "Course",
   "/classes": "Class",
   "/teachers": "Teacher",
@@ -49,13 +50,12 @@ export const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }
 
     // 2. Kiểm tra xem user có permission đó không
     const userPermissions = authApi.getPermissions();
-    const userRole = authApi.getRole().toLowerCase();
 
     const hasRequired = Array.isArray(requiredPermission)
       ? requiredPermission.some((p) => userPermissions.includes(p))
       : userPermissions.includes(requiredPermission);
 
-    if (userRole === "admin" || hasRequired) {
+    if (hasRequired) {
       setIsAuthorized(true);
     } else {
       setIsAuthorized(false);

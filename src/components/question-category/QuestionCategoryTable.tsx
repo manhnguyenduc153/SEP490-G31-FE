@@ -277,9 +277,9 @@ export default function QuestionCategoryTable() {
       {/* Filter / Search Bar */}
       <div className="p-4 sm:p-5 border-b border-gray-150 dark:border-gray-800 bg-gray-50/20 dark:bg-gray-900/10">
         <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between w-full">
-          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center w-full sm:max-w-md">
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center w-full sm:max-w-2xl">
             {/* Text Search */}
-            <div className="relative w-full sm:max-w-xs">
+            <div className="relative w-full sm:max-w-md">
               <input
                 type="text"
                 placeholder={t("questionCategory.searchPlaceholder")}

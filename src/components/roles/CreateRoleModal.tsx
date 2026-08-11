@@ -235,21 +235,25 @@ export function CreateRoleModal({
                           {/* Level 1 Group Header */}
                           <div className="flex items-center justify-between pb-1.5 border-b border-gray-100 dark:border-white/[0.03]">
                             <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => toggleCategoryExpand(group.id)}
-                                className="p-1 hover:bg-gray-100 dark:hover:bg-white/5 rounded transition-colors"
-                              >
-                                <svg
-                                  className={`w-3.5 h-3.5 text-gray-500 transition-transform ${isGroupExpanded ? "rotate-90" : ""}`}
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2.5"
-                                  viewBox="0 0 24 24"
+                              {group.id !== "dashboard" ? (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleCategoryExpand(group.id)}
+                                  className="p-1 hover:bg-gray-100 dark:hover:bg-white/5 rounded transition-colors"
                                 >
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                                </svg>
-                              </button>
+                                  <svg
+                                    className={`w-3.5 h-3.5 text-gray-500 transition-transform ${isGroupExpanded ? "rotate-90" : ""}`}
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2.5"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                  </svg>
+                                </button>
+                              ) : (
+                                <div className="w-5.5 h-5.5"></div>
+                              )}
 
                               <div
                                 onClick={() => toggleCategorySelection(group, true)}
@@ -259,7 +263,7 @@ export function CreateRoleModal({
                                     : isGroupIndeterminate
                                     ? "bg-brand-100 dark:bg-brand-500/20 border-brand-300 dark:border-brand-500/50 text-brand-600 dark:text-brand-400"
                                     : "border-gray-300 dark:border-gray-700 bg-white dark:bg-dark-900"
-                                }`}
+                                  }`}
                               >
                                 {isGroupChecked && (
                                   <svg className="w-3 h-3 stroke-current" viewBox="0 0 16 16" fill="none">
@@ -278,7 +282,7 @@ export function CreateRoleModal({
                           </div>
 
                           {/* Level 2: Features & Actions */}
-                          {isGroupExpanded && group.children && group.children.length > 0 && (
+                          {group.id !== "dashboard" && isGroupExpanded && group.children && group.children.length > 0 && (
                             <div className="mt-2 pl-2 space-y-2">
                               {group.children.map((feature) => {
                                 const { isChecked: isFeatureChecked, isIndeterminate: isFeatureIndeterminate } = getCategorySelectionState(feature, true);
