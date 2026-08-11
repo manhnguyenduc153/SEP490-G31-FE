@@ -7,8 +7,10 @@ import { examApi, ExamItem } from "@/services/exam.api";
 import { reportApi, ExamResultReportDto } from "@/services/report.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import * as XLSX from "xlsx";
+import { useTranslation } from "react-i18next";
 
 export default function ExamReport() {
+  const { t } = useTranslation();
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<number | "">("");
 
@@ -72,12 +74,12 @@ export default function ExamReport() {
         if (active && res.success && res.data) {
           setReportData(res.data);
         } else if (active) {
-          setError(res.message || "Không thể tải báo cáo");
+          setError(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("examReport.failedToLoadReport"));
           setReportData(null);
         }
       } catch (err) {
         console.error("Failed to load report", err);
-        if (active) setError("Lỗi kết nối tới máy chủ");
+        if (active) setError(t("examReport.connectionError"));
       } finally {
         if (active) setIsLoading(false);
       }
@@ -87,7 +89,7 @@ export default function ExamReport() {
     return () => {
       active = false;
     };
-  }, [selectedExamId]);
+  }, [selectedExamId, t]);
 
   const classOptions = classes.map((c) => ({
     value: c.id,
@@ -103,19 +105,19 @@ export default function ExamReport() {
     if (!reportData) return;
 
     const dataToExport = reportData.studentResults.map((st, index) => {
-      let ketQua = "CHƯA THI";
+      let ketQua = t("examReport.notAttempted");
       if (st.finalScore !== null && st.finalScore !== undefined) {
-        ketQua = st.isPassed ? "ĐẠT" : "TRƯỢT";
+        ketQua = st.isPassed ? t("examReport.passed") : t("examReport.failed");
       }
 
       return {
         "STT": index + 1,
-        "Mã học viên": st.studentCode || "-",
-        "Tên học viên": st.studentName || "-",
-        "Số lần làm bài": st.attemptCount > 0 ? st.attemptCount : "-",
-        "Lần nộp cuối": st.submittedAt ? new Date(st.submittedAt).toLocaleString("vi-VN") : "-",
-        "Điểm số": st.finalScore !== null && st.finalScore !== undefined ? st.finalScore : "-",
-        "Kết quả": ketQua
+        [t("examReport.studentCode")]: st.studentCode || "-",
+        [t("examReport.studentName")]: st.studentName || "-",
+        [t("examReport.attemptsCount")]: st.attemptCount > 0 ? st.attemptCount : "-",
+        [t("examReport.lastSubmitted")]: st.submittedAt ? new Date(st.submittedAt).toLocaleString("vi-VN") : "-",
+        [t("examReport.score")]: st.finalScore !== null && st.finalScore !== undefined ? st.finalScore : "-",
+        [t("examReport.result")]: ketQua
       };
     });
 
@@ -126,7 +128,7 @@ export default function ExamReport() {
     ];
 
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Kết quả thi");
+    XLSX.utils.book_append_sheet(workbook, worksheet, t("examReport.docTitle"));
 
     const dateStr = new Date().toISOString().slice(0, 10);
     const examObj = exams.find(e => e.id === selectedExamId);
@@ -149,7 +151,7 @@ export default function ExamReport() {
           th { background-color: #f3f4f6; color: #374151; }
         </style>
       </head><body>
-      <h2>Báo cáo kết quả thi</h2>
+      <h2>${t("examReport.docTitle")}</h2>
       ${el.outerHTML}
       </body></html>`;
     const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
@@ -197,8 +199,8 @@ export default function ExamReport() {
         </style>
       </head>
       <body>
-        <h2>Báo cáo kết quả thi</h2>
-        <p>Lớp: ${className} (${classCode})</p>
+        <h2>${t("examReport.docTitle")}</h2>
+        <p>${t("examReport.classPrefix")}${className} (${classCode})</p>
         ${el.outerHTML}
       </body>
       </html>
@@ -222,33 +224,33 @@ export default function ExamReport() {
         <div>
           <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <GraduationCap className="w-5 h-5 text-brand-500" />
-            Bảng thống kê kết quả thi
+            {t("examReport.title")}
           </h2>
           <p className="text-sm text-gray-500 mt-1">
-            Phân tích tỷ lệ đạt, điểm trung bình và chi tiết điểm số của học sinh trong bài thi.
+            {t("examReport.description")}
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-4 w-full xl:w-auto">
           <div className="w-full sm:w-[320px]">
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              1. Chọn lớp học
+              {t("examReport.selectClass")}
             </label>
             <SearchableSelect
               options={classOptions}
               value={selectedClassId}
               onChange={(val) => setSelectedClassId(val)}
-              placeholder="Tìm kiếm lớp học..."
+              placeholder={t("examReport.searchClassPlaceholder")}
             />
           </div>
           <div className="w-full sm:w-[320px]">
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              2. Chọn bài thi
+              {t("examReport.selectExam")}
             </label>
             <SearchableSelect
               options={examOptions}
               value={selectedExamId}
               onChange={(val) => setSelectedExamId(val)}
-              placeholder={selectedClassId ? (exams.length > 0 ? "Chọn bài thi..." : "Lớp chưa có bài thi") : "Chọn lớp trước"}
+              placeholder={selectedClassId ? (exams.length > 0 ? t("examReport.searchExamPlaceholder") : t("examReport.searchExamPlaceholderNoExams")) : t("examReport.searchExamPlaceholderClassNotSelected")}
               disabled={!selectedClassId || exams.length === 0}
             />
           </div>
@@ -259,12 +261,12 @@ export default function ExamReport() {
         {!selectedExamId ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400 py-20">
             <Search className="w-12 h-12 mb-4 opacity-20" />
-            <p>Vui lòng chọn một bài thi để xem báo cáo kết quả</p>
+            <p>{t("examReport.pleaseSelectExam")}</p>
           </div>
         ) : isLoading ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-500 py-20">
             <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin mb-3"></div>
-            Đang tải dữ liệu báo cáo...
+            {t("examReport.loading")}
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center h-full text-red-500 py-20 bg-red-50/50 rounded-xl border border-red-100">
@@ -272,14 +274,14 @@ export default function ExamReport() {
           </div>
         ) : !reportData || reportData.studentResults.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400 py-20 bg-gray-50/50 rounded-xl border border-gray-100">
-            <p className="italic">Không tìm thấy dữ liệu kết quả thi nào.</p>
+            <p className="italic">{t("examReport.noData")}</p>
           </div>
         ) : (
           <div className="flex flex-col gap-6 animate-fadeIn">
             <div className="flex justify-between items-center">
               <div>
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                  Chi tiết kết quả thi
+                  {t("examReport.detailTitle")}
                 </h3>
               </div>
             </div>
@@ -287,7 +289,7 @@ export default function ExamReport() {
             <div className="flex flex-wrap items-center gap-4">
               <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl flex items-center justify-between shadow-xs w-full sm:w-[260px] h-[88px]">
                 <div>
-                  <p className="text-sm text-blue-600 dark:text-blue-400 font-semibold mb-1">Học sinh tham gia</p>
+                  <p className="text-sm text-blue-600 dark:text-blue-400 font-semibold mb-1">{t("examReport.participatedStudents")}</p>
                   <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
                     {reportData.participatedStudents}
                     <span className="text-sm font-normal text-blue-600/70 ml-1">/ {reportData.totalStudents}</span>
@@ -300,7 +302,7 @@ export default function ExamReport() {
               
               <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-xl flex items-center justify-between shadow-xs w-full sm:w-[260px] h-[88px]">
                 <div>
-                  <p className="text-sm text-green-600 dark:text-green-400 font-semibold mb-1">Tỷ lệ Đạt ({">="} {reportData.passingScore}đ)</p>
+                  <p className="text-sm text-green-600 dark:text-green-400 font-semibold mb-1">{t("examReport.passRate", { score: reportData.passingScore })}</p>
                   <p className="text-2xl font-bold text-green-700 dark:text-green-300">{reportData.passRate}%</p>
                 </div>
                 <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-800/50 flex items-center justify-center text-green-600 dark:text-green-400 shadow-inner">
@@ -310,7 +312,7 @@ export default function ExamReport() {
 
               <div className="p-4 bg-brand-50 dark:bg-brand-900/20 border border-brand-100 dark:border-brand-800 rounded-xl flex items-center justify-between shadow-xs w-full sm:w-[260px] h-[88px]">
                 <div>
-                  <p className="text-sm text-brand-600 dark:text-brand-400 font-semibold mb-1">Điểm trung bình</p>
+                  <p className="text-sm text-brand-600 dark:text-brand-400 font-semibold mb-1">{t("examReport.averageScore")}</p>
                   <p className="text-2xl font-bold text-brand-700 dark:text-brand-300">{reportData.averageScore} <span className="text-sm font-normal text-brand-600/70">/ {reportData.totalScore}</span></p>
                 </div>
                 <div className="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-800/50 flex items-center justify-center text-brand-600 dark:text-brand-400 shadow-inner">
@@ -327,7 +329,7 @@ export default function ExamReport() {
                     <Download className="w-4 h-4" />
                   </div>
                   <div className="flex items-center gap-1 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    Xuất dữ liệu <ChevronDown className="w-3 h-3" />
+                    {t("examReport.exportData")} <ChevronDown className="w-3 h-3" />
                   </div>
                 </button>
 
@@ -335,13 +337,13 @@ export default function ExamReport() {
                   <div className="absolute top-full right-0 pt-2 z-50">
                     <div className="w-[160px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden">
                        <button onClick={handleExportExcel} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-left text-gray-700 dark:text-gray-200">
-                          <Download className="w-4 h-4 text-green-600" /> Excel (.xlsx)
+                          <Download className="w-4 h-4 text-green-600" /> {t("examReport.excel")}
                        </button>
                        <button onClick={handleExportWord} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-left text-gray-700 dark:text-gray-200">
-                          <FileText className="w-4 h-4 text-blue-600" /> Word (.doc)
+                          <FileText className="w-4 h-4 text-blue-600" /> {t("examReport.word")}
                        </button>
                        <button onClick={handleExportPdf} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-left text-gray-700 dark:text-gray-200">
-                          <FilePdf className="w-4 h-4 text-red-600" /> PDF (.pdf)
+                          <FilePdf className="w-4 h-4 text-red-600" /> {t("examReport.pdf")}
                        </button>
                     </div>
                   </div>
@@ -354,12 +356,12 @@ export default function ExamReport() {
                 <thead>
                   <tr className="border-b border-gray-205 dark:border-gray-800 text-gray-500 dark:text-gray-400 font-semibold bg-gray-100/80 dark:bg-gray-800/60 sticky top-0 z-10">
                     <th className="px-4 py-4 w-12 text-center tracking-wider">#</th>
-                    <th className="px-4 py-4 min-w-[120px] tracking-wider">Mã học sinh</th>
-                    <th className="px-4 py-4 min-w-[180px] tracking-wider">Học sinh</th>
-                    <th className="px-4 py-4 text-center min-w-[100px] tracking-wider">Số lần làm bài</th>
-                    <th className="px-4 py-4 text-center min-w-[150px] tracking-wider">Lần nộp cuối</th>
-                    <th className="px-4 py-4 text-center min-w-[100px] text-brand-600 dark:text-brand-400 bg-brand-50/80 dark:bg-brand-900/20">Điểm số</th>
-                    <th className="px-4 py-4 text-center min-w-[120px] tracking-wider">Kết quả</th>
+                    <th className="px-4 py-4 min-w-[120px] tracking-wider">{t("examReport.studentCode")}</th>
+                    <th className="px-4 py-4 min-w-[180px] tracking-wider">{t("examReport.studentName")}</th>
+                    <th className="px-4 py-4 text-center min-w-[100px] tracking-wider">{t("examReport.attemptsCount")}</th>
+                    <th className="px-4 py-4 text-center min-w-[150px] tracking-wider">{t("examReport.lastSubmitted")}</th>
+                    <th className="px-4 py-4 text-center min-w-[100px] text-brand-600 dark:text-brand-400 bg-brand-50/80 dark:bg-brand-900/20">{t("examReport.score")}</th>
+                    <th className="px-4 py-4 text-center min-w-[120px] tracking-wider">{t("examReport.result")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-900">
@@ -388,12 +390,12 @@ export default function ExamReport() {
                       <td className="px-4 py-3 text-center">
                         {st.finalScore !== null && st.finalScore !== undefined ? (
                           st.isPassed ? (
-                            <span className="inline-flex px-2.5 py-1 rounded bg-green-100 text-green-700 text-xs font-bold w-[70px] justify-center">ĐẠT</span>
+                            <span className="inline-flex px-2.5 py-1 rounded bg-green-100 text-green-700 text-xs font-bold w-[70px] justify-center">{t("examReport.passed")}</span>
                           ) : (
-                            <span className="inline-flex px-2.5 py-1 rounded bg-red-100 text-red-700 text-xs font-bold w-[70px] justify-center">TRƯỢT</span>
+                            <span className="inline-flex px-2.5 py-1 rounded bg-red-100 text-red-700 text-xs font-bold w-[70px] justify-center">{t("examReport.failed")}</span>
                           )
                         ) : (
-                          <span className="inline-flex px-2.5 py-1 rounded bg-gray-100 text-gray-500 text-xs font-bold w-[70px] justify-center">CHƯA THI</span>
+                          <span className="inline-flex px-2.5 py-1 rounded bg-gray-100 text-gray-500 text-xs font-bold w-[70px] justify-center">{t("examReport.notAttempted")}</span>
                         )}
                       </td>
                     </tr>
