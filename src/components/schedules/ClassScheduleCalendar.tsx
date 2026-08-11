@@ -1029,7 +1029,7 @@ export default function ClassScheduleCalendar() {
     return schedules;
   };
 
-  const handleMoveEvent = (draggedEvent: ScheduleEvent, targetDate: string, targetSlotIdx: number): boolean => {
+  const handleMoveEvent = async (draggedEvent: ScheduleEvent, targetDate: string, targetSlotIdx: number): Promise<boolean> => {
     // Conflict check against all currently displayed events
     const checkEvents = allDisplayEvents;
 
@@ -1069,6 +1069,30 @@ export default function ClassScheduleCalendar() {
         defaultValue: `Phòng ${draggedEvent.roomName} đã được sử dụng vào ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!` 
       }), "error");
       return false;
+    }
+
+    // Check teacher availability against registered slots in the semester
+    const targetClass = (draftClasses || []).find(c => c.code === draggedEvent.classCode) 
+                      || classes.find(c => c.code === draggedEvent.classCode);
+    const teacherId = targetClass?.teacherId;
+    const semesterId = targetClass?.semesterId || selectedSemesterId;
+
+    if (teacherId && semesterId) {
+      try {
+        const res = await semesterApi.getTeacherAvailability(semesterId, teacherId);
+        if (res.success && res.data && res.data.length > 0) {
+          const targetDayOfWeek = new Date(targetDate).getDay();
+          const hasSlot = res.data.some((slot: any) => slot.dayOfWeek === targetDayOfWeek && slot.slotIndex === targetSlotIdx);
+          if (!hasSlot) {
+            showToast(t("class.errTeacherUnavailable", { 
+              defaultValue: "Giáo viên không rảnh trong khoảng thời gian đã chọn của học kỳ." 
+            }), "error");
+            return false;
+          }
+        }
+      } catch (err) {
+        console.error("Failed to verify teacher availability", err);
+      }
     }
 
     // ── DB event in Edit Mode: optimistic update + background API call ──────────
@@ -1631,7 +1655,7 @@ export default function ClassScheduleCalendar() {
     openModal();
   };
 
-  const handleFcEventDrop = (info: any) => {
+  const handleFcEventDrop = async (info: any) => {
     const ev = info.event.extendedProps as ScheduleEvent;
     if (!ev.isDraft) {
       info.revert();
@@ -1653,7 +1677,7 @@ export default function ClassScheduleCalendar() {
       targetSlotIdx = ev.slotIndex;
     }
     
-    const success = handleMoveEvent(ev, targetDate, targetSlotIdx);
+    const success = await handleMoveEvent(ev, targetDate, targetSlotIdx);
     if (!success) {
       info.revert();
     }
