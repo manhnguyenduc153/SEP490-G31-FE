@@ -193,11 +193,11 @@ export default function ClassGradeReport() {
     <div className="bg-white dark:bg-gray-900 border border-gray-150 dark:border-gray-800 rounded-2xl shadow-theme-sm overflow-hidden flex flex-col min-h-[600px] animate-fadeIn">
       <div className="p-6 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex flex-col xl:flex-row items-start xl:items-center gap-6">
         <div>
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-brand-500" />
             {t("classGradeReport.title")}
-          </h2>
-          <p className="text-sm text-gray-500 mt-1">
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             {t("classGradeReport.description")}
           </p>
         </div>

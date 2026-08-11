@@ -189,10 +189,10 @@ export default function TeacherClassTable({ refreshKey: externalRefreshKey, onVi
       
       {/* Header */}
       <div className="p-5 sm:p-6 border-b border-gray-100 dark:border-gray-800">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white">
           {t("sidebar.teachingClasses", { defaultValue: "Lớp giảng dạy" })}
-        </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+        </h3>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
           {t("class.teachingDesc", { defaultValue: "Xem và quản lý các lớp học bạn được phân công phụ trách giảng dạy." })}
         </p>
       </div>

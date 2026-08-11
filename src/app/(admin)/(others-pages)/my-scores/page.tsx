@@ -62,7 +62,7 @@ export default function MyScoresPage() {
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                 {t("studentScores.title", { defaultValue: "My scores" })}
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 {t("studentScores.subtitle", { defaultValue: "Click a class to view your component scores and final average." })}
               </p>
             </div>
