@@ -777,7 +777,9 @@
     "errNoCorrectAnswer": "Câu hỏi #{{index}} chưa chọn đáp án đúng nào.",
     "errSaveFail": "Không thể lưu bộ câu hỏi.",
     "errLoadDetail": "Không thể tải thông tin đề bài.",
-    "errNetwork": "Lỗi kết nối máy chủ."
+    "errNetwork": "Lỗi kết nối máy chủ.",
+    "createSuccess": "Tạo mới bộ câu hỏi thành công!",
+    "updateSuccess": "Cập nhật bộ câu hỏi thành công!"
   },
   "semester": {
     "title": "Quản lý Học kỳ",
