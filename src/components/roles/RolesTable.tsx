@@ -24,6 +24,7 @@ const buildPermissionTree = (data: Record<string, Record<string, string[]>>): Pe
   if (!data) return [];
   
   const groupOrder = [
+    "dashboard",
     "academicOperations",
     "schedule",
     "assessments",
@@ -314,7 +315,7 @@ export default function RolesTable() {
     if (!node.children || node.children.length === 0) {
       return checkedSet.has(node.id);
     }
-    const isGroup = ["academicOperations", "schedule", "assessments", "learning", "administration", "parentServices", "others"].includes(node.id);
+    const isGroup = ["dashboard", "academicOperations", "schedule", "assessments", "learning", "administration", "parentServices", "others"].includes(node.id);
     if (isGroup) {
       return node.children.every((child) => isNodeChecked(child, checkedSet));
     } else {
@@ -326,7 +327,7 @@ export default function RolesTable() {
     if (!node.children || node.children.length === 0) {
       return checkedSet.has(node.id);
     }
-    const isGroup = ["academicOperations", "schedule", "assessments", "learning", "administration", "parentServices", "others"].includes(node.id);
+    const isGroup = ["dashboard", "academicOperations", "schedule", "assessments", "learning", "administration", "parentServices", "others"].includes(node.id);
     if (!isGroup && checkedSet.has(node.id)) {
       return true;
     }
@@ -335,7 +336,7 @@ export default function RolesTable() {
 
   const getPermissionIds = (node: PermissionNode): string[] => {
     const ids: string[] = [];
-    const isGroup = ["academicOperations", "schedule", "assessments", "learning", "administration", "parentServices", "others"].includes(node.id);
+    const isGroup = ["dashboard", "academicOperations", "schedule", "assessments", "learning", "administration", "parentServices", "others"].includes(node.id);
     if (!isGroup) {
       ids.push(node.id);
     }

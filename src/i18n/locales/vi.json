@@ -494,6 +494,7 @@
     "tabAll": "Tất cả",
     "filterKeyword": "Từ khóa",
     "filterKeywordPlaceholder": "Tìm theo tên/mã/nội dung...",
+    "filterSearchPlaceholder": "Tìm kiếm bộ đề bài...",
     "filterCategory": "Danh mục",
     "filterCategoryAll": "Tất cả danh mục",
     "filterType": "Loại câu hỏi",
@@ -2038,6 +2039,8 @@
     "btnDelete": "Xóa",
     "permissionsModalTitle": "Phân quyền cho vai trò",
     "permissionsModalDesc": "Chọn các quyền cho vai trò \"{{name}}\"",
+    "expandAll": "Mở rộng tất cả",
+    "collapseAll": "Thu gọn",
     "btnSavePermissions": "Lưu thay đổi",
     "permissionsCount": "{{count}} quyền",
     "noDescription": "Không có mô tả",
@@ -2511,6 +2514,7 @@
   },
   "permissions": {
     "category": {
+      "Dashboard": "Bảng điều khiển",
       "User": "Người dùng",
       "Role": "Vai trò",
       "Product": "Sản phẩm",
@@ -2620,6 +2624,7 @@
   },
   "signin": {
     "backToDashboard": "Quay lại bảng điều khiển",
+    "backToHome": "Trở về trang chủ",
     "title": "Đăng Nhập",
     "description": "Nhập tên đăng nhập và mật khẩu của bạn để đăng nhập!",
     "usernameLabel": "Tên đăng nhập",
