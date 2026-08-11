@@ -125,22 +125,57 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [isScheduling, setIsScheduling] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleToggleSelectAll = () => {
-    if (items.length === 0) return;
-    if (selectedIds.length === items.length) {
-      setSelectedIds([]);
+    const deletableItems = items.filter(item => item.status === 0);
+    if (deletableItems.length === 0) return;
+    
+    const allSelectedOnPage = deletableItems.every(item => selectedIds.includes(item.id));
+    if (allSelectedOnPage) {
+      setSelectedIds(prev => prev.filter(id => !deletableItems.some(item => item.id === id)));
     } else {
-      setSelectedIds(items.map(item => item.id));
+      setSelectedIds(prev => {
+        const newIds = [...prev];
+        deletableItems.forEach(item => {
+          if (!newIds.includes(item.id)) {
+            newIds.push(item.id);
+          }
+        });
+        return newIds;
+      });
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleToggleSelectRow = (id: number) => {
     setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
+  };
+
+  const handleBulkDeleteConfirm = async () => {
+    if (selectedIds.length === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      const deletePromises = selectedIds.map(id => classApi.delete(id));
+      const results = await Promise.all(deletePromises);
+      
+      const failedCount = results.filter(r => !r.success).length;
+      if (failedCount === 0) {
+        showToast(t("class.bulkDeleteSuccess", { count: selectedIds.length, defaultValue: `Xóa thành công ${selectedIds.length} lớp học.` }));
+        setSelectedIds([]);
+        triggerRefresh();
+      } else {
+        showToast(t("class.bulkDeleteError", { failedCount, defaultValue: `Có ${failedCount} lớp học xóa thất bại.` }), "error");
+        triggerRefresh();
+      }
+    } catch {
+      showToast(t("class.systemError", { defaultValue: "Đã xảy ra lỗi hệ thống." }), "error");
+    } finally {
+      setIsBulkDeleting(false);
+      setIsBulkDeleteModalOpen(false);
+    }
   };
 
   const getFriendlyAutoScheduleError = (msg: string) => {
@@ -535,6 +570,14 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
         <Table>
           <TableHeader className="border-b border-gray-100 dark:border-white/[0.05] bg-gray-50 dark:bg-white/[0.02]">
             <TableRow>
+              <TableCell isHeader className="px-4 py-4 text-center w-12">
+                <input
+                  type="checkbox"
+                  checked={items.filter(item => item.status === 0).length > 0 && items.filter(item => item.status === 0).every(item => selectedIds.includes(item.id))}
+                  onChange={handleToggleSelectAll}
+                  className="rounded border-gray-300 text-brand-500 focus:ring-brand-500 h-4 w-4 cursor-pointer"
+                />
+              </TableCell>
               <TableCell isHeader className="px-6 py-4 text-center w-12">
                 <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">#</p>
               </TableCell>
@@ -595,6 +638,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
             {isLoading ? (
               Array.from({ length: itemsPerPage }).map((_, idx) => (
                 <TableRow key={idx} className="animate-pulse">
+                  <TableCell className="px-4 py-4 text-center w-12"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-4 mx-auto" /></TableCell>
                   <TableCell className="px-6 py-4 text-center w-12"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-8 mx-auto" /></TableCell>
                   <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-16" /></TableCell>
                   <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-32" /></TableCell>
@@ -613,19 +657,36 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
               ))
             ) : error ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-10 text-sm text-rose-500 font-medium">
+                <TableCell colSpan={9} className="text-center py-10 text-sm text-rose-500 font-medium">
                   {error}
                 </TableCell>
               </TableRow>
             ) : items.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-10 text-sm text-gray-500 dark:text-gray-400">
+                <TableCell colSpan={9} className="text-center py-10 text-sm text-gray-500 dark:text-gray-400">
                   {t("class.noResults")}
                 </TableCell>
               </TableRow>
             ) : (
               sortedData.map((item, index) => (
                 <TableRow key={item.id} className="hover:bg-gray-50/50 dark:hover:bg-white/[0.01] transition-colors">
+                  {/* Checkbox Column */}
+                  <TableCell className="px-4 py-4 text-center w-12 whitespace-nowrap">
+                    {item.status === 0 ? (
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(item.id)}
+                        onChange={() => handleToggleSelectRow(item.id)}
+                        className="rounded border-gray-300 text-brand-500 focus:ring-brand-500 h-4 w-4 cursor-pointer"
+                      />
+                    ) : (
+                      <input
+                        type="checkbox"
+                        disabled
+                        className="rounded border-gray-200 text-gray-300 h-4 w-4 opacity-50 cursor-not-allowed"
+                      />
+                    )}
+                  </TableCell>
                   {/* Sequence Number */}
                   <TableCell className="px-6 py-4 text-center text-gray-500 dark:text-gray-400 whitespace-nowrap w-12 text-theme-sm font-medium">
                     {(currentPage - 1) * itemsPerPage + index + 1}
@@ -803,6 +864,17 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
         />
       )}
 
+      {/* Bulk Delete Confirmation Modal */}
+      {isBulkDeleteModalOpen && (
+        <DeleteConfirmModal
+          isOpen={isBulkDeleteModalOpen}
+          onClose={() => setIsBulkDeleteModalOpen(false)}
+          onConfirm={handleBulkDeleteConfirm}
+          itemName={t("class.selectedClassesCount", { count: selectedIds.length, defaultValue: `${selectedIds.length} lớp học đã chọn` })}
+          isDeleting={isBulkDeleting}
+        />
+      )}
+
       {/* Batch Action Bar */}
       {selectedIds.length > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center justify-between gap-4 px-6 py-3 bg-gray-900 text-white rounded-xl shadow-2xl border border-gray-800 animate-slideUp">
@@ -818,23 +890,28 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
             >
               {t("class.deselectBtn", { defaultValue: "Bỏ chọn" })}
             </button>
-            <button
-              onClick={() => setIsScheduleModalOpen(true)}
-              disabled={isScheduling}
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-1.5 text-xs font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg disabled:opacity-50 transition-colors"
-            >
-              {isScheduling ? (
-                <>
-                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent"></div>
-                  {t("class.schedulingBtn", { defaultValue: "Đang xếp..." })}
-                </>
-              ) : (
-                <>
-                  <CalendarDays className="w-3.5 h-3.5" />
-                  {t("class.autoScheduleBtn", { defaultValue: "Xếp lịch tự động" })}
-                </>
-              )}
-            </button>
+            
+            <PermissionGuard requiredPermission="Class.Delete">
+              <button
+                onClick={() => setIsBulkDeleteModalOpen(true)}
+                disabled={isBulkDeleting}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-1.5 text-xs font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {isBulkDeleting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent"></div>
+                    {t("class.deletingBtn", { defaultValue: "Đang xóa..." })}
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    {t("class.bulkDeleteBtn", { defaultValue: "Xóa đã chọn" })}
+                  </>
+                )}
+              </button>
+            </PermissionGuard>
+
+
           </div>
         </div>
       )}
