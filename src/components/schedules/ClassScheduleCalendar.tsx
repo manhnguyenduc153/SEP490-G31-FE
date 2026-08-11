@@ -1296,6 +1296,11 @@ export default function ClassScheduleCalendar() {
         defaultValue: `Sức chứa phòng ${roomName} không đủ cho số lượng học viên của lớp.`,
       });
     }
+    if (msg === "ERR_TEACHER_UNAVAILABLE") {
+      return t("class.errTeacherUnavailable", {
+        defaultValue: "Giáo viên không rảnh trong khoảng thời gian đã chọn của học kỳ.",
+      });
+    }
     if (msg.startsWith("ERR_TEACHER_CONFLICT_")) {
       const classCode = msg.replace("ERR_TEACHER_CONFLICT_", "");
       return t("class.errTeacherConflict", {
