@@ -26,18 +26,20 @@ export default function ClassStatusChart({ data, loading }: Props) {
   }
 
   const getLocalizedStatusName = (name: string) => {
-    switch (name.toLowerCase()) {
-      case "planning":
-        return t("class.statusPlanning", { defaultValue: "Sắp mở" });
-      case "active":
-        return t("class.statusActive", { defaultValue: "Đang diễn ra" });
-      case "completed":
-        return t("class.statusCompleted", { defaultValue: "Hoàn thành" });
-      case "cancelled":
-        return t("class.statusCancelled", { defaultValue: "Đã hủy" });
-      default:
-        return name;
+    const lowerName = name.toLowerCase();
+    if (lowerName === "planning" || lowerName === "chuẩn bị khai giảng") {
+      return t("class.statusPlanning", { defaultValue: "Chuẩn bị khai giảng" });
     }
+    if (lowerName === "active" || lowerName === "đang diễn ra") {
+      return t("class.statusActive", { defaultValue: "Đang diễn ra" });
+    }
+    if (lowerName === "completed" || lowerName === "đã hoàn thành") {
+      return t("class.statusCompleted", { defaultValue: "Đã hoàn thành" });
+    }
+    if (lowerName === "cancelled" || lowerName === "đã hủy") {
+      return t("class.statusCancelled", { defaultValue: "Đã hủy" });
+    }
+    return name;
   };
 
   const options: ApexOptions = {

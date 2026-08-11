@@ -1980,7 +1980,7 @@ export default function ClassScheduleCalendar() {
       </div>
 
       {/* Detail Modal */}
-      <Modal isOpen={isOpen} onClose={closeModal} showCloseButton={false} className="max-w-[500px] p-6 lg:p-8">
+      <Modal isOpen={isOpen} onClose={closeModal} showCloseButton={false} className="max-w-[580px] p-6 lg:p-8">
         {selectedEvent && (
           <div className="flex flex-col">
             <div className="border-b border-gray-100 dark:border-gray-800 pb-4">
