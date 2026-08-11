@@ -75,6 +75,7 @@ const schoolItems: NavItem[] = [
     icon: <GridIcon />,
     name: "dashboard",
     path: "/dashboard",
+    permission: "Dashboard",
   },
   {
     icon: <DocsIcon />,
@@ -357,12 +358,6 @@ const AppSidebar: React.FC = () => {
   const hasPermission = useCallback((permission?: string | string[]) => {
     if (!permission) return true;
     const lowerRole = role.toLowerCase();
-    if (
-      lowerRole === "admin" ||
-      lowerRole === "academic staff" ||
-      lowerRole === "ban chuyên môn" ||
-      lowerRole === "ban vận hành"
-    ) return true;
 
     const permissionsToCheck = Array.isArray(permission) ? permission : [permission];
 

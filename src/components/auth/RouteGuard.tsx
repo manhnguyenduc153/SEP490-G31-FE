@@ -10,7 +10,7 @@ const routePermissions: Record<string, string | string[]> = {
   "/teachers": "Teacher",
   "/students": "Student",
   "/rooms": "Room",
-  "/schedules": "ClassSchedule",
+  "/schedules": "Schedule",
   "/exams": "Exam.View",
   "/my-exams": "StudentExam",
   "/my-classes": "MyClass",
@@ -49,13 +49,12 @@ export const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }
 
     // 2. Kiểm tra xem user có permission đó không
     const userPermissions = authApi.getPermissions();
-    const userRole = authApi.getRole().toLowerCase();
 
     const hasRequired = Array.isArray(requiredPermission)
       ? requiredPermission.some((p) => userPermissions.includes(p))
       : userPermissions.includes(requiredPermission);
 
-    if (userRole === "admin" || hasRequired) {
+    if (hasRequired) {
       setIsAuthorized(true);
     } else {
       setIsAuthorized(false);
