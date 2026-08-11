@@ -468,7 +468,6 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
     { key: "name", label: t("student.colName") },
     { key: "email", label: t("student.colEmail") },
     { key: "phone", label: t("student.colPhone") },
-    { key: "gradeLevel", label: t("student.colGradeLevel") },
     { key: "status", label: t("student.colStatus") },
     { key: "hasAccount", label: t("student.colAccount") },
   ];
@@ -841,9 +840,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
                   <TableCell className="px-6 py-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">
                     {item.phone || <span className="text-gray-300 dark:text-gray-700">-</span>}
                   </TableCell>
-                  <TableCell className="px-6 py-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                    {item.gradeLevel ? t("student.gradeText", { level: item.gradeLevel }) : <span className="text-gray-300 dark:text-gray-700">-</span>}
-                  </TableCell>
+
                   <TableCell className="px-6 py-4 whitespace-nowrap">
                     {renderStatusBadge(item.status, getStatusLabel(item.status))}
                   </TableCell>
