@@ -20,7 +20,7 @@ import { useTranslation } from "react-i18next";
 import { Plus, Search, Edit, Trash2 } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
-type SortKey = "username" | "email" | "phone" | "status";
+type SortKey = "username" | "email" | "phone" | "status" | "id";
 type SortOrder = "asc" | "desc";
 
 export default function UserTable() {
@@ -47,8 +47,8 @@ export default function UserTable() {
   // ── Pagination / search / sort / filters ──
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
-  const [sortKey, setSortKey] = useState<SortKey>("username");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [sortKey, setSortKey] = useState<SortKey>("id");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");

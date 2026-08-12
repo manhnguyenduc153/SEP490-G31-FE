@@ -30,7 +30,7 @@ import { FileText, Plus, Search, Filter, BookOpen, Layers, CheckCircle, HelpCirc
 import { CodeHelper } from "@/helpers/CodeHelper";
 import { ENV } from "@/config/env";
 
-type SortKey = "code" | "name" | "title" | "createdAt";
+type SortKey = "code" | "name" | "title" | "createdAt" | "id";
 type SortOrder = "asc" | "desc";
 type TabMode = "all" | "class" | "library";
 
@@ -65,7 +65,7 @@ export default function LearningMaterialTable() {
   // Pagination / search / sort / filters
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
-  const [sortKey, setSortKey] = useState<SortKey>("createdAt");
+  const [sortKey, setSortKey] = useState<SortKey>("id");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
@@ -280,6 +280,10 @@ export default function LearningMaterialTable() {
       if (sortKey === "createdAt") {
         const av = new Date(a.createdAt).getTime();
         const bv = new Date(b.createdAt).getTime();
+        return sortOrder === "asc" ? av - bv : bv - av;
+      } else if (sortKey === "id") {
+        const av = a.id;
+        const bv = b.id;
         return sortOrder === "asc" ? av - bv : bv - av;
       }
       const av = String(a[sortKey] ?? "");

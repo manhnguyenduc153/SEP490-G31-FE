@@ -31,10 +31,10 @@ export default function SemesterTable() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   // ── Sort ──
-  type SortKey = "code" | "name" | "startDate";
+  type SortKey = "code" | "name" | "startDate" | "id";
   type SortOrder = "asc" | "desc";
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [sortKey, setSortKey] = useState<SortKey>("id");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -228,6 +228,10 @@ export default function SemesterTable() {
       if (sortKey === "startDate") {
         av = new Date(a.startDate).getTime();
         bv = new Date(b.startDate).getTime();
+        return sortOrder === "asc" ? av - bv : bv - av;
+      } else if (sortKey === "id") {
+        av = a.id;
+        bv = b.id;
         return sortOrder === "asc" ? av - bv : bv - av;
       } else {
         av = String(a[sortKey] ?? "");
@@ -548,12 +552,21 @@ export default function SemesterTable() {
                       {hasPermission("Semester.Delete") && (
                         <button
                           type="button"
+                          disabled={item.classCount > 0}
                           onClick={() => {
                             setDeletingItem(item);
                             setIsDeleteOpen(true);
                           }}
-                          className="p-1.5 text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30 rounded-md transition-colors"
-                          title={t("semester.actionDelete")}
+                          className={`p-1.5 rounded-md transition-colors ${
+                            item.classCount > 0
+                              ? "text-gray-300 dark:text-gray-600 cursor-not-allowed opacity-50"
+                              : "text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30"
+                          }`}
+                          title={
+                            item.classCount > 0
+                              ? t("semester.cannotDeleteHasClasses", { defaultValue: "Không thể xóa học kỳ đã có lớp học" })
+                              : t("semester.actionDelete")
+                          }
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

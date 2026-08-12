@@ -18,7 +18,7 @@ import { teacherApi, TeacherItem, TeacherSaveDto } from "@/services/teacher.api"
 import { useTranslation } from "react-i18next";
 import { Edit, Plus, Trash2 } from "lucide-react";
 
-type SortKey = "code" | "name" | "email" | "phone" | "status" | "hasAccount";
+type SortKey = "code" | "name" | "email" | "phone" | "status" | "hasAccount" | "id";
 type SortOrder = "asc" | "desc";
 
 interface TeacherTableProps {
@@ -43,8 +43,8 @@ export default function TeacherTable({
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [sortKey, setSortKey] = useState<SortKey>("id");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<number | null>(null);

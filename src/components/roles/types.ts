@@ -4,5 +4,5 @@ export interface PermissionNode {
   children?: PermissionNode[];
 }
 
-export type SortKey = "name" | "description" | "status" | "createdAt" | "permissionsCount";
+export type SortKey = "name" | "description" | "status" | "createdAt" | "permissionsCount" | "id";
 export type SortOrder = "asc" | "desc";

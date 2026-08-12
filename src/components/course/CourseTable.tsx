@@ -25,7 +25,7 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SortKey = "code" | "name" | "duration" | "price" | "status";
+type SortKey = "code" | "name" | "duration" | "price" | "status" | "id";
 type SortOrder = "asc" | "desc";
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -52,8 +52,8 @@ export default function CourseTable() {
   // ── Pagination / search / sort / status filter ──
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [sortKey, setSortKey] = useState<SortKey>("id");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all"); // "all", "active", "inactive"
@@ -168,6 +168,10 @@ export default function CourseTable() {
       } else if (sortKey === "status") {
         av = a.status;
         bv = b.status;
+        return sortOrder === "asc" ? av - bv : bv - av;
+      } else if (sortKey === "id") {
+        av = a.id;
+        bv = b.id;
         return sortOrder === "asc" ? av - bv : bv - av;
       } else {
         av = String(a[sortKey] ?? "");
