@@ -870,6 +870,7 @@ export default function ClassScheduleCalendar() {
   // Semester filter state
   const [selectedSemesterId, setSelectedSemesterId] = useState<number | null>(null);
 
+
   // Toast State
   const [toasts, setToasts] = useState<{ id: number; message: string; type: "success" | "error" }[]>([]);
   const [mounted, setMounted] = useState(false);
@@ -901,6 +902,37 @@ export default function ClassScheduleCalendar() {
   const [showRollbackConfirm, setShowRollbackConfirm] = useState(false);
   const [draftSemesterId, setDraftSemesterId] = useState<number | null>(null);
   const [reloadTrigger, setReloadTrigger] = useState(0);
+
+  // Teacher availability cache (teacherId -> Set of "dayOfWeek-slotIndex")
+  const [teacherAvailMap, setTeacherAvailMap] = useState<Record<number, Set<string>>>({});
+
+  const activeSemesterId = selectedSemesterId || draftSemesterId;
+
+  useEffect(() => {
+    if (!activeSemesterId) {
+      setTeacherAvailMap({});
+      return;
+    }
+    semesterApi.getSemesterTeacherAvailabilities(activeSemesterId)
+      .then((res) => {
+        if (res.success && res.data) {
+          const map: Record<number, Set<string>> = {};
+          res.data.forEach((item: any) => {
+            if (!map[item.teacherId]) {
+              map[item.teacherId] = new Set<string>();
+            }
+            map[item.teacherId].add(`${item.dayOfWeek}-${item.slotIndex}`);
+          });
+          setTeacherAvailMap(map);
+        } else {
+          setTeacherAvailMap({});
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch teacher availabilities", err);
+        setTeacherAvailMap({});
+      });
+  }, [activeSemesterId]);
 
   // Edit Mode state — controls whether DB schedule events are draggable
   const [isEditMode, setIsEditMode] = useState(false);
@@ -1069,6 +1101,25 @@ export default function ClassScheduleCalendar() {
         defaultValue: `Phòng ${draggedEvent.roomName} đã được sử dụng vào ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!` 
       }), "error");
       return false;
+    }
+
+    // Check teacher availability against cached map
+    const targetClass = (draftClasses || []).find(c => c.code === draggedEvent.classCode) 
+                      || classes.find(c => c.code === draggedEvent.classCode);
+    const teacherId = targetClass?.teacherId;
+
+    if (teacherId) {
+      const availSet = teacherAvailMap[teacherId];
+      if (availSet && availSet.size > 0) {
+        const targetDayOfWeek = new Date(targetDate).getDay();
+        const slotKey = `${targetDayOfWeek}-${targetSlotIdx}`;
+        if (!availSet.has(slotKey)) {
+          showToast(t("class.errTeacherUnavailable", { 
+            defaultValue: "Giáo viên không rảnh trong khoảng thời gian đã chọn của học kỳ." 
+          }), "error");
+          return false;
+        }
+      }
     }
 
     // ── DB event in Edit Mode: optimistic update + background API call ──────────
