@@ -76,10 +76,10 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
   const triggerRefresh = () => setRefreshKey((k) => k + 1);
 
   // ── Sort ──
-  type SortKey = "code" | "name" | "teacherName" | "courseName" | "semesterName" | "status";
+  type SortKey = "code" | "name" | "teacherName" | "courseName" | "semesterName" | "status" | "id";
   type SortOrder = "asc" | "desc";
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [sortKey, setSortKey] = useState<SortKey>("id");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -98,6 +98,10 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
       if (sortKey === "status") {
         av = a.status;
         bv = b.status;
+        return sortOrder === "asc" ? av - bv : bv - av;
+      } else if (sortKey === "id") {
+        av = a.id;
+        bv = b.id;
         return sortOrder === "asc" ? av - bv : bv - av;
       } else {
         av = String(a[sortKey] ?? "");

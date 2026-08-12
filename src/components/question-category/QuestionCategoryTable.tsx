@@ -24,7 +24,7 @@ import { useTranslation } from "react-i18next";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SortKey = "code" | "name" | "description";
+type SortKey = "code" | "name" | "description" | "id";
 type SortOrder = "asc" | "desc";
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -52,8 +52,8 @@ export default function QuestionCategoryTable() {
   // ── Pagination / search / sort / course filter ──
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [sortKey, setSortKey] = useState<SortKey>("id");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [courseFilter, setCourseFilter] = useState<number | undefined>(undefined);
@@ -154,6 +154,11 @@ export default function QuestionCategoryTable() {
   // ── Sort ──
   const sortedData = useMemo(() => {
     return [...items].sort((a, b) => {
+      if (sortKey === "id") {
+        const av = a.id;
+        const bv = b.id;
+        return sortOrder === "asc" ? av - bv : bv - av;
+      }
       const av = String(a[sortKey] ?? "");
       const bv = String(b[sortKey] ?? "");
       return sortOrder === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);

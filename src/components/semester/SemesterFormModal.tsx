@@ -101,12 +101,19 @@ export function SemesterFormModal({
     setErrors([]);
     setInvalidFields([]);
 
+    const toLocalISOString = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}T00:00:00`;
+    };
+
     const dto: SemesterSaveDto = {
       id: editingItem?.id,
       code: code.trim(),
       name: name.trim(),
-      startDate: startDate!.toISOString(),
-      endDate: endDate!.toISOString(),
+      startDate: toLocalISOString(startDate!),
+      endDate: toLocalISOString(endDate!),
       status: editingItem ? editingItem.status : 1,
     };
 

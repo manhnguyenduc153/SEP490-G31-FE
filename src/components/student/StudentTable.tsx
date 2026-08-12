@@ -25,7 +25,7 @@ import { StudentViewModal } from "./StudentViewModal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SortKey = "code" | "name" | "email" | "phone" | "status" | "gradeLevel" | "hasAccount";
+type SortKey = "code" | "name" | "email" | "phone" | "status" | "gradeLevel" | "hasAccount" | "id";
 type SortOrder = "asc" | "desc";
 type TabType = "all" | "active" | "suspended" | "graduated";
 
@@ -60,8 +60,8 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
   // ── Pagination / search / sort / filters ──
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [sortKey, setSortKey] = useState<SortKey>("id");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   

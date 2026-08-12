@@ -73,6 +73,7 @@ interface ScheduleEvent {
   slotIndex: number;
   isDraft?: boolean;
   classStatus?: number | null;
+  semesterId?: number | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -103,6 +104,7 @@ function mapApiItem(s: ClassScheduleItem, fallbackClass?: ClassItem, isDraft = f
     slotIndex: slotIdx,
     isDraft,
     classStatus: s.classStatus !== undefined ? s.classStatus : (fallbackClass?.status ?? 0),
+    semesterId: s.semesterId || fallbackClass?.semesterId || null,
   };
 }
 
@@ -130,6 +132,7 @@ function mapDraftClass(cls: ClassItem): ScheduleEvent[] {
         slotIndex: slotIdx,
         isDraft: true,
         classStatus: 0,
+        semesterId: cls.semesterId || null,
       } as ScheduleEvent;
     })
     .filter(Boolean) as ScheduleEvent[];
@@ -1453,6 +1456,9 @@ export default function ClassScheduleCalendar() {
   const allDisplayEvents = selectedSemesterId === null
     ? rawDisplayEvents
     : rawDisplayEvents.filter(ev => {
+        if (ev.semesterId) {
+          return ev.semesterId === selectedSemesterId;
+        }
         const cls = classes.find(c => c.code === ev.classCode);
         return cls?.semesterId === selectedSemesterId;
       });

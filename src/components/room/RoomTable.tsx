@@ -24,7 +24,7 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SortKey = "code" | "name" | "capacity" | "building" | "status";
+type SortKey = "code" | "name" | "capacity" | "building" | "status" | "id";
 type SortOrder = "asc" | "desc";
 
 
@@ -55,8 +55,8 @@ export default function RoomTable() {
   // ── Pagination / search / sort / filter ──
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [sortKey, setSortKey] = useState<SortKey>("id");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all"); // "all", "active", "inactive"
@@ -149,6 +149,10 @@ export default function RoomTable() {
         av = a.capacity ?? 0;
         bv = b.capacity ?? 0;
         return sortOrder === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
+      } else if (sortKey === "id") {
+        av = a.id;
+        bv = b.id;
+        return sortOrder === "asc" ? av - bv : bv - av;
       }
 
       av = String((a as unknown as Record<string, unknown>)[sortKey] ?? "");
