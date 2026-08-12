@@ -104,7 +104,7 @@ function mapApiItem(s: ClassScheduleItem, fallbackClass?: ClassItem, isDraft = f
     slotIndex: slotIdx,
     isDraft,
     classStatus: s.classStatus !== undefined ? s.classStatus : (fallbackClass?.status ?? 0),
-    semesterId: s.semesterId || fallbackClass?.semesterId || null,
+    semesterId: fallbackClass?.semesterId || null,
   };
 }
 
