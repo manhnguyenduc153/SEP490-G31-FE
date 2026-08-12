@@ -190,8 +190,13 @@ export default function ClassDetailAttendanceTab({
     if (!activeSchedule) return false;
     if (isAdmin) return true;
     const hasSavePermission = permissions.includes("Attendance.SaveAttendance");
+    if (!hasSavePermission) return false;
+
+    const hasEditAllTime = permissions.includes("Attendance.EditAllTime");
+    if (hasEditAllTime) return true;
+
     const isToday = activeSchedule.scheduleDate && new Date(activeSchedule.scheduleDate).toDateString() === new Date().toDateString();
-    return hasSavePermission && isToday;
+    return isToday;
   }, [activeSchedule, isAdmin, permissions]);
   
   const currentScheduleAttendance = useMemo(() => {

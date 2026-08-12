@@ -25,7 +25,7 @@ import { StudentViewModal } from "./StudentViewModal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SortKey = "code" | "name" | "email" | "phone" | "status" | "gradeLevel" | "hasAccount";
+type SortKey = "code" | "name" | "email" | "phone" | "status" | "gradeLevel" | "hasAccount" | "id";
 type SortOrder = "asc" | "desc";
 type TabType = "all" | "active" | "suspended" | "graduated";
 
@@ -60,8 +60,8 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
   // ── Pagination / search / sort / filters ──
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [sortKey, setSortKey] = useState<SortKey>("id");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   
@@ -468,7 +468,6 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
     { key: "name", label: t("student.colName") },
     { key: "email", label: t("student.colEmail") },
     { key: "phone", label: t("student.colPhone") },
-    { key: "gradeLevel", label: t("student.colGradeLevel") },
     { key: "status", label: t("student.colStatus") },
     { key: "hasAccount", label: t("student.colAccount") },
   ];
@@ -841,9 +840,7 @@ export default function StudentTable({ refreshKey = 0, showToast, onAddClick, on
                   <TableCell className="px-6 py-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">
                     {item.phone || <span className="text-gray-300 dark:text-gray-700">-</span>}
                   </TableCell>
-                  <TableCell className="px-6 py-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                    {item.gradeLevel ? t("student.gradeText", { level: item.gradeLevel }) : <span className="text-gray-300 dark:text-gray-700">-</span>}
-                  </TableCell>
+
                   <TableCell className="px-6 py-4 whitespace-nowrap">
                     {renderStatusBadge(item.status, getStatusLabel(item.status))}
                   </TableCell>

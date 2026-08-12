@@ -4,6 +4,7 @@ import { Modal } from "@/components/ui/modal";
 import { CourseItem, CourseSaveDto } from "@/services/course.api";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
+import { CodeHelper } from "@/helpers/CodeHelper";
 
 interface CourseFormModalProps {
   isOpen: boolean;
@@ -39,7 +40,7 @@ export function CourseFormModal({
       setStatus(editingItem.status);
       setDescription(editingItem.description ?? "");
     } else {
-      setCode("");
+      setCode(CodeHelper.generate("KH"));
       setName("");
       setDuration("");
       setPrice("");

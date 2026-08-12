@@ -208,7 +208,7 @@ export default function ClassDetailInfoTab({
                   }`}
                 >
                   <span className={`text-xs font-bold w-20 shrink-0 text-left ${isActive ? "text-brand-600 dark:text-brand-400" : "text-gray-500"}`}>
-                    {dayObj.label}
+                    {t(`semester.days.${dayObj.value}`)}
                   </span>
                   {isActive ? (
                     <div className="text-right">

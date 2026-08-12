@@ -63,10 +63,10 @@ export default function StudentRegistrationTable() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   // ── Sort ──
-  type SortKey = "studentCode" | "studentName" | "courseName" | "status";
+  type SortKey = "studentCode" | "studentName" | "courseName" | "status" | "id";
   type SortOrder = "asc" | "desc";
-  const [sortKey, setSortKey] = useState<SortKey>("studentName");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [sortKey, setSortKey] = useState<SortKey>("id");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -85,6 +85,10 @@ export default function StudentRegistrationTable() {
       if (sortKey === "status") {
         av = a.status;
         bv = b.status;
+        return sortOrder === "asc" ? av - bv : bv - av;
+      } else if (sortKey === "id") {
+        av = a.id;
+        bv = b.id;
         return sortOrder === "asc" ? av - bv : bv - av;
       } else {
         av = String(a[sortKey] ?? "");

@@ -76,10 +76,10 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
   const triggerRefresh = () => setRefreshKey((k) => k + 1);
 
   // ── Sort ──
-  type SortKey = "code" | "name" | "teacherName" | "courseName" | "semesterName" | "status";
+  type SortKey = "code" | "name" | "teacherName" | "courseName" | "semesterName" | "status" | "id";
   type SortOrder = "asc" | "desc";
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [sortKey, setSortKey] = useState<SortKey>("id");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -98,6 +98,10 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
       if (sortKey === "status") {
         av = a.status;
         bv = b.status;
+        return sortOrder === "asc" ? av - bv : bv - av;
+      } else if (sortKey === "id") {
+        av = a.id;
+        bv = b.id;
         return sortOrder === "asc" ? av - bv : bv - av;
       } else {
         av = String(a[sortKey] ?? "");
@@ -403,10 +407,10 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
       {/* Header with Title & Add Class Button */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 sm:p-6 border-b border-gray-100 dark:border-gray-800">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
             {t("class.title")}
-          </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             {t("class.description")}
           </p>
         </div>

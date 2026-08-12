@@ -152,10 +152,10 @@ export default function MyAttendancePage() {
                   <CalendarCheck className="h-6 w-6" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                     {t("myAttendance.title", { defaultValue: "Điểm danh của tôi" })}
-                  </h1>
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {t("myAttendance.subtitle", { defaultValue: "Theo dõi số buổi đã tham gia trong các lớp đang học." })}
                   </p>
                 </div>

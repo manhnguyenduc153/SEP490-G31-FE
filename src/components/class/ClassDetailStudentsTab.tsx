@@ -39,7 +39,7 @@ export default function ClassDetailStudentsTab({
                 <th className="px-4 py-3 w-[20%] text-xs font-bold uppercase tracking-wider">{t("student.colCode", { defaultValue: "Mã học sinh" })}</th>
                 <th className="px-4 py-3 w-[30%] text-xs font-bold uppercase tracking-wider">{t("student.colName", { defaultValue: "Học sinh" })}</th>
                 <th className="px-4 py-3 w-[25%] text-xs font-bold uppercase tracking-wider">{t("student.colEmail", { defaultValue: "Email" })}</th>
-                <th className="px-4 py-3 w-[17%] text-xs font-bold uppercase tracking-wider">Hình thức học</th>
+                <th className="px-4 py-3 w-[17%] text-xs font-bold uppercase tracking-wider">{t("student.enrollType")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -63,7 +63,7 @@ export default function ClassDetailStudentsTab({
                         ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400"
                         : "bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400"
                     }`}>
-                      {sc.enrollType === 1 ? "Online" : "Offline"}
+                      {sc.enrollType === 1 ? t("student.enrollTypeOnline") : t("student.enrollTypeOffline")}
                     </span>
                   </td>
                 </tr>

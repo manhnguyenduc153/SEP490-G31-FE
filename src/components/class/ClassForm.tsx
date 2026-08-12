@@ -90,6 +90,9 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
   const startDateInputRef = useRef<HTMLInputElement>(null);
   
   const getFriendlyErrorMessage = (msg: string) => {
+    if (msg === "ERR_TEACHER_UNAVAILABLE") {
+      return t("class.errTeacherUnavailable");
+    }
     if (msg.startsWith("ERR_TEACHER_CONFLICT_")) {
       const classCode = msg.replace("ERR_TEACHER_CONFLICT_", "");
       return t("class.errTeacherConflict", { classCode });
@@ -283,6 +286,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
           startDate: formStartDate,
           expectedLessons: formExpectedLessons,
           teacherId: formTeacherId,
+          semesterId: formSemesterId,
           students: [],
           weeklySchedules: selectedSchedules.map(([dayStr, config]) => ({
             dayOfWeek: Number(dayStr),
@@ -314,7 +318,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
       active = false;
       clearTimeout(timer);
     };
-  }, [formStartDate, formExpectedLessons, formTeacherId, dayConfigs, editingItem]);
+  }, [formStartDate, formExpectedLessons, formTeacherId, formSemesterId, dayConfigs, editingItem]);
 
   // Initialize values when editing
   useEffect(() => {
@@ -1486,6 +1490,17 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                     __html: t("class.conflictTeacherMsg", {
                       teacherName: `<strong>${c.teacherName}</strong>`,
                       conflictClassCode: `<strong>${c.conflictClassCode}</strong>`,
+                      date: `<strong>${formattedDate}</strong>`,
+                      startTime: c.startTime,
+                      endTime: c.endTime
+                    })
+                  }} />
+                );
+              } else if (c.type === "TeacherAvailability") {
+                return (
+                  <li key={index} dangerouslySetInnerHTML={{
+                    __html: t("class.conflictTeacherAvailabilityMsg", {
+                      teacherName: `<strong>${c.teacherName}</strong>`,
                       date: `<strong>${formattedDate}</strong>`,
                       startTime: c.startTime,
                       endTime: c.endTime
