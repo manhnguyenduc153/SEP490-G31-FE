@@ -87,10 +87,10 @@ export function QuestionForm({ id }: QuestionFormProps) {
       if (res.success && res.data) {
         setPassageAudioUrl(res.data);
       } else {
-        alert(res.message || t("questionPassage.uploadError"));
+        setFormError(res.message || t("questionPassage.uploadError"));
       }
     } catch {
-      alert(t("questionPassage.uploadError"));
+      setFormError(t("questionPassage.uploadError"));
     } finally {
       setIsUploadingAudio(false);
     }
@@ -106,10 +106,10 @@ export function QuestionForm({ id }: QuestionFormProps) {
       if (res.success && res.data) {
         setPassageAttachmentUrl(res.data);
       } else {
-        alert(res.message || t("questionPassage.uploadImageError"));
+        setFormError(res.message || t("questionPassage.uploadImageError"));
       }
     } catch {
-      alert(t("questionPassage.uploadImageError"));
+      setFormError(t("questionPassage.uploadImageError"));
     } finally {
       setIsUploadingImage(false);
     }
@@ -244,7 +244,7 @@ export function QuestionForm({ id }: QuestionFormProps) {
 
   const handleRemoveQuestion = (qIndex: number) => {
     if (childQuestions.length <= 1) {
-      alert(t("questionPassage.errChildEmpty"));
+      setFormError(t("questionPassage.errChildEmpty"));
       return;
     }
     setChildQuestions((prev) => prev.filter((_, idx) => idx !== qIndex));
@@ -313,7 +313,7 @@ export function QuestionForm({ id }: QuestionFormProps) {
         const currentAns = q.answers || [];
         const minAllowed = q.questionType === 6 ? 1 : 2;
         if (currentAns.length <= minAllowed) {
-          alert(minAllowed === 1 ? t("questionPassage.errMinOneAcceptedAnswer") : t("question.valMinAnswers"));
+          setFormError(minAllowed === 1 ? t("questionPassage.errMinOneAcceptedAnswer") : t("question.valMinAnswers"));
           return q;
         }
         let remaining = currentAns.filter((_, ai) => ai !== aIndex);
