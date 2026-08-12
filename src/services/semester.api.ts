@@ -112,6 +112,10 @@ export const semesterApi = {
     return api.get<TeacherAvailabilitySlotDto[]>(`/api/Semester/${semesterId}/teacher/${teacherId}/availability`);
   },
 
+  async getSemesterTeacherAvailabilities(semesterId: number): Promise<ApiResponse<TeacherAvailabilitySlotDto[]>> {
+    return api.get<TeacherAvailabilitySlotDto[]>(`/api/Semester/${semesterId}/teachers/availabilities`);
+  },
+
   async checkTeacherHasSchedules(semesterId: number, teacherId: number): Promise<ApiResponse<boolean>> {
     return api.get<boolean>(`/api/Semester/${semesterId}/teacher/${teacherId}/has-schedules`);
   },
