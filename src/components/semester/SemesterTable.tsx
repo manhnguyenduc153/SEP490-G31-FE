@@ -552,18 +552,18 @@ export default function SemesterTable() {
                       {hasPermission("Semester.Delete") && (
                         <button
                           type="button"
-                          disabled={item.classCount > 0}
+                          disabled={(item.classCount ?? 0) > 0}
                           onClick={() => {
                             setDeletingItem(item);
                             setIsDeleteOpen(true);
                           }}
                           className={`p-1.5 rounded-md transition-colors ${
-                            item.classCount > 0
+                            (item.classCount ?? 0) > 0
                               ? "text-gray-300 dark:text-gray-600 cursor-not-allowed opacity-50"
                               : "text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-300 hover:bg-error-50 dark:hover:bg-error-950/30"
                           }`}
                           title={
-                            item.classCount > 0
+                            (item.classCount ?? 0) > 0
                               ? t("semester.cannotDeleteHasClasses", { defaultValue: "Không thể xóa học kỳ đã có lớp học" })
                               : t("semester.actionDelete")
                           }
