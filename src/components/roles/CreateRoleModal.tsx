@@ -22,6 +22,7 @@ interface CreateRoleModalProps {
 
 const getFeatureDisplayName = (featureName: string, t: any) => {
   const sidebarMap: Record<string, string> = {
+    Dashboard: "dashboard",
     Semester: "semesters",
     Course: "courses",
     StudentRegistration: "registrations",
@@ -29,7 +30,9 @@ const getFeatureDisplayName = (featureName: string, t: any) => {
     Teacher: "teachers",
     Student: "students",
     Room: "rooms",
-    ClassSchedule: "classSchedules",
+    Schedule: "classSchedules",
+    TeachingSchedule: "teachingSchedules",
+    Timetable: "timetable",
     Exam: "exams",
     Question: "questionBank",
     QuestionCategory: "questionCategory",
@@ -38,6 +41,13 @@ const getFeatureDisplayName = (featureName: string, t: any) => {
     User: "users",
     Role: "roles",
     ParentStudent: "parents",
+    ClassGradeReport: "classGradeReport",
+    AttendanceReport: "attendanceReport",
+    ExamReport: "examReport",
+    ChildProgress: "childProgress",
+    ChildSchedule: "childSchedules",
+    MyGrade: "myScores",
+    StudentProgress: "studentProgress",
   };
 
   const key = sidebarMap[featureName];

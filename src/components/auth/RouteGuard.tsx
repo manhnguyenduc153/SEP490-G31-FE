@@ -22,7 +22,7 @@ const routePermissions: Record<string, string | string[]> = {
   "/scores": "StudentGrade.ViewSettings",
   "/my-scores": "MyGrade",
   "/learning-materials": "LearningMaterial.View",
-  "/attendance": "Attendance.View",
+  "/attendance": "MyAttendance",
   "/homework": "HomeworkManagement.View",
   "/my-homework": "StudentHomework.View",
   "/users": "User",
