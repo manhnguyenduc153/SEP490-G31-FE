@@ -24,14 +24,7 @@ export default function Dashboard() {
 
   if (!hasDashboardPermission) {
     const getGreeting = () => {
-      const hours = new Date().getHours();
-      if (hours < 12) {
-        return t("dashboardPage.goodMorning", { defaultValue: "Chào buổi sáng" });
-      }
-      if (hours < 18) {
-        return t("dashboardPage.goodAfternoon", { defaultValue: "Chào buổi chiều" });
-      }
-      return t("dashboardPage.goodEvening", { defaultValue: "Chào buổi tối" });
+      return t("dashboardPage.welcomeTitle", { defaultValue: "Xin chào" });
     };
 
     const getGreetingIcon = () => {

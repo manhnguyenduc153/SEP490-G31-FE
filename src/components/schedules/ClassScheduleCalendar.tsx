@@ -1365,7 +1365,7 @@ export default function ClassScheduleCalendar() {
     if (msg.startsWith("ERR_STUDENT_CONFLICT_")) {
       const parts = msg.replace("ERR_STUDENT_CONFLICT_", "").split("__");
       const emailsStr = parts[1] || "";
-      return t("class.errStudentConflict", {
+      return t("class.errStudentConflictCalendar", {
         emails: emailsStr,
         defaultValue: `Học viên (${emailsStr}) bị trùng lịch học ở lớp khác vào khung giờ này.`,
       });
@@ -1578,8 +1578,7 @@ export default function ClassScheduleCalendar() {
               .filter(Boolean) as ScheduleEvent[]
           );
         }
-      } else {
-        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("classSchedules.toastSaveDraftError", { defaultValue: "Không thể lưu bản nháp lịch học." }), "error");
+        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("classSchedules.toastSaveDraftError", { defaultValue: "Không thể lưu bản cơ sở lịch học." }), "error");
       }
     } catch (err: any) {
       showToast(t("classSchedules.toastSaveDraftSystemError", { defaultValue: "Lỗi hệ thống xảy ra khi lưu lịch học." }), "error");
@@ -1595,7 +1594,7 @@ export default function ClassScheduleCalendar() {
     localStorage.removeItem("semester_draft_classes");
     localStorage.removeItem("semester_original_draft_classes");
     localStorage.removeItem("semester_draft_id");
-    showToast(t("classSchedules.toastCancelDraftSuccess", { defaultValue: "Đã hủy bản nháp lịch học hiện tại." }), "success");
+    showToast(t("classSchedules.toastCancelDraftSuccess", { defaultValue: "Đã hủy bản cơ sở lịch học hiện tại." }), "success");
   };
 
   const handleRevertDraft = () => {
@@ -1765,7 +1764,7 @@ export default function ClassScheduleCalendar() {
             <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
             <div>
               <p className="text-sm font-bold text-amber-800 dark:text-amber-200">
-                {t("classSchedules.draftPendingTitle", { defaultValue: "Bản nháp lịch học đang chờ xác nhận" })}
+                {t("classSchedules.draftPendingTitle", { defaultValue: "Bản cơ sở lịch học đang chờ xác nhận" })}
               </p>
               <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
                 {t("classSchedules.draftSemesterPrefix", { defaultValue: "Học kỳ: " })}<strong>{draftSemesterName}</strong> — {t("classSchedules.draftClassesCreated", { count: draftClasses.length, defaultValue: "lớp được tạo. Kiểm tra lịch trên Calendar rồi bấm Lưu nếu hài lòng." })}
@@ -1778,7 +1777,7 @@ export default function ClassScheduleCalendar() {
               className="px-4 py-2 rounded-xl border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 text-sm font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors flex items-center gap-1.5"
             >
               <X className="w-4 h-4" />
-              {t("classSchedules.cancelDraft", { defaultValue: "Hủy bản nháp" })}
+              {t("classSchedules.cancelDraft", { defaultValue: "Hủy bản cơ sở" })}
             </button>
             <button
               onClick={handleRevertDraft}
