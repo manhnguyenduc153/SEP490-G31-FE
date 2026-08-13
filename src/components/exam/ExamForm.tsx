@@ -857,18 +857,6 @@ export function ExamForm({ id }: ExamFormProps) {
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={shuffleQuestion}
-                  onChange={(e) => setShuffleQuestion(e.target.checked)}
-                  className="h-4.5 w-4.5 rounded border-gray-300 text-brand-500 focus:ring-brand-500/20"
-                />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t("exams.formShuffleQuestion", { defaultValue: "Xáo trộn câu hỏi ngẫu nhiên cho từng học sinh" })}
-                </span>
-              </label>
-
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
                   checked={showAnswerAfter}
                   onChange={(e) => setShowAnswerAfter(e.target.checked)}
                   className="h-4.5 w-4.5 rounded border-gray-300 text-brand-500 focus:ring-brand-500/20"
