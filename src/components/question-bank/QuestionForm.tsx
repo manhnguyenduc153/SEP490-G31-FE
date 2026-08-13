@@ -943,7 +943,6 @@ export function QuestionForm({ id }: QuestionFormProps) {
                     <option value={2} className="dark:bg-gray-900">{t("questionPassage.typeMultipleChoice")}</option>
                     <option value={3} className="dark:bg-gray-900">{t("questionPassage.typeEssayText")}</option>
                     <option value={4} className="dark:bg-gray-900">{t("questionPassage.typeTrueFalse")}</option>
-                    <option value={5} className="dark:bg-gray-900">{t("questionPassage.typeAudioRecord")}</option>
                     <option value={6} className="dark:bg-gray-900">{t("questionPassage.typeFillInBlank")}</option>
                     <option value={7} className="dark:bg-gray-900">{t("questionPassage.typeParagraphMatching")}</option>
                   </select>
