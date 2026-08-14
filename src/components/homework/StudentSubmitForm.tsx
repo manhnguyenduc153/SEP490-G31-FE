@@ -4,10 +4,10 @@ import React, { useState, useCallback, useEffect } from "react";
 import { homeworkApi, HomeworkDto, HomeworkSubmissionDto, HomeworkSubmissionSaveDto } from "@/services/homework.api";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { useDropzone } from "react-dropzone";
-import { UploadCloud, File, FileAudio, FileText, FileVideo, X } from "lucide-react";
+import { UploadCloud, Eye, File, FileAudio, FileText, FileVideo, X } from "lucide-react";
 import { teacherApi } from "@/services/teacher.api"; // Use for upload API
 import { ENV } from "@/config/env";
-import AttachmentPreview from "./AttachmentPreview";
+import AttachmentPreview, { AttachmentPreviewModal } from "./AttachmentPreview";
 import { useTranslation } from "react-i18next";
 
 interface StudentSubmitFormProps {
@@ -23,6 +23,7 @@ export default function StudentSubmitForm({ homework, onBack, showToast }: Stude
   const [attachmentUrls, setAttachmentUrls] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [previewAttachmentUrl, setPreviewAttachmentUrl] = useState<string | null>(null);
   
   const [mySubmission, setMySubmission] = useState<HomeworkSubmissionDto | null>(null);
   const [isLoadingSubmission, setIsLoadingSubmission] = useState(true);
@@ -142,19 +143,6 @@ export default function StudentSubmitForm({ homework, onBack, showToast }: Stude
             </span>
           </div>
 
-          {homework.attachmentUrls && homework.attachmentUrls.length > 0 && (
-            <div className="mt-4">
-              <h3 className="text-sm font-semibold mb-2">{t("homework.assignmentAttachments")}:</h3>
-              <div className="flex flex-col gap-2">
-                {homework.attachmentUrls.map((url, idx) => (
-                  <a key={idx} href={formatUrl(url)} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-2 bg-gray-50 border rounded-lg hover:bg-gray-100 transition-colors max-w-sm">
-                    {getFileIcon(url)}
-                    <span className="text-sm text-blue-600 truncate">{url.split('/').pop()}</span>
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
         <button onClick={onBack} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
           {t("homework.back")}
@@ -209,10 +197,18 @@ export default function StudentSubmitForm({ homework, onBack, showToast }: Stude
                     <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 border rounded-lg">
                       <div className="flex items-center gap-3 truncate">
                         {getFileIcon(url)}
-                        <a href={formatUrl(url)} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline truncate">
+                        <a href={formatUrl(url)} download className="text-sm text-blue-600 hover:underline truncate">
                           {url.split('/').pop()}
                         </a>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewAttachmentUrl(url)}
+                        className="p-1 text-gray-400 hover:text-brand-600"
+                        title={t("homework.previewTitle")}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
                       <button
                         type="button"
                         onClick={() => removeFile(idx)}
@@ -238,6 +234,7 @@ export default function StudentSubmitForm({ homework, onBack, showToast }: Stude
           </form>
           </PermissionGuard>
         )}
+        <AttachmentPreviewModal url={previewAttachmentUrl} onClose={() => setPreviewAttachmentUrl(null)} />
       </div>
     </div>
   );

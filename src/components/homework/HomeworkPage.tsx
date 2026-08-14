@@ -85,6 +85,8 @@ export default function HomeworkPage({ studentMode = false }: { studentMode?: bo
   }, [showToast, studentMode, t]);
 
   const selectedClass = classes.find(c => c.id === selectedClassId);
+  const isSelectedClassOpen = selectedClass?.status === 1 &&
+    (!selectedClass.startDate || new Date(selectedClass.startDate).getTime() <= Date.now());
 
   return (
     <div>
@@ -106,7 +108,7 @@ export default function HomeworkPage({ studentMode = false }: { studentMode?: bo
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{studentMode ? t("homework.studentDescription", { defaultValue: "Xem và nộp bài tập của các lớp đang học." }) : t("homework.description", { defaultValue: "Quản lý toàn bộ bài tập." })}</p>
           </div>
           {!studentMode && <PermissionGuard requiredPermission="HomeworkManagement.Create">
-            <button onClick={() => { setEditingItem(null); setActiveView("form"); }} disabled={!selectedClassId} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">
+            <button onClick={() => { setEditingItem(null); setActiveView("form"); }} disabled={!selectedClassId || !isSelectedClassOpen} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">
               <Plus className="h-5 w-5" /> {t("homework.addHomework")}
             </button>
           </PermissionGuard>}
@@ -131,9 +133,14 @@ export default function HomeworkPage({ studentMode = false }: { studentMode?: bo
             }}
           />
           {selectedClass && (
-            <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-              {t("homework.classLabel", { defaultValue: "Lớp học" })}: <span className="font-semibold">{selectedClass.name}</span>
-            </div>
+            <>
+              <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                {t("homework.classLabel", { defaultValue: "Lớp học" })}: <span className="font-semibold">{selectedClass.name}</span>
+              </div>
+              {!studentMode && !isSelectedClassOpen && (
+                <p className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-400">{t("homework.classNotOpen")}</p>
+              )}
+            </>
           )}
         </div>
       </div>
