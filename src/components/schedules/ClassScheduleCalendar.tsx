@@ -10,7 +10,7 @@ import { useModal } from "@/hooks/useModal";
 import { Modal } from "@/components/ui/modal";
 import { classApi, ClassItem, ClassScheduleItem, ClassSaveDto, ScheduleVersionListItem } from "@/services/class.api";
 import { semesterApi, SemesterItem } from "@/services/semester.api";
-import { ChevronLeft, ChevronRight, CalendarClock, Save, X, Loader2, AlertTriangle, Cpu, Check, AlertCircle, Edit, DoorOpen, RotateCcw, History, Trash2, Eye, Lock, GitCompare } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarClock, Save, X, Loader2, AlertTriangle, Cpu, Check, AlertCircle, Edit, DoorOpen, RotateCcw, History, Trash2, Eye, Lock, GitCompare, Undo2 } from "lucide-react";
 import { roomApi, RoomItem } from "@/services/room.api";
 import { teacherApi } from "@/services/teacher.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
@@ -1013,6 +1013,15 @@ export default function ClassScheduleCalendar() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editSaving, setEditSaving] = useState(false); // true while an immediate drag-save is in progress
 
+  // Undo stacks — separate because undoing a draft move is a pure client-side state
+  // restore, while undoing a persisted move re-commits the previous state to the DB.
+  const UNDO_STACK_LIMIT = 5;
+  const [draftUndoStack, setDraftUndoStack] = useState<ClassItem[][]>([]);
+  const [dbUndoStack, setDbUndoStack] = useState<
+    { classId: number; classCode: string; previousWeeklySchedules: any[]; previousEvents: ScheduleEvent[] }[]
+  >([]);
+  const [undoingDbMove, setUndoingDbMove] = useState(false);
+
   // Load classes and semesters
   useEffect(() => {
     setMounted(true);
@@ -1248,6 +1257,7 @@ export default function ClassScheduleCalendar() {
         } catch {
           weeklySchedules = [];
         }
+        const previousWeeklySchedules = JSON.parse(JSON.stringify(weeklySchedules)); // snapshot for undo
 
         const wsIdx = weeklySchedules.findIndex((w: any) => w.dayOfWeek === originalDayOfWeek && w.startTime === draggedEvent.startTime);
         if (wsIdx < 0) {
@@ -1287,6 +1297,9 @@ export default function ClassScheduleCalendar() {
         classApi.update(cls.id, saveDto).then((updateRes) => {
           if (updateRes.success) {
             // Optimistic state is already correct — just show toast, no reload needed
+            setDbUndoStack((stack) =>
+              [...stack, { classId: cls.id, classCode: cls.code, previousWeeklySchedules, previousEvents: prevEvents }].slice(-UNDO_STACK_LIMIT)
+            );
             showToast(t("classSchedules.toastMoveSuccess", {
               classCode: draggedEvent.classCode,
               slot: t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label }),
@@ -1362,6 +1375,8 @@ export default function ClassScheduleCalendar() {
     const newSchedules = regenerateSchedulesForClass(cls, cls.startDate || targetDate, cls.endDate || targetDate);
     cls.schedules = newSchedules;
 
+    setDraftUndoStack((stack) => [...stack, draftClasses].slice(-UNDO_STACK_LIMIT));
+
     const updatedDraftClasses = [...draftClasses];
     updatedDraftClasses[clsIndex] = cls;
     setDraftClasses(updatedDraftClasses);
@@ -1380,9 +1395,80 @@ export default function ClassScheduleCalendar() {
     return true;
   };
 
+  const handleUndoDraftMove = () => {
+    if (draftUndoStack.length === 0) return;
+    const previous = draftUndoStack[draftUndoStack.length - 1];
+    setDraftUndoStack((stack) => stack.slice(0, -1));
+    setDraftClasses(previous);
+    localStorage.setItem("semester_draft_classes", JSON.stringify(previous));
+    setDraftEvents(previous.flatMap((c) => mapDraftClass(c)));
+    showToast(t("classSchedules.toastUndoSuccess", { defaultValue: "Đã hoàn tác thay đổi lịch nháp." }), "success");
+  };
+
+  const handleUndoDbMove = async () => {
+    if (dbUndoStack.length === 0) return;
+    const entry = dbUndoStack[dbUndoStack.length - 1];
+    setDbUndoStack((stack) => stack.slice(0, -1));
+    setUndoingDbMove(true);
+
+    const eventsBeforeUndo = events;
+    setEvents(entry.previousEvents); // optimistic
+
+    const revertOptimisticState = () => {
+      setEvents(eventsBeforeUndo);
+      setDbUndoStack((stack) => [...stack, entry]);
+    };
+
+    try {
+      const detailRes = await classApi.getById(entry.classId);
+      if (!detailRes.success || !detailRes.data) {
+        revertOptimisticState();
+        showToast(t("classSchedules.toastFetchDetailError", { defaultValue: "Không thể lấy thông tin chi tiết lớp học để cập nhật." }), "error");
+        return;
+      }
+
+      const cls = detailRes.data;
+      const saveDto: ClassSaveDto = {
+        id: cls.id,
+        code: cls.code,
+        name: cls.name,
+        status: cls.status,
+        type: cls.type,
+        url: cls.url,
+        description: cls.description,
+        startDate: cls.startDate,
+        endDate: cls.endDate,
+        courseId: cls.courseId,
+        teacherId: cls.teacherId,
+        semesterId: cls.semesterId,
+        expectedLessons: cls.expectedLessons,
+        weeklySchedules: entry.previousWeeklySchedules,
+        students: (cls.studentClasses || []).map((sc: any) => ({
+          studentId: sc.studentId,
+          enrollType: sc.enrollType ?? 0,
+        })),
+      };
+
+      const updateRes = await classApi.update(cls.id, saveDto);
+      if (updateRes.success) {
+        showToast(t("classSchedules.toastUndoDbSuccess", { classCode: entry.classCode, defaultValue: `Đã hoàn tác thay đổi lịch lớp ${entry.classCode}!` }), "success");
+      } else {
+        revertOptimisticState();
+        const errMsg = updateRes.message ? getFriendlyRoomError(updateRes.message) : t("classSchedules.toastUpdateError", { defaultValue: "Lỗi khi cập nhật lịch lớp học." });
+        showToast(errMsg, "error");
+      }
+    } catch {
+      revertOptimisticState();
+      showToast(t("classSchedules.toastUpdateError", { defaultValue: "Có lỗi xảy ra khi cập nhật lịch." }), "error");
+    } finally {
+      setUndoingDbMove(false);
+    }
+  };
+
   // ── Edit Mode handlers ────────────────────────────────────────────────────
   const handleToggleEditMode = () => {
     setIsEditMode(prev => !prev);
+    setDbUndoStack([]);
   };
 
   const handleSemesterChange = (semesterId: any) => {
@@ -1637,6 +1723,7 @@ export default function ClassScheduleCalendar() {
         setDraftClasses(null);
         setDraftEvents([]);
         setDraftSemesterId(null);
+        setDraftUndoStack([]);
         localStorage.removeItem("semester_draft_classes");
         localStorage.removeItem("semester_original_draft_classes");
         localStorage.removeItem("semester_draft_id");
@@ -1659,6 +1746,7 @@ export default function ClassScheduleCalendar() {
     setDraftClasses(null);
     setDraftEvents([]);
     setDraftSemesterId(null);
+    setDraftUndoStack([]);
     localStorage.removeItem("semester_draft_classes");
     localStorage.removeItem("semester_original_draft_classes");
     localStorage.removeItem("semester_draft_id");
@@ -1671,6 +1759,7 @@ export default function ClassScheduleCalendar() {
       try {
         const parsedClasses = JSON.parse(originalClasses);
         setDraftClasses(parsedClasses);
+        setDraftUndoStack([]);
         localStorage.setItem("semester_draft_classes", originalClasses);
         const newDraftEvents = parsedClasses.flatMap((cls: ClassItem) => mapDraftClass(cls));
         setDraftEvents(newDraftEvents);
@@ -1724,6 +1813,8 @@ export default function ClassScheduleCalendar() {
           "success"
         );
         setShowVersionPickerModal(false);
+        setDbUndoStack([]); // stale: referenced class Ids no longer exist post-rollback
+        setDraftUndoStack([]);
         setReloadTrigger((prev) => prev + 1); // trigger calendar reload
       } else {
         showToast(
@@ -1975,6 +2066,16 @@ export default function ClassScheduleCalendar() {
               {t("classSchedules.revertDraft", { defaultValue: "Khôi phục gốc" })}
             </button>
             <button
+              onClick={handleUndoDraftMove}
+              disabled={draftUndoStack.length === 0}
+              title={draftUndoStack.length === 0 ? t("classSchedules.noUndoAvailable", { defaultValue: "Không có thay đổi nào để hoàn tác" }) : undefined}
+              className="px-4 py-2 rounded-xl border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 text-sm font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Undo2 className="w-4 h-4" />
+              {t("classSchedules.undoBtn", { defaultValue: "Hoàn tác" })}
+              {draftUndoStack.length > 0 && <span className="ml-0.5 text-[10px] font-bold opacity-70">({draftUndoStack.length})</span>}
+            </button>
+            <button
               onClick={handleSaveDraft}
               disabled={saveLoading}
               className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
@@ -2005,6 +2106,16 @@ export default function ClassScheduleCalendar() {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {editSaving && <Loader2 className="w-4 h-4 animate-spin text-violet-500" />}
+            <button
+              onClick={handleUndoDbMove}
+              disabled={dbUndoStack.length === 0 || undoingDbMove}
+              title={dbUndoStack.length === 0 ? t("classSchedules.noUndoAvailable", { defaultValue: "Không có thay đổi nào để hoàn tác" }) : undefined}
+              className="px-4 py-2 rounded-xl border border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300 text-sm font-semibold hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {undoingDbMove ? <Loader2 className="w-4 h-4 animate-spin" /> : <Undo2 className="w-4 h-4" />}
+              {t("classSchedules.undoBtn", { defaultValue: "Hoàn tác" })}
+              {dbUndoStack.length > 0 && <span className="ml-0.5 text-[10px] font-bold opacity-70">({dbUndoStack.length})</span>}
+            </button>
             {selectedSemesterId && (
               <button
                 onClick={handleOpenSaveVersionModal}
