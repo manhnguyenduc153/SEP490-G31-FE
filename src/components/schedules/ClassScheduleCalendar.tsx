@@ -1641,15 +1641,10 @@ export default function ClassScheduleCalendar() {
         localStorage.removeItem("semester_original_draft_classes");
         localStorage.removeItem("semester_draft_id");
         showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: "Lưu chính thức thời khóa biểu thành công!" }) : "Lưu chính thức thời khóa biểu thành công!", "success");
-        // Reload calendar from DB
-        const dbRes = await classApi.getClassSchedules();
-        if (dbRes.success && dbRes.data) {
-          setEvents(
-            (dbRes.data as ClassScheduleItem[])
-              .map((s) => mapApiItem(s))
-              .filter(Boolean) as ScheduleEvent[]
-          );
-        }
+        // Reload classes + schedules from DB — must refresh `classes` too, not just `events`,
+        // since the semester filter falls back to looking up each event's class in `classes`
+        // (freshly-created classes wouldn't be found there otherwise, hiding them from the filter).
+        setReloadTrigger((prev) => prev + 1);
       } else {
         showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("classSchedules.toastSaveDraftError", { defaultValue: "Không thể lưu bản cơ sở lịch học." }), "error");
       }
@@ -2224,8 +2219,10 @@ export default function ClassScheduleCalendar() {
         ) : (
           <div className="p-5 schedules-calendar-main">
             <FullCalendar
+              key={toISO(weekStart)}
               plugins={[dayGridPlugin, interactionPlugin]}
               initialView="dayGridMonth"
+              initialDate={weekStart}
               locale="vi"
               buttonText={{ today: "Hôm nay", month: "Tháng" }}
               headerToolbar={{ left: "prev,next today", center: "title", right: "" }}
