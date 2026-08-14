@@ -42,7 +42,6 @@ export function TeacherForm({
   });
 
   const [isUploading, setIsUploading] = useState(false);
-  const [clientErrors, setClientErrors] = useState<string[]>([]);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [certFiles, setCertFiles] = useState<File[]>([]);
@@ -98,7 +97,6 @@ export function TeacherForm({
     setAvatarFile(null);
     setCertFiles([]);
     setCertPreview(null);
-    setClientErrors([]);
     setFieldErrors({});
   }, [editingItem]);
 
@@ -110,8 +108,7 @@ export function TeacherForm({
       delete next[name];
       return next;
     });
-    setClientErrors([]);
-    
+
     setFormData((prev) => {
       let parsedValue: string | number | boolean | null = value;
       if (name === "status") {
@@ -220,7 +217,6 @@ export function TeacherForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setClientErrors([]);
     setFieldErrors({});
 
     const teacherSchema = z.object({
@@ -261,7 +257,6 @@ export function TeacherForm({
         if (!nextFieldErrors[field]) nextFieldErrors[field] = issue.message;
       });
       setFieldErrors(nextFieldErrors);
-      setClientErrors(Object.values(nextFieldErrors));
       return;
     }
 
@@ -281,7 +276,7 @@ export function TeacherForm({
         if (res.success && res.data) {
           finalFormData.avatar = res.data;
         } else {
-          alert(res.message || "Lỗi tải ảnh đại diện");
+          alert(res.message || t("teacher.avatarUploadError"));
           setIsUploading(false);
           return;
         }
@@ -290,7 +285,7 @@ export function TeacherForm({
       for (const certFile of certFiles) {
         const res = await teacherApi.uploadDocument(certFile);
         if (!res.success || !res.data) {
-          alert(res.message || `Lỗi tải chứng chỉ ${certFile.name}`);
+          alert(res.message || t("teacher.certificateUploadError", { name: certFile.name }));
           setIsUploading(false);
           return;
         }
@@ -307,7 +302,7 @@ export function TeacherForm({
       await onSubmit(finalFormData);
       setIsUploading(false);
     } catch {
-      alert("Lỗi upload file");
+      alert(t("teacher.fileUploadError"));
       setIsUploading(false);
     }
   };
@@ -731,11 +726,10 @@ export function TeacherForm({
 
           </div>
 
-          {/* Form-level error */}
-          {(clientErrors.length > 0 || formError) && (
+          {/* Form-level server error */}
+          {formError && (
             <div className="mt-6 p-4 rounded-lg bg-error-50 dark:bg-error-500/10 border border-error-200 dark:border-error-500/20 text-sm text-error-600 dark:text-error-400">
-              {clientErrors.map((error, index) => <div key={`${error}-${index}`}>• {error}</div>)}
-              {formError && <div>• {formError}</div>}
+              <div>{formError}</div>
             </div>
           )}
 
