@@ -307,10 +307,20 @@ export default function HomeworkSubmissions({ homework, onBack, showToast }: Hom
                               <div className="mt-1 flex flex-col gap-1">
                                 {sub.attachmentUrls.map((url, idx) => (
                                   <div key={`${url}-${idx}`} className="flex items-center gap-1 text-xs">
-                                    <a href={formatUrl(url)} download className="max-w-[150px] truncate text-blue-600 hover:underline">
+                                    <a
+                                      href={formatUrl(url)}
+                                      download
+                                      className="max-w-[150px] truncate text-left text-blue-600 hover:underline"
+                                    >
                                       {url.split("/").pop()}
                                     </a>
-                                    <button type="button" onClick={() => setPreviewAttachmentUrl(url)} className="text-gray-500 hover:text-brand-600" title={t("homework.previewTitle")}>
+                                    <button
+                                      type="button"
+                                      onClick={() => setPreviewAttachmentUrl(url)}
+                                      className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary-600 dark:hover:bg-gray-800"
+                                      title={t("homework.previewAttachment")}
+                                      aria-label={t("homework.previewAttachment")}
+                                    >
                                       <Eye className="h-3.5 w-3.5" />
                                     </button>
                                   </div>
