@@ -104,6 +104,15 @@ export interface ClassSaveDto {
   newCourseName?: string | null;
 }
 
+export interface ScheduleVersionListItem {
+  id: number;
+  name: string;
+  createdAt: string;
+  createdBy?: string | null;
+  classCount: number;
+  isAutoSaved: boolean;
+}
+
 export interface AutoScheduleConstraintDto {
   sessionsPerWeek: number;
   timePreferences: string[];
@@ -239,7 +248,23 @@ export const classApi = {
     return api.post<ClassItem[]>(ENDPOINTS.SEMESTER.SAVE_SCHEDULE_DRAFT, dto);
   },
 
-  async rollbackSemesterSchedule(semesterId: number): Promise<ApiResponse<ClassItem[]>> {
-    return api.post<ClassItem[]>(ENDPOINTS.SEMESTER.ROLLBACK_SCHEDULE_DRAFT(semesterId), {});
+  async saveScheduleVersion(semesterId: number, name: string): Promise<ApiResponse<ScheduleVersionListItem>> {
+    return api.post<ScheduleVersionListItem>(ENDPOINTS.SEMESTER.SAVE_SCHEDULE_VERSION(semesterId), { name });
+  },
+
+  async getScheduleVersions(semesterId: number): Promise<ApiResponse<ScheduleVersionListItem[]>> {
+    return api.get<ScheduleVersionListItem[]>(ENDPOINTS.SEMESTER.GET_SCHEDULE_VERSIONS(semesterId));
+  },
+
+  async deleteScheduleVersion(versionId: number): Promise<ApiResponse<boolean>> {
+    return api.delete<boolean>(ENDPOINTS.SEMESTER.DELETE_SCHEDULE_VERSION(versionId));
+  },
+
+  async getScheduleVersionPreview(versionId: number): Promise<ApiResponse<ClassItem[]>> {
+    return api.get<ClassItem[]>(ENDPOINTS.SEMESTER.GET_SCHEDULE_VERSION_PREVIEW(versionId));
+  },
+
+  async rollbackSemesterSchedule(semesterId: number, versionId: number): Promise<ApiResponse<ClassItem[]>> {
+    return api.post<ClassItem[]>(ENDPOINTS.SEMESTER.ROLLBACK_SCHEDULE_DRAFT(semesterId, versionId), {});
   },
 };

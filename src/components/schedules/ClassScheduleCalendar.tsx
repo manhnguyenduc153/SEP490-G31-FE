@@ -8,9 +8,9 @@ import interactionPlugin from "@fullcalendar/interaction";
 import { EventClickArg } from "@fullcalendar/core";
 import { useModal } from "@/hooks/useModal";
 import { Modal } from "@/components/ui/modal";
-import { classApi, ClassItem, ClassScheduleItem, ClassSaveDto } from "@/services/class.api";
+import { classApi, ClassItem, ClassScheduleItem, ClassSaveDto, ScheduleVersionListItem } from "@/services/class.api";
 import { semesterApi, SemesterItem } from "@/services/semester.api";
-import { ChevronLeft, ChevronRight, CalendarClock, Save, X, Loader2, AlertTriangle, Cpu, Check, AlertCircle, Edit, DoorOpen, RotateCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarClock, Save, X, Loader2, AlertTriangle, Cpu, Check, AlertCircle, Edit, DoorOpen, RotateCcw, History, Trash2, Eye, Lock, GitCompare, Undo2 } from "lucide-react";
 import { roomApi, RoomItem } from "@/services/room.api";
 import { teacherApi } from "@/services/teacher.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
@@ -74,6 +74,8 @@ interface ScheduleEvent {
   isDraft?: boolean;
   classStatus?: number | null;
   semesterId?: number | null;
+  /** Set only in the version-preview diff overlay: how this occurrence compares to the current live schedule. */
+  diffStatus?: "added" | "removed";
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -138,6 +140,51 @@ function mapDraftClass(cls: ClassItem): ScheduleEvent[] {
     .filter(Boolean) as ScheduleEvent[];
 }
 
+/**
+ * Collapses events spanning many real weeks (e.g. a whole semester) down to a single
+ * representative week, keyed by (day-of-week, slot, class) so recurring duplicates merge
+ * into one cell. Used for weekly-pattern previews where actual calendar dates don't matter.
+ */
+function buildWeeklyPatternEvents(events: ScheduleEvent[], weekStart: Date): ScheduleEvent[] {
+  const seen = new Set<string>();
+  const result: ScheduleEvent[] = [];
+  for (const ev of events) {
+    const dayOfWeek = new Date(`${ev.scheduleDate}T00:00:00`).getDay();
+    const key = `${dayOfWeek}-${ev.slotIndex}-${ev.classCode}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const offset = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Monday(1) -> 0 ... Sunday(0) -> 6
+    result.push({ ...ev, id: `weekly-${key}`, scheduleDate: toISO(addDays(weekStart, offset)) });
+  }
+  return result;
+}
+
+/**
+ * Merges the current live weekly schedule with a candidate version's weekly schedule into
+ * one event list tagged with diffStatus, so both can be rendered stacked in the same WeekGrid:
+ * "added" = would appear if rolled back, "removed" = would disappear if rolled back, untagged = unchanged.
+ */
+function buildScheduleDiffEvents(currentEvents: ScheduleEvent[], candidateEvents: ScheduleEvent[], weekStart: Date): ScheduleEvent[] {
+  const currentWeekly = buildWeeklyPatternEvents(currentEvents, weekStart);
+  const candidateWeekly = buildWeeklyPatternEvents(candidateEvents, weekStart);
+  const keyOf = (ev: ScheduleEvent) => `${ev.scheduleDate}-${ev.slotIndex}-${ev.classCode}`;
+  const currentKeys = new Set(currentWeekly.map(keyOf));
+  const candidateKeys = new Set(candidateWeekly.map(keyOf));
+
+  const result: ScheduleEvent[] = candidateWeekly.map((ev) => ({
+    ...ev,
+    diffStatus: currentKeys.has(keyOf(ev)) ? undefined : "added",
+  }));
+
+  currentWeekly.forEach((ev) => {
+    if (!candidateKeys.has(keyOf(ev))) {
+      result.push({ ...ev, id: `removed-${ev.id}`, diffStatus: "removed" });
+    }
+  });
+
+  return result;
+}
+
 function getStatus(s: number, t: any) {
   const configs: Record<number, { text: string; color: string; dot: string }> = {
     0: { text: t("schedules.statusNotStarted", { defaultValue: "Chưa học" }), color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800", dot: "bg-blue-400" },
@@ -174,9 +221,11 @@ interface WeekGridProps {
   onEventClick: (ev: ScheduleEvent) => void;
   onEventDrop?: (ev: ScheduleEvent, dateStr: string, slotIdx: number) => void;
   isEventEditable: (ev: ScheduleEvent) => boolean;
+  /** false = weekly-pattern view (no real dates behind it): hides date numbers and the "today" highlight. */
+  showDates?: boolean;
 }
 
-function WeekGrid({ events, weekStart, onEventClick, onEventDrop, isEventEditable }: WeekGridProps) {
+function WeekGrid({ events, weekStart, onEventClick, onEventDrop, isEventEditable, showDates = true }: WeekGridProps) {
   const { t } = useTranslation();
   const [dragOverCell, setDragOverCell] = useState<{ date: string; slotIdx: number } | null>(null);
 
@@ -231,14 +280,16 @@ function WeekGrid({ events, weekStart, onEventClick, onEventDrop, isEventEditabl
               <th
                 key={d.iso}
                 className={`border border-gray-200 dark:border-gray-700 px-2 py-2.5 text-center text-xs font-bold uppercase tracking-wider
-                  ${d.iso === todayISO
+                  ${showDates && d.iso === todayISO
                     ? "bg-brand-500/10 text-brand-600 dark:text-brand-400"
                     : "bg-gray-50 dark:bg-gray-850 text-gray-500 dark:text-gray-400"}`}
               >
                 <span className="block">{d.dayLabel}</span>
-                <span className={`mt-0.5 block text-[11px] font-semibold ${d.iso === todayISO ? "text-brand-600 dark:text-brand-400" : "text-gray-700 dark:text-gray-300"}`}>
-                  {d.label}
-                </span>
+                {showDates && (
+                  <span className={`mt-0.5 block text-[11px] font-semibold ${d.iso === todayISO ? "text-brand-600 dark:text-brand-400" : "text-gray-700 dark:text-gray-300"}`}>
+                    {d.label}
+                  </span>
+                )}
               </th>
             ))}
           </tr>
@@ -261,7 +312,7 @@ function WeekGrid({ events, weekStart, onEventClick, onEventDrop, isEventEditabl
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, d.iso, slot.index)}
                     className={`border border-gray-200 dark:border-gray-700 p-1.5 align-top min-w-[90px] transition-colors duration-150
-                      ${d.iso === todayISO ? "bg-brand-500/5 dark:bg-brand-950/10" : "bg-white dark:bg-gray-900"}
+                      ${showDates && d.iso === todayISO ? "bg-brand-500/5 dark:bg-brand-950/10" : "bg-white dark:bg-gray-900"}
                       ${isDraggingOver ? "bg-brand-500/10 ring-2 ring-brand-500 ring-inset" : ""}`}
                   >
                     <div className="flex flex-col gap-1 h-full">
@@ -275,11 +326,15 @@ function WeekGrid({ events, weekStart, onEventClick, onEventDrop, isEventEditabl
                             draggable={editable}
                             onDragStart={(e) => handleDragStart(e, ev)}
                             className={`w-full text-left rounded-lg border px-2 py-1.5 text-[11px] font-semibold leading-tight transition-all duration-150 shadow-xs hover:shadow-md hover:-translate-y-px
-                              ${ev.isDraft
-                                ? DRAFT_COLOR + " cursor-grab active:cursor-grabbing hover:border-amber-500"
-                                : editable
-                                  ? SLOT_COLORS[slot.index] + " cursor-grab active:cursor-grabbing hover:border-brand-500 hover:ring-1 hover:ring-brand-500"
-                                  : SLOT_COLORS[slot.index] + " cursor-pointer"}`}
+                              ${ev.diffStatus === "added"
+                                ? "bg-emerald-50 border-emerald-500 text-emerald-900 dark:bg-emerald-950/40 dark:border-emerald-500 dark:text-emerald-200 cursor-default"
+                                : ev.diffStatus === "removed"
+                                  ? "bg-rose-50 border-rose-400 border-dashed text-rose-700 line-through opacity-70 dark:bg-rose-950/30 dark:border-rose-600 dark:text-rose-300 cursor-default"
+                                  : ev.isDraft
+                                    ? DRAFT_COLOR + " cursor-grab active:cursor-grabbing hover:border-amber-500"
+                                    : editable
+                                      ? SLOT_COLORS[slot.index] + " cursor-grab active:cursor-grabbing hover:border-brand-500 hover:ring-1 hover:ring-brand-500"
+                                      : SLOT_COLORS[slot.index] + " cursor-pointer"}`}
                           >
                             <span className="flex items-center gap-1">
                               <span className="block truncate font-bold">{ev.classCode}</span>
@@ -902,9 +957,26 @@ export default function ClassScheduleCalendar() {
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
   const [rollbackLoading, setRollbackLoading] = useState(false);
-  const [showRollbackConfirm, setShowRollbackConfirm] = useState(false);
   const [draftSemesterId, setDraftSemesterId] = useState<number | null>(null);
   const [reloadTrigger, setReloadTrigger] = useState(0);
+
+  // Schedule version state (save checkpoints + rollback-to-version)
+  const [showSaveVersionModal, setShowSaveVersionModal] = useState(false);
+  const [versionNameInput, setVersionNameInput] = useState("");
+  const [saveVersionLoading, setSaveVersionLoading] = useState(false);
+  const [showVersionPickerModal, setShowVersionPickerModal] = useState(false);
+  const [scheduleVersions, setScheduleVersions] = useState<ScheduleVersionListItem[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+  const [selectedVersionId, setSelectedVersionId] = useState<number | null>(null);
+  const [deletingVersionId, setDeletingVersionId] = useState<number | null>(null);
+  const [showVersionPreviewModal, setShowVersionPreviewModal] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewVersionName, setPreviewVersionName] = useState("");
+  const [previewEvents, setPreviewEvents] = useState<ScheduleEvent[]>([]);
+  const [showVersionOnlyModal, setShowVersionOnlyModal] = useState(false);
+  const [versionOnlyLoading, setVersionOnlyLoading] = useState(false);
+  const [versionOnlyName, setVersionOnlyName] = useState("");
+  const [versionOnlyEvents, setVersionOnlyEvents] = useState<ScheduleEvent[]>([]);
 
   // Teacher availability cache (teacherId -> Set of "dayOfWeek-slotIndex")
   const [teacherAvailMap, setTeacherAvailMap] = useState<Record<number, Set<string>>>({});
@@ -940,6 +1012,15 @@ export default function ClassScheduleCalendar() {
   // Edit Mode state — controls whether DB schedule events are draggable
   const [isEditMode, setIsEditMode] = useState(false);
   const [editSaving, setEditSaving] = useState(false); // true while an immediate drag-save is in progress
+
+  // Undo stacks — separate because undoing a draft move is a pure client-side state
+  // restore, while undoing a persisted move re-commits the previous state to the DB.
+  const UNDO_STACK_LIMIT = 5;
+  const [draftUndoStack, setDraftUndoStack] = useState<ClassItem[][]>([]);
+  const [dbUndoStack, setDbUndoStack] = useState<
+    { classId: number; classCode: string; previousWeeklySchedules: any[]; previousEvents: ScheduleEvent[] }[]
+  >([]);
+  const [undoingDbMove, setUndoingDbMove] = useState(false);
 
   // Load classes and semesters
   useEffect(() => {
@@ -1176,6 +1257,7 @@ export default function ClassScheduleCalendar() {
         } catch {
           weeklySchedules = [];
         }
+        const previousWeeklySchedules = JSON.parse(JSON.stringify(weeklySchedules)); // snapshot for undo
 
         const wsIdx = weeklySchedules.findIndex((w: any) => w.dayOfWeek === originalDayOfWeek && w.startTime === draggedEvent.startTime);
         if (wsIdx < 0) {
@@ -1215,6 +1297,9 @@ export default function ClassScheduleCalendar() {
         classApi.update(cls.id, saveDto).then((updateRes) => {
           if (updateRes.success) {
             // Optimistic state is already correct — just show toast, no reload needed
+            setDbUndoStack((stack) =>
+              [...stack, { classId: cls.id, classCode: cls.code, previousWeeklySchedules, previousEvents: prevEvents }].slice(-UNDO_STACK_LIMIT)
+            );
             showToast(t("classSchedules.toastMoveSuccess", {
               classCode: draggedEvent.classCode,
               slot: t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label }),
@@ -1290,6 +1375,8 @@ export default function ClassScheduleCalendar() {
     const newSchedules = regenerateSchedulesForClass(cls, cls.startDate || targetDate, cls.endDate || targetDate);
     cls.schedules = newSchedules;
 
+    setDraftUndoStack((stack) => [...stack, draftClasses].slice(-UNDO_STACK_LIMIT));
+
     const updatedDraftClasses = [...draftClasses];
     updatedDraftClasses[clsIndex] = cls;
     setDraftClasses(updatedDraftClasses);
@@ -1308,9 +1395,80 @@ export default function ClassScheduleCalendar() {
     return true;
   };
 
+  const handleUndoDraftMove = () => {
+    if (draftUndoStack.length === 0) return;
+    const previous = draftUndoStack[draftUndoStack.length - 1];
+    setDraftUndoStack((stack) => stack.slice(0, -1));
+    setDraftClasses(previous);
+    localStorage.setItem("semester_draft_classes", JSON.stringify(previous));
+    setDraftEvents(previous.flatMap((c) => mapDraftClass(c)));
+    showToast(t("classSchedules.toastUndoSuccess", { defaultValue: "Đã hoàn tác thay đổi lịch nháp." }), "success");
+  };
+
+  const handleUndoDbMove = async () => {
+    if (dbUndoStack.length === 0) return;
+    const entry = dbUndoStack[dbUndoStack.length - 1];
+    setDbUndoStack((stack) => stack.slice(0, -1));
+    setUndoingDbMove(true);
+
+    const eventsBeforeUndo = events;
+    setEvents(entry.previousEvents); // optimistic
+
+    const revertOptimisticState = () => {
+      setEvents(eventsBeforeUndo);
+      setDbUndoStack((stack) => [...stack, entry]);
+    };
+
+    try {
+      const detailRes = await classApi.getById(entry.classId);
+      if (!detailRes.success || !detailRes.data) {
+        revertOptimisticState();
+        showToast(t("classSchedules.toastFetchDetailError", { defaultValue: "Không thể lấy thông tin chi tiết lớp học để cập nhật." }), "error");
+        return;
+      }
+
+      const cls = detailRes.data;
+      const saveDto: ClassSaveDto = {
+        id: cls.id,
+        code: cls.code,
+        name: cls.name,
+        status: cls.status,
+        type: cls.type,
+        url: cls.url,
+        description: cls.description,
+        startDate: cls.startDate,
+        endDate: cls.endDate,
+        courseId: cls.courseId,
+        teacherId: cls.teacherId,
+        semesterId: cls.semesterId,
+        expectedLessons: cls.expectedLessons,
+        weeklySchedules: entry.previousWeeklySchedules,
+        students: (cls.studentClasses || []).map((sc: any) => ({
+          studentId: sc.studentId,
+          enrollType: sc.enrollType ?? 0,
+        })),
+      };
+
+      const updateRes = await classApi.update(cls.id, saveDto);
+      if (updateRes.success) {
+        showToast(t("classSchedules.toastUndoDbSuccess", { classCode: entry.classCode, defaultValue: `Đã hoàn tác thay đổi lịch lớp ${entry.classCode}!` }), "success");
+      } else {
+        revertOptimisticState();
+        const errMsg = updateRes.message ? getFriendlyRoomError(updateRes.message) : t("classSchedules.toastUpdateError", { defaultValue: "Lỗi khi cập nhật lịch lớp học." });
+        showToast(errMsg, "error");
+      }
+    } catch {
+      revertOptimisticState();
+      showToast(t("classSchedules.toastUpdateError", { defaultValue: "Có lỗi xảy ra khi cập nhật lịch." }), "error");
+    } finally {
+      setUndoingDbMove(false);
+    }
+  };
+
   // ── Edit Mode handlers ────────────────────────────────────────────────────
   const handleToggleEditMode = () => {
     setIsEditMode(prev => !prev);
+    setDbUndoStack([]);
   };
 
   const handleSemesterChange = (semesterId: any) => {
@@ -1565,19 +1723,16 @@ export default function ClassScheduleCalendar() {
         setDraftClasses(null);
         setDraftEvents([]);
         setDraftSemesterId(null);
+        setDraftUndoStack([]);
         localStorage.removeItem("semester_draft_classes");
         localStorage.removeItem("semester_original_draft_classes");
         localStorage.removeItem("semester_draft_id");
         showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: "Lưu chính thức thời khóa biểu thành công!" }) : "Lưu chính thức thời khóa biểu thành công!", "success");
-        // Reload calendar from DB
-        const dbRes = await classApi.getClassSchedules();
-        if (dbRes.success && dbRes.data) {
-          setEvents(
-            (dbRes.data as ClassScheduleItem[])
-              .map((s) => mapApiItem(s))
-              .filter(Boolean) as ScheduleEvent[]
-          );
-        }
+        // Reload classes + schedules from DB — must refresh `classes` too, not just `events`,
+        // since the semester filter falls back to looking up each event's class in `classes`
+        // (freshly-created classes wouldn't be found there otherwise, hiding them from the filter).
+        setReloadTrigger((prev) => prev + 1);
+      } else {
         showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("classSchedules.toastSaveDraftError", { defaultValue: "Không thể lưu bản cơ sở lịch học." }), "error");
       }
     } catch (err: any) {
@@ -1591,6 +1746,7 @@ export default function ClassScheduleCalendar() {
     setDraftClasses(null);
     setDraftEvents([]);
     setDraftSemesterId(null);
+    setDraftUndoStack([]);
     localStorage.removeItem("semester_draft_classes");
     localStorage.removeItem("semester_original_draft_classes");
     localStorage.removeItem("semester_draft_id");
@@ -1603,6 +1759,7 @@ export default function ClassScheduleCalendar() {
       try {
         const parsedClasses = JSON.parse(originalClasses);
         setDraftClasses(parsedClasses);
+        setDraftUndoStack([]);
         localStorage.setItem("semester_draft_classes", originalClasses);
         const newDraftEvents = parsedClasses.flatMap((cls: ClassItem) => mapDraftClass(cls));
         setDraftEvents(newDraftEvents);
@@ -1619,36 +1776,158 @@ export default function ClassScheduleCalendar() {
     }
   };
 
-  const handleRollbackSemesterSchedule = () => {
+  const handleOpenVersionPicker = async () => {
     if (!selectedSemesterId) return;
-    setShowRollbackConfirm(true);
+    setSelectedVersionId(null);
+    setShowVersionPickerModal(true);
+    setVersionsLoading(true);
+    try {
+      const res = await classApi.getScheduleVersions(selectedSemesterId);
+      setScheduleVersions(res.success && res.data ? res.data : []);
+      if (!res.success) {
+        showToast(
+          res.message
+            ? t(`backendMessages.${res.message}`, { defaultValue: res.message })
+            : t("classSchedules.toastLoadVersionsError", { defaultValue: "Không tải được danh sách phiên bản." }),
+          "error"
+        );
+      }
+    } catch {
+      setScheduleVersions([]);
+      showToast(t("classSchedules.toastLoadVersionsError", { defaultValue: "Không tải được danh sách phiên bản." }), "error");
+    } finally {
+      setVersionsLoading(false);
+    }
   };
 
   const executeRollback = async () => {
-    if (!selectedSemesterId) return;
+    if (!selectedSemesterId || !selectedVersionId) return;
     setRollbackLoading(true);
     try {
-      const res = await classApi.rollbackSemesterSchedule(selectedSemesterId);
+      const res = await classApi.rollbackSemesterSchedule(selectedSemesterId, selectedVersionId);
       if (res.success) {
         showToast(
           res.message
-            ? t(`backendMessages.${res.message}`, { defaultValue: "Khôi phục lịch gốc học kỳ thành công!" })
-            : "Khôi phục lịch gốc học kỳ thành công!",
+            ? t(`backendMessages.${res.message}`, { defaultValue: "Khôi phục lịch học thành công!" })
+            : "Khôi phục lịch học thành công!",
           "success"
         );
+        setShowVersionPickerModal(false);
+        setDbUndoStack([]); // stale: referenced class Ids no longer exist post-rollback
+        setDraftUndoStack([]);
         setReloadTrigger((prev) => prev + 1); // trigger calendar reload
       } else {
         showToast(
           res.message
             ? t(`backendMessages.${res.message}`, { defaultValue: res.message })
-            : t("classSchedules.toastRollbackError", { defaultValue: "Khôi phục lịch gốc thất bại." }),
+            : t("classSchedules.toastRollbackError", { defaultValue: "Khôi phục lịch thất bại." }),
           "error"
         );
       }
     } catch (err: any) {
-      showToast(t("classSchedules.toastRollbackSystemError", { defaultValue: "Lỗi hệ thống xảy ra khi khôi phục lịch gốc." }), "error");
+      showToast(t("classSchedules.toastRollbackSystemError", { defaultValue: "Lỗi hệ thống xảy ra khi khôi phục lịch." }), "error");
     } finally {
       setRollbackLoading(false);
+    }
+  };
+
+  const handleDeleteVersion = async (versionId: number) => {
+    setDeletingVersionId(versionId);
+    try {
+      const res = await classApi.deleteScheduleVersion(versionId);
+      if (res.success) {
+        setScheduleVersions((prev) => prev.filter((v) => v.id !== versionId));
+        if (selectedVersionId === versionId) setSelectedVersionId(null);
+        showToast(t("classSchedules.toastDeleteVersionSuccess", { defaultValue: "Đã xóa phiên bản." }), "success");
+      } else {
+        showToast(
+          res.message
+            ? t(`backendMessages.${res.message}`, { defaultValue: res.message })
+            : t("classSchedules.toastDeleteVersionError", { defaultValue: "Xóa phiên bản thất bại." }),
+          "error"
+        );
+      }
+    } catch {
+      showToast(t("classSchedules.toastDeleteVersionError", { defaultValue: "Xóa phiên bản thất bại." }), "error");
+    } finally {
+      setDeletingVersionId(null);
+    }
+  };
+
+  const fetchCandidateVersionEvents = async (versionId: number): Promise<ScheduleEvent[] | null> => {
+    try {
+      const res = await classApi.getScheduleVersionPreview(versionId);
+      if (res.success && res.data) {
+        return res.data.flatMap((cls) => mapDraftClass(cls));
+      }
+      showToast(
+        res.message
+          ? t(`backendMessages.${res.message}`, { defaultValue: res.message })
+          : t("classSchedules.toastPreviewError", { defaultValue: "Không thể tải xem trước phiên bản." }),
+        "error"
+      );
+      return null;
+    } catch {
+      showToast(t("classSchedules.toastPreviewError", { defaultValue: "Không thể tải xem trước phiên bản." }), "error");
+      return null;
+    }
+  };
+
+  const handleViewVersionSchedule = async (versionId: number, versionName: string) => {
+    setVersionOnlyName(versionName);
+    setVersionOnlyEvents([]);
+    setShowVersionOnlyModal(true);
+    setVersionOnlyLoading(true);
+    const candidateEvents = await fetchCandidateVersionEvents(versionId);
+    if (candidateEvents) {
+      setVersionOnlyEvents(buildWeeklyPatternEvents(candidateEvents, getWeekStart(new Date())));
+    }
+    setVersionOnlyLoading(false);
+  };
+
+  const handlePreviewVersion = async (versionId: number, versionName: string) => {
+    setPreviewVersionName(versionName);
+    setPreviewEvents([]);
+    setShowVersionPreviewModal(true);
+    setPreviewLoading(true);
+    const candidateEvents = await fetchCandidateVersionEvents(versionId);
+    if (candidateEvents) {
+      const currentLiveEvents = events.filter((ev) => {
+        if (!selectedSemesterId) return false;
+        if (ev.semesterId) return ev.semesterId === selectedSemesterId;
+        const cls = classes.find((c) => c.code === ev.classCode);
+        return cls?.semesterId === selectedSemesterId;
+      });
+      setPreviewEvents(buildScheduleDiffEvents(currentLiveEvents, candidateEvents, getWeekStart(new Date())));
+    }
+    setPreviewLoading(false);
+  };
+
+  const handleOpenSaveVersionModal = () => {
+    setVersionNameInput("");
+    setShowSaveVersionModal(true);
+  };
+
+  const executeSaveVersion = async () => {
+    if (!selectedSemesterId || !versionNameInput.trim()) return;
+    setSaveVersionLoading(true);
+    try {
+      const res = await classApi.saveScheduleVersion(selectedSemesterId, versionNameInput.trim());
+      if (res.success) {
+        showToast(t("classSchedules.toastSaveVersionSuccess", { defaultValue: "Đã lưu phiên bản lịch." }), "success");
+        setShowSaveVersionModal(false);
+      } else {
+        showToast(
+          res.message
+            ? t(`backendMessages.${res.message}`, { defaultValue: res.message })
+            : t("classSchedules.toastSaveVersionError", { defaultValue: "Lưu phiên bản thất bại." }),
+          "error"
+        );
+      }
+    } catch {
+      showToast(t("classSchedules.toastSaveVersionError", { defaultValue: "Lưu phiên bản thất bại." }), "error");
+    } finally {
+      setSaveVersionLoading(false);
     }
   };
 
@@ -1787,6 +2066,16 @@ export default function ClassScheduleCalendar() {
               {t("classSchedules.revertDraft", { defaultValue: "Khôi phục gốc" })}
             </button>
             <button
+              onClick={handleUndoDraftMove}
+              disabled={draftUndoStack.length === 0}
+              title={draftUndoStack.length === 0 ? t("classSchedules.noUndoAvailable", { defaultValue: "Không có thay đổi nào để hoàn tác" }) : undefined}
+              className="px-4 py-2 rounded-xl border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 text-sm font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Undo2 className="w-4 h-4" />
+              {t("classSchedules.undoBtn", { defaultValue: "Hoàn tác" })}
+              {draftUndoStack.length > 0 && <span className="ml-0.5 text-[10px] font-bold opacity-70">({draftUndoStack.length})</span>}
+            </button>
+            <button
               onClick={handleSaveDraft}
               disabled={saveLoading}
               className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
@@ -1817,6 +2106,26 @@ export default function ClassScheduleCalendar() {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {editSaving && <Loader2 className="w-4 h-4 animate-spin text-violet-500" />}
+            <button
+              onClick={handleUndoDbMove}
+              disabled={dbUndoStack.length === 0 || undoingDbMove}
+              title={dbUndoStack.length === 0 ? t("classSchedules.noUndoAvailable", { defaultValue: "Không có thay đổi nào để hoàn tác" }) : undefined}
+              className="px-4 py-2 rounded-xl border border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300 text-sm font-semibold hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {undoingDbMove ? <Loader2 className="w-4 h-4 animate-spin" /> : <Undo2 className="w-4 h-4" />}
+              {t("classSchedules.undoBtn", { defaultValue: "Hoàn tác" })}
+              {dbUndoStack.length > 0 && <span className="ml-0.5 text-[10px] font-bold opacity-70">({dbUndoStack.length})</span>}
+            </button>
+            {selectedSemesterId && (
+              <button
+                onClick={handleOpenSaveVersionModal}
+                disabled={editSaving}
+                className="px-4 py-2 rounded-xl border border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300 text-sm font-semibold hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                {t("classSchedules.saveVersionBtn", { defaultValue: "Lưu phiên bản lịch" })}
+              </button>
+            )}
             <button
               onClick={handleToggleEditMode}
               disabled={editSaving}
@@ -1897,16 +2206,16 @@ export default function ClassScheduleCalendar() {
             {t("classSchedules.autoScheduleBtn", { defaultValue: "Xếp lịch tự động" })}
           </button>
 
-          {/* Rollback Semester Schedule button */}
+          {/* Rollback To Schedule Version button */}
           {selectedSemesterId && !(draftClasses && draftClasses.length > 0) && (
             <button
               type="button"
-              onClick={handleRollbackSemesterSchedule}
+              onClick={handleOpenVersionPicker}
               disabled={rollbackLoading}
               className="flex items-center gap-2 px-4 py-2 rounded-xl border border-rose-300 dark:border-rose-700 text-rose-600 dark:text-rose-450 hover:bg-rose-50 dark:hover:bg-rose-950/20 text-sm font-semibold transition-colors shadow-sm disabled:opacity-40"
             >
-              {rollbackLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
-              {t("classSchedules.rollbackSemesterBtn", { defaultValue: "Khôi phục gốc học kỳ" })}
+              {rollbackLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <History className="w-4 h-4" />}
+              {t("classSchedules.rollbackSemesterBtn", { defaultValue: "Khôi phục theo phiên bản" })}
             </button>
           )}
 
@@ -2021,8 +2330,10 @@ export default function ClassScheduleCalendar() {
         ) : (
           <div className="p-5 schedules-calendar-main">
             <FullCalendar
+              key={toISO(weekStart)}
               plugins={[dayGridPlugin, interactionPlugin]}
               initialView="dayGridMonth"
+              initialDate={weekStart}
               locale="vi"
               buttonText={{ today: "Hôm nay", month: "Tháng" }}
               headerToolbar={{ left: "prev,next today", center: "title", right: "" }}
@@ -2141,42 +2452,303 @@ export default function ClassScheduleCalendar() {
         showToast={showToast}
       />
 
-      {/* Rollback Confirmation Modal */}
+      {/* Schedule Version Picker Modal (rollback to a chosen version) */}
       <Modal
-        isOpen={showRollbackConfirm}
-        onClose={() => setShowRollbackConfirm(false)}
-        showCloseButton={false}
-        className="max-w-[450px] p-6 lg:p-8"
+        isOpen={showVersionPickerModal}
+        onClose={() => setShowVersionPickerModal(false)}
+        showCloseButton={true}
+        className="max-w-[500px] p-6 lg:p-8"
       >
-        <div className="flex flex-col items-center text-center">
-          <div className="p-3.5 bg-rose-50 dark:bg-rose-950/20 rounded-2xl text-rose-500 mb-4 border border-rose-100 dark:border-rose-900/30">
-            <AlertTriangle className="w-8 h-8" />
+        <div className="flex flex-col">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="p-2.5 bg-rose-50 dark:bg-rose-950/20 rounded-xl text-rose-500 border border-rose-100 dark:border-rose-900/30">
+              <History className="w-5 h-5" />
+            </div>
+            <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+              {t("classSchedules.versionPickerTitle", { defaultValue: "Chọn phiên bản để khôi phục" })}
+            </h4>
           </div>
-          <h4 className="text-lg font-bold text-gray-900 dark:text-white">
-            {t("classSchedules.confirmRollbackTitle", { defaultValue: "Xác nhận khôi phục lịch học" })}
-          </h4>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">
-            {t("classSchedules.confirmRollbackText", {
-              defaultValue: "Bạn có chắc chắn muốn khôi phục toàn bộ lịch học của học kỳ này về bản gốc được tạo tự động đầu tiên? Mọi chỉnh sửa kéo thả thủ công sau đó sẽ bị mất hoàn toàn."
-            })}
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {t("classSchedules.versionPickerHint", { defaultValue: "Toàn bộ lịch học hiện tại của học kỳ sẽ được thay thế bằng phiên bản bạn chọn." })}
           </p>
+
+          <div className="mt-4 max-h-72 overflow-y-auto flex flex-col gap-2">
+            {versionsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+              </div>
+            ) : scheduleVersions.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">
+                {t("classSchedules.versionPickerEmpty", { defaultValue: "Chưa có phiên bản lịch nào được lưu cho học kỳ này." })}
+              </p>
+            ) : (
+              scheduleVersions.map((v) => (
+                <label
+                  key={v.id}
+                  className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-colors ${
+                    selectedVersionId === v.id
+                      ? "border-rose-400 bg-rose-50 dark:bg-rose-950/20 dark:border-rose-700"
+                      : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-850"
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <input
+                      type="radio"
+                      name="scheduleVersion"
+                      checked={selectedVersionId === v.id}
+                      onChange={() => setSelectedVersionId(v.id)}
+                      className="accent-rose-500"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">{v.name}</p>
+                        {v.isAutoSaved && (
+                          <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                            {t("classSchedules.autoVersionBadge", { defaultValue: "Tự động" })}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-400">
+                        {new Date(v.createdAt).toLocaleString()} · {t("classSchedules.versionClassCount", { count: v.classCount, defaultValue: "{{count}} lớp" })}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleViewVersionSchedule(v.id, v.name);
+                      }}
+                      title={t("classSchedules.previewVersionBtn", { defaultValue: "Xem lịch phiên bản" })}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/30 transition-colors"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handlePreviewVersion(v.id, v.name);
+                      }}
+                      title={t("classSchedules.compareVersionBtn", { defaultValue: "So sánh với lịch hiện tại" })}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-colors"
+                    >
+                      <GitCompare className="w-4 h-4" />
+                    </button>
+                    {v.isAutoSaved ? (
+                      <span
+                        title={t("classSchedules.cannotDeleteAutoVersionHint", { defaultValue: "Không thể xóa bản gốc tự động" })}
+                        className="p-1.5 rounded-lg text-gray-300 dark:text-gray-600"
+                      >
+                        <Lock className="w-4 h-4" />
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleDeleteVersion(v.id);
+                        }}
+                        disabled={deletingVersionId === v.id}
+                        title={t("classSchedules.deleteVersionBtn", { defaultValue: "Xóa phiên bản" })}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors disabled:opacity-40"
+                      >
+                        {deletingVersionId === v.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      </button>
+                    )}
+                  </div>
+                </label>
+              ))
+            )}
+          </div>
+
           <div className="flex items-center justify-center gap-3 mt-6 w-full pt-4 border-t border-gray-100 dark:border-gray-800">
             <button
-              onClick={() => setShowRollbackConfirm(false)}
+              onClick={() => setShowVersionPickerModal(false)}
               type="button"
               className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-850 dark:border-gray-700 dark:hover:bg-gray-750 transition-colors w-1/2"
             >
               {t("classSchedules.btnCancel", { defaultValue: "Hủy" })}
             </button>
             <button
-              onClick={() => {
-                setShowRollbackConfirm(false);
-                executeRollback();
-              }}
+              onClick={executeRollback}
+              disabled={!selectedVersionId || rollbackLoading}
               type="button"
-              className="px-4 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-sm w-1/2 flex items-center justify-center gap-1.5"
+              className="px-4 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-sm w-1/2 flex items-center justify-center gap-1.5 disabled:opacity-50"
             >
+              {rollbackLoading && <Loader2 className="w-4 h-4 animate-spin" />}
               {t("classSchedules.btnConfirmRollback", { defaultValue: "Xác nhận khôi phục" })}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Schedule Version Preview Modal */}
+      <Modal
+        isOpen={showVersionPreviewModal}
+        onClose={() => setShowVersionPreviewModal(false)}
+        showCloseButton={true}
+        className="max-w-[1700px] p-6 lg:p-8"
+      >
+        <div className="flex flex-col">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="p-2.5 bg-violet-50 dark:bg-violet-950/20 rounded-xl text-violet-500 border border-violet-100 dark:border-violet-900/30">
+              <GitCompare className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+                {t("classSchedules.previewModalTitle", { defaultValue: "So sánh với lịch hiện tại" })}
+              </h4>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {t("classSchedules.previewModalSubtitle", { name: previewVersionName, defaultValue: `Phiên bản: ${previewVersionName}` })}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            {previewLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+              </div>
+            ) : previewEvents.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-16">
+                {t("classSchedules.previewEmpty", { defaultValue: "Không có buổi học nào để hiển thị." })}
+              </p>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center gap-4 mb-3 text-xs text-gray-500 dark:text-gray-400">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded border border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40" />
+                    {t("classSchedules.diffLegendAdded", { defaultValue: "Sẽ thêm nếu khôi phục" })}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded border border-dashed border-rose-400 bg-rose-50 dark:bg-rose-950/30" />
+                    {t("classSchedules.diffLegendRemoved", { defaultValue: "Sẽ mất nếu khôi phục" })}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded border border-sky-200 bg-sky-50 dark:bg-sky-950/30" />
+                    {t("classSchedules.diffLegendUnchanged", { defaultValue: "Giữ nguyên" })}
+                  </span>
+                </div>
+                <WeekGrid
+                  events={previewEvents}
+                  weekStart={getWeekStart(new Date())}
+                  onEventClick={() => {}}
+                  isEventEditable={() => false}
+                  showDates={false}
+                />
+              </>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end mt-6 w-full pt-4 border-t border-gray-100 dark:border-gray-800">
+            <button
+              onClick={() => setShowVersionPreviewModal(false)}
+              type="button"
+              className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-850 dark:border-gray-700 dark:hover:bg-gray-750 transition-colors"
+            >
+              {t("classSchedules.btnClose", { defaultValue: "Đóng" })}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Version Schedule Modal (standalone, no comparison) */}
+      <Modal
+        isOpen={showVersionOnlyModal}
+        onClose={() => setShowVersionOnlyModal(false)}
+        showCloseButton={true}
+        className="max-w-[1700px] p-6 lg:p-8"
+      >
+        <div className="flex flex-col">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="p-2.5 bg-brand-50 dark:bg-brand-950/20 rounded-xl text-brand-500 border border-brand-100 dark:border-brand-900/30">
+              <Eye className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+                {t("classSchedules.versionOnlyModalTitle", { defaultValue: "Lịch của phiên bản" })}
+              </h4>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {t("classSchedules.previewModalSubtitle", { name: versionOnlyName, defaultValue: `Phiên bản: ${versionOnlyName}` })}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            {versionOnlyLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+              </div>
+            ) : versionOnlyEvents.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-16">
+                {t("classSchedules.previewEmpty", { defaultValue: "Không có buổi học nào để hiển thị." })}
+              </p>
+            ) : (
+              <WeekGrid
+                events={versionOnlyEvents}
+                weekStart={getWeekStart(new Date())}
+                onEventClick={() => {}}
+                isEventEditable={() => false}
+                showDates={false}
+              />
+            )}
+          </div>
+
+          <div className="flex items-center justify-end mt-6 w-full pt-4 border-t border-gray-100 dark:border-gray-800">
+            <button
+              onClick={() => setShowVersionOnlyModal(false)}
+              type="button"
+              className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-850 dark:border-gray-700 dark:hover:bg-gray-750 transition-colors"
+            >
+              {t("classSchedules.btnClose", { defaultValue: "Đóng" })}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Save Schedule Version Modal */}
+      <Modal
+        isOpen={showSaveVersionModal}
+        onClose={() => setShowSaveVersionModal(false)}
+        showCloseButton={false}
+        className="max-w-[420px] p-6 lg:p-8"
+      >
+        <div className="flex flex-col items-center text-center">
+          <div className="p-3.5 bg-violet-50 dark:bg-violet-950/20 rounded-2xl text-violet-500 mb-4 border border-violet-100 dark:border-violet-900/30">
+            <Save className="w-8 h-8" />
+          </div>
+          <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+            {t("classSchedules.saveVersionDialogTitle", { defaultValue: "Lưu phiên bản lịch học" })}
+          </h4>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+            {t("classSchedules.saveVersionDialogHint", { defaultValue: "Đặt tên cho phiên bản lịch hiện tại để có thể khôi phục lại sau này." })}
+          </p>
+          <input
+            type="text"
+            value={versionNameInput}
+            onChange={(e) => setVersionNameInput(e.target.value)}
+            placeholder={t("classSchedules.versionNamePlaceholder", { defaultValue: "Ví dụ: Bản tôi thích" })}
+            className="mt-4 w-full px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-850 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-violet-400"
+            maxLength={200}
+          />
+          <div className="flex items-center justify-center gap-3 mt-6 w-full pt-4 border-t border-gray-100 dark:border-gray-800">
+            <button
+              onClick={() => setShowSaveVersionModal(false)}
+              type="button"
+              className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-850 dark:border-gray-700 dark:hover:bg-gray-750 transition-colors w-1/2"
+            >
+              {t("classSchedules.btnCancel", { defaultValue: "Hủy" })}
+            </button>
+            <button
+              onClick={executeSaveVersion}
+              disabled={!versionNameInput.trim() || saveVersionLoading}
+              type="button"
+              className="px-4 py-2 text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 rounded-xl transition-colors shadow-sm w-1/2 flex items-center justify-center gap-1.5 disabled:opacity-50"
+            >
+              {saveVersionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {t("classSchedules.btnConfirmSaveVersion", { defaultValue: "Lưu" })}
             </button>
           </div>
         </div>
