@@ -91,7 +91,12 @@ export const ENDPOINTS = {
     IMPORT_STUDENTS: "/api/Semester/registrations/import",
     AUTO_SCHEDULE_SEMESTER: "/api/Class/auto-schedule-semester",
     SAVE_SCHEDULE_DRAFT: "/api/Class/save-schedule-draft",
-    ROLLBACK_SCHEDULE_DRAFT: (semesterId: number) => `/api/Class/rollback-semester/${semesterId}`,
+    SAVE_SCHEDULE_VERSION: (semesterId: number) => `/api/Class/save-schedule-version/${semesterId}`,
+    GET_SCHEDULE_VERSIONS: (semesterId: number) => `/api/Class/schedule-versions/${semesterId}`,
+    DELETE_SCHEDULE_VERSION: (versionId: number) => `/api/Class/schedule-version/${versionId}`,
+    GET_SCHEDULE_VERSION_PREVIEW: (versionId: number) => `/api/Class/schedule-version/${versionId}/preview`,
+    ROLLBACK_SCHEDULE_DRAFT: (semesterId: number, versionId: number) =>
+      `/api/Class/rollback-semester/${semesterId}/${versionId}`,
     CREATE_REGISTRATION: "/api/Semester/registrations",
     UPDATE_REGISTRATION: (id: number) => `/api/Semester/registrations/${id}`,
     DELETE_REGISTRATION: (id: number) => `/api/Semester/registrations/${id}`,
