@@ -30,6 +30,7 @@
     "i18next-browser-languagedetector": "^8.2.1",
     "lines-and-columns": "^1.2.4",
     "lucide-react": "^1.22.0",
+    "mammoth": "^1.12.1",
     "next": "^16.2.12",
     "nextjs-toploader": "^3.9.17",
     "prismjs": "^1.30.0",

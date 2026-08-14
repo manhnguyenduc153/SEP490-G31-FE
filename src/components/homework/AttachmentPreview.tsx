@@ -1,9 +1,10 @@
 "use client";
 
-import React from "react";
-import { Download, ExternalLink, File, FileAudio, FileText, FileVideo, Image as ImageIcon } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Download, Eye, File, FileAudio, FileText, FileVideo, Image as ImageIcon } from "lucide-react";
 import { ENV } from "@/config/env";
 import { useTranslation } from "react-i18next";
+import { Modal } from "@/components/ui/modal";
 
 interface AttachmentPreviewProps {
   urls?: string[];
@@ -55,6 +56,38 @@ function getIcon(kind: AttachmentKind) {
   return <File className="h-5 w-5 text-gray-500" />;
 }
 
+function WordDocumentPreview({ url }: { url: string }) {
+  const { t } = useTranslation();
+  const [html, setHtml] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadDocument = async () => {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("Could not load document");
+        const mammoth = await import("mammoth");
+        const result = await mammoth.convertToHtml({ arrayBuffer: await response.arrayBuffer() });
+        if (isMounted) setHtml(result.value);
+      } catch {
+        if (isMounted) setHasError(true);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    void loadDocument();
+    return () => { isMounted = false; };
+  }, [url]);
+
+  if (isLoading) return <div className="mt-3 rounded-lg border border-gray-200 p-6 text-center text-sm text-gray-500 dark:border-gray-700">{t("common.loading")}</div>;
+  if (hasError) return <div className="mt-3 rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">{t("homework.wordPreviewHint")}</div>;
+
+  return <div className="prose prose-sm mt-3 max-w-none rounded-lg border border-gray-200 bg-white p-5 dark:prose-invert dark:border-gray-700 dark:bg-gray-900" dangerouslySetInnerHTML={{ __html: html }} />;
+}
+
 function AttachmentBody({ url, kind, fileName, compact }: { url: string; kind: AttachmentKind; fileName: string; compact?: boolean }) {
   const { t } = useTranslation();
   if (kind === "audio") {
@@ -94,20 +127,9 @@ function AttachmentBody({ url, kind, fileName, compact }: { url: string; kind: A
   }
 
   if (kind === "document") {
-    const viewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
-
-    return (
-      <div className="mt-3">
-        <iframe
-          src={viewerUrl}
-          title={fileName}
-          className={`${compact ? "h-[520px]" : "h-[calc(100vh-140px)] min-h-[760px]"} w-full rounded-lg border border-gray-200 bg-white dark:border-gray-700`}
-        />
-        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-          {t("homework.wordPreviewHint")}
-        </p>
-      </div>
-    );
+    return getExtension(url) === "docx"
+      ? <WordDocumentPreview url={url} />
+      : <div className="mt-3 rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">{t("homework.wordPreviewHint")}</div>;
   }
 
   return (
@@ -117,8 +139,31 @@ function AttachmentBody({ url, kind, fileName, compact }: { url: string; kind: A
   );
 }
 
-export default function AttachmentPreview({ urls = [], title, compact = false }: AttachmentPreviewProps) {
+export function AttachmentPreviewModal({ url, onClose }: { url: string | null; onClose: () => void }) {
   const { t } = useTranslation();
+  if (!url) return null;
+
+  const resolvedUrl = formatUrl(url);
+  const fileName = getFileName(url, t("homework.attachmentFallback"));
+  const kind = getAttachmentKind(url);
+
+  return (
+    <Modal isOpen={true} onClose={onClose} className="m-4 max-h-[calc(100vh-2rem)] max-w-5xl overflow-y-auto p-6">
+      <div className="pr-12">
+        <h3 className="truncate text-lg font-semibold text-gray-900 dark:text-white">{fileName}</h3>
+        <a href={resolvedUrl} download className="mt-3 inline-flex items-center gap-2 rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">
+          <Download className="h-4 w-4" />
+          {t("homework.downloadFile")}
+        </a>
+      </div>
+      <AttachmentBody url={resolvedUrl} kind={kind} fileName={fileName} />
+    </Modal>
+  );
+}
+
+export default function AttachmentPreview({ urls = [], title }: AttachmentPreviewProps) {
+  const { t } = useTranslation();
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   if (!urls.length) return null;
 
   return (
@@ -134,18 +179,17 @@ export default function AttachmentPreview({ urls = [], title, compact = false }:
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
                 {getIcon(kind)}
-                <span className="truncate text-sm font-medium text-gray-800 dark:text-gray-100">{fileName}</span>
+                <a href={url} download className="truncate text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">{fileName}</a>
               </div>
               <div className="flex items-center gap-2">
-                <a
-                  href={url}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  type="button"
+                  onClick={() => setPreviewUrl(rawUrl)}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.06]"
-                  title={t("homework.openFile")}
+                  title={t("homework.previewTitle")}
                 >
-                  <ExternalLink className="h-4 w-4" />
-                </a>
+                  <Eye className="h-4 w-4" />
+                </button>
                 <a
                   href={url}
                   download
@@ -156,10 +200,10 @@ export default function AttachmentPreview({ urls = [], title, compact = false }:
                 </a>
               </div>
             </div>
-            <AttachmentBody url={url} kind={kind} fileName={fileName} compact={compact} />
           </div>
         );
       })}
+      <AttachmentPreviewModal url={previewUrl} onClose={() => setPreviewUrl(null)} />
     </div>
   );
 }
