@@ -4,10 +4,10 @@ import React, { useState, useCallback, useEffect } from "react";
 import { homeworkApi, HomeworkDto, HomeworkSubmissionDto, HomeworkSubmissionSaveDto } from "@/services/homework.api";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { useDropzone } from "react-dropzone";
-import { UploadCloud, Eye, File, FileAudio, FileText, FileVideo, X } from "lucide-react";
+import { UploadCloud, File, FileAudio, FileText, FileVideo, X } from "lucide-react";
 import { teacherApi } from "@/services/teacher.api"; // Use for upload API
 import { ENV } from "@/config/env";
-import AttachmentPreview, { AttachmentPreviewModal } from "./AttachmentPreview";
+import AttachmentPreview from "./AttachmentPreview";
 import { useTranslation } from "react-i18next";
 
 interface StudentSubmitFormProps {
@@ -23,7 +23,6 @@ export default function StudentSubmitForm({ homework, onBack, showToast }: Stude
   const [attachmentUrls, setAttachmentUrls] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState(false);
-  const [previewAttachmentUrl, setPreviewAttachmentUrl] = useState<string | null>(null);
   
   const [mySubmission, setMySubmission] = useState<HomeworkSubmissionDto | null>(null);
   const [isLoadingSubmission, setIsLoadingSubmission] = useState(true);
@@ -96,7 +95,7 @@ export default function StudentSubmitForm({ homework, onBack, showToast }: Stude
       const res = await homeworkApi.submitHomework(payload);
       if (res.success) {
         showToast(t("homework.submitSuccess"), "success");
-        setMySubmission(res.data);
+        onBack();
       } else {
         showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("homework.submitError"), "error");
       }
@@ -203,14 +202,6 @@ export default function StudentSubmitForm({ homework, onBack, showToast }: Stude
                       </div>
                       <button
                         type="button"
-                        onClick={() => setPreviewAttachmentUrl(url)}
-                        className="p-1 text-gray-400 hover:text-brand-600"
-                        title={t("homework.previewTitle")}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
                         onClick={() => removeFile(idx)}
                         className="p-1 text-gray-400 hover:text-red-500"
                       >
@@ -234,7 +225,6 @@ export default function StudentSubmitForm({ homework, onBack, showToast }: Stude
           </form>
           </PermissionGuard>
         )}
-        <AttachmentPreviewModal url={previewAttachmentUrl} onClose={() => setPreviewAttachmentUrl(null)} />
       </div>
     </div>
   );

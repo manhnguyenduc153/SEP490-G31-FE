@@ -1416,6 +1416,7 @@
     "noMatchingSubmissions": "No matching submissions",
     "noScore": "No score",
     "previewTitle": "Prompt preview",
+    "previewAttachment": "Preview attachment",
     "scorePlaceholder": "Score",
     "searchSubmissionsPlaceholder": "Search student, code, email...",
     "showingSubmissions": "Showing {{shown}}/{{total}} submissions",

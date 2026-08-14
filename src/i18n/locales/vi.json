@@ -1411,6 +1411,7 @@
     "noMatchingSubmissions": "Không có bài nộp phù hợp",
     "noScore": "Chưa có điểm",
     "previewTitle": "Preview đề bài",
+    "previewAttachment": "Xem trước tệp đính kèm",
     "scorePlaceholder": "Điểm",
     "searchSubmissionsPlaceholder": "Tìm học sinh, mã, email...",
     "showingSubmissions": "Hiển thị {{shown}}/{{total}} bài nộp",
