@@ -10,7 +10,7 @@ import { useModal } from "@/hooks/useModal";
 import { Modal } from "@/components/ui/modal";
 import { classApi, ClassItem, ClassScheduleItem, ClassSaveDto, ScheduleVersionListItem } from "@/services/class.api";
 import { semesterApi, SemesterItem } from "@/services/semester.api";
-import { ChevronLeft, ChevronRight, CalendarClock, Save, X, Loader2, AlertTriangle, Cpu, Check, AlertCircle, Edit, DoorOpen, RotateCcw, History, Trash2, Eye, Lock } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarClock, Save, X, Loader2, AlertTriangle, Cpu, Check, AlertCircle, Edit, DoorOpen, RotateCcw, History, Trash2, Eye, Lock, GitCompare } from "lucide-react";
 import { roomApi, RoomItem } from "@/services/room.api";
 import { teacherApi } from "@/services/teacher.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
@@ -74,6 +74,8 @@ interface ScheduleEvent {
   isDraft?: boolean;
   classStatus?: number | null;
   semesterId?: number | null;
+  /** Set only in the version-preview diff overlay: how this occurrence compares to the current live schedule. */
+  diffStatus?: "added" | "removed";
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -154,6 +156,32 @@ function buildWeeklyPatternEvents(events: ScheduleEvent[], weekStart: Date): Sch
     const offset = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Monday(1) -> 0 ... Sunday(0) -> 6
     result.push({ ...ev, id: `weekly-${key}`, scheduleDate: toISO(addDays(weekStart, offset)) });
   }
+  return result;
+}
+
+/**
+ * Merges the current live weekly schedule with a candidate version's weekly schedule into
+ * one event list tagged with diffStatus, so both can be rendered stacked in the same WeekGrid:
+ * "added" = would appear if rolled back, "removed" = would disappear if rolled back, untagged = unchanged.
+ */
+function buildScheduleDiffEvents(currentEvents: ScheduleEvent[], candidateEvents: ScheduleEvent[], weekStart: Date): ScheduleEvent[] {
+  const currentWeekly = buildWeeklyPatternEvents(currentEvents, weekStart);
+  const candidateWeekly = buildWeeklyPatternEvents(candidateEvents, weekStart);
+  const keyOf = (ev: ScheduleEvent) => `${ev.scheduleDate}-${ev.slotIndex}-${ev.classCode}`;
+  const currentKeys = new Set(currentWeekly.map(keyOf));
+  const candidateKeys = new Set(candidateWeekly.map(keyOf));
+
+  const result: ScheduleEvent[] = candidateWeekly.map((ev) => ({
+    ...ev,
+    diffStatus: currentKeys.has(keyOf(ev)) ? undefined : "added",
+  }));
+
+  currentWeekly.forEach((ev) => {
+    if (!candidateKeys.has(keyOf(ev))) {
+      result.push({ ...ev, id: `removed-${ev.id}`, diffStatus: "removed" });
+    }
+  });
+
   return result;
 }
 
@@ -298,11 +326,15 @@ function WeekGrid({ events, weekStart, onEventClick, onEventDrop, isEventEditabl
                             draggable={editable}
                             onDragStart={(e) => handleDragStart(e, ev)}
                             className={`w-full text-left rounded-lg border px-2 py-1.5 text-[11px] font-semibold leading-tight transition-all duration-150 shadow-xs hover:shadow-md hover:-translate-y-px
-                              ${ev.isDraft
-                                ? DRAFT_COLOR + " cursor-grab active:cursor-grabbing hover:border-amber-500"
-                                : editable
-                                  ? SLOT_COLORS[slot.index] + " cursor-grab active:cursor-grabbing hover:border-brand-500 hover:ring-1 hover:ring-brand-500"
-                                  : SLOT_COLORS[slot.index] + " cursor-pointer"}`}
+                              ${ev.diffStatus === "added"
+                                ? "bg-emerald-50 border-emerald-500 text-emerald-900 dark:bg-emerald-950/40 dark:border-emerald-500 dark:text-emerald-200 cursor-default"
+                                : ev.diffStatus === "removed"
+                                  ? "bg-rose-50 border-rose-400 border-dashed text-rose-700 line-through opacity-70 dark:bg-rose-950/30 dark:border-rose-600 dark:text-rose-300 cursor-default"
+                                  : ev.isDraft
+                                    ? DRAFT_COLOR + " cursor-grab active:cursor-grabbing hover:border-amber-500"
+                                    : editable
+                                      ? SLOT_COLORS[slot.index] + " cursor-grab active:cursor-grabbing hover:border-brand-500 hover:ring-1 hover:ring-brand-500"
+                                      : SLOT_COLORS[slot.index] + " cursor-pointer"}`}
                           >
                             <span className="flex items-center gap-1">
                               <span className="block truncate font-bold">{ev.classCode}</span>
@@ -941,6 +973,10 @@ export default function ClassScheduleCalendar() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewVersionName, setPreviewVersionName] = useState("");
   const [previewEvents, setPreviewEvents] = useState<ScheduleEvent[]>([]);
+  const [showVersionOnlyModal, setShowVersionOnlyModal] = useState(false);
+  const [versionOnlyLoading, setVersionOnlyLoading] = useState(false);
+  const [versionOnlyName, setVersionOnlyName] = useState("");
+  const [versionOnlyEvents, setVersionOnlyEvents] = useState<ScheduleEvent[]>([]);
 
   // Teacher availability cache (teacherId -> Set of "dayOfWeek-slotIndex")
   const [teacherAvailMap, setTeacherAvailMap] = useState<Record<number, Set<string>>>({});
@@ -1732,28 +1768,53 @@ export default function ClassScheduleCalendar() {
     }
   };
 
+  const fetchCandidateVersionEvents = async (versionId: number): Promise<ScheduleEvent[] | null> => {
+    try {
+      const res = await classApi.getScheduleVersionPreview(versionId);
+      if (res.success && res.data) {
+        return res.data.flatMap((cls) => mapDraftClass(cls));
+      }
+      showToast(
+        res.message
+          ? t(`backendMessages.${res.message}`, { defaultValue: res.message })
+          : t("classSchedules.toastPreviewError", { defaultValue: "Không thể tải xem trước phiên bản." }),
+        "error"
+      );
+      return null;
+    } catch {
+      showToast(t("classSchedules.toastPreviewError", { defaultValue: "Không thể tải xem trước phiên bản." }), "error");
+      return null;
+    }
+  };
+
+  const handleViewVersionSchedule = async (versionId: number, versionName: string) => {
+    setVersionOnlyName(versionName);
+    setVersionOnlyEvents([]);
+    setShowVersionOnlyModal(true);
+    setVersionOnlyLoading(true);
+    const candidateEvents = await fetchCandidateVersionEvents(versionId);
+    if (candidateEvents) {
+      setVersionOnlyEvents(buildWeeklyPatternEvents(candidateEvents, getWeekStart(new Date())));
+    }
+    setVersionOnlyLoading(false);
+  };
+
   const handlePreviewVersion = async (versionId: number, versionName: string) => {
     setPreviewVersionName(versionName);
     setPreviewEvents([]);
     setShowVersionPreviewModal(true);
     setPreviewLoading(true);
-    try {
-      const res = await classApi.getScheduleVersionPreview(versionId);
-      if (res.success && res.data) {
-        setPreviewEvents(res.data.flatMap((cls) => mapDraftClass(cls)));
-      } else {
-        showToast(
-          res.message
-            ? t(`backendMessages.${res.message}`, { defaultValue: res.message })
-            : t("classSchedules.toastPreviewError", { defaultValue: "Không thể tải xem trước phiên bản." }),
-          "error"
-        );
-      }
-    } catch {
-      showToast(t("classSchedules.toastPreviewError", { defaultValue: "Không thể tải xem trước phiên bản." }), "error");
-    } finally {
-      setPreviewLoading(false);
+    const candidateEvents = await fetchCandidateVersionEvents(versionId);
+    if (candidateEvents) {
+      const currentLiveEvents = events.filter((ev) => {
+        if (!selectedSemesterId) return false;
+        if (ev.semesterId) return ev.semesterId === selectedSemesterId;
+        const cls = classes.find((c) => c.code === ev.classCode);
+        return cls?.semesterId === selectedSemesterId;
+      });
+      setPreviewEvents(buildScheduleDiffEvents(currentLiveEvents, candidateEvents, getWeekStart(new Date())));
     }
+    setPreviewLoading(false);
   };
 
   const handleOpenSaveVersionModal = () => {
@@ -2349,12 +2410,23 @@ export default function ClassScheduleCalendar() {
                       type="button"
                       onClick={(e) => {
                         e.preventDefault();
-                        handlePreviewVersion(v.id, v.name);
+                        handleViewVersionSchedule(v.id, v.name);
                       }}
-                      title={t("classSchedules.previewVersionBtn", { defaultValue: "Xem trước lịch" })}
+                      title={t("classSchedules.previewVersionBtn", { defaultValue: "Xem lịch phiên bản" })}
                       className="p-1.5 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/30 transition-colors"
                     >
                       <Eye className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handlePreviewVersion(v.id, v.name);
+                      }}
+                      title={t("classSchedules.compareVersionBtn", { defaultValue: "So sánh với lịch hiện tại" })}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-colors"
+                    >
+                      <GitCompare className="w-4 h-4" />
                     </button>
                     {v.isAutoSaved ? (
                       <span
@@ -2413,14 +2485,16 @@ export default function ClassScheduleCalendar() {
       >
         <div className="flex flex-col">
           <div className="flex items-center gap-3 mb-1">
-            <div className="p-2.5 bg-brand-50 dark:bg-brand-950/20 rounded-xl text-brand-500 border border-brand-100 dark:border-brand-900/30">
-              <Eye className="w-5 h-5" />
+            <div className="p-2.5 bg-violet-50 dark:bg-violet-950/20 rounded-xl text-violet-500 border border-violet-100 dark:border-violet-900/30">
+              <GitCompare className="w-5 h-5" />
             </div>
             <div>
               <h4 className="text-lg font-bold text-gray-900 dark:text-white">
-                {t("classSchedules.previewModalTitle", { defaultValue: "Xem trước phiên bản" })}
+                {t("classSchedules.previewModalTitle", { defaultValue: "So sánh với lịch hiện tại" })}
               </h4>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{previewVersionName}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {t("classSchedules.previewModalSubtitle", { name: previewVersionName, defaultValue: `Phiên bản: ${previewVersionName}` })}
+              </p>
             </div>
           </div>
 
@@ -2431,11 +2505,81 @@ export default function ClassScheduleCalendar() {
               </div>
             ) : previewEvents.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-16">
-                {t("classSchedules.previewEmpty", { defaultValue: "Phiên bản này không có buổi học nào." })}
+                {t("classSchedules.previewEmpty", { defaultValue: "Không có buổi học nào để hiển thị." })}
+              </p>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center gap-4 mb-3 text-xs text-gray-500 dark:text-gray-400">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded border border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40" />
+                    {t("classSchedules.diffLegendAdded", { defaultValue: "Sẽ thêm nếu khôi phục" })}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded border border-dashed border-rose-400 bg-rose-50 dark:bg-rose-950/30" />
+                    {t("classSchedules.diffLegendRemoved", { defaultValue: "Sẽ mất nếu khôi phục" })}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded border border-sky-200 bg-sky-50 dark:bg-sky-950/30" />
+                    {t("classSchedules.diffLegendUnchanged", { defaultValue: "Giữ nguyên" })}
+                  </span>
+                </div>
+                <WeekGrid
+                  events={previewEvents}
+                  weekStart={getWeekStart(new Date())}
+                  onEventClick={() => {}}
+                  isEventEditable={() => false}
+                  showDates={false}
+                />
+              </>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end mt-6 w-full pt-4 border-t border-gray-100 dark:border-gray-800">
+            <button
+              onClick={() => setShowVersionPreviewModal(false)}
+              type="button"
+              className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-850 dark:border-gray-700 dark:hover:bg-gray-750 transition-colors"
+            >
+              {t("classSchedules.btnClose", { defaultValue: "Đóng" })}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Version Schedule Modal (standalone, no comparison) */}
+      <Modal
+        isOpen={showVersionOnlyModal}
+        onClose={() => setShowVersionOnlyModal(false)}
+        showCloseButton={true}
+        className="max-w-[1700px] p-6 lg:p-8"
+      >
+        <div className="flex flex-col">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="p-2.5 bg-brand-50 dark:bg-brand-950/20 rounded-xl text-brand-500 border border-brand-100 dark:border-brand-900/30">
+              <Eye className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+                {t("classSchedules.versionOnlyModalTitle", { defaultValue: "Lịch của phiên bản" })}
+              </h4>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {t("classSchedules.previewModalSubtitle", { name: versionOnlyName, defaultValue: `Phiên bản: ${versionOnlyName}` })}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            {versionOnlyLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+              </div>
+            ) : versionOnlyEvents.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-16">
+                {t("classSchedules.previewEmpty", { defaultValue: "Không có buổi học nào để hiển thị." })}
               </p>
             ) : (
               <WeekGrid
-                events={buildWeeklyPatternEvents(previewEvents, getWeekStart(new Date()))}
+                events={versionOnlyEvents}
                 weekStart={getWeekStart(new Date())}
                 onEventClick={() => {}}
                 isEventEditable={() => false}
@@ -2446,7 +2590,7 @@ export default function ClassScheduleCalendar() {
 
           <div className="flex items-center justify-end mt-6 w-full pt-4 border-t border-gray-100 dark:border-gray-800">
             <button
-              onClick={() => setShowVersionPreviewModal(false)}
+              onClick={() => setShowVersionOnlyModal(false)}
               type="button"
               className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-850 dark:border-gray-700 dark:hover:bg-gray-750 transition-colors"
             >
