@@ -325,7 +325,8 @@ export default function ClassDetailGradesTab({
     }
     const overrideScore = overrides[row.studentId]?.[rule.id];
     const rawScore = row.rawComponentScores[rule.id] ?? 0;
-    const inputValue = overrideScore !== undefined ? overrideScore : (rawScore === 0 ? "" : rawScore);
+    const hasRawScore = row.rawComponentHasScore[rule.id] ?? false;
+    const inputValue = overrideScore !== undefined ? overrideScore : (hasRawScore ? rawScore : "");
     return (
       <input
         type="number"
