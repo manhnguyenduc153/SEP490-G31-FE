@@ -8,6 +8,7 @@ import { questionCategoryApi, QuestionCategoryItem } from "@/services/questionCa
 import { questionPassageApi, QuestionPassageItem } from "@/services/questionPassage.api";
 import { examApi, ExamSaveDto } from "@/services/exam.api";
 import { authApi } from "@/services/auth.api";
+import { commonApi } from "@/services/common.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { ChevronDown, ChevronUp, BookOpen, Volume2, PenTool, XCircle } from "lucide-react";
 
@@ -104,9 +105,8 @@ export function ExamForm({ id }: ExamFormProps) {
   useEffect(() => {
     async function loadOptions() {
       try {
-        const isTeacher = authApi.getRole().toLowerCase() === "teacher";
         const [clsRes, qRes, catRes, passRes] = await Promise.all([
-          isTeacher ? classApi.getTeacherClasses(1, 1000) : classApi.getAll(1, 1000),
+          commonApi.getClasses(1, 1000),
           questionApi.getAll(1, 1000),
           questionCategoryApi.getAll(1, 1000),
           questionPassageApi.getAll(1, 1000),
