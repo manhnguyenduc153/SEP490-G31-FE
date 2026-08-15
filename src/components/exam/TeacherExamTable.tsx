@@ -313,7 +313,7 @@ export function TeacherExamTable() {
                   <TableCell className="px-6 py-4 font-medium text-gray-900 dark:text-white">
                     <div className="space-y-1">
                       <p
-                        onClick={() => router.push(`/exams/${item.id}`)}
+                        onClick={() => router.push(`/teaching-exams/${item.id}`)}
                         className="font-semibold text-gray-950 dark:text-white hover:text-brand-500 transition-colors cursor-pointer"
                       >
                         {item.title}
@@ -382,7 +382,7 @@ export function TeacherExamTable() {
                     <div className="flex justify-center items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => router.push(`/exams/${item.id}`)}
+                        onClick={() => router.push(`/teaching-exams/${item.id}`)}
                         title={t("exam.viewTooltip")}
                         className="p-1.5 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
                       >
