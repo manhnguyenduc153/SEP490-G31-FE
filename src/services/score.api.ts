@@ -16,6 +16,7 @@ export interface ScoreRow {
   averageScore: number;
   componentScores: Record<string, number>;
   rawComponentScores: Record<string, number>;
+  rawComponentHasScore: Record<string, boolean>;
   rawHomeworkScore: number;
   rawExamScore: number;
   homeworkSummary: string;
@@ -204,6 +205,10 @@ export async function buildClassScoreRows(classId: number, overrides: ScoreOverr
       const submission = submissions.find((item) => item.studentId === studentId);
       return normalizeScore(submission?.score, homework.totalScore);
     });
+    const hasHomeworkScore = homeworkSubmissionPairs.some(({ submissions }) => {
+      const submission = submissions.find((item) => item.studentId === studentId);
+      return submission?.score !== null && submission?.score !== undefined;
+    });
     const homeworkRaw = homeworkScores.length
       ? homeworkScores.reduce((sum, value) => sum + value, 0) / homeworkScores.length
       : 0;
@@ -214,16 +219,26 @@ export async function buildClassScoreRows(classId: number, overrides: ScoreOverr
       speaking: [],
       writing: [],
     };
+    const examHasScoreBySkill: Record<ExamSkillCode, boolean> = {
+      listening: false,
+      reading: false,
+      speaking: false,
+      writing: false,
+    };
+    let hasExamScore = false;
 
     const examScores = examAttemptPairs.map(({ exam, skillCode, attempts }) => {
       const studentAttempts = attempts.filter((item) => item.studentId === studentId);
+      const hasScoredAttempt = studentAttempts.some((item) => item.score !== null && item.score !== undefined);
       const bestScore = studentAttempts.reduce(
         (max, item) => Math.max(max, normalizeScore(item.score, exam.totalScore || 10)),
         0
       );
+      hasExamScore = hasExamScore || hasScoredAttempt;
 
       if (skillCode) {
         examScoresBySkill[skillCode].push(bestScore);
+        examHasScoreBySkill[skillCode] = examHasScoreBySkill[skillCode] || hasScoredAttempt;
       }
 
       return bestScore;
@@ -242,6 +257,14 @@ export async function buildClassScoreRows(classId: number, overrides: ScoreOverr
       speaking: round1(speakingRaw),
       writing: round1(writingRaw),
       exam: round1(examRaw),
+    };
+    const rawComponentHasScore: Record<string, boolean> = {
+      homework: hasHomeworkScore,
+      listening: examHasScoreBySkill.listening,
+      reading: examHasScoreBySkill.reading,
+      speaking: examHasScoreBySkill.speaking,
+      writing: examHasScoreBySkill.writing,
+      exam: hasExamScore,
     };
     const componentScores: Record<string, number> = {
       homework: round1(studentOverrides.homework ?? homeworkRaw),
@@ -272,6 +295,7 @@ export async function buildClassScoreRows(classId: number, overrides: ScoreOverr
       averageScore,
       componentScores,
       rawComponentScores,
+      rawComponentHasScore,
       rawHomeworkScore: round1(homeworkRaw),
       rawExamScore: round1(examRaw),
       homeworkSummary: `${homeworkSubmissionPairs.length} bài`,
