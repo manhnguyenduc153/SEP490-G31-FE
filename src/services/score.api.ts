@@ -77,6 +77,22 @@ export interface MyGradeComponentScoreDto {
   isOverride: boolean;
 }
 
+export interface MyGradeHomeworkDto {
+  id: number;
+  title: string;
+  totalScore: number;
+  score?: number | null;
+  normalizedScore?: number | null;
+}
+
+export interface MyGradeExamDto {
+  id: number;
+  title: string;
+  totalScore: number;
+  score?: number | null;
+  normalizedScore?: number | null;
+}
+
 export interface MyGradeClassDto {
   classId: number;
   classCode?: string | null;
@@ -86,6 +102,8 @@ export interface MyGradeClassDto {
   courseName?: string | null;
   averageScore: number;
   components: MyGradeComponentScoreDto[];
+  homeworks?: MyGradeHomeworkDto[];
+  exams?: MyGradeExamDto[];
 }
 
 const round1 = (value: number) => Math.round(value * 10) / 10;
