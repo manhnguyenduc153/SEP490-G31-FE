@@ -133,7 +133,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   const handleToggleSelectAll = () => {
-    const deletableItems = items.filter(item => item.status === 0);
+    const deletableItems = items.filter(item => item.status === 0 || item.status === 3);
     if (deletableItems.length === 0) return;
     
     const allSelectedOnPage = deletableItems.every(item => selectedIds.includes(item.id));
@@ -577,7 +577,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
               <TableCell isHeader className="px-4 py-4 text-center w-12">
                 <input
                   type="checkbox"
-                  checked={items.filter(item => item.status === 0).length > 0 && items.filter(item => item.status === 0).every(item => selectedIds.includes(item.id))}
+                  checked={items.filter(item => item.status === 0 || item.status === 3).length > 0 && items.filter(item => item.status === 0 || item.status === 3).every(item => selectedIds.includes(item.id))}
                   onChange={handleToggleSelectAll}
                   className="rounded border-gray-300 text-brand-500 focus:ring-brand-500 h-4 w-4 cursor-pointer"
                 />
@@ -676,7 +676,7 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
                 <TableRow key={item.id} className="hover:bg-gray-50/50 dark:hover:bg-white/[0.01] transition-colors">
                   {/* Checkbox Column */}
                   <TableCell className="px-4 py-4 text-center w-12 whitespace-nowrap">
-                    {item.status === 0 ? (
+                    {item.status === 0 || item.status === 3 ? (
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(item.id)}
@@ -795,10 +795,10 @@ export default function ClassTable({ refreshKey: externalRefreshKey, onAddClick,
                       </PermissionGuard>
                       <PermissionGuard requiredPermission="Class.Delete">
                         <button
-                          onClick={() => item.status === 0 && openDeleteModal(item)}
-                          disabled={item.status !== 0}
+                          onClick={() => (item.status === 0 || item.status === 3) && openDeleteModal(item)}
+                          disabled={item.status !== 0 && item.status !== 3}
                           title={
-                            item.status !== 0
+                            item.status !== 0 && item.status !== 3
                               ? t("class.cannotDeleteStarted", { defaultValue: "Lớp học đã bắt đầu hoặc hoàn thành, không thể xóa" })
                               : t("class.deleteTooltip")
                           }
