@@ -10,7 +10,7 @@ import { examApi, ExamSaveDto } from "@/services/exam.api";
 import { authApi } from "@/services/auth.api";
 import { commonApi } from "@/services/common.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { ChevronDown, ChevronUp, BookOpen, Volume2, PenTool, XCircle } from "lucide-react";
+import { ChevronDown, ChevronUp, BookOpen, Volume2, PenTool, Mic, XCircle } from "lucide-react";
 
 import { ENV } from "@/config/env";
 
@@ -52,7 +52,6 @@ export function ExamForm({ id }: ExamFormProps) {
   const [totalScore, setTotalScore] = useState<number>(10);
   const [passingScore, setPassingScore] = useState<number>(5);
   const [maxAttempts, setMaxAttempts] = useState<number>(1);
-  const [allowLateSubmit, setAllowLateSubmit] = useState(false);
   const [shuffleQuestion, setShuffleQuestion] = useState(false);
   const [showAnswerAfter, setShowAnswerAfter] = useState(true);
   const [status, setStatus] = useState<number>(1); // 1 = Published, 2 = Draft
@@ -151,7 +150,6 @@ export function ExamForm({ id }: ExamFormProps) {
           setTotalScore(data.totalScore ?? 10);
           setPassingScore(data.passingScore ?? 5);
           setMaxAttempts(data.maxAttempts ?? 1);
-          setAllowLateSubmit(data.allowLateSubmit ?? false);
           setShuffleQuestion(data.shuffleQuestion ?? false);
           setShowAnswerAfter(data.showAnswerAfter ?? true);
           setStatus(data.status ?? 1);
@@ -504,7 +502,7 @@ export function ExamForm({ id }: ExamFormProps) {
         totalScore,
         passingScore,
         maxAttempts,
-        allowLateSubmit,
+        allowLateSubmit: false,
         shuffleQuestion,
         showAnswerAfter,
         status,
@@ -597,7 +595,7 @@ export function ExamForm({ id }: ExamFormProps) {
       </div>
 
       {formError && (
-        <div className="fixed bottom-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
+        <div className="fixed bottom-5 right-5 z-[999999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
           <XCircle className="w-5 h-5 text-rose-500 shrink-0" />
           <span className="text-sm font-medium">{formError}</span>
         </div>
@@ -637,10 +635,11 @@ export function ExamForm({ id }: ExamFormProps) {
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                 {t("exams.formExamSkillLabel", { defaultValue: "Kỹ năng bài thi (Exam Skill)" })} <span className="text-error-500">*</span>
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
                   { type: 2, label: t("question.skillReading", { defaultValue: "Reading" }), icon: BookOpen, color: "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800" },
                   { type: 1, label: t("question.skillListening", { defaultValue: "Listening" }), icon: Volume2, color: "text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/30 border-blue-300 dark:border-blue-800" },
+                  { type: 3, label: t("question.skillSpeaking", { defaultValue: "Speaking" }), icon: Mic, color: "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800" },
                   { type: 4, label: t("question.skillWriting", { defaultValue: "Writing" }), icon: PenTool, color: "text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/30 border-purple-300 dark:border-purple-800" },
                 ].map((s) => {
                   const Icon = s.icon;
@@ -842,18 +841,6 @@ export function ExamForm({ id }: ExamFormProps) {
 
             {/* Checkbox settings */}
             <div className="space-y-3 pt-4 border-t border-gray-100 dark:border-white/[0.05]">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={allowLateSubmit}
-                  onChange={(e) => setAllowLateSubmit(e.target.checked)}
-                  className="h-4.5 w-4.5 rounded border-gray-300 text-brand-500 focus:ring-brand-500/20"
-                />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t("exams.formAllowLateSubmit", { defaultValue: "Cho phép nộp muộn sau khi hết hạn" })}
-                </span>
-              </label>
-
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
@@ -1064,7 +1051,7 @@ export function ExamForm({ id }: ExamFormProps) {
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between gap-2">
                                           <span className="font-bold text-gray-500">{q.code}</span>
-                                          {examSkillType !== 4 && (
+                                          {examSkillType !== 4 && examSkillType !== 3 && (
                                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 font-semibold text-gray-600 dark:text-gray-400">
                                               {q.point || 1} điểm
                                             </span>
@@ -1125,9 +1112,10 @@ export function ExamForm({ id }: ExamFormProps) {
               )}
             </div>
 
-            {/* Points preview footer — Writing is graded manually by staff per submission,
-                not auto-scored per question, so a per-question point split doesn't apply. */}
-            {examSkillType !== 4 && (
+            {/* Points preview footer — Writing/Speaking are graded manually by staff per
+                submission, not auto-scored per question, so a per-question point split
+                doesn't apply. */}
+            {examSkillType !== 4 && examSkillType !== 3 && (
               <div className="mt-3 pt-3 border-t border-gray-100 dark:border-white/[0.05] flex justify-between items-center text-xs">
                 <span className="font-semibold text-gray-500">{t("exams.formPointPerQuestion", { defaultValue: "Điểm mỗi câu (ước tính):" })}</span>
                 <span className="font-bold text-brand-500">
