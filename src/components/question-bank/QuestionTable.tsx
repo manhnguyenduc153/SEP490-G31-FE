@@ -247,7 +247,7 @@ export default function QuestionTable() {
     <div className="bg-white dark:bg-gray-900 border border-gray-150 dark:border-gray-800 rounded-2xl shadow-xs">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
+        <div className="fixed bottom-5 right-5 z-[999999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
           {toastType === "success" ? <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" /> : <XCircle className="w-5 h-5 text-rose-500 shrink-0" />}
           <span className="text-sm font-medium">{toastMessage}</span>
         </div>
@@ -318,6 +318,7 @@ export default function QuestionTable() {
               <option value="" className="dark:bg-gray-900">{t("question.filterSkillAll", { defaultValue: "Tất cả kỹ năng" })}</option>
               <option value="2" className="dark:bg-gray-900">{t("question.skillReading", { defaultValue: "Reading" })}</option>
               <option value="1" className="dark:bg-gray-900">{t("question.skillListening", { defaultValue: "Listening" })}</option>
+              <option value="3" className="dark:bg-gray-900">{t("question.skillSpeaking", { defaultValue: "Speaking" })}</option>
               <option value="4" className="dark:bg-gray-900">{t("question.skillWriting", { defaultValue: "Writing" })}</option>
             </select>
           </div>

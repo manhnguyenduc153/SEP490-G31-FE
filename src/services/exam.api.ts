@@ -130,6 +130,10 @@ export const examApi = {
     return api.post<ExamItem>(`/api/Exam/${id}/copy`, {});
   },
 
+  async toggleStatus(id: number): Promise<ApiResponse<ExamItem>> {
+    return api.post<ExamItem>(`/api/Exam/${id}/toggle-status`, {});
+  },
+
   async getStudentExams(): Promise<ApiResponse<ExamItem[]>> {
     return api.get<ExamItem[]>("/api/Exam/student");
   },
