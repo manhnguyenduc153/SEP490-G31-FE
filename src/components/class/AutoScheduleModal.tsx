@@ -25,7 +25,6 @@ export default function AutoScheduleModal({
 }: AutoScheduleModalProps) {
   const [sessionsPerWeek, setSessionsPerWeek] = useState<number>(2);
   const [timePreferences, setTimePreferences] = useState<string[]>(["morning", "afternoon", "evening"]);
-  const [allowConsecutiveDays, setAllowConsecutiveDays] = useState<boolean>(false);
   const [allowWeekend, setAllowWeekend] = useState<boolean>(true);
 
   const [teachers, setTeachers] = useState<any[]>([]);
@@ -55,7 +54,6 @@ export default function AutoScheduleModal({
       // Reset values when opened
       setSessionsPerWeek(2);
       setTimePreferences(["morning", "afternoon", "evening"]);
-      setAllowConsecutiveDays(false);
       setAllowWeekend(true);
       setSelectedTeachers([]);
       setSelectedRooms([]);
@@ -115,7 +113,6 @@ export default function AutoScheduleModal({
     onSubmit({
       sessionsPerWeek,
       timePreferences,
-      allowConsecutiveDays,
       allowWeekend,
       teacherIds: selectedTeachers,
       roomIds: selectedRooms,
@@ -235,23 +232,6 @@ export default function AutoScheduleModal({
                   {t("class.advancedOptions")}
                 </label>
                 <div className="space-y-3">
-                  {/* Cho phép ngày liền kề */}
-                  <label className="flex items-start gap-3 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={allowConsecutiveDays}
-                      onChange={(e) => setAllowConsecutiveDays(e.target.checked)}
-                      className="rounded text-brand-600 focus:ring-brand-500 w-4 h-4 cursor-pointer mt-0.5"
-                    />
-                    <div className="text-left">
-                      <span className="text-sm font-semibold text-gray-855 dark:text-gray-200 block">
-                        {t("class.allowConsecutiveDays")}
-                      </span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500">
-                        {t("class.allowConsecutiveDaysHelp")}
-                      </span>
-                    </div>
-                  </label>
 
                   {/* Cho phép cuối tuần */}
                   <label className="flex items-start gap-3 cursor-pointer select-none">

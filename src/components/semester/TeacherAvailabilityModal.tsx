@@ -1,11 +1,11 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 import { teacherApi, TeacherItem } from "@/services/teacher.api";
-import { semesterApi, TeacherAvailabilitySlotDto } from "@/services/semester.api";
+import { semesterApi, TeacherAvailabilitySlotDto, TeacherAvailabilitySaveDto } from "@/services/semester.api";
 import { useTranslation } from "react-i18next";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { Check, Ban } from "lucide-react";
+import { Check, Ban, Download, Upload } from "lucide-react";
 
 interface TeacherAvailabilityModalProps {
   isOpen: boolean;
@@ -48,6 +48,202 @@ export function TeacherAvailabilityModal({
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
   const [hasSchedules, setHasSchedules] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Reset input value to allow importing the same file again
+    e.target.value = "";
+
+    setIsImporting(true);
+    try {
+      const XLSX = await import("xlsx");
+      const reader = new FileReader();
+
+      reader.onload = async (evt) => {
+        try {
+          const data = evt.target?.result;
+          if (!data) {
+            showToast("Không thể đọc file Excel.", "error");
+            return;
+          }
+
+          const workbook = XLSX.read(data, { type: "array" });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json<any>(worksheet);
+
+          if (!jsonData || jsonData.length === 0) {
+            showToast("Tệp Excel rỗng hoặc không đúng định dạng.", "error");
+            return;
+          }
+
+          const daysOfWeekMap: Record<string, number> = {
+            "Thứ 2": 1,
+            "Thứ 3": 2,
+            "Thứ 4": 3,
+            "Thứ 5": 4,
+            "Thứ 6": 5,
+            "Thứ 7": 6,
+            "Chủ Nhật": 0
+          };
+
+          const dtos: TeacherAvailabilitySaveDto[] = [];
+
+          for (const row of jsonData) {
+            const teacherCode = String(row["Mã giảng viên"] || "").trim();
+            if (!teacherCode) continue;
+
+            const teacher = teachers.find(
+              (t) => String(t.code || "").trim().toLowerCase() === teacherCode.toLowerCase()
+            );
+
+            if (!teacher) {
+              console.warn(`Teacher with code ${teacherCode} not found in current list.`);
+              continue;
+            }
+
+            const slots: { dayOfWeek: number; slotIndex: number }[] = [];
+
+            Object.entries(daysOfWeekMap).forEach(([dayName, dayValue]) => {
+              const cellValue = String(row[dayName] || "").trim();
+              if (cellValue) {
+                const parts = cellValue.split(",");
+                parts.forEach((part) => {
+                  const trimmed = part.trim();
+                  const match = trimmed.match(/\d+/);
+                  if (match) {
+                    const slotNum = Number(match[0]);
+                    const slotIdx = slotNum - 1;
+                    if (slotIdx >= 0 && slotIdx <= 4) {
+                      slots.push({ dayOfWeek: dayValue, slotIndex: slotIdx });
+                    }
+                  }
+                });
+              }
+            });
+
+            dtos.push({
+              teacherId: teacher.id,
+              semesterId,
+              slots
+            });
+          }
+
+          if (dtos.length === 0) {
+            showToast(t("semester.importNoValidTeachers", { defaultValue: "Không tìm thấy giáo viên hợp lệ hoặc dữ liệu lịch dạy trong tệp." }), "error");
+            return;
+          }
+
+          const res = await semesterApi.saveTeacherAvailabilityBulk(dtos);
+          if (res.success) {
+            showToast(t("semester.toastImportAvailabilitySuccess", { defaultValue: "Nhập lịch dạy từ Excel thành công!" }), "success");
+            // If the current selected teacher's availability was updated, reload it
+            if (selectedTeacherId !== "") {
+              const currentId = selectedTeacherId;
+              setSelectedTeacherId("");
+              setTimeout(() => setSelectedTeacherId(currentId), 50);
+            }
+          } else {
+            showToast(res.message ? t(`backendMessages.${res.message}`) : t("semester.availabilitySaveError", { defaultValue: "Lỗi khi lưu lịch dạy giáo viên." }), "error");
+          }
+        } catch (err) {
+          console.error(err);
+          showToast(t("semester.toastExcelParseError", { defaultValue: "Lỗi xử lý file Excel." }), "error");
+        }
+      };
+
+      reader.readAsArrayBuffer(file);
+    } catch (err) {
+      console.error(err);
+      showToast(t("semester.toastImportError", { defaultValue: "Lỗi nhập dữ liệu." }), "error");
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleExportAll = async () => {
+    setIsExporting(true);
+    try {
+      const res = await semesterApi.getSemesterTeacherAvailabilities(semesterId);
+      if (!res.success || !res.data) {
+        showToast(t("semester.exportError", { defaultValue: "Lỗi khi lấy dữ liệu lịch rảnh giảng viên." }), "error");
+        return;
+      }
+
+      const availabilities = res.data;
+      const XLSX = await import("xlsx");
+      
+      const daysOfWeekMap: Record<number, string> = {
+        1: "Thứ 2",
+        2: "Thứ 3",
+        3: "Thứ 4",
+        4: "Thứ 5",
+        5: "Thứ 6",
+        6: "Thứ 7",
+        0: "Chủ Nhật"
+      };
+
+      const excelRows = teachers.map((teacher) => {
+        const row: Record<string, string> = {
+          "Mã giảng viên": teacher.code || "",
+          "Họ và tên": teacher.name || ""
+        };
+
+        [1, 2, 3, 4, 5, 6, 0].forEach((day) => {
+          row[daysOfWeekMap[day]] = "";
+        });
+
+        const teacherAvails = availabilities.filter((a) => a.teacherId === teacher.id);
+        const groupedByDay: Record<number, number[]> = {};
+        teacherAvails.forEach((avail) => {
+          if (!groupedByDay[avail.dayOfWeek]) {
+            groupedByDay[avail.dayOfWeek] = [];
+          }
+          groupedByDay[avail.dayOfWeek].push(avail.slotIndex);
+        });
+
+        Object.entries(groupedByDay).forEach(([dayStr, slots]) => {
+          const day = Number(dayStr);
+          slots.sort((a, b) => a - b);
+          const slotTexts = slots.map((sIdx) => `Ca ${sIdx + 1}`);
+          row[daysOfWeekMap[day]] = slotTexts.join(", ");
+        });
+
+        return row;
+      });
+
+      const ws = XLSX.utils.json_to_sheet(excelRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Lịch Dạy Giảng Viên");
+
+      const maxColWidths = [
+        { wch: 15 }, // Mã GV
+        { wch: 25 }, // Họ tên
+        { wch: 15 }, // Thứ 2
+        { wch: 15 }, // Thứ 3
+        { wch: 15 }, // Thứ 4
+        { wch: 15 }, // Thứ 5
+        { wch: 15 }, // Thứ 6
+        { wch: 15 }, // Thứ 7
+        { wch: 15 }  // Chủ Nhật
+      ];
+      ws["!cols"] = maxColWidths;
+
+      const fileName = `Lich_Day_Giang_Vien_${semesterName.replace(/\s+/g, "_")}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      showToast(t("semester.toastExportSuccess", { defaultValue: "Xuất báo cáo lịch dạy thành công!" }), "success");
+    } catch (error) {
+      console.error(error);
+      showToast(t("semester.toastExportError", { defaultValue: "Lỗi khi xuất file Excel." }), "error");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Load teachers list
   useEffect(() => {
@@ -206,13 +402,46 @@ export function TeacherAvailabilityModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} className="max-w-[900px] p-6 sm:p-8">
       <div className="flex flex-col gap-4">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            {t("semester.availabilityTitle")}
-          </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t("sidebar.semesters", { defaultValue: "Học kỳ" })}: <span className="font-semibold text-gray-700 dark:text-gray-300">{semesterName}</span>
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              {t("semester.availabilityTitle")}
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {t("sidebar.semesters", { defaultValue: "Học kỳ" })}: <span className="font-semibold text-gray-700 dark:text-gray-300">{semesterName}</span>
+            </p>
+          </div>
+          <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImportExcel}
+              accept=".xlsx, .xls"
+              className="hidden"
+            />
+            <button
+              type="button"
+              disabled={isImporting || isLoadingTeachers || teachers.length === 0}
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-2 text-xs font-semibold border border-blue-500/35 hover:border-blue-500 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/20 bg-transparent rounded-lg shadow-theme-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0"
+            >
+              <Upload className="w-4 h-4" />
+              {isImporting 
+                ? t("semester.importingAvailability", { defaultValue: "Đang nhập..." }) 
+                : t("semester.btnImportAvailability", { defaultValue: "Nhập Excel lịch dạy" })}
+            </button>
+            <button
+              type="button"
+              disabled={isExporting || isLoadingTeachers || teachers.length === 0}
+              onClick={handleExportAll}
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-2 text-xs font-semibold border border-emerald-500/35 hover:border-emerald-500 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 bg-transparent rounded-lg shadow-theme-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0"
+            >
+              <Download className="w-4 h-4" />
+              {isExporting 
+                ? t("semester.exportingAvailability", { defaultValue: "Đang xuất..." }) 
+                : t("semester.btnExportAvailability", { defaultValue: "Xuất Excel tất cả GV" })}
+            </button>
+          </div>
         </div>
 
         {/* Teacher Selection */}

@@ -600,7 +600,13 @@ function AutoScheduleModal({ isOpen, onClose, semesters, onGenerate, loading, sh
                         <button
                           type="button"
                           key={p}
-                          onClick={() => togglePref(p)}
+                          onClick={() => {
+                            if (timePreferences.includes(p)) {
+                              setTimePreferences(timePreferences.filter((x) => x !== p));
+                            } else {
+                              setTimePreferences([...timePreferences, p]);
+                            }
+                          }}
                           className={`flex-1 py-2 px-3 border text-xs font-semibold rounded-lg transition-all ${active
                             ? "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-950/40 dark:border-blue-900 dark:text-blue-400"
                             : "bg-white border-gray-200 text-gray-500 dark:bg-gray-900 dark:border-gray-800"
@@ -617,24 +623,24 @@ function AutoScheduleModal({ isOpen, onClose, semesters, onGenerate, loading, sh
                   <label className="flex items-center gap-2 cursor-pointer select-none">
                     <input
                       type="checkbox"
-                      checked={allowConsecutiveDays}
-                      onChange={(e) => setAllowConsecutiveDays(e.target.checked)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-650 dark:text-gray-300">
-                      {t("semester.autoScheduleConsecutiveDays", { defaultValue: "Cho học liên tiếp" })}
-                    </span>
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
                       checked={allowWeekend}
                       onChange={(e) => setAllowWeekend(e.target.checked)}
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                     <span className="text-sm text-gray-650 dark:text-gray-300">
                       {t("semester.autoScheduleWeekend", { defaultValue: "Cho xếp lịch cuối tuần" })}
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={allowConsecutiveDays}
+                      onChange={(e) => setAllowConsecutiveDays(e.target.checked)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-650 dark:text-gray-300">
+                      {t("semester.autoScheduleConsecutiveDays", { defaultValue: "Cho phép học các ngày liên tiếp" })}
                     </span>
                   </label>
                 </div>

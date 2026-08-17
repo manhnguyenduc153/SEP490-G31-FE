@@ -116,7 +116,6 @@ export interface ScheduleVersionListItem {
 export interface AutoScheduleConstraintDto {
   sessionsPerWeek: number;
   timePreferences: string[];
-  allowConsecutiveDays: boolean;
   allowWeekend: boolean;
   teacherIds?: number[];
   roomIds?: number[];
