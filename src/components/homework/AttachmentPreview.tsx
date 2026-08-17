@@ -68,7 +68,8 @@ function WordDocumentPreview({ url }: { url: string }) {
       try {
         const response = await fetch(url);
         if (!response.ok) throw new Error("Could not load document");
-        const mammoth = await import("mammoth");
+        // @ts-ignore
+        const mammoth: any = await import("mammoth");
         const result = await mammoth.convertToHtml({ arrayBuffer: await response.arrayBuffer() });
         if (isMounted) setHtml(result.value);
       } catch {

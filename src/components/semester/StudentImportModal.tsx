@@ -62,7 +62,10 @@ export function StudentImportModal({
       console.error("Lỗi khi tải danh sách học sinh: ", err);
     } finally {
       setIsLoadingList(false);
-    }  useEffect(() => {
+    }
+  };
+
+  useEffect(() => {
     if (!isOpen) return;
 
     async function initData() {
@@ -108,6 +111,8 @@ export function StudentImportModal({
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Template");
     XLSX.writeFile(wb, `Template_Dang_Ky_Hoc_Vien_${semesterName.replace(/\s+/g, "_")}.xlsx`);
+  };
+
   const parsePreferredSlotsFromExcel = (slotsStr: string | undefined, daysStr: string | undefined): string[] => {
     const result: string[] = [];
     const sStr = (slotsStr || "").toString().trim().toLowerCase();

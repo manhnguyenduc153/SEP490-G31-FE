@@ -541,7 +541,7 @@ export function StudentRegistrationModal({
         courseId: Number(formCourseId),
         preferredSlotIndex: Number(formSlotIndex),
         preferredDaysOfWeek: calculateDaysMask(formDays),
-        preferredSlots: getPreferredSlotsFromIndexAndDays(formSlotIndex, formDays),
+        preferredSlots: getPreferredSlotsFromIndexAndDays(Number(formSlotIndex), formDays),
         status: Number(formStatus),
         enrollType: formEnrollType,
       };

@@ -1658,7 +1658,6 @@ export default function ClassScheduleCalendar() {
         constraints: {
           sessionsPerWeek: params.sessionsPerWeek,
           timePreferences: params.timePreferences,
-          allowConsecutiveDays: params.allowConsecutiveDays,
           allowWeekend: params.allowWeekend,
           teacherIds: params.teacherIds,
           roomIds: params.roomIds,
