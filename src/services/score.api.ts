@@ -1,8 +1,6 @@
-import { attendanceApi } from "./attendance.api";
 import { api, ApiResponse } from "./api";
 import { classApi, ClassItem } from "./class.api";
 import { examApi } from "./exam.api";
-import { homeworkApi } from "./homework.api";
 
 export type ScoreComponent = string;
 
@@ -11,15 +9,12 @@ export interface ScoreRow {
   studentId: number;
   studentCode?: string | null;
   studentName?: string | null;
-  homeworkScore: number;
   examScore: number;
   averageScore: number;
   componentScores: Record<string, number>;
   rawComponentScores: Record<string, number>;
   rawComponentHasScore: Record<string, boolean>;
-  rawHomeworkScore: number;
   rawExamScore: number;
-  homeworkSummary: string;
   examSummary: string;
 }
 
@@ -182,23 +177,8 @@ export async function buildClassScoreRows(classId: number, overrides: ScoreOverr
 
   const students = classDetail.studentClasses || [];
 
-  const [homeworkRes, examRes] = await Promise.all([
-    homeworkApi.getHomeworkByClass(classId).catch(() => null),
-    examApi.getAll(1, 200, { classId }).catch(() => null),
-  ]);
-
-  const homeworks = homeworkRes?.success ? Array.from(homeworkRes.data || []) : [];
+  const examRes = await examApi.getAll(1, 200, { classId }).catch(() => null);
   const exams = examRes?.success ? examRes.data?.items || [] : [];
-
-  const homeworkSubmissionPairs = await Promise.all(
-    homeworks.map(async (homework) => {
-      const res = await homeworkApi.getSubmissions(homework.id).catch(() => null);
-      return {
-        homework,
-        submissions: res?.success ? Array.from(res.data || []) : [],
-      };
-    })
-  );
 
   const examAttemptPairs = await Promise.all(
     exams.map(async (exam) => {
@@ -218,18 +198,6 @@ export async function buildClassScoreRows(classId: number, overrides: ScoreOverr
 
   return students.map((sc) => {
     const studentId = sc.student?.id || sc.studentId;
-
-    const homeworkScores = homeworkSubmissionPairs.map(({ homework, submissions }) => {
-      const submission = submissions.find((item) => item.studentId === studentId);
-      return normalizeScore(submission?.score, homework.totalScore);
-    });
-    const hasHomeworkScore = homeworkSubmissionPairs.some(({ submissions }) => {
-      const submission = submissions.find((item) => item.studentId === studentId);
-      return submission?.score !== null && submission?.score !== undefined;
-    });
-    const homeworkRaw = homeworkScores.length
-      ? homeworkScores.reduce((sum, value) => sum + value, 0) / homeworkScores.length
-      : 0;
 
     const examScoresBySkill: Record<ExamSkillCode, number[]> = {
       listening: [],
@@ -269,7 +237,6 @@ export async function buildClassScoreRows(classId: number, overrides: ScoreOverr
 
     const studentOverrides = overrides[studentId] || {};
     const rawComponentScores = {
-      homework: round1(homeworkRaw),
       listening: round1(listeningRaw),
       reading: round1(readingRaw),
       speaking: round1(speakingRaw),
@@ -277,7 +244,6 @@ export async function buildClassScoreRows(classId: number, overrides: ScoreOverr
       exam: round1(examRaw),
     };
     const rawComponentHasScore: Record<string, boolean> = {
-      homework: hasHomeworkScore,
       listening: examHasScoreBySkill.listening,
       reading: examHasScoreBySkill.reading,
       speaking: examHasScoreBySkill.speaking,
@@ -285,7 +251,6 @@ export async function buildClassScoreRows(classId: number, overrides: ScoreOverr
       exam: hasExamScore,
     };
     const componentScores: Record<string, number> = {
-      homework: round1(studentOverrides.homework ?? homeworkRaw),
       listening: round1(studentOverrides.listening ?? listeningRaw),
       reading: round1(studentOverrides.reading ?? readingRaw),
       speaking: round1(studentOverrides.speaking ?? speakingRaw),
@@ -299,24 +264,25 @@ export async function buildClassScoreRows(classId: number, overrides: ScoreOverr
       }
     });
 
-    const homeworkScore = componentScores.homework ?? 0;
     const examScore = componentScores.exam ?? 0;
-    const averageScore = round1((homeworkScore + examScore) / 2);
+    const averageScore = round1(averageScores([
+      componentScores.listening ?? 0,
+      componentScores.reading ?? 0,
+      componentScores.speaking ?? 0,
+      componentScores.writing ?? 0,
+    ]));
 
     return {
       studentClassId: sc.id,
       studentId,
       studentCode: sc.student?.code,
       studentName: sc.student?.name,
-      homeworkScore,
       examScore,
       averageScore,
       componentScores,
       rawComponentScores,
       rawComponentHasScore,
-      rawHomeworkScore: round1(homeworkRaw),
       rawExamScore: round1(examRaw),
-      homeworkSummary: `${homeworkSubmissionPairs.length} bài`,
       examSummary: `${examAttemptPairs.length} bài`,
     } satisfies ScoreRow;
   });
