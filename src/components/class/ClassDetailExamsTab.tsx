@@ -21,11 +21,13 @@ export default function ClassDetailExamsTab({
   const [exams, setExams] = useState<ExamItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
+  const [isTeacher, setIsTeacher] = useState(false);
 
   useEffect(() => {
     const userRole = authApi.getRole().toLowerCase();
     const permissions = authApi.getPermissions();
     setCanEdit(userRole === "admin" || permissions.includes("Exam.Edit"));
+    setIsTeacher(userRole === "teacher");
   }, []);
 
   useEffect(() => {
@@ -174,7 +176,7 @@ export default function ClassDetailExamsTab({
               <div className="flex items-center gap-2 pt-3 border-t border-gray-50 dark:border-gray-800/80">
                 <button
                   type="button"
-                  onClick={() => router.push(`/exams/${exam.id}`)}
+                  onClick={() => router.push(isTeacher ? `/teaching-exams/${exam.id}` : `/exams/${exam.id}`)}
                   className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 text-xs font-semibold text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-theme-xs transition-colors cursor-pointer"
                 >
                   <span>{t("exam.btnViewOrAttempt", { defaultValue: "Chi tiết / Làm bài" })}</span>

@@ -158,7 +158,6 @@ export default function ClassDetailGradesTab({
       return {
         ...row,
         componentScores: nextComponentScores,
-        homeworkScore: nextComponentScores.homework ?? row.homeworkScore,
         examScore: nextComponentScores.exam ?? row.examScore,
       };
     }), rules));
@@ -325,7 +324,8 @@ export default function ClassDetailGradesTab({
     }
     const overrideScore = overrides[row.studentId]?.[rule.id];
     const rawScore = row.rawComponentScores[rule.id] ?? 0;
-    const inputValue = overrideScore !== undefined ? overrideScore : (rawScore === 0 ? "" : rawScore);
+    const hasRawScore = row.rawComponentHasScore[rule.id] ?? false;
+    const inputValue = overrideScore !== undefined ? overrideScore : (hasRawScore ? rawScore : "");
     return (
       <input
         type="number"
@@ -335,7 +335,6 @@ export default function ClassDetailGradesTab({
         step={0.1}
         value={inputValue}
         onChange={(event) => updateScore(row.studentId, rule.id, event.target.value)}
-        placeholder={t("class.gradeScorePlaceholder", { defaultValue: "Enter score" })}
         className="mx-auto h-9 w-28 rounded-lg border border-gray-200 bg-white px-2 text-center text-sm font-semibold text-gray-800 outline-none [appearance:textfield] focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
     );

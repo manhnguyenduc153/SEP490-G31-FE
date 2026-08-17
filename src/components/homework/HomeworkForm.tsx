@@ -48,7 +48,7 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
         attachmentUrls: editingItem.attachmentUrls || [],
         skill: editingItem.skill || "General",
         dueDate: editingItem.dueDate ? editingItem.dueDate.substring(0, 16) : "",
-        totalScore: String(editingItem.totalScore),
+        totalScore: "10",
         status: editingItem.status,
       });
     } else {
@@ -163,7 +163,7 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
     const payload: HomeworkSaveDto = {
       ...formData,
       title: formData.title.trim(),
-      totalScore: Number(formData.totalScore),
+      totalScore: 10,
     };
     try {
       if (editingItem) {
@@ -262,22 +262,6 @@ export default function HomeworkForm({ classId, classTeacherId, editingItem, onC
             aria-invalid={Boolean(fieldErrors.dueDate)}
           />
           {renderError("dueDate")}
-        </div>
-
-        <div>
-          <label className="block mb-2 text-sm font-medium">{t("homework.totalScore")} <RequiredMark /></label>
-          <input
-            type="number"
-            name="totalScore"
-            value={formData.totalScore}
-            onChange={handleChange}
-            min="0"
-            max="1000"
-            className={inputClassName("totalScore")}
-            required
-            aria-invalid={Boolean(fieldErrors.totalScore)}
-          />
-          {renderError("totalScore")}
         </div>
 
         <div>

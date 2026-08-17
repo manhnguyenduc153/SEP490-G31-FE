@@ -10,6 +10,12 @@ import { CheckCircle, XCircle, Clock, Eye, AlertTriangle, BarChart, Award } from
 import { questionPassageApi, QuestionPassageItem } from "@/services/questionPassage.api";
 import { ENV } from "@/config/env";
 import { Volume2, BookOpen } from "lucide-react";
+import { FillBlankNotesGroup } from "@/components/exam/FillBlankNotesGroup";
+import {
+  isSameAsPassageContent,
+  segmentQuestions,
+  getFillBlankCorrectAnswer,
+} from "@/utils/examQuestionFormat";
 
 const getFileUrl = (url?: string) => {
   if (!url) return "";
@@ -28,12 +34,6 @@ const getSkillBadgeClass = (skillType?: number) => {
     default: return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300";
   }
 };
-
-// Writing-task questions often reuse the passage prompt as the question content (e.g. "Task 1"),
-// so once the passage text is already shown, showing it again as the question content is redundant.
-const normalizeText = (s?: string | null) => (s || "").replace(/\s+/g, " ").trim();
-const isSameAsPassageContent = (questionContent?: string | null, passageContent?: string | null) =>
-  !!passageContent && normalizeText(questionContent) === normalizeText(passageContent);
 
 const getSkillName = (skillType?: number, t?: any) => {
   switch (skillType) {
@@ -332,7 +332,7 @@ export default function ExamDetailPage() {
     return (
       <div className="space-y-6">
         {toastMessage && (
-          <div className="fixed bottom-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
+          <div className="fixed bottom-5 right-5 z-[999999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
             {toastType === "success" ? (
               <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" />
             ) : (
@@ -587,17 +587,42 @@ export default function ExamDetailPage() {
         <div className="flex flex-1 overflow-hidden">
           {/* Left Pane: Question List */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            {questions.map((q, idx) => {
-              const ans = attempt.answers?.find((a: any) => a.questionId === q.id);
-              const studentAnswer = ans?.answerContent || "";
-              const isCorrect = ans?.isCorrect;
-              const isMultiple = q.questionType === 2;
-
+            {(() => {
               // Display mode
               const showStudentResult = examViewMode === "student";
 
-              return (
-                <React.Fragment key={q.id}>
+              // Renders one question segment (either a grouped Fill-in-Blank notes block, or a
+              // regular single-question card) — shared by both the passage-grouped and the
+              // standalone-question sections below, so a passage's completion task is only ever
+              // grouped with its own sibling questions, never with an unrelated adjacent passage.
+              const renderSegment = (seg: ReturnType<typeof segmentQuestions>[number]) => {
+                if (seg.kind === "notes") {
+                  return (
+                    <FillBlankNotesGroup
+                      key={`notes-${seg.questions[0].id}`}
+                      questions={seg.questions}
+                      getGlobalIndex={(qq) => questions.findIndex((x) => x.id === qq.id)}
+                      mode={showStudentResult ? "review" : "answerKey"}
+                      getBlankValue={(qq) => {
+                        if (!showStudentResult) {
+                          return { text: getFillBlankCorrectAnswer(qq) };
+                        }
+                        const a = attempt.answers?.find((ans: any) => ans.questionId === qq.id);
+                        const studentAnswer = a?.answerContent || "";
+                        return { text: studentAnswer, isAnswered: !!studentAnswer, isCorrect: a?.isCorrect };
+                      }}
+                    />
+                  );
+                }
+                const q = seg.question;
+                const idx = questions.findIndex((x) => x.id === q.id);
+                const ans = attempt.answers?.find((a: any) => a.questionId === q.id);
+                const studentAnswer = ans?.answerContent || "";
+                const isCorrect = ans?.isCorrect;
+                const isMultiple = q.questionType === 2;
+
+                return (
+                  <React.Fragment key={q.id}>
                 {q.instruction && (
                   <div className="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-xl">
                     <p className="text-sm font-semibold text-blue-800 dark:text-blue-300 whitespace-pre-wrap leading-relaxed">
@@ -740,8 +765,76 @@ export default function ExamDetailPage() {
                   )}
                 </div>
                 </React.Fragment>
+                );
+              };
+
+              return (
+                <>
+                  {groupedPassageMap.passageGroups.map(({ passage, questions: groupQs }) => (
+                    <div
+                      key={passage.id}
+                      className="p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-theme-xs space-y-4"
+                    >
+                      {/* Passage Top Header */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-gray-100 dark:border-gray-800">
+                        <div className="flex items-center gap-2.5">
+                          <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full uppercase tracking-wider ${getSkillBadgeClass(passage.skillType)}`}>
+                            {getSkillName(passage.skillType, t)}
+                          </span>
+                          {passage.categoryName && (
+                            <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                              {passage.categoryName}
+                            </span>
+                          )}
+                          <span className="text-xs font-mono font-bold text-gray-400">
+                            ({passage.code})
+                          </span>
+                        </div>
+                        <span className="text-xs font-semibold text-gray-500">
+                          ({t("exams.questionsCount", { count: groupQs.length })})
+                        </span>
+                      </div>
+
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                        {passage.title}
+                      </h3>
+
+                      {/* Reading Passage Text */}
+                      {passage.content && (
+                        <div className="p-4 bg-gray-50 dark:bg-gray-950/40 rounded-xl text-gray-800 dark:text-gray-200 text-sm font-serif leading-relaxed whitespace-pre-wrap border border-gray-150 dark:border-gray-800">
+                          <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 font-sans">
+                            📖 {t("exams.passageContentTitle").toUpperCase()}
+                          </span>
+                          {passage.content}
+                        </div>
+                      )}
+
+                      {/* Listening Audio File */}
+                      {passage.audioUrl && (
+                        <div className="p-3.5 bg-blue-50/60 dark:bg-blue-950/30 rounded-xl border border-blue-100 dark:border-blue-900/50 space-y-2">
+                          <span className="text-xs font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1.5 font-sans">
+                            <Volume2 className="w-4 h-4" /> {t("exams.listeningAudioTitle")}
+                          </span>
+                          <audio controls src={getFileUrl(passage.audioUrl)} className="w-full h-9 rounded-lg" />
+                        </div>
+                      )}
+
+                      {/* Questions under this passage */}
+                      <div className="space-y-4 pt-2">
+                        {segmentQuestions(groupQs).map(renderSegment)}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Standalone questions (no passage) */}
+                  {groupedPassageMap.standaloneQs.length > 0 && (
+                    <div className="space-y-4">
+                      {segmentQuestions(groupedPassageMap.standaloneQs).map(renderSegment)}
+                    </div>
+                  )}
+                </>
               );
-            })}
+            })()}
           </div>
 
           {/* Right Pane: Stats Sidebar */}
@@ -867,7 +960,8 @@ export default function ExamDetailPage() {
                     )}
                   </div>
 
-                  {/* Grading & Feedback Form in Review Modal */}
+                  {/* Grading & Feedback Form in Review Modal (manual-graded exams only) */}
+                  {isManualGradedExam(exam) && (
                   <div className="p-4 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-3">
                     <h5 className="text-xs font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5 font-sans">
                       <Award className="w-4 h-4 text-amber-600" />
@@ -956,6 +1050,7 @@ export default function ExamDetailPage() {
                       );
                     })()}
                   </div>
+                  )}
 
                   {/* Compact Answer Sheet Table (Hidden for Writing exams) */}
                   {!isWritingExam(exam, questionPassages) && (
@@ -1133,12 +1228,7 @@ export default function ExamDetailPage() {
             </svg>
           </button>
           <div>
-            <div className="flex items-center gap-2 text-xs text-gray-400 font-semibold uppercase tracking-wider">
-              <span>{t("exams.breadcrumbHomework")}</span>
-              <span>/</span>
-              <span className="text-gray-500">{exam.className || t("exams.unlimited")}</span>
-            </div>
-            <h2 className="text-xl font-bold text-gray-950 dark:text-white mt-0.5">
+            <h2 className="text-xl font-bold text-gray-950 dark:text-white">
               {exam.title}
             </h2>
           </div>
@@ -1285,7 +1375,19 @@ export default function ExamDetailPage() {
 
                       {/* Questions inside this passage */}
                       <div className="space-y-4 pt-2">
-                        {groupQs.map((q) => {
+                        {segmentQuestions(groupQs).map((seg) => {
+                          if (seg.kind === "notes") {
+                            return (
+                              <FillBlankNotesGroup
+                                key={`notes-${seg.questions[0].id}`}
+                                questions={seg.questions}
+                                getGlobalIndex={(qq) => (exam.questions || []).findIndex((x) => x.id === qq.id)}
+                                mode="answerKey"
+                                getBlankValue={(qq) => ({ text: getFillBlankCorrectAnswer(qq) })}
+                              />
+                            );
+                          }
+                          const q = seg.question;
                           const globalIdx = (exam.questions || []).findIndex((x) => x.id === q.id);
                           // Writing-task questions typically just repeat the passage prompt verbatim
                           // (no separate question text, no answer options) — showing a near-empty
@@ -1374,7 +1476,19 @@ export default function ExamDetailPage() {
                   ))}
 
                   {/* Render Standalone Questions if any */}
-                  {groupedPassageMap.standaloneQs.map((q) => {
+                  {segmentQuestions(groupedPassageMap.standaloneQs).map((seg) => {
+                    if (seg.kind === "notes") {
+                      return (
+                        <FillBlankNotesGroup
+                          key={`notes-${seg.questions[0].id}`}
+                          questions={seg.questions}
+                          getGlobalIndex={(qq) => (exam.questions || []).findIndex((x) => x.id === qq.id)}
+                          mode="answerKey"
+                          getBlankValue={(qq) => ({ text: getFillBlankCorrectAnswer(qq) })}
+                        />
+                      );
+                    }
+                    const q = seg.question;
                     const globalIdx = (exam.questions || []).findIndex((x) => x.id === q.id);
                     return (
                       <div
@@ -1587,12 +1701,8 @@ export default function ExamDetailPage() {
                   <p className="font-bold text-gray-800 dark:text-white">{exam.passingScore} / {exam.totalScore}đ</p>
                 </div>
                 <div>
-                  <p className="text-gray-400">Xáo trộn câu hỏi:</p>
-                  <p className="font-bold text-gray-800 dark:text-white">{exam.shuffleQuestion ? "Yes" : "No"}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400">Cho xem đáp án:</p>
-                  <p className="font-bold text-gray-800 dark:text-white">{exam.showAnswerAfter ? "Yes" : "No"}</p>
+                  <p className="text-gray-400">{t("exams.settingsShowAnswer")}:</p>
+                  <p className="font-bold text-gray-800 dark:text-white">{exam.showAnswerAfter ? t("exams.yesLabel") : t("exams.noLabel")}</p>
                 </div>
               </div>
             </div>

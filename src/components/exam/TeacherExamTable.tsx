@@ -14,6 +14,7 @@ import { examApi, ExamItem } from "@/services/exam.api";
 import { classApi, ClassItem } from "@/services/class.api";
 import { CheckCircle, XCircle, Search, Eye } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { Modal } from "@/components/ui/modal";
 
 export function TeacherExamTable() {
   const { t } = useTranslation();
@@ -43,6 +44,10 @@ export function TeacherExamTable() {
   // Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<"success" | "error">("success");
+
+  // Publish confirmation
+  const [publishTarget, setPublishTarget] = useState<ExamItem | null>(null);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   // ─── Toast Helper ───────────────────────────────────────────────────────────
   const showToast = (msg: string, type: "success" | "error" = "success") => {
@@ -117,6 +122,44 @@ export function TeacherExamTable() {
     setRefreshKey((k) => k + 1);
   };
 
+  const handleConfirmPublish = async () => {
+    if (!publishTarget) return;
+    const isUnpublishing = publishTarget.status === 1;
+    setIsPublishing(true);
+    try {
+      const res = await examApi.toggleStatus(publishTarget.id);
+      if (res.success) {
+        const newStatus = isUnpublishing ? 2 : 1;
+        setItems((prev) =>
+          prev.map((it) => (it.id === publishTarget.id ? { ...it, status: newStatus } : it))
+        );
+        showToast(
+          res.message
+            ? t(`backendMessages.${res.message}`, {
+                defaultValue: isUnpublishing
+                  ? "Chuyển bài kiểm tra về bản nháp thành công."
+                  : "Xuất bản bài kiểm tra thành công.",
+              })
+            : isUnpublishing
+              ? "Chuyển bài kiểm tra về bản nháp thành công."
+              : "Xuất bản bài kiểm tra thành công."
+        );
+        setPublishTarget(null);
+      } else {
+        showToast(
+          res.message
+            ? t(`backendMessages.${res.message}`, { defaultValue: res.message })
+            : t("exam.systemError", { defaultValue: "Lỗi hệ thống khi đổi trạng thái bài kiểm tra." }),
+          "error"
+        );
+      }
+    } catch (err: any) {
+      showToast(err.message || "An unexpected error occurred", "error");
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
   // Format creation datetime
   const formatTimeAgo = (dateStr: string) => {
     if (!dateStr) return "";
@@ -136,7 +179,7 @@ export function TeacherExamTable() {
     <div className="w-full bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs overflow-visible">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
+        <div className="fixed bottom-5 right-5 z-[999999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
           {toastType === "success" ? (
             <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" />
           ) : (
@@ -313,7 +356,7 @@ export function TeacherExamTable() {
                   <TableCell className="px-6 py-4 font-medium text-gray-900 dark:text-white">
                     <div className="space-y-1">
                       <p
-                        onClick={() => router.push(`/exams/${item.id}`)}
+                        onClick={() => router.push(`/teaching-exams/${item.id}`)}
                         className="font-semibold text-gray-950 dark:text-white hover:text-brand-500 transition-colors cursor-pointer"
                       >
                         {item.title}
@@ -377,16 +420,43 @@ export function TeacherExamTable() {
                     </span>
                   </TableCell>
 
-                  {/* Actions - view only */}
+                  {/* Actions */}
                   <TableCell className="px-6 py-4 text-center">
-                    <div className="flex justify-center items-center gap-2">
+                    <div className="flex justify-center items-center gap-3">
                       <button
                         type="button"
-                        onClick={() => router.push(`/exams/${item.id}`)}
+                        onClick={() => router.push(`/teaching-exams/${item.id}`)}
                         title={t("exam.viewTooltip")}
                         className="p-1.5 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
                       >
                         <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={item.status === 1 && item.submissionCount > 0}
+                        onClick={() =>
+                          (item.status !== 1 || item.submissionCount === 0) && setPublishTarget(item)
+                        }
+                        title={
+                          item.status === 1
+                            ? item.submissionCount > 0
+                              ? t("exam.publishedLockedTooltip", { defaultValue: "Đã có lượt làm bài — không thể chuyển lại bản nháp" })
+                              : t("exam.unpublishToggleTooltip", { defaultValue: "Chuyển về bản nháp" })
+                            : t("exam.publishToggleTooltip", { defaultValue: "Chuyển sang xuất bản" })
+                        }
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full shrink-0 transition-colors ${
+                          item.status === 1
+                            ? item.submissionCount > 0
+                              ? "bg-brand-500 cursor-not-allowed opacity-80"
+                              : "bg-brand-500 cursor-pointer hover:bg-brand-600"
+                            : "bg-gray-200 dark:bg-white/10 cursor-pointer hover:bg-gray-300 dark:hover:bg-white/20"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-theme-sm transition-transform ${
+                            item.status === 1 ? "translate-x-5" : "translate-x-0.5"
+                          }`}
+                        />
                       </button>
                     </div>
                   </TableCell>
@@ -433,6 +503,57 @@ export function TeacherExamTable() {
           />
         )}
       </div>
+
+      {/* Publish Confirmation Modal */}
+      <Modal
+        isOpen={!!publishTarget}
+        onClose={() => !isPublishing && setPublishTarget(null)}
+        className="max-w-[420px] p-6 sm:p-8"
+      >
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="flex items-center justify-center w-14 h-14 rounded-full bg-brand-50 dark:bg-brand-500/10">
+            <CheckCircle className="w-6 h-6 text-brand-500" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            {publishTarget?.status === 1
+              ? t("exam.unpublishConfirmTitle", { defaultValue: "Xác nhận chuyển về bản nháp" })
+              : t("exam.publishConfirmTitle", { defaultValue: "Xác nhận xuất bản" })}
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {publishTarget?.status === 1
+              ? t("exam.unpublishConfirmDesc", {
+                  name: publishTarget?.title,
+                  defaultValue: `Bạn có chắc chắn muốn chuyển "${publishTarget?.title}" về bản nháp?`,
+                })
+              : t("exam.publishConfirmDesc", {
+                  name: publishTarget?.title,
+                  defaultValue: `Bạn có chắc chắn muốn xuất bản "${publishTarget?.title}"? Sau khi có học sinh làm bài, bài kiểm tra sẽ không thể chuyển lại thành bản nháp.`,
+                })}
+          </p>
+          <div className="flex gap-3 mt-2 w-full">
+            <button
+              onClick={() => setPublishTarget(null)}
+              disabled={isPublishing}
+              className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {t("common.btnCancel", { defaultValue: "Hủy" })}
+            </button>
+            <button
+              onClick={handleConfirmPublish}
+              disabled={isPublishing}
+              className="flex-1 px-4 py-2.5 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+            >
+              {publishTarget?.status === 1
+                ? isPublishing
+                  ? t("exam.unpublishing", { defaultValue: "Đang chuyển..." })
+                  : t("exam.btnUnpublish", { defaultValue: "Chuyển về nháp" })
+                : isPublishing
+                  ? t("exam.publishing", { defaultValue: "Đang xuất bản..." })
+                  : t("exam.btnPublish", { defaultValue: "Xuất bản" })}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

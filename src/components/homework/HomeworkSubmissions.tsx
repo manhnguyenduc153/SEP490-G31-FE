@@ -12,6 +12,7 @@ import {
   Calendar,
   Check,
   Clock,
+  Eye,
   FileText,
   Filter,
   Info,
@@ -20,7 +21,7 @@ import {
 } from "lucide-react";
 import { homeworkApi, HomeworkDto, HomeworkSubmissionDto } from "@/services/homework.api";
 import { useTranslation } from "react-i18next";
-import AttachmentPreview from "./AttachmentPreview";
+import AttachmentPreview, { AttachmentPreviewModal } from "./AttachmentPreview";
 import { ENV } from "@/config/env";
 
 interface HomeworkSubmissionsProps {
@@ -42,6 +43,7 @@ export default function HomeworkSubmissions({ homework, onBack, showToast }: Hom
   const [score, setScore] = useState<number | "">("");
   const [feedback, setFeedback] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [previewAttachmentUrl, setPreviewAttachmentUrl] = useState<string | null>(null);
   const [keyword, setKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState<SubmissionStatusFilter>("all");
   const [scoreFilter, setScoreFilter] = useState<ScoreFilter>("all");
@@ -304,9 +306,24 @@ export default function HomeworkSubmissions({ homework, onBack, showToast }: Hom
                             {sub.attachmentUrls && sub.attachmentUrls.length > 0 && (
                               <div className="mt-1 flex flex-col gap-1">
                                 {sub.attachmentUrls.map((url, idx) => (
-                                  <a key={`${url}-${idx}`} href={formatUrl(url)} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                                    <span className="max-w-[150px] truncate">{url.split("/").pop()}</span>
-                                  </a>
+                                  <div key={`${url}-${idx}`} className="flex items-center gap-1 text-xs">
+                                    <a
+                                      href={formatUrl(url)}
+                                      download
+                                      className="max-w-[150px] truncate text-left text-blue-600 hover:underline"
+                                    >
+                                      {url.split("/").pop()}
+                                    </a>
+                                    <button
+                                      type="button"
+                                      onClick={() => setPreviewAttachmentUrl(url)}
+                                      className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary-600 dark:hover:bg-gray-800"
+                                      title={t("homework.previewAttachment")}
+                                      aria-label={t("homework.previewAttachment")}
+                                    >
+                                      <Eye className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
                                 ))}
                               </div>
                             )}
@@ -369,6 +386,7 @@ export default function HomeworkSubmissions({ homework, onBack, showToast }: Hom
               </TableBody>
             </Table>
           </div>
+          <AttachmentPreviewModal url={previewAttachmentUrl} onClose={() => setPreviewAttachmentUrl(null)} />
         </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">

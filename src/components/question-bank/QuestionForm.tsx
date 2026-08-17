@@ -538,7 +538,7 @@ export function QuestionForm({ id }: QuestionFormProps) {
       </div>
 
       {formError && (
-        <div className="fixed bottom-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
+        <div className="fixed bottom-5 right-5 z-[999999] flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-bounce">
           <XCircle className="w-5 h-5 text-rose-500 shrink-0" />
           <span className="text-sm font-medium">{formError}</span>
         </div>
@@ -560,6 +560,7 @@ export function QuestionForm({ id }: QuestionFormProps) {
             {[
               { type: 2, name: t("questionPassage.skillReading"), icon: BookOpen },
               { type: 1, name: t("questionPassage.skillListening"), icon: Volume2 },
+              { type: 3, name: t("questionPassage.skillSpeaking"), icon: Mic },
               { type: 4, name: t("questionPassage.skillWriting"), icon: PenTool },
             ]
               .filter((s) => !isEdit || s.type === skillType)

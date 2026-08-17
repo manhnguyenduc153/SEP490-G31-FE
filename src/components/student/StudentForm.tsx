@@ -251,26 +251,16 @@ export default function StudentForm({
       showToast(err, "error");
       return;
     }
-    if (!formData.dob) {
-      const err = t("student.valDobRequired");
-      setFormError(err);
-      showToast(err, "error");
-      return;
-    }
-    const selectedDob = new Date(formData.dob);
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
-    if (selectedDob > today) {
-      const err = t("student.valDobFuture");
-      setFormError(err);
-      showToast(err, "error");
-      return;
-    }
-    if (formData.gender === null) {
-      const err = t("student.valGenderRequired");
-      setFormError(err);
-      showToast(err, "error");
-      return;
+    if (formData.dob) {
+      const selectedDob = new Date(formData.dob);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+      if (selectedDob > today) {
+        const err = t("student.valDobFuture");
+        setFormError(err);
+        showToast(err, "error");
+        return;
+      }
     }
     if (typeof formData.gradeLevel === "number" && (formData.gradeLevel < 1 || formData.gradeLevel > 12)) {
       const err = t("student.valGradeLevelInvalid");
@@ -479,14 +469,13 @@ export default function StudentForm({
                 {/* Date of Birth */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    {t("student.formDobLabel")} <span className="text-rose-500">*</span>
+                    {t("student.formDobLabel")}
                   </label>
                   <div className="relative flex items-center">
                     <input
                       ref={dobInputRef}
                       type="date"
                       name="dob"
-                      required
                       max={new Date().toISOString().split("T")[0]}
                       value={formData.dob || ""}
                       onChange={handleChange}
@@ -514,11 +503,10 @@ export default function StudentForm({
                 {/* Gender */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    {t("student.formGenderLabel")} <span className="text-rose-500">*</span>
+                    {t("student.formGenderLabel")}
                   </label>
                   <select
                     name="gender"
-                    required
                     value={formData.gender === null ? "" : String(formData.gender)}
                     onChange={handleGenderChange}
                     className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-950 dark:text-white"
