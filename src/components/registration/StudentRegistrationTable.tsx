@@ -107,6 +107,57 @@ export default function StudentRegistrationTable() {
   const [deleteConfirmStudentName, setDeleteConfirmStudentName] = useState<string>("");
   const [deleteConfirmCourseName, setDeleteConfirmCourseName] = useState<string>("");
 
+  // Bulk Delete States
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+  // Clear selections when registrations change
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [registrations]);
+
+  const deletableRegistrations = useMemo(() => {
+    return registrations.filter((r) => r.status !== 1);
+  }, [registrations]);
+
+  const isAllSelected = useMemo(() => {
+    return deletableRegistrations.length > 0 && deletableRegistrations.every((r) => selectedIds.includes(r.id));
+  }, [deletableRegistrations, selectedIds]);
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const newSelected = [...selectedIds];
+      deletableRegistrations.forEach((r) => {
+        if (!newSelected.includes(r.id)) {
+          newSelected.push(r.id);
+        }
+      });
+      setSelectedIds(newSelected);
+    } else {
+      setSelectedIds(selectedIds.filter((id) => !deletableRegistrations.some((r) => r.id === id)));
+    }
+  };
+
+  const executeBulkDelete = async () => {
+    setIsBulkDeleting(true);
+    try {
+      const res = await semesterApi.deleteStudentRegistrations(selectedIds);
+      if (res.success) {
+        showToast(t("registration.toastBulkDeleteSuccess", { defaultValue: "Xóa các đăng ký học viên thành công!" }));
+        setSelectedIds([]);
+        triggerRefresh();
+      } else {
+        showToast(res.message ? t(`backendMessages.${res.message}`) : t("registration.toastBulkDeleteError", { defaultValue: "Lỗi khi xóa các đăng ký học viên." }), "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || t("registration.toastSystemError"), "error");
+    } finally {
+      setIsBulkDeleting(false);
+      setShowBulkDeleteConfirm(false);
+    }
+  };
+
   // Toast
   const [toasts, setToasts] = useState<{ id: number; message: string; type: "success" | "error" }[]>([]);
   const [mounted, setMounted] = useState(false);
@@ -301,8 +352,17 @@ export default function StudentRegistrationTable() {
             {t("registration.subtitle")}
           </p>
         </div>
-        {hasPermission("StudentRegistration.Create") && (
-          <div className="flex flex-wrap items-center gap-3 self-start md:self-auto">
+        <div className="flex flex-wrap items-center gap-3 self-start md:self-auto">
+          {selectedIds.length > 0 && hasPermission("StudentRegistration.Delete") && (
+            <button
+              onClick={() => setShowBulkDeleteConfirm(true)}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-theme-xs transition-colors cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+              {t("registration.btnBulkDelete")} ({selectedIds.length})
+            </button>
+          )}
+          {hasPermission("StudentRegistration.Create") && (
             <button
               onClick={() => {
                 setIsModalOpen(true);
@@ -312,8 +372,8 @@ export default function StudentRegistrationTable() {
               <Plus className="w-4 h-4" />
               {t("registration.addRegistration")}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Filter / Search Bar */}
@@ -414,6 +474,9 @@ export default function StudentRegistrationTable() {
           <Table>
             <TableHeader className="border-b border-gray-100 dark:border-white/[0.05] bg-gray-50 dark:bg-white/[0.02]">
               <TableRow>
+                <TableCell isHeader className="px-6 py-4 text-center w-12">
+                  <input type="checkbox" disabled checked={false} readOnly className="rounded border-gray-300 opacity-50" />
+                </TableCell>
                 <TableCell isHeader className="px-6 py-4 text-center w-12">#</TableCell>
                 <TableCell isHeader className="px-6 py-4 text-left">{t("registration.colStudentCode")}</TableCell>
                 <TableCell isHeader className="px-6 py-4 text-left">{t("registration.colStudent")}</TableCell>
@@ -428,6 +491,7 @@ export default function StudentRegistrationTable() {
             <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
               {Array.from({ length: pageSize }).map((_, idx) => (
                 <TableRow key={idx} className="animate-pulse">
+                  <TableCell className="px-6 py-4 text-center w-12"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-4 mx-auto" /></TableCell>
                   <TableCell className="px-6 py-4 text-center w-12"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-8 mx-auto" /></TableCell>
                   <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-16" /></TableCell>
                   <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-28" /></TableCell>
@@ -457,6 +521,14 @@ export default function StudentRegistrationTable() {
           <Table>
             <TableHeader className="border-b border-gray-100 dark:border-white/[0.05] bg-gray-50 dark:bg-white/[0.02]">
               <TableRow>
+                <TableCell isHeader className="px-6 py-4 text-center w-12">
+                  <input
+                    type="checkbox"
+                    checked={isAllSelected}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                </TableCell>
                 <TableCell isHeader className="px-6 py-4 text-center w-12">
                   <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">#</p>
                 </TableCell>
@@ -515,6 +587,21 @@ export default function StudentRegistrationTable() {
             <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
               {sortedData.map((item, index) => (
                 <TableRow key={item.id} className="hover:bg-gray-50/50 dark:hover:bg-white/[0.01] transition-colors">
+                  <TableCell className="px-6 py-4 text-center w-12 text-theme-sm">
+                    <input
+                      type="checkbox"
+                      disabled={item.status === 1}
+                      checked={selectedIds.includes(item.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedIds([...selectedIds, item.id]);
+                        } else {
+                          setSelectedIds(selectedIds.filter((id) => id !== item.id));
+                        }
+                      }}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                  </TableCell>
                   <TableCell className="px-6 py-4 text-center text-gray-500 dark:text-gray-400 whitespace-nowrap w-12 text-theme-sm">
                     {(pageIndex - 1) * pageSize + index + 1}
                   </TableCell>
@@ -532,16 +619,85 @@ export default function StudentRegistrationTable() {
                     {item.courseName || t("semester.courseIdText", { id: item.courseId })}
                   </TableCell>
                   <TableCell className="px-6 py-4 text-theme-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                    <div className="flex flex-wrap gap-1">
-                      {item.preferredSlots && item.preferredSlots.length > 0 ? (
-                        item.preferredSlots.map((slot) => (
-                          <span key={slot} className="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded">
-                            {slot === "Morning" ? t("registration.slotMorning") : slot === "Afternoon" ? t("registration.slotAfternoon") : t("registration.slotEvening")}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-gray-400 italic">{t("registration.slotDefault")}</span>
-                      )}
+                    <div className="flex flex-wrap gap-1 text-xs max-w-[200px]">
+                      {(() => {
+                        const elements: React.ReactNode[] = [];
+                        if (item.preferredSlotIndex !== null && item.preferredSlotIndex !== undefined) {
+                          elements.push(
+                            <span key="slot" className="px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400 rounded font-semibold border border-blue-100 dark:border-blue-900/30">
+                              Ca {item.preferredSlotIndex + 1}
+                            </span>
+                          );
+                        }
+                        if (item.preferredDaysOfWeek !== null && item.preferredDaysOfWeek !== undefined && item.preferredDaysOfWeek > 0) {
+                          const names: string[] = [];
+                          const mask = item.preferredDaysOfWeek;
+                          if ((mask & 2) !== 0) names.push("T2");
+                          if ((mask & 4) !== 0) names.push("T3");
+                          if ((mask & 8) !== 0) names.push("T4");
+                          if ((mask & 16) !== 0) names.push("T5");
+                          if ((mask & 32) !== 0) names.push("T6");
+                          if ((mask & 64) !== 0) names.push("T7");
+                          if ((mask & 1) !== 0) names.push("CN");
+                          elements.push(
+                            <span key="days" className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded">
+                              {names.join(", ")}
+                            </span>
+                          );
+                        }
+                        if (elements.length > 0) return elements;
+
+                        const hasSlotFormat = item.preferredSlots?.some((s) => s.startsWith("Slot:"));
+                        if (hasSlotFormat) {
+                          const getDayName = (dayVal: number) => {
+                            switch (dayVal) {
+                              case 1: return "T2";
+                                case 2: return "T3";
+                                case 3: return "T4";
+                                case 4: return "T5";
+                                case 5: return "T6";
+                                case 6: return "T7";
+                                case 0: return "CN";
+                                default: return "";
+                            }
+                          };
+                          
+                          const sortedSlots = [...(item.preferredSlots || [])].sort((a, b) => {
+                            const parse = (str: string) => {
+                              const parts = str.split(":");
+                              return {
+                                slot: parseInt(parts[1]) || 0,
+                                day: parseInt(parts[2]) || 0,
+                              };
+                            };
+                            const pa = parse(a);
+                            const pb = parse(b);
+                            if (pa.day !== pb.day) return pa.day - pb.day;
+                            return pa.slot - pb.slot;
+                          });
+
+                          return sortedSlots.map((s) => {
+                            const parts = s.split(":");
+                            const sIdx = parseInt(parts[1]) ?? 0;
+                            const dVal = parseInt(parts[2]) ?? 0;
+                            return (
+                              <span key={s} className="px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400 rounded font-semibold border border-blue-100 dark:border-blue-900/30">
+                                Ca {sIdx + 1} - {getDayName(dVal)}
+                              </span>
+                            );
+                          });
+                        }
+
+                        if (item.preferredSlots && item.preferredSlots.length > 0) {
+                          return item.preferredSlots.map((slot) => (
+                            <span key={slot} className="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded">
+                              {slot === "Morning" ? t("registration.slotMorning") : slot === "Afternoon" ? t("registration.slotAfternoon") : t("registration.slotEvening")}
+                            </span>
+                          ));
+                        }
+
+                        return <span className="text-gray-400 italic">{t("registration.slotDefault")}</span>;
+                      })()}
                     </div>
                   </TableCell>
                    <TableCell className="px-6 py-4 whitespace-nowrap text-theme-sm">
@@ -688,7 +844,7 @@ export default function StudentRegistrationTable() {
             <button
               onClick={() => {
                 if (deleteConfirmId !== null) {
-                  executeDelete(deleteConfirmId);
+                   executeDelete(deleteConfirmId);
                 }
                 setDeleteConfirmId(null);
               }}
@@ -696,6 +852,47 @@ export default function StudentRegistrationTable() {
               className="px-4 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-sm w-1/2 flex items-center justify-center gap-1.5"
             >
               {t("common.delete", { defaultValue: "Xóa" })}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Bulk Delete Confirmation Modal */}
+      <Modal
+        isOpen={showBulkDeleteConfirm}
+        onClose={() => setShowBulkDeleteConfirm(false)}
+        showCloseButton={false}
+        className="max-w-[450px] p-6 lg:p-8"
+      >
+        <div className="flex flex-col items-center text-center">
+          <div className="p-3.5 bg-rose-50 dark:bg-rose-950/20 rounded-2xl text-rose-500 mb-4 border border-rose-100 dark:border-rose-900/30">
+            <Trash2 className="w-8 h-8" />
+          </div>
+          <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+            {t("registration.confirmBulkDeleteTitle", { defaultValue: "Xác nhận xóa nhiều đăng ký" })}
+          </h4>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">
+            {t("registration.confirmBulkDeleteText", {
+              count: selectedIds.length,
+              defaultValue: `Bạn có chắc chắn muốn xóa ${selectedIds.length} đăng ký học viên đã chọn không? Hành động này không thể hoàn tác.`
+            })}
+          </p>
+          <div className="flex items-center justify-center gap-3 mt-6 w-full pt-4 border-t border-gray-100 dark:border-gray-800">
+            <button
+              disabled={isBulkDeleting}
+              onClick={() => setShowBulkDeleteConfirm(false)}
+              type="button"
+              className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-850 dark:border-gray-700 dark:hover:bg-gray-750 transition-colors w-1/2 disabled:opacity-50"
+            >
+              {t("common.cancel", { defaultValue: "Hủy" })}
+            </button>
+            <button
+              disabled={isBulkDeleting}
+              onClick={executeBulkDelete}
+              type="button"
+              className="px-4 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-sm w-1/2 flex items-center justify-center gap-1.5 disabled:opacity-50"
+            >
+              {isBulkDeleting ? t("common.deleting", { defaultValue: "Đang xóa..." }) : t("common.delete", { defaultValue: "Xóa" })}
             </button>
           </div>
         </div>
