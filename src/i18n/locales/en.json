@@ -2604,7 +2604,9 @@
     "ERR_NO_PENDING_REGISTRATIONS_FOUND": "No pending registrations found for this semester!",
     "ERR_NO_DRAFT_CLASSES_GENERATED": "No draft classes generated. Please check student registrations.",
     "ERR_NO_DRAFT_CLASSES_MATCH_TIME_PREFERENCES": "No draft classes matched the selected time preferences.",
-    "ERR_INVALID_REQUEST": "Invalid request."
+    "ERR_INVALID_REQUEST": "Invalid request.",
+    "ERR_TEACHER_GRADE_LEVEL_INVALID": "Invalid teacher teaching band level.",
+    "ERR_COURSE_GRADE_LEVEL_INVALID": "Invalid course required teacher band level."
   },
   "permissions": {
     "category": {

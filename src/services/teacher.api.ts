@@ -15,6 +15,8 @@ export interface TeacherItem {
   address?: string | null;
   status: number;
   description?: string | null;
+  gradeLevel?: number | null;
+  gradeLevelName?: string | null;
   avatar?: string | null;
   certificates: string[];
   hasAccount?: boolean;
@@ -39,6 +41,7 @@ export interface TeacherSaveDto {
   address?: string | null;
   status: number;
   description?: string | null;
+  gradeLevel?: number | null;
   avatar?: string | null;
   certificates?: string[];
 }

@@ -2588,7 +2588,9 @@
     "ERR_NO_PENDING_REGISTRATIONS_FOUND": "Không tìm thấy học viên nào đang chờ xếp lớp trong học kỳ này!",
     "ERR_NO_DRAFT_CLASSES_GENERATED": "Không tạo được lớp học nháp nào. Vui lòng kiểm tra lại số lượng đăng ký học viên.",
     "ERR_NO_DRAFT_CLASSES_MATCH_TIME_PREFERENCES": "Không có lớp học nháp nào khớp với khung thời gian ưu tiên đã chọn.",
-    "ERR_INVALID_REQUEST": "Yêu cầu không hợp lệ."
+    "ERR_INVALID_REQUEST": "Yêu cầu không hợp lệ.",
+    "ERR_TEACHER_GRADE_LEVEL_INVALID": "Band trình độ giáo viên không hợp lệ.",
+    "ERR_COURSE_GRADE_LEVEL_INVALID": "Yêu cầu band giáo viên cho khóa học không hợp lệ."
   },
   "permissions": {
     "category": {
