@@ -25,7 +25,7 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SortKey = "code" | "name" | "duration" | "price" | "status" | "id";
+type SortKey = "code" | "name" | "duration" | "price" | "requiredGradeLevel" | "status" | "id";
 type SortOrder = "asc" | "desc";
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -236,6 +236,7 @@ export default function CourseTable() {
   const columns: { key: SortKey; label: string }[] = [
     { key: "code", label: t("course.colCode") },
     { key: "name", label: t("course.colName") },
+    { key: "requiredGradeLevel", label: t("course.colRequiredGradeLevel", { defaultValue: "Yêu cầu band GV" }) },
     { key: "status", label: t("course.colStatus") },
   ];
 
@@ -456,6 +457,15 @@ export default function CourseTable() {
                   </TableCell>
                   <TableCell className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">
                     {item.name}
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                    {item.requiredGradeLevelName ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400">
+                        {item.requiredGradeLevelName}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 text-xs">-</span>
+                    )}
                   </TableCell>
                   <TableCell className="px-6 py-4 whitespace-nowrap">
                     <span
