@@ -1,5 +1,6 @@
 import { api, ApiResponse } from "./api";
 import { ENDPOINTS } from "@/constants/endpoints";
+import type { AutoScheduleSemesterResult } from "./class.api";
 
 export interface SemesterItem {
   id: number;
@@ -33,6 +34,18 @@ export interface TeacherAvailabilitySaveDto {
   slots: TeacherAvailabilitySlotDto[];
 }
 
+export interface TeacherAvailabilityDto {
+  id: number;
+  teacherId: number;
+  teacherName?: string | null;
+  teacherCode?: string | null;
+  semesterId: number;
+  semesterName?: string | null;
+  dayOfWeek: number;
+  slotIndex: number;
+  slotName?: string | null;
+}
+
 export interface StudentRegistrationDto {
   id: number;
   studentId: number;
@@ -45,6 +58,8 @@ export interface StudentRegistrationDto {
   courseName?: string | null;
   preferredSlotsJson?: string | null;
   preferredSlots?: string[];
+  preferredSlotIndex?: number | null;
+  preferredDaysOfWeek?: number | null;
   status: number;
   enrollType: number; // 0 = Offline, 1 = Online
   enrollTypeName?: string | null;
@@ -60,7 +75,9 @@ export interface StudentRegistrationSaveDto {
   courseId: number;
   /** Used when courseId = 0 to auto-find or create the course */
   courseName?: string | null;
-  preferredSlots: string[];
+  preferredSlots?: string[];
+  preferredSlotIndex?: number | null;
+  preferredDaysOfWeek?: number | null;
   status?: number;
   enrollType: number; // 0 = Offline, 1 = Online
 }
@@ -80,7 +97,6 @@ export interface AutoScheduleSemesterRequestDto {
   constraints: {
     sessionsPerWeek: number;
     timePreferences: string[];
-    allowConsecutiveDays: boolean;
     allowWeekend: boolean;
     teacherIds?: number[];
     roomIds?: number[];
@@ -112,8 +128,8 @@ export const semesterApi = {
     return api.get<TeacherAvailabilitySlotDto[]>(`/api/Semester/${semesterId}/teacher/${teacherId}/availability`);
   },
 
-  async getSemesterTeacherAvailabilities(semesterId: number): Promise<ApiResponse<TeacherAvailabilitySlotDto[]>> {
-    return api.get<TeacherAvailabilitySlotDto[]>(`/api/Semester/${semesterId}/teachers/availabilities`);
+  async getSemesterTeacherAvailabilities(semesterId: number): Promise<ApiResponse<TeacherAvailabilityDto[]>> {
+    return api.get<TeacherAvailabilityDto[]>(`/api/Semester/${semesterId}/teachers/availabilities`);
   },
 
   async checkTeacherHasSchedules(semesterId: number, teacherId: number): Promise<ApiResponse<boolean>> {
@@ -122,6 +138,10 @@ export const semesterApi = {
 
   async saveTeacherAvailability(dto: TeacherAvailabilitySaveDto): Promise<ApiResponse<boolean>> {
     return api.post<boolean>(ENDPOINTS.SEMESTER.SAVE_TEACHER_AVAILABILITY, dto);
+  },
+
+  async saveTeacherAvailabilityBulk(dtos: TeacherAvailabilitySaveDto[]): Promise<ApiResponse<boolean>> {
+    return api.post<boolean>(`/api/Semester/availability/bulk`, dtos);
   },
 
   async getStudentRegistrations(
@@ -163,7 +183,11 @@ export const semesterApi = {
     return api.delete<boolean>(ENDPOINTS.SEMESTER.DELETE_REGISTRATION(id));
   },
 
-  async autoScheduleSemester(dto: AutoScheduleSemesterRequestDto): Promise<ApiResponse<any>> {
-    return api.post<any>(ENDPOINTS.SEMESTER.AUTO_SCHEDULE_SEMESTER, dto);
+  async deleteStudentRegistrations(ids: number[]): Promise<ApiResponse<boolean>> {
+    return api.post<boolean>(`/api/Semester/registrations/bulk-delete`, ids);
+  },
+
+  async autoScheduleSemester(dto: AutoScheduleSemesterRequestDto): Promise<ApiResponse<AutoScheduleSemesterResult>> {
+    return api.post<AutoScheduleSemesterResult>(ENDPOINTS.SEMESTER.AUTO_SCHEDULE_SEMESTER, dto);
   },
 };

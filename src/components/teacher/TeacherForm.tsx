@@ -36,6 +36,7 @@ export function TeacherForm({
     gender: null,
     address: "",
     status: 1, // 1: Active
+    gradeLevel: null,
     description: "",
     avatar: null,
     certificates: [],
@@ -65,6 +66,7 @@ export function TeacherForm({
         gender: editingItem.gender ?? null,
         address: editingItem.address || "",
         status: editingItem.status ?? 1,
+        gradeLevel: editingItem.gradeLevel ?? null,
         description: editingItem.description || "",
         avatar: editingItem.avatar || null,
         certificates: editingItem.certificates || [],
@@ -85,6 +87,7 @@ export function TeacherForm({
         gender: null,
         address: "",
         status: 1,
+        gradeLevel: null,
         description: "",
         avatar: null,
         certificates: [],
@@ -497,6 +500,32 @@ export function TeacherForm({
                     <option value={2}>{t("teacher.statusOnLeave")}</option>
                   </select>
                   {renderFieldError("status")}
+                </div>
+
+                {/* GradeLevel */}
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t("teacher.formGradeLevelLabel", { defaultValue: "Band giảng dạy" })}
+                  </label>
+                  <select
+                    name="gradeLevel"
+                    value={formData.gradeLevel ?? ""}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        gradeLevel: e.target.value === "" ? null : Number(e.target.value),
+                      }))
+                    }
+                    className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                  >
+                    <option value="">{t("teacher.formGradeLevelPlaceholder", { defaultValue: "-- Chọn band giảng dạy --" })}</option>
+                    <option value={65}>IELTS 6.5</option>
+                    <option value={70}>IELTS 7.0</option>
+                    <option value={75}>IELTS 7.5</option>
+                    <option value={80}>IELTS 8.0</option>
+                    <option value={85}>IELTS 8.5</option>
+                    <option value={90}>IELTS 9.0</option>
+                  </select>
                 </div>
               </div>
 

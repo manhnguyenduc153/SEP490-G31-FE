@@ -26,7 +26,6 @@ export function AutoScheduleModal({
   const [maxClassSize, setMaxClassSize] = useState<number>(15);
   const [minClassSize, setMinClassSize] = useState<number>(5);
   const [sessionsPerWeek, setSessionsPerWeek] = useState<number>(2);
-  const [allowConsecutiveDays, setAllowConsecutiveDays] = useState<boolean>(false);
   const [allowWeekend, setAllowWeekend] = useState<boolean>(true);
   const [timePreferences, setTimePreferences] = useState<string[]>(["Morning", "Afternoon", "Evening"]);
 
@@ -118,7 +117,6 @@ export function AutoScheduleModal({
         constraints: {
           sessionsPerWeek,
           timePreferences,
-          allowConsecutiveDays,
           allowWeekend,
           teacherIds: selectedTeachers,
           roomIds: selectedRooms,
@@ -153,6 +151,13 @@ export function AutoScheduleModal({
           setIsScheduling(false);
           setLoadingStep(0);
         }, 1500);
+      } else if (res.message === "ERR_SCHEDULE_INFEASIBLE" && res.data?.infeasibilityReasons?.length) {
+        const reasonTexts = res.data.infeasibilityReasons.map((r) =>
+          t(`backendMessages.infeasibilityReasons.${r.code}`, { ...r.params, defaultValue: r.code })
+        );
+        showToast(reasonTexts.join(" "), "error");
+        setIsScheduling(false);
+        setLoadingStep(0);
       } else {
         showToast(res.message ? getFriendlyAutoScheduleError(res.message) : t("semester.errAutoScheduleConflict", { defaultValue: "Xếp lịch thất bại do xung đột ràng buộc hoặc bận lịch giáo viên." }), "error");
         setIsScheduling(false);
@@ -302,18 +307,6 @@ export function AutoScheduleModal({
 
                 {/* Tùy chọn khác */}
                 <div className="space-y-3 pt-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={allowConsecutiveDays}
-                      onChange={(e) => setAllowConsecutiveDays(e.target.checked)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-600 dark:text-gray-300">
-                      {t("semester.autoScheduleConsecutiveDays")}
-                    </span>
-                  </label>
-
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"

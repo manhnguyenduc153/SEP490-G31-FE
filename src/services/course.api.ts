@@ -11,6 +11,8 @@ export interface CourseItem {
   duration?: number | null;
   price?: number | null;
   description?: string | null;
+  requiredGradeLevel?: number | null;
+  requiredGradeLevelName?: string | null;
 }
 
 export interface CoursePagingResponse {
@@ -29,6 +31,7 @@ export interface CourseSaveDto {
   duration?: number | null;
   price?: number | null;
   description?: string | null;
+  requiredGradeLevel?: number | null;
 }
 
 // ─── API ─────────────────────────────────────────────────────────────────────

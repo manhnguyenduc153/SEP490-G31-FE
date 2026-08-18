@@ -23,7 +23,9 @@ interface PreviewRow {
   rawCourseName: string;
   courseId: number;              // 0 = not found → will be auto-created by BE
   courseResolved: boolean;       // true = matched existing course in system
-  preferredSlots: string[];
+  preferredSlotIndex: number;
+  preferredDaysOfWeek: number;
+  preferredSlots?: string[];
   enrollType?: number;           // 0 = Offline, 1 = Online
   hasError: boolean;
   isAlreadyRegistered: boolean;  // true = already exists in current semester registrations
@@ -87,27 +89,23 @@ export function StudentImportModal({
 
   const handleDownloadTemplate = () => {
     const headers = [
-      ["Họ Tên", "Email", "Số điện thoại", "Khóa học", "Ca mong muốn"],
+      ["Họ Tên", "Email", "Số điện thoại", "Khóa học", "Ca mong muốn", "Ngày học mong muốn"],
       // 6 học viên đăng ký IELTS 5.0 - 6.0 (đủ điều kiện tạo 1 lớp >= 5 học viên)
-      ["Nguyễn Văn A", "vana@gmail.com", "0912345678", "IELTS 5.0 - 6.0", "Sáng, Chiều"],
-      ["Trần Thị B", "thib@gmail.com", "0987654321", "IELTS 5.0 - 6.0", "Tối"],
-      ["Lê Văn C", "vanc@gmail.com", "0934567890", "IELTS 5.0 - 6.0", "Sáng"],
-      ["Phạm Văn D", "vand@gmail.com", "0945678901", "IELTS 5.0 - 6.0", "Chiều"],
-      ["Hoàng Thị E", "thie@gmail.com", "0956789012", "IELTS 5.0 - 6.0", "Tối"],
-      ["Vũ Văn F", "vanf@gmail.com", "0967890123", "IELTS 5.0 - 6.0", "Sáng, Chiều"],
+      ["Nguyễn Văn A", "vana@gmail.com", "0912345678", "IELTS 5.0 - 6.0", "Ca 1", "Thứ 2, Thứ 4"],
+      ["Trần Thị B", "thib@gmail.com", "0987654321", "IELTS 5.0 - 6.0", "Ca 5", "Thứ 3, Thứ 5"],
+      ["Lê Văn C", "vanc@gmail.com", "0934567890", "IELTS 5.0 - 6.0", "Ca 2", "Thứ 2, Thứ 4, Thứ 6"],
+      ["Phạm Văn D", "vand@gmail.com", "0945678901", "IELTS 5.0 - 6.0", "Ca 3", "Thứ 2, Thứ 4, Thứ 6"],
+      ["Hoàng Thị E", "thie@gmail.com", "0956789012", "IELTS 5.0 - 6.0", "Ca 5", "Thứ 3, Thứ 5"],
+      ["Vũ Văn F", "vanf@gmail.com", "0967890123", "IELTS 5.0 - 6.0", "Ca 1", "Thứ 2, Thứ 4"],
       
       // 6 học viên đăng ký IELTS 4.0 - 5.0 (đủ điều kiện tạo 1 lớp >= 5 học viên)
-      ["Đặng Văn G", "vang@gmail.com", "0978901234", "IELTS 4.0 - 5.0", "Chiều"],
-      ["Bùi Thị H", "thih@gmail.com", "0989012345", "IELTS 4.0 - 5.0", "Tối"],
-      ["Đỗ Văn I", "vani@gmail.com", "0990123456", "IELTS 4.0 - 5.0", "Sáng"],
-      ["Hồ Văn K", "vank@gmail.com", "0901234567", "IELTS 4.0 - 5.0", "Tối"],
-      ["Ngô Thị L", "thil@gmail.com", "0911234567", "IELTS 4.0 - 5.0", "Sáng, Tối"],
-      ["Lý Văn M", "vanm@gmail.com", "0922234567", "IELTS 4.0 - 5.0", "Chiều"],
-
-      // 3 học viên đăng ký IELTS 6.0 - 7.0 (sẽ bị Solver lọc bỏ qua nếu minClassSize = 5)
-      ["Dương Văn N", "vann@gmail.com", "0933334567", "IELTS 6.0 - 7.0", "Tối"],
-      ["Tống Thị O", "thio@gmail.com", "0944444567", "IELTS 6.0 - 7.0", "Sáng"],
-      ["Phan Văn P", "vanp@gmail.com", "0955554567", "IELTS 6.0 - 7.0", "Chiều"],
+      ["Đặng Văn G", "vang@gmail.com", "0978901234", "IELTS 4.0 - 5.0", "Ca 3", "Thứ 3, Thứ 5"],
+      ["Bùi Thị H", "thih@gmail.com", "0989012345", "IELTS 4.0 - 5.0", "Ca 5", "Thứ 3, Thứ 5"],
+      ["Đỗ Văn I", "vani@gmail.com", "0990123456", "IELTS 4.0 - 5.0", "Ca 1", "Thứ 2, Thứ 4, Thứ 6"],
+      ["Hồ Văn K", "vank@gmail.com", "0901234567", "IELTS 4.0 - 5.0", "Ca 5", "Thứ 3, Thứ 5"],
+      ["Ngô Thị L", "thil@gmail.com", "0911234567", "IELTS 4.0 - 5.0", "Ca 1", "Thứ 7, Chủ Nhật"],
+      ["Lý Văn M", "vanm@gmail.com", "0922234567", "IELTS 4.0 - 5.0", "Ca 3", "Thứ 2, Thứ 4"],
+      ["Phan Văn P", "vanp@gmail.com", "0955554567", "IELTS 6.0 - 7.0", "Ca 2", "Thứ 2, Thứ 4"],
     ];
     const ws = XLSX.utils.aoa_to_sheet(headers);
     const wb = XLSX.utils.book_new();
@@ -115,19 +113,97 @@ export function StudentImportModal({
     XLSX.writeFile(wb, `Template_Dang_Ky_Hoc_Vien_${semesterName.replace(/\s+/g, "_")}.xlsx`);
   };
 
-  const parsePreferredSlots = (slotsStr: string | undefined): string[] => {
-    if (!slotsStr) return ["Morning"];
-    const rawSlots = String(slotsStr).split(/[,,;\/]/).map((s) => s.trim().toLowerCase());
+  const parsePreferredSlotsFromExcel = (slotsStr: string | undefined, daysStr: string | undefined): string[] => {
     const result: string[] = [];
-    rawSlots.forEach((s) => {
-      if (s.includes("sáng") || s.includes("morning") || s.includes("sang") || s.includes("1") || s.includes("2"))
-        result.push("Morning");
-      if (s.includes("chiều") || s.includes("afternoon") || s.includes("chieu") || s.includes("3") || s.includes("4"))
-        result.push("Afternoon");
-      if (s.includes("tối") || s.includes("evening") || s.includes("toi") || s.includes("night") || s.includes("5"))
-        result.push("Evening");
+    const sStr = (slotsStr || "").toString().trim().toLowerCase();
+    const dStr = (daysStr || "").toString().trim().toLowerCase();
+
+    if (!sStr && !dStr) {
+      return ["Slot:4:1", "Slot:4:2", "Slot:4:3", "Slot:4:4", "Slot:4:5"];
+    }
+
+    const combined = `${sStr}; ${dStr}`;
+    const parts = combined.split(/[;,]/).map((p) => p.trim()).filter(Boolean);
+    
+    let hasDetailedPairs = false;
+    
+    const parseDayPart = (p: string): number | null => {
+      if (p.includes("hai") || p.includes("t2") || p.includes("mon") || p.includes("2")) return 1;
+      if (p.includes("ba") || p.includes("t3") || p.includes("tue") || p.includes("3")) return 2;
+      if (p.includes("tư") || p.includes("tu") || p.includes("t4") || p.includes("wed") || p.includes("4")) return 3;
+      if (p.includes("năm") || p.includes("nam") || p.includes("t5") || p.includes("thu") || p.includes("5")) return 4;
+      if (p.includes("sáu") || p.includes("sau") || p.includes("t6") || p.includes("fri") || p.includes("6")) return 5;
+      if (p.includes("bảy") || p.includes("bay") || p.includes("t7") || p.includes("sat") || p.includes("7")) return 6;
+      if (p.includes("chủ") || p.includes("chu") || p.includes("cn") || p.includes("sun")) return 0;
+      return null;
+    };
+
+    const parseSlotPart = (p: string): number | null => {
+      if (p.includes("ca 1") || p.includes("ca1") || p.includes("sáng 1")) return 0;
+      if (p.includes("ca 2") || p.includes("ca2") || p.includes("sáng 2")) return 1;
+      if (p.includes("ca 3") || p.includes("ca3") || p.includes("chiều 1")) return 2;
+      if (p.includes("ca 4") || p.includes("ca4") || p.includes("chiều 2")) return 3;
+      if (p.includes("ca 5") || p.includes("ca5") || p.includes("tối")) return 4;
+
+      const match = p.match(/\b([1-5])\b/);
+      if (match) {
+        return parseInt(match[1]) - 1;
+      }
+      return null;
+    };
+
+    parts.forEach((p) => {
+      const dVal = parseDayPart(p);
+      let cleanedPart = p;
+      if (dVal !== null) {
+        cleanedPart = p.replace(/(hai|t2|mon|ba|t3|tue|tư|tu|t4|wed|năm|nam|t5|thu|sáu|sau|t6|fri|bảy|bay|t7|sat|chủ|chu|cn|sun)/g, "");
+      }
+      const sVal = parseSlotPart(cleanedPart);
+
+      if (dVal !== null && sVal !== null) {
+        hasDetailedPairs = true;
+        const slotStr = `Slot:${sVal}:${dVal}`;
+        if (!result.includes(slotStr)) {
+          result.push(slotStr);
+        }
+      }
     });
-    return result.length > 0 ? [...new Set(result)] : ["Morning"];
+
+    if (hasDetailedPairs && result.length > 0) {
+      return result;
+    }
+
+    const parsedSlotIdx = parseSlotPart(sStr) ?? 4;
+    const parsedDays: number[] = [];
+    const dayParts = dStr.split(/[,,;\/]/).map((s) => s.trim());
+    dayParts.forEach((p) => {
+      const dVal = parseDayPart(p);
+      if (dVal !== null && !parsedDays.includes(dVal)) {
+        parsedDays.push(dVal);
+      }
+    });
+
+    if (parsedDays.length === 0) {
+      parsedDays.push(1, 2, 3, 4, 5);
+    }
+
+    parsedDays.forEach((d) => {
+      result.push(`Slot:${parsedSlotIdx}:${d}`);
+    });
+
+    return result;
+  };
+
+  const getDaysNameFromMask = (mask: number): string => {
+    const names: string[] = [];
+    if ((mask & 2) !== 0) names.push("T2");
+    if ((mask & 4) !== 0) names.push("T3");
+    if ((mask & 8) !== 0) names.push("T4");
+    if ((mask & 16) !== 0) names.push("T5");
+    if ((mask & 32) !== 0) names.push("T6");
+    if ((mask & 64) !== 0) names.push("T7");
+    if ((mask & 1) !== 0) names.push("CN");
+    return names.join(", ");
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -157,7 +233,8 @@ export function StudentImportModal({
           const email = row["Email"] || row["email"] || row["studentEmail"];
           const phone = row["Số điện thoại"] || row["SĐT"] || row["Phone"] || row["phone"] || row["studentPhone"];
           const courseStr = row["Khóa học"] || row["Khóa"] || row["Course"] || row["course"] || row["courseName"];
-          const slotsStr = row["Ca mong muốn"] || row["Ca học"] || row["PreferredSlots"] || row["slots"];
+          const slotStr = row["Slot"] || row["Ca mong muốn"] || row["Ca học"] || row["PreferredSlots"] || row["slots"] || "";
+          const daysStr = row["DayOfWeek"] || row["Ngày học mong muốn"] || row["Ngày học"] || "";
 
           // Validate row
           if (!name || !email) {
@@ -167,7 +244,8 @@ export function StudentImportModal({
               rawCourseName: courseStr ? String(courseStr).trim() : "",
               courseId: 0,
               courseResolved: false,
-              preferredSlots: [],
+              preferredSlotIndex: 4,
+              preferredDaysOfWeek: 62,
               hasError: true,
               isAlreadyRegistered: false,
               errorMsg: t("semester.importErrorMissingInfo"),
@@ -188,7 +266,6 @@ export function StudentImportModal({
           }
 
           // Check if already registered in current semester for this specific course
-          // A student is registered if email matches and course name matches (or course ID matches)
           const isAlready = existingRegistrations.some((reg) => {
             const emailMatch = reg.studentEmail.toLowerCase() === studentEmailTrimmed;
             const courseMatch = matchedCourse 
@@ -197,6 +274,21 @@ export function StudentImportModal({
             return emailMatch && courseMatch;
           });
 
+          const preferredSlots = parsePreferredSlotsFromExcel(slotStr, daysStr);
+          let preferredSlotIdx = 4;
+          let preferredDaysMsk = 62;
+          if (preferredSlots.length > 0) {
+            const firstParts = preferredSlots[0].split(":");
+            preferredSlotIdx = parseInt(firstParts[1]) ?? 4;
+            let mask = 0;
+            preferredSlots.forEach((s) => {
+              const parts = s.split(":");
+              const dVal = parseInt(parts[2]);
+              mask |= (1 << dVal);
+            });
+            preferredDaysMsk = mask;
+          }
+
           parsed.push({
             studentName: String(name).trim(),
             studentEmail: String(email).trim(),
@@ -204,7 +296,9 @@ export function StudentImportModal({
             rawCourseName,
             courseId: matchedCourse ? matchedCourse.id : 0,
             courseResolved: !!matchedCourse,
-            preferredSlots: parsePreferredSlots(slotsStr),
+            preferredSlotIndex: preferredSlotIdx,
+            preferredDaysOfWeek: preferredDaysMsk,
+            preferredSlots,
             hasError: false,
             isAlreadyRegistered: isAlready,
           });
@@ -243,7 +337,9 @@ export function StudentImportModal({
       studentPhone: r.studentPhone,
       courseId: r.courseId,
       courseName: r.courseResolved ? null : r.rawCourseName,
-      preferredSlots: r.preferredSlots,
+      preferredSlotIndex: r.preferredSlotIndex,
+      preferredDaysOfWeek: r.preferredDaysOfWeek,
+      preferredSlots: r.preferredSlots || [],
       enrollType: r.enrollType ?? 1,
     }));
 
@@ -391,17 +487,74 @@ export function StudentImportModal({
                         <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">
                           {reg.courseName || t("semester.courseIdText", { id: reg.courseId })}
                         </td>
-                        <td className="py-3 px-4">
-                          <div className="flex flex-wrap gap-1">
-                            {reg.preferredSlots && reg.preferredSlots.length > 0 ? (
-                              reg.preferredSlots.map((slot) => (
-                                <span key={slot} className="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded">
-                                  {slot === "Morning" ? t("semester.slotMorning") : slot === "Afternoon" ? t("semester.slotAfternoon") : t("semester.slotEvening")}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-xs text-gray-400 italic">{t("semester.slotDefault")}</span>
-                            )}
+                        <td className="py-3 px-4 text-xs font-semibold whitespace-nowrap">
+                          <div className="flex flex-wrap gap-1 max-w-[200px]">
+                            {(() => {
+                              const elements: React.ReactNode[] = [];
+                              if (reg.preferredSlotIndex !== null && reg.preferredSlotIndex !== undefined) {
+                                elements.push(
+                                  <span key="slot" className="px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400 rounded font-semibold border border-blue-100 dark:border-blue-900/30 font-semibold">
+                                    Ca {reg.preferredSlotIndex + 1}
+                                  </span>
+                                );
+                              }
+                              if (reg.preferredDaysOfWeek !== null && reg.preferredDaysOfWeek !== undefined && reg.preferredDaysOfWeek > 0) {
+                                elements.push(
+                                  <span key="days" className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded">
+                                    {getDaysNameFromMask(reg.preferredDaysOfWeek)}
+                                  </span>
+                                );
+                              }
+                              if (elements.length > 0) return elements;
+
+                              const hasSlotFormat = reg.preferredSlots?.some((s) => s.startsWith("Slot:"));
+                              if (hasSlotFormat) {
+                                const getDayName = (dayVal: number) => {
+                                  switch (dayVal) {
+                                    case 1: return "T2";
+                                    case 2: return "T3";
+                                    case 3: return "T4";
+                                    case 4: return "T5";
+                                    case 5: return "T6";
+                                    case 6: return "T7";
+                                    case 0: return "CN";
+                                    default: return "";
+                                  }
+                                };
+                                const sortedSlots = [...(reg.preferredSlots || [])].sort((a, b) => {
+                                  const parse = (str: string) => {
+                                    const parts = str.split(":");
+                                    return {
+                                      slot: parseInt(parts[1]) || 0,
+                                      day: parseInt(parts[2]) || 0,
+                                    };
+                                  };
+                                  const pa = parse(a);
+                                  const pb = parse(b);
+                                  if (pa.day !== pb.day) return pa.day - pb.day;
+                                  return pa.slot - pb.slot;
+                                });
+                                return sortedSlots.map((s) => {
+                                  const parts = s.split(":");
+                                  const sIdx = parseInt(parts[1]) ?? 0;
+                                  const dVal = parseInt(parts[2]) ?? 0;
+                                  return (
+                                    <span key={s} className="px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400 rounded font-semibold border border-blue-100 dark:border-blue-900/30">
+                                      Ca {sIdx + 1} - {getDayName(dVal)}
+                                    </span>
+                                  );
+                                });
+                              }
+
+                              if (reg.preferredSlots && reg.preferredSlots.length > 0) {
+                                return reg.preferredSlots.map((slot) => (
+                                  <span key={slot} className="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded mr-1">
+                                    {slot === "Morning" ? t("semester.slotMorning") : slot === "Afternoon" ? t("semester.slotAfternoon") : t("semester.slotEvening")}
+                                  </span>
+                                ));
+                              }
+                              return <span className="text-xs text-gray-400 italic">{t("semester.slotDefault")}</span>;
+                            })()}
                           </div>
                         </td>
                         <td className="py-3 px-4 text-right">
@@ -509,7 +662,8 @@ export function StudentImportModal({
                         <th className="py-2.5 px-3 font-semibold">{t("semester.importColName")}</th>
                         <th className="py-2.5 px-3 font-semibold">{t("semester.importColContact")}</th>
                         <th className="py-2.5 px-3 font-semibold">{t("semester.importColCourse")}</th>
-                        <th className="py-2.5 px-3 font-semibold">{t("semester.importColPreferredSlots")}</th>
+                        <th className="py-2.5 px-3 font-semibold">Ca học</th>
+                        <th className="py-2.5 px-3 font-semibold">Ngày học</th>
                         <th className="py-2.5 px-3 font-semibold text-right">{t("semester.importColStatus")}</th>
                       </tr>
                     </thead>
@@ -543,17 +697,15 @@ export function StudentImportModal({
                               <span className="text-rose-500 text-xs">{t("semester.importMissingCourse")}</span>
                             )}
                           </td>
-                          <td className="py-2 px-3">
-                            <div className="flex flex-wrap gap-1">
-                              {r.preferredSlots.map((slot) => (
-                                <span
-                                  key={slot}
-                                  className="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-sm"
-                                >
-                                  {slot === "Morning" ? t("semester.slotMorning") : slot === "Afternoon" ? t("semester.slotAfternoon") : t("semester.slotEvening")}
-                                </span>
-                              ))}
-                            </div>
+                          <td className="py-2 px-3 text-xs font-semibold whitespace-nowrap">
+                            <span className="px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400 rounded font-semibold">
+                              Ca {r.preferredSlotIndex + 1}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 text-xs">
+                            <span className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded">
+                              {getDaysNameFromMask(r.preferredDaysOfWeek)}
+                            </span>
                           </td>
                           <td className="py-2 px-3 text-right">
                             {r.hasError ? (

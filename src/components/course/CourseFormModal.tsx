@@ -25,6 +25,7 @@ export function CourseFormModal({
   const [duration, setDuration] = useState("");
   const [price, setPrice] = useState("");
   const [status, setStatus] = useState<number>(1);
+  const [requiredGradeLevel, setRequiredGradeLevel] = useState<number | null>(null);
   const [description, setDescription] = useState("");
 
   const [errors, setErrors] = useState<string[]>([]);
@@ -38,6 +39,7 @@ export function CourseFormModal({
       setDuration(editingItem.duration !== null && editingItem.duration !== undefined ? String(editingItem.duration) : "");
       setPrice(editingItem.price !== null && editingItem.price !== undefined ? String(editingItem.price) : "");
       setStatus(editingItem.status);
+      setRequiredGradeLevel(editingItem.requiredGradeLevel ?? null);
       setDescription(editingItem.description ?? "");
     } else {
       setCode(CodeHelper.generate("KH"));
@@ -45,6 +47,7 @@ export function CourseFormModal({
       setDuration("");
       setPrice("");
       setStatus(1);
+      setRequiredGradeLevel(null);
       setDescription("");
     }
     setErrors([]);
@@ -105,6 +108,7 @@ export function CourseFormModal({
       code: code.trim(),
       name: name.trim(),
       status: status,
+      requiredGradeLevel: requiredGradeLevel,
       duration: durationVal,
       price: priceVal,
       description: description.trim() || null,
@@ -198,25 +202,53 @@ export function CourseFormModal({
           </div>
 
 
-          {/* Status */}
-          <div>
-            <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t("course.formStatusLabel")}
-            </label>
-            <div className="relative z-20 bg-transparent">
-              <select
-                value={status}
-                onChange={(e) => setStatus(Number(e.target.value))}
-                className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 appearance-none focus:outline-hidden focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 shadow-theme-xs"
-              >
-                <option value={1}>{t("course.statusActive")}</option>
-                <option value={0}>{t("course.statusInactive")}</option>
-              </select>
-              <span className="absolute z-30 text-gray-500 -translate-y-1/2 right-4 top-1/2 dark:text-gray-400 pointer-events-none">
-                <svg className="stroke-current" width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M3.8335 5.9165L8.00016 10.0832L12.1668 5.9165" stroke="" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </span>
+          {/* Status and Required Level */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t("course.formStatusLabel")}
+              </label>
+              <div className="relative z-20 bg-transparent">
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(Number(e.target.value))}
+                  className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 appearance-none focus:outline-hidden focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 shadow-theme-xs"
+                >
+                  <option value={1}>{t("course.statusActive")}</option>
+                  <option value={0}>{t("course.statusInactive")}</option>
+                </select>
+                <span className="absolute z-30 text-gray-500 -translate-y-1/2 right-4 top-1/2 dark:text-gray-400 pointer-events-none">
+                  <svg className="stroke-current" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M3.8335 5.9165L8.00016 10.0832L12.1668 5.9165" stroke="" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t("course.formRequiredGradeLevelLabel", { defaultValue: "Yêu cầu band giáo viên" })}
+              </label>
+              <div className="relative z-20 bg-transparent">
+                <select
+                  value={requiredGradeLevel ?? ""}
+                  onChange={(e) => setRequiredGradeLevel(e.target.value === "" ? null : Number(e.target.value))}
+                  className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 appearance-none focus:outline-hidden focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 shadow-theme-xs"
+                >
+                  <option value="">{t("course.noGradeRequired", { defaultValue: "-- Không yêu cầu --" })}</option>
+                  <option value={65}>IELTS 6.5</option>
+                  <option value={70}>IELTS 7.0</option>
+                  <option value={75}>IELTS 7.5</option>
+                  <option value={80}>IELTS 8.0</option>
+                  <option value={85}>IELTS 8.5</option>
+                  <option value={90}>IELTS 9.0</option>
+                </select>
+                <span className="absolute z-30 text-gray-500 -translate-y-1/2 right-4 top-1/2 dark:text-gray-400 pointer-events-none">
+                  <svg className="stroke-current" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M3.8335 5.9165L8.00016 10.0832L12.1668 5.9165" stroke="" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              </div>
             </div>
           </div>
 

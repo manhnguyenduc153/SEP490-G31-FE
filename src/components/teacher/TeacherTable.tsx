@@ -18,7 +18,7 @@ import { teacherApi, TeacherItem, TeacherSaveDto } from "@/services/teacher.api"
 import { useTranslation } from "react-i18next";
 import { Edit, Plus, Trash2 } from "lucide-react";
 
-type SortKey = "code" | "name" | "email" | "phone" | "status" | "hasAccount" | "id";
+type SortKey = "code" | "name" | "email" | "phone" | "status" | "gradeLevel" | "hasAccount" | "id";
 type SortOrder = "asc" | "desc";
 
 interface TeacherTableProps {
@@ -225,6 +225,7 @@ export default function TeacherTable({
         [t("teacher.excelPhone")]: "0987654321",
         [t("teacher.excelDob")]: "01/01/1990",
         [t("teacher.excelGender")]: t("teacher.genderMale"),
+        [t("teacher.excelGradeLevel", { defaultValue: "Level / Band" })]: "8.0",
         [t("teacher.excelAddress")]: t("teacher.excelSampleAddress"),
         [t("teacher.excelStatus")]: 1,
         [t("teacher.excelDescription")]: t("teacher.excelSampleDescription")
@@ -252,6 +253,7 @@ export default function TeacherTable({
           [t("teacher.excelPhone")]: item.phone || "",
           [t("teacher.excelDob")]: item.dob ? new Date(item.dob).toLocaleDateString(i18n.language === "en" ? "en-GB" : "vi-VN") : "",
           [t("teacher.excelGender")]: item.gender === true ? t("teacher.genderMale") : item.gender === false ? t("teacher.genderFemale") : "",
+          [t("teacher.excelGradeLevel", { defaultValue: "Level / Band" })]: item.gradeLevelName || (item.gradeLevel ? (item.gradeLevel / 10).toFixed(1) : ""),
           [t("teacher.excelAddress")]: item.address || "",
           [t("teacher.excelStatus")]: item.status === 1 ? t("teacher.statusActive") : t("teacher.statusInactive"),
           [t("teacher.excelDescription")]: item.description || ""
@@ -291,12 +293,13 @@ export default function TeacherTable({
 
         const dtos: TeacherSaveDto[] = [];
         for (const row of rows as any[]) {
-          const name = row[t("teacher.excelName")] || row["Họ Tên"] || row["Name"] || row["name"];
+          const name = row[t("teacher.excelName")] || row["Họ Tên"] || row["Họ và tên"] || row["Name"] || row["name"];
           const email = row[t("teacher.excelEmail")] || row["Email"] || row["email"];
           const phone = row[t("teacher.excelPhone")] || row["Số điện thoại"] || row["SĐT"] || row["Phone"] || row["phone"];
           const code = row[t("teacher.excelCode")] || row["Mã GV"] || row["Mã giáo viên"] || row["Code"] || row["code"];
           const dobStr = row[t("teacher.excelDob")] || row["Ngày sinh"] || row["Dob"] || row["dob"];
           const genderStr = row[t("teacher.excelGender")] || row["Giới tính"] || row["Gender"] || row["gender"];
+          const gradeLevelRaw = row[t("teacher.excelGradeLevel", { defaultValue: "Level / Band" })] || row["Level / Band"] || row["Level/Band"] || row["Band"] || row["Level"] || row["Trình độ"] || row["GradeLevel"] || row["gradeLevel"];
           const address = row[t("teacher.excelAddress")] || row["Địa chỉ"] || row["Address"] || row["address"];
           const statusStr = row[t("teacher.excelStatus")] || row["Trạng thái"] || row["Status"] || row["status"];
           const description = row[t("teacher.excelDescription")] || row["Mô tả"] || row["Note"] || row["description"];
@@ -325,6 +328,24 @@ export default function TeacherTable({
             }
           }
 
+          let gradeLevel: number | null = null;
+          if (gradeLevelRaw !== undefined && gradeLevelRaw !== null && String(gradeLevelRaw).trim() !== "") {
+            const raw = String(gradeLevelRaw).trim().toUpperCase();
+            if (raw.includes("6.5") || raw === "65") gradeLevel = 65;
+            else if (raw.includes("7.0") || raw.includes("7.5") === false && (raw.includes("7") || raw === "70")) gradeLevel = 70;
+            else if (raw.includes("7.5") || raw === "75") gradeLevel = 75;
+            else if (raw.includes("8.0") || raw.includes("8.5") === false && (raw.includes("8") || raw === "80")) gradeLevel = 80;
+            else if (raw.includes("8.5") || raw === "85") gradeLevel = 85;
+            else if (raw.includes("9.0") || raw.includes("9") || raw === "90") gradeLevel = 90;
+            else {
+              const num = parseFloat(raw);
+              if (!isNaN(num)) {
+                if (num <= 10) gradeLevel = Math.round(num * 10);
+                else gradeLevel = Math.round(num);
+              }
+            }
+          }
+
           const normalizedStatus = statusStr ? String(statusStr).toLowerCase().trim() : "";
           const status = ["0", "false", "inactive", "ngưng hoạt động", t("teacher.statusInactive").toLowerCase()].includes(normalizedStatus) ? 0 : 1;
           
@@ -335,6 +356,7 @@ export default function TeacherTable({
             phone: phone ? String(phone).trim() : null,
             dob,
             gender,
+            gradeLevel,
             address: address ? String(address).trim() : null,
             description: description ? String(description).trim() : null,
             status
@@ -369,6 +391,7 @@ export default function TeacherTable({
     { key: "name", label: t("teacher.colName") },
     { key: "email", label: t("teacher.colEmail") },
     { key: "phone", label: t("teacher.colPhone") },
+    { key: "gradeLevel", label: t("teacher.colGradeLevel", { defaultValue: "Level / Band" }) },
     { key: "status", label: t("teacher.colStatus") },
     { key: "hasAccount", label: t("teacher.colAccount", { defaultValue: "Tài khoản" }) },
   ];
@@ -610,6 +633,15 @@ export default function TeacherTable({
                   <TableCell className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">{item.name}</TableCell>
                   <TableCell className="px-6 py-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">{item.email || "-"}</TableCell>
                   <TableCell className="px-6 py-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">{item.phone || "-"}</TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                    {item.gradeLevelName ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                        {item.gradeLevelName}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 text-xs">-</span>
+                    )}
+                  </TableCell>
                   <TableCell className="px-6 py-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${item.status === 1 ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400"}`}>
                       {item.status === 1 ? t("teacher.statusActive") : t("teacher.statusInactive")}

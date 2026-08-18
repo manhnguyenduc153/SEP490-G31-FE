@@ -7,7 +7,7 @@ import { z } from "zod";
 import { studentApi, StudentItem } from "@/services/student.api";
 import { courseApi, CourseItem } from "@/services/course.api";
 import { semesterApi, StudentRegistrationSaveDto, StudentRegistrationDto, SemesterItem } from "@/services/semester.api";
-import { CheckCircle2, AlertTriangle, XCircle, FileSpreadsheet, PlusCircle, Check } from "lucide-react";
+import { CheckCircle2, AlertTriangle, XCircle, FileSpreadsheet, PlusCircle, Check, Ban } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
@@ -20,6 +20,24 @@ interface StudentRegistrationModalProps {
   registrationToEdit?: StudentRegistrationDto | null;
 }
 
+const DAYS = [
+  { name: "Thứ 2", value: 1, key: "Mon" },
+  { name: "Thứ 3", value: 2, key: "Tue" },
+  { name: "Thứ 4", value: 3, key: "Wed" },
+  { name: "Thứ 5", value: 4, key: "Thu" },
+  { name: "Thứ 6", value: 5, key: "Fri" },
+  { name: "Thứ 7", value: 6, key: "Sat" },
+  { name: "Chủ Nhật", value: 0, key: "Sun" },
+];
+
+const SLOTS = [
+  { index: 0, name: "Ca 1 (Sáng)", time: "07:30 - 09:30" },
+  { index: 1, name: "Ca 2 (Sáng)", time: "10:00 - 12:00" },
+  { index: 2, name: "Ca 3 (Chiều)", time: "13:30 - 15:30" },
+  { index: 3, name: "Ca 4 (Chiều)", time: "16:00 - 18:00" },
+  { index: 4, name: "Ca 5 (Tối)", time: "18:30 - 20:30" },
+];
+
 interface PreviewRow {
   studentName: string;
   studentEmail: string;
@@ -27,7 +45,9 @@ interface PreviewRow {
   rawCourseName: string;
   courseId: number;
   courseResolved: boolean;
-  preferredSlots: string[];
+  preferredSlotIndex: number;
+  preferredDaysOfWeek: number;
+  preferredSlots?: string[];
   enrollType: number; // 0 = Offline, 1 = Online
   hasError: boolean;
   isAlreadyRegistered: boolean;
@@ -55,11 +75,8 @@ export function StudentRegistrationModal({
   // Manual Form States
   const [formStudentId, setFormStudentId] = useState<number | "">("");
   const [formCourseId, setFormCourseId] = useState<number | "">("");
-  const [formSlots, setFormSlots] = useState({
-    Morning: false,
-    Afternoon: false,
-    Evening: false,
-  });
+  const [formSlotIndex, setFormSlotIndex] = useState<number | "">("");
+  const [formDays, setFormDays] = useState<number[]>([]); // no default value
   const [formStatus, setFormStatus] = useState<number>(0);
   const [formEnrollType, setFormEnrollType] = useState<number>(0); // 0 = Offline, 1 = Online
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
@@ -111,19 +128,28 @@ export function StudentRegistrationModal({
     if (registrationToEdit) {
       setFormStudentId(registrationToEdit.studentId);
       setFormCourseId(registrationToEdit.courseId);
-      setFormSlots({
-        Morning: registrationToEdit.preferredSlots?.includes("Morning") || false,
-        Afternoon: registrationToEdit.preferredSlots?.includes("Afternoon") || false,
-        Evening: registrationToEdit.preferredSlots?.includes("Evening") || false,
-      });
       setFormStatus(registrationToEdit.status ?? 0);
       setFormEnrollType(registrationToEdit.enrollType ?? 0);
       setActiveTab("manual");
       setModalSemesterId(registrationToEdit.semesterId);
+
+      setFormSlotIndex(registrationToEdit.preferredSlotIndex ?? 4);
+      
+      const days: number[] = [];
+      const mask = registrationToEdit.preferredDaysOfWeek ?? 62;
+      if ((mask & 2) !== 0) days.push(1);
+      if ((mask & 4) !== 0) days.push(2);
+      if ((mask & 8) !== 0) days.push(3);
+      if ((mask & 16) !== 0) days.push(4);
+      if ((mask & 32) !== 0) days.push(5);
+      if ((mask & 64) !== 0) days.push(6);
+      if ((mask & 1) !== 0) days.push(0);
+      setFormDays(days);
     } else {
       setFormStudentId("");
       setFormCourseId("");
-      setFormSlots({ Morning: false, Afternoon: false, Evening: false });
+      setFormSlotIndex("");
+      setFormDays([]);
       setFormStatus(0);
       setFormEnrollType(0);
       setActiveTab("excel");
@@ -164,13 +190,14 @@ export function StudentRegistrationModal({
         t("registration.excelColEmail"),
         t("registration.excelColPhone"),
         t("registration.excelColCourse"),
-        t("registration.excelColPreferredSlots"),
+        "Ca mong muốn",
+        "Ngày học mong muốn",
         "Loại lớp (Online/Offline)"
       ],
-      ["Nguyen Van A", "vana@gmail.com", "0912345678", "IELTS 5.0 - 6.0", t("registration.slotMorning") + ", " + t("registration.slotAfternoon"), "Offline"],
-      ["Tran Thi B", "thib@gmail.com", "0987654321", "IELTS 5.0 - 6.0", t("registration.slotEvening"), "Online"],
-      ["Le Van C", "vanc@gmail.com", "0934567890", "IELTS 5.0 - 6.0", t("registration.slotMorning"), "Offline"],
-      ["Pham Van D", "vand@gmail.com", "0945678901", "IELTS 4.0 - 5.0", t("registration.slotAfternoon"), "Online"],
+      ["Nguyen Van A", "vana@gmail.com", "0912345678", "IELTS 5.0 - 6.0", "Ca 1", "Thứ 2, Thứ 4", "Offline"],
+      ["Tran Thi B", "thib@gmail.com", "0987654321", "IELTS 5.0 - 6.0", "Ca 5", "Thứ 3, Thứ 5", "Online"],
+      ["Le Van C", "vanc@gmail.com", "0934567890", "IELTS 5.0 - 6.0", "Ca 2", "Thứ 2, Thứ 4, Thứ 6", "Offline"],
+      ["Pham Van D", "vand@gmail.com", "0945678901", "IELTS 4.0 - 5.0", "Ca 3", "Thứ 7, Chủ Nhật", "Online"],
     ];
     const ws = XLSX.utils.aoa_to_sheet(headers);
     const wb = XLSX.utils.book_new();
@@ -179,19 +206,99 @@ export function StudentRegistrationModal({
   };
 
   // Helper parser for Excel slot strings
-  const parsePreferredSlots = (slotsStr: string | undefined): string[] => {
-    if (!slotsStr) return ["Morning"];
-    const rawSlots = String(slotsStr).split(/[,,;\/]/).map((s) => s.trim().toLowerCase());
+  const parsePreferredSlotsFromExcel = (slotsStr: string | undefined, daysStr: string | undefined): string[] => {
     const result: string[] = [];
-    rawSlots.forEach((s) => {
-      if (s.includes("sáng") || s.includes("morning") || s.includes("sang") || s.includes("1") || s.includes("2"))
-        result.push("Morning");
-      if (s.includes("chiều") || s.includes("afternoon") || s.includes("chieu") || s.includes("3") || s.includes("4"))
-        result.push("Afternoon");
-      if (s.includes("tối") || s.includes("evening") || s.includes("toi") || s.includes("night") || s.includes("5"))
-        result.push("Evening");
+    const sStr = (slotsStr || "").toString().trim().toLowerCase();
+    const dStr = (daysStr || "").toString().trim().toLowerCase();
+
+    if (!sStr && !dStr) {
+      // Default fallback: Mon-Fri Ca 5
+      return ["Slot:4:1", "Slot:4:2", "Slot:4:3", "Slot:4:4", "Slot:4:5"];
+    }
+
+    const combined = `${sStr}; ${dStr}`;
+    const parts = combined.split(/[;,]/).map((p) => p.trim()).filter(Boolean);
+    
+    let hasDetailedPairs = false;
+    
+    const parseDayPart = (p: string): number | null => {
+      if (p.includes("hai") || p.includes("t2") || p.includes("mon") || p.includes("2")) return 1;
+      if (p.includes("ba") || p.includes("t3") || p.includes("tue") || p.includes("3")) return 2;
+      if (p.includes("tư") || p.includes("tu") || p.includes("t4") || p.includes("wed") || p.includes("4")) return 3;
+      if (p.includes("năm") || p.includes("nam") || p.includes("t5") || p.includes("thu") || p.includes("5")) return 4;
+      if (p.includes("sáu") || p.includes("sau") || p.includes("t6") || p.includes("fri") || p.includes("6")) return 5;
+      if (p.includes("bảy") || p.includes("bay") || p.includes("t7") || p.includes("sat") || p.includes("7")) return 6;
+      if (p.includes("chủ") || p.includes("chu") || p.includes("cn") || p.includes("sun")) return 0;
+      return null;
+    };
+
+    const parseSlotPart = (p: string): number | null => {
+      if (p.includes("ca 1") || p.includes("ca1") || p.includes("sáng 1")) return 0;
+      if (p.includes("ca 2") || p.includes("ca2") || p.includes("sáng 2")) return 1;
+      if (p.includes("ca 3") || p.includes("ca3") || p.includes("chiều 1")) return 2;
+      if (p.includes("ca 4") || p.includes("ca4") || p.includes("chiều 2")) return 3;
+      if (p.includes("ca 5") || p.includes("ca5") || p.includes("tối")) return 4;
+
+      const match = p.match(/\b([1-5])\b/);
+      if (match) {
+        return parseInt(match[1]) - 1;
+      }
+      return null;
+    };
+
+    parts.forEach((p) => {
+      const dVal = parseDayPart(p);
+      let cleanedPart = p;
+      if (dVal !== null) {
+        cleanedPart = p.replace(/(hai|t2|mon|ba|t3|tue|tư|tu|t4|wed|năm|nam|t5|thu|sáu|sau|t6|fri|bảy|bay|t7|sat|chủ|chu|cn|sun)/g, "");
+      }
+      const sVal = parseSlotPart(cleanedPart);
+
+      if (dVal !== null && sVal !== null) {
+        hasDetailedPairs = true;
+        const slotStr = `Slot:${sVal}:${dVal}`;
+        if (!result.includes(slotStr)) {
+          result.push(slotStr);
+        }
+      }
     });
-    return result.length > 0 ? [...new Set(result)] : ["Morning"];
+
+    if (hasDetailedPairs && result.length > 0) {
+      return result;
+    }
+
+    // Fallback: parse separately
+    const parsedSlotIdx = parseSlotPart(sStr) ?? 4;
+    const parsedDays: number[] = [];
+    const dayParts = dStr.split(/[,,;\/]/).map((s) => s.trim());
+    dayParts.forEach((p) => {
+      const dVal = parseDayPart(p);
+      if (dVal !== null && !parsedDays.includes(dVal)) {
+        parsedDays.push(dVal);
+      }
+    });
+
+    if (parsedDays.length === 0) {
+      parsedDays.push(1, 2, 3, 4, 5);
+    }
+
+    parsedDays.forEach((d) => {
+      result.push(`Slot:${parsedSlotIdx}:${d}`);
+    });
+
+    return result;
+  };
+
+  const getDaysNameFromMask = (mask: number): string => {
+    const names: string[] = [];
+    if ((mask & 2) !== 0) names.push("T2");
+    if ((mask & 4) !== 0) names.push("T3");
+    if ((mask & 8) !== 0) names.push("T4");
+    if ((mask & 16) !== 0) names.push("T5");
+    if ((mask & 32) !== 0) names.push("T6");
+    if ((mask & 64) !== 0) names.push("T7");
+    if ((mask & 1) !== 0) names.push("CN");
+    return names.join(", ");
   };
 
   // File Upload Handler (Excel parsing)
@@ -221,11 +328,26 @@ export function StudentRegistrationModal({
           const rawEmail = row["Email"] || row["email"] || row["studentEmail"] || "";
           const rawPhone = row["Số điện thoại"] || row["SĐT"] || row["Phone"] || row["phone"] || row["studentPhone"] || "";
           const rawCourse = row["Khóa học"] || row["Khóa"] || row["Course"] || row["course"] || row["courseName"] || "";
-          const rawSlots = row["Ca mong muốn"] || row["Ca học"] || row["PreferredSlots"] || row["slots"] || "";
+          const rawSlot = row["Slot"] || row["Ca mong muốn"] || row["Ca học"] || row["PreferredSlots"] || row["slots"] || "";
+          const rawDays = row["DayOfWeek"] || row["Ngày học mong muốn"] || row["Ngày học"] || row["PreferredDays"] || "";
           const rawEnrollType = row["Loại lớp"] || row["Loại lớp (Online/Offline)"] || row["EnrollType"] || row["type"] || "";
  
           const hasError = !rawName.toString().trim() || !rawEmail.toString().trim();
-          const preferred = parsePreferredSlots(rawSlots);
+          const preferredSlots = parsePreferredSlotsFromExcel(rawSlot, rawDays);
+          
+          let preferredSlotIdx = 4;
+          let preferredDaysMsk = 62;
+          if (preferredSlots.length > 0) {
+            const firstParts = preferredSlots[0].split(":");
+            preferredSlotIdx = parseInt(firstParts[1]) ?? 4;
+            let mask = 0;
+            preferredSlots.forEach((s) => {
+              const parts = s.split(":");
+              const dVal = parseInt(parts[2]);
+              mask |= (1 << dVal);
+            });
+            preferredDaysMsk = mask;
+          }
           
           let parsedEnrollType = 0; // default to Offline (0)
           if (rawEnrollType) {
@@ -256,7 +378,9 @@ export function StudentRegistrationModal({
             rawCourseName: rawCourse.toString().trim(),
             courseId: matchedCourse ? matchedCourse.id : 0,
             courseResolved: !!matchedCourse,
-            preferredSlots: preferred,
+            preferredSlotIndex: preferredSlotIdx,
+            preferredDaysOfWeek: preferredDaysMsk,
+            preferredSlots,
             enrollType: parsedEnrollType,
             hasError,
             isAlreadyRegistered: isRegistered,
@@ -301,7 +425,9 @@ export function StudentRegistrationModal({
         studentPhone: r.studentPhone,
         courseId: r.courseId,
         courseName: r.courseId === 0 ? r.rawCourseName : null,
-        preferredSlots: r.preferredSlots,
+        preferredSlotIndex: r.preferredSlotIndex,
+        preferredDaysOfWeek: r.preferredDaysOfWeek,
+        preferredSlots: r.preferredSlots || [],
         status: 0,
         enrollType: r.enrollType,
       }));
@@ -322,13 +448,10 @@ export function StudentRegistrationModal({
   };
 
   // Submit Manual Form
+
+  // Submit Manual Form
   const handleConfirmManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Zod schema for manual registration
-    const slots = Object.entries(formSlots)
-      .filter(([_, checked]) => checked)
-      .map(([key]) => key);
 
     const registrationSchema = z.object({
       semesterId: z.union([z.number(), z.literal("")]).refine(
@@ -343,14 +466,21 @@ export function StudentRegistrationModal({
         (v) => v !== "",
         t("registration.errorSelectCourse", { defaultValue: "Vui lòng chọn khóa học." })
       ),
-      slots: z.array(z.string()).min(1, t("registration.errorSelectSlot", { defaultValue: "Vui lòng chọn ít nhất một ca học." })),
+      slotIndex: z.union([z.number(), z.literal("")]).refine(
+        (v) => v !== "",
+        "Vui lòng chọn ca học mong muốn."
+      ),
+      hasDays: z.boolean().refine((val) => val === true, {
+        message: "Vui lòng chọn ít nhất một ngày học trong tuần.",
+      }),
     });
 
     const result = registrationSchema.safeParse({
       semesterId: modalSemesterId,
       studentId: registrationToEdit ? registrationToEdit.studentId : formStudentId,
       courseId: formCourseId,
-      slots,
+      slotIndex: formSlotIndex,
+      hasDays: formDays.length > 0,
     });
 
     if (!result.success) {
@@ -359,7 +489,7 @@ export function StudentRegistrationModal({
       result.error.issues.forEach((err) => {
         fieldErrors.push(err.message);
         if (err.path.length > 0) {
-          fields.push(err.path[0] as string);
+          fields.push(err.path[0] === "hasDays" ? "days" : (err.path[0] as string));
         }
       });
       setManualErrors(fieldErrors);
@@ -385,6 +515,19 @@ export function StudentRegistrationModal({
       return;
     }
 
+    // Helper functions for slot & mask conversion
+    const calculateDaysMask = (days: number[]): number => {
+      let mask = 0;
+      days.forEach((d) => {
+        mask |= (1 << d);
+      });
+      return mask;
+    };
+
+    const getPreferredSlotsFromIndexAndDays = (slotIdx: number, days: number[]): string[] => {
+      return days.map((d) => `Slot:${slotIdx}:${d}`);
+    };
+
     setManualErrors([]);
     setManualInvalidFields([]);
     setIsSubmittingManual(true);
@@ -396,7 +539,9 @@ export function StudentRegistrationModal({
         studentEmail: registrationToEdit ? registrationToEdit.studentEmail : selectedStudent?.email || "",
         studentPhone: registrationToEdit ? registrationToEdit.studentPhone : selectedStudent?.phone,
         courseId: Number(formCourseId),
-        preferredSlots: slots,
+        preferredSlotIndex: Number(formSlotIndex),
+        preferredDaysOfWeek: calculateDaysMask(formDays),
+        preferredSlots: getPreferredSlotsFromIndexAndDays(Number(formSlotIndex), formDays),
         status: Number(formStatus),
         enrollType: formEnrollType,
       };
@@ -566,7 +711,8 @@ export function StudentRegistrationModal({
                         <th className="py-2.5 px-3 font-semibold">{t("registration.modalColName")}</th>
                         <th className="py-2.5 px-3 font-semibold">{t("registration.modalColEmail")}</th>
                         <th className="py-2.5 px-3 font-semibold">{t("registration.modalColCourse")}</th>
-                        <th className="py-2.5 px-3 font-semibold">{t("registration.modalColSlots")}</th>
+                        <th className="py-2.5 px-3 font-semibold">Ca học</th>
+                        <th className="py-2.5 px-3 font-semibold">Ngày học</th>
                         <th className="py-2.5 px-3 font-semibold">Loại lớp</th>
                         <th className="py-2.5 px-3 font-semibold text-right">{t("registration.modalColStatus")}</th>
                       </tr>
@@ -587,7 +733,10 @@ export function StudentRegistrationModal({
                           <td className={`py-2 px-3 text-xs ${r.isAlreadyRegistered ? "line-through opacity-70" : ""}`}>{r.studentEmail}</td>
                           <td className={`py-2 px-3 ${r.isAlreadyRegistered ? "line-through opacity-70" : ""}`}>{r.rawCourseName}</td>
                           <td className="py-2 px-3 text-xs">
-                            {r.preferredSlots.map((s) => (s === "Morning" ? t("registration.slotMorning") : s === "Afternoon" ? t("registration.slotAfternoon") : t("registration.slotEvening"))).join(", ")}
+                            Ca {r.preferredSlotIndex + 1}
+                          </td>
+                          <td className="py-2 px-3 text-xs">
+                            {getDaysNameFromMask(r.preferredDaysOfWeek)}
                           </td>
                           <td className="py-2 px-3 text-xs">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold ${
@@ -734,60 +883,75 @@ export function StudentRegistrationModal({
                   </div>
                 </div>
 
-                {/* Preferred Slots */}
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 block">
-                    {t("registration.modalManualSlots")} <span className="text-rose-500">*</span>
+                {/* Ca học mong muốn */}
+                <div className={`space-y-1.5 border rounded-xl p-4 bg-gray-50 dark:bg-gray-900/20 ${
+                  manualInvalidFields.includes("slotIndex")
+                    ? "border-rose-500 dark:border-rose-500"
+                    : "border-gray-200 dark:border-gray-800"
+                }`}>
+                  <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                    Ca học mong muốn <span className="text-rose-500">*</span>
                   </label>
-                <div className={`flex flex-wrap gap-4 items-center bg-gray-50 dark:bg-gray-955/40 border px-4 py-3 rounded-lg ${
-                    manualInvalidFields.includes("slots")
-                      ? "border-rose-500 dark:border-rose-500"
-                      : "border-gray-250 dark:border-gray-800"
-                  }`}>
-                    <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formSlots.Morning}
-                        onChange={(e) => {
-                          setFormSlots((prev) => ({ ...prev, Morning: e.target.checked }));
-                          if (manualInvalidFields.includes("slots")) {
-                            setManualInvalidFields(prev => prev.filter(f => f !== "slots"));
+                  <div className="grid grid-cols-5 gap-2">
+                    {SLOTS.map((s) => (
+                      <button
+                        key={s.index}
+                        type="button"
+                        onClick={() => {
+                          setFormSlotIndex(s.index);
+                          if (manualInvalidFields.includes("slotIndex")) {
+                            setManualInvalidFields((prev) => prev.filter((f) => f !== "slotIndex"));
                           }
                         }}
-                        className="rounded border-gray-300 text-brand-500 focus:ring-brand-500 cursor-pointer"
-                      />
-                      <span>{t("registration.slotMorning")}</span>
-                    </label>
+                        className={`py-2 px-1 text-center text-xs font-semibold rounded-lg border transition-all ${
+                          formSlotIndex === s.index
+                            ? "bg-blue-50 border-blue-400 text-blue-700 dark:bg-blue-950/20 dark:border-blue-600 dark:text-blue-400"
+                            : "bg-white border-gray-200 text-gray-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-400 hover:border-gray-300"
+                        }`}
+                      >
+                        <div>{s.name.split(" ")[0]} {s.name.split(" ")[1] || ""}</div>
+                        <div className="text-[9px] font-normal opacity-70 mt-0.5">{s.time}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-                    <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formSlots.Afternoon}
-                        onChange={(e) => {
-                          setFormSlots((prev) => ({ ...prev, Afternoon: e.target.checked }));
-                          if (manualInvalidFields.includes("slots")) {
-                            setManualInvalidFields(prev => prev.filter(f => f !== "slots"));
-                          }
-                        }}
-                        className="rounded border-gray-300 text-brand-500 focus:ring-brand-500 cursor-pointer"
-                      />
-                      <span>{t("registration.slotAfternoon")}</span>
-                    </label>
-
-                    <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formSlots.Evening}
-                        onChange={(e) => {
-                          setFormSlots((prev) => ({ ...prev, Evening: e.target.checked }));
-                          if (manualInvalidFields.includes("slots")) {
-                            setManualInvalidFields(prev => prev.filter(f => f !== "slots"));
-                          }
-                        }}
-                        className="rounded border-gray-300 text-brand-500 focus:ring-brand-500 cursor-pointer"
-                      />
-                      <span>{t("registration.slotEvening")}</span>
-                    </label>
+                {/* Ngày học mong muốn */}
+                <div className={`space-y-1.5 border rounded-xl p-4 bg-gray-50 dark:bg-gray-900/20 ${
+                  manualInvalidFields.includes("days")
+                    ? "border-rose-500 dark:border-rose-500"
+                    : "border-gray-200 dark:border-gray-800"
+                }`}>
+                  <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 block mb-2">
+                    Ngày học mong muốn <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                    {DAYS.map((d) => {
+                      const isSelected = formDays.includes(d.value);
+                      return (
+                        <button
+                          key={d.value}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setFormDays(formDays.filter((day) => day !== d.value));
+                            } else {
+                              setFormDays([...formDays, d.value]);
+                            }
+                            if (manualInvalidFields.includes("days")) {
+                              setManualInvalidFields((prev) => prev.filter((f) => f !== "days"));
+                            }
+                          }}
+                          className={`py-2 px-1 text-center text-xs font-semibold rounded-lg border transition-all ${
+                            isSelected
+                              ? "bg-emerald-50 border-emerald-400 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-600 dark:text-emerald-400"
+                              : "bg-white border-gray-200 text-gray-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-400 hover:border-gray-300"
+                          }`}
+                        >
+                          {d.name}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
