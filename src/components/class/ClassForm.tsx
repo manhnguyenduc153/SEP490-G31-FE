@@ -136,7 +136,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
 
   // Filter dropdown states
   const [courses, setCourses] = useState<CourseItem[]>([]);
-  const [teachers, setTeachers] = useState<TeacherItem[]>([]);
+  const [teachers, setTeachers] = useState<any[]>([]);
   const [rooms, setRooms] = useState<RoomItem[]>([]);
   const [semesters, setSemesters] = useState<SemesterItem[]>([]);
   
@@ -193,12 +193,12 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
       try {
         const [cRes, tRes, rRes, sRes] = await Promise.all([
           commonApi.getCourses(1, 100, "", true),
-          teacherApi.getAll(1, 100),
-          roomApi.getAll(1, 100),
+          commonApi.getAvailableTeachers({}),
+          commonApi.getRooms(1, 100, "", true),
           commonApi.getSemesters(),
         ]);
         if (cRes.success && cRes.data) setCourses(cRes.data.items || []);
-        if (tRes.success && tRes.data) setTeachers(tRes.data.items || []);
+        if (tRes.success && tRes.data) setTeachers(tRes.data || []);
         if (rRes.success && rRes.data) setRooms(rRes.data.items || []);
         if (sRes.success && sRes.data) setSemesters(sRes.data || []);
       } catch (err) {
@@ -207,6 +207,42 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
     }
     loadOptions();
   }, []);
+
+  // Dynamically load available teachers filtered by Course (required band), Semester & Weekly schedule
+  useEffect(() => {
+    let active = true;
+    const weeklySchedules = Object.entries(dayConfigs)
+      .filter(([_, config]) => config.selected)
+      .map(([dayStr, config]) => ({
+        dayOfWeek: Number(dayStr),
+        startTime: config.startTime,
+        endTime: config.endTime,
+        roomId: config.roomId,
+      }));
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await commonApi.getAvailableTeachers({
+          courseId: formCourseId ?? undefined,
+          semesterId: formSemesterId ?? undefined,
+          startDate: formStartDate || undefined,
+          endDate: formEndDate || undefined,
+          excludeClassId: editingItem?.id,
+          weeklySchedulesJson: weeklySchedules.length > 0 ? JSON.stringify(weeklySchedules) : undefined,
+        });
+        if (active && res.success && res.data) {
+          setTeachers(res.data);
+        }
+      } catch (err) {
+        console.error("Failed to load available teachers", err);
+      }
+    }, 250);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [formCourseId, formSemesterId, formStartDate, formEndDate, dayConfigs, editingItem]);
 
   // Handle student search query dynamically
   useEffect(() => {
@@ -1039,10 +1075,19 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                     setFormNewTeacherEmail(null);
                     setFormNewTeacherName(null);
                   }}
-                  options={teachers.map((t) => ({
-                    value: t.id,
-                    label: t.name,
-                  }))}
+                  options={(() => {
+                    const opts = teachers.map((t: any) => ({
+                      value: t.id,
+                      label: `${t.name}${t.code ? ` (${t.code})` : ""}${t.gradeLevelName ? ` · Band ${t.gradeLevelName}` : ""}`,
+                    }));
+                    if (formTeacherId && !teachers.some((t: any) => t.id === formTeacherId) && editingItem) {
+                      opts.unshift({
+                        value: formTeacherId,
+                        label: `${editingItem.teacherName || "Giáo viên hiện tại"} (Hiện tại)`,
+                      });
+                    }
+                    return opts;
+                  })()}
                   placeholder={t("class.formTeacherPlaceholder")}
                 />
                 {errors.teacherId && (
