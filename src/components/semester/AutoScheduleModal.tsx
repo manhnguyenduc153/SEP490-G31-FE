@@ -151,6 +151,13 @@ export function AutoScheduleModal({
           setIsScheduling(false);
           setLoadingStep(0);
         }, 1500);
+      } else if (res.message === "ERR_SCHEDULE_INFEASIBLE" && res.data?.infeasibilityReasons?.length) {
+        const reasonTexts = res.data.infeasibilityReasons.map((r) =>
+          t(`backendMessages.infeasibilityReasons.${r.code}`, { ...r.params, defaultValue: r.code })
+        );
+        showToast(reasonTexts.join(" "), "error");
+        setIsScheduling(false);
+        setLoadingStep(0);
       } else {
         showToast(res.message ? getFriendlyAutoScheduleError(res.message) : t("semester.errAutoScheduleConflict", { defaultValue: "Xếp lịch thất bại do xung đột ràng buộc hoặc bận lịch giáo viên." }), "error");
         setIsScheduling(false);

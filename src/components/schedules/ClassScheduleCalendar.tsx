@@ -8,7 +8,8 @@ import interactionPlugin from "@fullcalendar/interaction";
 import { EventClickArg } from "@fullcalendar/core";
 import { useModal } from "@/hooks/useModal";
 import { Modal } from "@/components/ui/modal";
-import { classApi, ClassItem, ClassScheduleItem, ClassSaveDto, ScheduleVersionListItem } from "@/services/class.api";
+import { classApi, ClassItem, ClassScheduleItem, ClassSaveDto, ScheduleVersionListItem, ScheduleReliabilityReport } from "@/services/class.api";
+import ScheduleReliabilityCard from "./ScheduleReliabilityCard";
 import { semesterApi, SemesterItem } from "@/services/semester.api";
 import { ChevronLeft, ChevronRight, CalendarClock, Save, X, Loader2, AlertTriangle, Cpu, Check, AlertCircle, Edit, DoorOpen, RotateCcw, History, Trash2, Eye, Lock, GitCompare, Undo2 } from "lucide-react";
 import { roomApi, RoomItem } from "@/services/room.api";
@@ -965,6 +966,7 @@ export default function ClassScheduleCalendar() {
   const [rollbackLoading, setRollbackLoading] = useState(false);
   const [draftSemesterId, setDraftSemesterId] = useState<number | null>(null);
   const [reloadTrigger, setReloadTrigger] = useState(0);
+  const [scheduleReliability, setScheduleReliability] = useState<ScheduleReliabilityReport | null>(null);
 
   // Schedule version state (save checkpoints + rollback-to-version)
   const [showSaveVersionModal, setShowSaveVersionModal] = useState(false);
@@ -1060,6 +1062,14 @@ export default function ClassScheduleCalendar() {
           }
         } catch (e) {
           console.error("Failed to parse stored draft classes", e);
+        }
+      }
+      const storedReliability = localStorage.getItem("semester_draft_reliability");
+      if (storedReliability) {
+        try {
+          setScheduleReliability(JSON.parse(storedReliability));
+        } catch (e) {
+          console.error("Failed to parse stored schedule reliability report", e);
         }
       }
     }
@@ -1672,19 +1682,32 @@ export default function ClassScheduleCalendar() {
       }
 
       if (res.success && res.data) {
-        setDraftClasses(res.data);
+        const draftList = res.data.classes;
+        const reliability = res.data.reliability ?? null;
+        setDraftClasses(draftList);
+        setScheduleReliability(reliability);
         setDraftSemesterId(params.semesterId);
-        localStorage.setItem("semester_draft_classes", JSON.stringify(res.data));
-        localStorage.setItem("semester_original_draft_classes", JSON.stringify(res.data));
+        localStorage.setItem("semester_draft_classes", JSON.stringify(draftList));
+        localStorage.setItem("semester_original_draft_classes", JSON.stringify(draftList));
         localStorage.setItem("semester_draft_id", String(params.semesterId));
-        const newDraftEvents = res.data.flatMap((cls) => mapDraftClass(cls));
+        if (reliability) {
+          localStorage.setItem("semester_draft_reliability", JSON.stringify(reliability));
+        } else {
+          localStorage.removeItem("semester_draft_reliability");
+        }
+        const newDraftEvents = draftList.flatMap((cls) => mapDraftClass(cls));
         setDraftEvents(newDraftEvents);
         setShowScheduleModal(false);
         showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: "Tạo lịch nháp học kỳ thành công! Hãy kiểm tra trên lịch." }) : "Tạo lịch nháp học kỳ thành công! Hãy kiểm tra trên lịch.", "success");
         // Navigate to the semester start week
-        if (res.data.length > 0 && res.data[0].startDate) {
-          setWeekStart(getWeekStart(new Date(res.data[0].startDate)));
+        if (draftList.length > 0 && draftList[0].startDate) {
+          setWeekStart(getWeekStart(new Date(draftList[0].startDate)));
         }
+      } else if (res.message === "ERR_SCHEDULE_INFEASIBLE" && res.data?.infeasibilityReasons?.length) {
+        const reasonTexts = res.data.infeasibilityReasons.map((r) =>
+          t(`backendMessages.infeasibilityReasons.${r.code}`, { ...r.params, defaultValue: r.code })
+        );
+        showToast(reasonTexts.join(" "), "error");
       } else {
         showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("classSchedules.toastDraftGenerateError", { defaultValue: "Xếp lịch thất bại do xung đột ràng buộc hoặc bận lịch giáo viên." }), "error");
       }
@@ -1729,9 +1752,11 @@ export default function ClassScheduleCalendar() {
         setDraftEvents([]);
         setDraftSemesterId(null);
         setDraftUndoStack([]);
+        setScheduleReliability(null);
         localStorage.removeItem("semester_draft_classes");
         localStorage.removeItem("semester_original_draft_classes");
         localStorage.removeItem("semester_draft_id");
+        localStorage.removeItem("semester_draft_reliability");
         showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: "Lưu chính thức thời khóa biểu thành công!" }) : "Lưu chính thức thời khóa biểu thành công!", "success");
         // Reload classes + schedules from DB — must refresh `classes` too, not just `events`,
         // since the semester filter falls back to looking up each event's class in `classes`
@@ -1752,9 +1777,11 @@ export default function ClassScheduleCalendar() {
     setDraftEvents([]);
     setDraftSemesterId(null);
     setDraftUndoStack([]);
+    setScheduleReliability(null);
     localStorage.removeItem("semester_draft_classes");
     localStorage.removeItem("semester_original_draft_classes");
     localStorage.removeItem("semester_draft_id");
+    localStorage.removeItem("semester_draft_reliability");
     showToast(t("classSchedules.toastCancelDraftSuccess", { defaultValue: "Đã hủy bản cơ sở lịch học hiện tại." }), "success");
   };
 
@@ -2090,6 +2117,11 @@ export default function ClassScheduleCalendar() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Schedule Reliability Report */}
+      {draftClasses && draftClasses.length > 0 && scheduleReliability && (
+        <ScheduleReliabilityCard report={scheduleReliability} />
       )}
 
       {/* Edit Mode Banner */}
