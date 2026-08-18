@@ -20,6 +20,7 @@ export interface ClassScheduleItem {
   status: number;
   note?: string | null;
   classStatus?: number | null;
+  attendanceStatus?: number | null;
 }
 
 export interface ClassItem {

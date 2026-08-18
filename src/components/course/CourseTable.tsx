@@ -236,7 +236,7 @@ export default function CourseTable() {
   const columns: { key: SortKey; label: string }[] = [
     { key: "code", label: t("course.colCode") },
     { key: "name", label: t("course.colName") },
-    { key: "requiredGradeLevel", label: t("course.colRequiredGradeLevel", { defaultValue: "Yêu cầu band GV" }) },
+    { key: "requiredGradeLevel", label: t("course.colRequiredGradeLevel", { defaultValue: "Yêu cầu band" }) },
     { key: "status", label: t("course.colStatus") },
   ];
 

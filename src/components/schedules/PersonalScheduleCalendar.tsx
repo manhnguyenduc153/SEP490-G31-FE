@@ -30,6 +30,50 @@ const SLOT_COLORS = [
   "bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/50",
 ];
 
+// ── Attendance Status Helper ───────────────────────────────────────────────────
+export const getAttendanceStatus = (
+  s: number | null | undefined,
+  t: (k: string, opt?: Record<string, string>) => string
+) => {
+  switch (s) {
+    case 1:
+      return {
+        text: t("attendance.statusPresent", { defaultValue: "Có mặt" }),
+        badgeClass: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
+        dotClass: "bg-emerald-500",
+        labelShort: t("attendance.shortPresent", { defaultValue: "Có mặt" }),
+      };
+    case 0:
+      return {
+        text: t("attendance.statusAbsent", { defaultValue: "Vắng mặt" }),
+        badgeClass: "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300 border-rose-200 dark:border-rose-800",
+        dotClass: "bg-rose-500",
+        labelShort: t("attendance.shortAbsent", { defaultValue: "Vắng mặt" }),
+      };
+    case 2:
+      return {
+        text: t("attendance.statusLate", { defaultValue: "Đi muộn" }),
+        badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800",
+        dotClass: "bg-amber-500",
+        labelShort: t("attendance.shortLate", { defaultValue: "Đi muộn" }),
+      };
+    case 3:
+      return {
+        text: t("attendance.statusExcused", { defaultValue: "Có phép" }),
+        badgeClass: "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300 border-sky-200 dark:border-sky-800",
+        dotClass: "bg-sky-500",
+        labelShort: t("attendance.shortExcused", { defaultValue: "Có phép" }),
+      };
+    default:
+      return {
+        text: t("attendance.statusNotYet", { defaultValue: "Chưa điểm danh" }),
+        badgeClass: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border-gray-200 dark:border-gray-700",
+        dotClass: "bg-gray-400",
+        labelShort: t("attendance.shortNotYet", { defaultValue: "Chưa điểm danh" }),
+      };
+  }
+};
+
 const getStatus = (s: number, t: (k: string, opt?: Record<string, string>) => string) => {
   const configs: Record<number, { text: string; color: string }> = {
     0: { text: t("schedules.statusNotStarted", { defaultValue: "Chưa diễn ra" }), color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800" },
@@ -84,6 +128,7 @@ interface ScheduleEvent {
   note: string | null;
   scheduleDate: string;
   slotIndex: number;
+  attendanceStatus?: number | null;
 }
 
 interface PersonalScheduleCalendarProps {
@@ -92,7 +137,17 @@ interface PersonalScheduleCalendarProps {
 }
 
 // ── Week grid ─────────────────────────────────────────────────────────────────
-function WeekGrid({ events, weekStart, onEventClick }: { events: ScheduleEvent[]; weekStart: Date; onEventClick: (ev: ScheduleEvent) => void }) {
+function WeekGrid({
+  events,
+  weekStart,
+  onEventClick,
+  type,
+}: {
+  events: ScheduleEvent[];
+  weekStart: Date;
+  onEventClick: (ev: ScheduleEvent) => void;
+  type: "teacher" | "student";
+}) {
   const { t } = useTranslation();
   const lookup: Record<string, Record<number, ScheduleEvent[]>> = {};
   for (const ev of events) {
@@ -148,19 +203,32 @@ function WeekGrid({ events, weekStart, onEventClick }: { events: ScheduleEvent[]
                     className={`border border-gray-200 dark:border-gray-700 p-1.5 align-top min-w-[90px]
                       ${d.iso === todayISO ? "bg-brand-500/5 dark:bg-brand-950/10" : "bg-white dark:bg-gray-900"}`}
                   >
-                    <div className="flex flex-col gap-1 h-full">
-                      {cellEvents.map((ev) => (
-                        <button
-                          key={ev.id}
-                          type="button"
-                          onClick={() => onEventClick(ev)}
-                          className={`w-full text-left rounded-lg border px-2 py-1.5 text-[11px] font-semibold leading-tight transition-all duration-150 cursor-pointer shadow-xs hover:shadow-md hover:-translate-y-px
-                            ${SLOT_COLORS[slot.index]}`}
-                        >
-                          <span className="block truncate font-bold">{ev.classCode}</span>
-                          <span className="block truncate text-[10px] opacity-70 font-normal">{ev.className}</span>
-                        </button>
-                      ))}
+                    <div className="flex flex-col gap-1.5 h-full">
+                      {cellEvents.map((ev) => {
+                        const attInfo = getAttendanceStatus(ev.attendanceStatus, t);
+                        return (
+                          <button
+                            key={ev.id}
+                            type="button"
+                            onClick={() => onEventClick(ev)}
+                            className={`w-full text-left rounded-xl border p-2 text-[11px] font-semibold leading-tight transition-all duration-150 cursor-pointer shadow-xs hover:shadow-md hover:-translate-y-px ${SLOT_COLORS[slot.index]}`}
+                          >
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <span className="block truncate font-bold">{ev.classCode}</span>
+                              {type === "student" && (
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold border ${attInfo.badgeClass}`}>
+                                  {attInfo.labelShort}
+                                </span>
+                              )}
+                            </div>
+                            <span className="block truncate text-[10px] opacity-70 font-normal">{ev.className}</span>
+                            <div className="mt-1 flex items-center justify-between text-[9px] text-gray-500 dark:text-gray-400 font-medium">
+                              <span>{t("schedules.lessonShort", { lessonNo: ev.lessonNo, defaultValue: `Buổi ${ev.lessonNo}` })}</span>
+                              <span className="truncate max-w-[55%]">{ev.roomName}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   </td>
                 );
@@ -212,6 +280,7 @@ export default function PersonalScheduleCalendar({ type, studentId }: PersonalSc
                   note: s.note || null,
                   scheduleDate: datePart,
                   slotIndex: slotIdx,
+                  attendanceStatus: s.attendanceStatus ?? null,
                 };
               })
               .filter(Boolean) as ScheduleEvent[]
@@ -239,9 +308,13 @@ export default function PersonalScheduleCalendar({ type, studentId }: PersonalSc
 
   const renderMonthEvent = (info: { event: { extendedProps: Record<string, unknown> } }) => {
     const ev = info.event.extendedProps as unknown as ScheduleEvent;
+    const attInfo = getAttendanceStatus(ev.attendanceStatus, t);
     return (
-      <div className={`rounded px-1.5 py-0.5 text-[10px] font-bold border truncate cursor-pointer transition-all duration-150 ${SLOT_COLORS[ev.slotIndex] ?? SLOT_COLORS[0]}`}>
-        {ev.classCode}
+      <div className={`rounded px-1.5 py-0.5 text-[10px] font-bold border truncate cursor-pointer transition-all duration-150 flex items-center justify-between gap-1 ${SLOT_COLORS[ev.slotIndex] ?? SLOT_COLORS[0]}`}>
+        <span className="truncate">{ev.classCode}</span>
+        {type === "student" && (
+          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${attInfo.dotClass}`} title={attInfo.text} />
+        )}
       </div>
     );
   };
@@ -302,15 +375,35 @@ export default function PersonalScheduleCalendar({ type, studentId }: PersonalSc
             {view === "week" ? (
               <>
                 {/* Slot legend */}
-                <div className="flex flex-wrap gap-2 px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30">
-                  {FIXED_SLOTS.map((s) => (
-                    <span key={s.index} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${SLOT_COLORS[s.index]}`}>
-                      {t("schedules.slotNumber", { index: s.index + 1, defaultValue: s.label })} · {s.time}
-                    </span>
-                  ))}
+                <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30">
+                  <div className="flex flex-wrap gap-2">
+                    {FIXED_SLOTS.map((s) => (
+                      <span key={s.index} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${SLOT_COLORS[s.index]}`}>
+                        {t("schedules.slotNumber", { index: s.index + 1, defaultValue: s.label })} · {s.time}
+                      </span>
+                    ))}
+                  </div>
+
+                  {type === "student" && (
+                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                      <span className="font-semibold text-gray-600 dark:text-gray-300">{t("attendance.legendLabel", { defaultValue: "Điểm danh:" })}</span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-medium bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-300 dark:border-emerald-800">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> {t("attendance.statusPresent", { defaultValue: "Có mặt" })}
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-medium bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/20 dark:text-rose-300 dark:border-rose-800">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span> {t("attendance.statusAbsent", { defaultValue: "Vắng mặt" })}
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-medium bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-300 dark:border-amber-800">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> {t("attendance.statusLate", { defaultValue: "Đi muộn" })}
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-medium bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/20 dark:text-sky-300 dark:border-sky-800">
+                        <span className="w-1.5 h-1.5 rounded-full bg-sky-500"></span> {t("attendance.statusExcused", { defaultValue: "Có phép" })}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="p-4">
-                  <WeekGrid events={events} weekStart={weekStart} onEventClick={handleEventClick} />
+                  <WeekGrid events={events} weekStart={weekStart} onEventClick={handleEventClick} type={type} />
                 </div>
               </>
             ) : (
@@ -340,7 +433,7 @@ export default function PersonalScheduleCalendar({ type, studentId }: PersonalSc
             <div className="border-b border-gray-100 dark:border-gray-800 pb-4">
               <div className="flex items-center justify-between gap-3">
                 <h5 className="font-bold text-gray-900 dark:text-white text-lg sm:text-xl">
-                  {t("schedules.sessionDetails", { defaultValue: "Chi Tiết Buổi Học" })} {selectedEvent.lessonNo}
+                  {t("schedules.sessionTitle", { lessonNo: selectedEvent.lessonNo, defaultValue: `Chi Tiết Buổi Học ${selectedEvent.lessonNo}` })}
                 </h5>
                 <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${getStatus(selectedEvent.status, t).color}`}>
                   {getStatus(selectedEvent.status, t).text}
@@ -371,6 +464,23 @@ export default function PersonalScheduleCalendar({ type, studentId }: PersonalSc
                 </div>
               ))}
 
+              {type === "student" && (
+                <div className="flex items-start gap-3.5">
+                  <div className="mt-0.5 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-500">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <span className="block text-xs text-gray-400 font-semibold uppercase">{t("schedules.attendanceStatusLabel", { defaultValue: "Trạng thái điểm danh" })}</span>
+                    <span className={`inline-flex items-center gap-1.5 mt-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${getAttendanceStatus(selectedEvent.attendanceStatus, t).badgeClass}`}>
+                      <span className={`w-2 h-2 rounded-full ${getAttendanceStatus(selectedEvent.attendanceStatus, t).dotClass}`}></span>
+                      {getAttendanceStatus(selectedEvent.attendanceStatus, t).text}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {selectedEvent.note && (
                 <div className="flex items-start gap-3.5">
                   <div className="mt-0.5 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-500">
@@ -390,7 +500,7 @@ export default function PersonalScheduleCalendar({ type, studentId }: PersonalSc
 
             <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-100 dark:border-gray-800">
               <button onClick={closeModal} type="button"
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-750 transition-colors">
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-850 dark:border-gray-700 dark:hover:bg-gray-750 transition-colors">
                 {t("schedules.btnClose", { defaultValue: "Đóng" })}
               </button>
             </div>
