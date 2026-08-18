@@ -380,9 +380,6 @@ export function ExamTable() {
               <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-28 text-theme-sm">
                 {t("exam.colQuestions")}
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-20 text-theme-sm">
-                {t("exam.colPoint")}
-              </TableCell>
               <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-32 text-theme-sm">
                 {t("exam.colDuration")}
               </TableCell>
@@ -424,7 +421,7 @@ export function ExamTable() {
             ) : error ? (
               <TableRow>
                 <TableCell
-                  colSpan={activeTab === "in-use" ? 8 : 7}
+                  colSpan={activeTab === "in-use" ? 7 : 6}
                   className="px-6 py-10 text-center text-error-500 dark:text-error-400 font-medium"
                 >
                   {error}
@@ -433,7 +430,7 @@ export function ExamTable() {
             ) : items.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={activeTab === "in-use" ? 8 : 7}
+                  colSpan={activeTab === "in-use" ? 7 : 6}
                   className="px-6 py-10 text-center text-gray-500 dark:text-gray-400"
                 >
                   {t("exam.noResults")}
@@ -476,11 +473,6 @@ export function ExamTable() {
                     <span className="inline-flex items-center justify-center px-2.5 py-0.5 text-xs font-semibold rounded-full bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400">
                       {item.questionCount}
                     </span>
-                  </TableCell>
-
-                  {/* Total Score */}
-                  <TableCell className="px-6 py-4 text-center text-sm font-semibold text-gray-800 dark:text-gray-200">
-                    {item.totalScore || 10}
                   </TableCell>
 
                   {/* Duration */}

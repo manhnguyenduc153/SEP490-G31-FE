@@ -292,13 +292,10 @@ export function TeacherExamTable() {
               <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-28 text-theme-sm">
                 {t("exam.colQuestions")}
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-20 text-theme-sm">
-                {t("exam.colPoint")}
-              </TableCell>
               <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-32 text-theme-sm">
                 {t("exam.colDuration")}
               </TableCell>
-              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-36 text-theme-sm">
+              <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-56 text-theme-sm">
                 {t("exam.colStatus")}
               </TableCell>
               <TableCell isHeader className="px-6 py-4 text-center font-semibold text-gray-800 dark:text-gray-200 w-28 text-theme-sm">
@@ -331,7 +328,7 @@ export function TeacherExamTable() {
             ) : error ? (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={7}
                   className="px-6 py-10 text-center text-error-500 dark:text-error-400 font-medium"
                 >
                   {error}
@@ -340,7 +337,7 @@ export function TeacherExamTable() {
             ) : items.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={7}
                   className="px-6 py-10 text-center text-gray-500 dark:text-gray-400"
                 >
                   {t("teachingExam.noResults", { defaultValue: "Không có bài kiểm tra nào cho lớp bạn đang dạy." })}
@@ -385,32 +382,47 @@ export function TeacherExamTable() {
                     </span>
                   </TableCell>
 
-                  {/* Total Score */}
-                  <TableCell className="px-6 py-4 text-center text-sm font-semibold text-gray-800 dark:text-gray-200">
-                    {item.totalScore || 10}
-                  </TableCell>
-
                   {/* Duration */}
                   <TableCell className="px-6 py-4 text-center text-sm text-gray-600 dark:text-gray-300">
                     {item.duration ? t("exam.durationLimit", { mins: item.duration }) : t("exam.durationUnlimited")}
                   </TableCell>
 
-                  {/* Status Badge */}
+                  {/* Status — click to toggle Published/Draft, same button-pair pattern as attendance marking */}
                   <TableCell className="px-6 py-4 text-center">
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ${
-                        item.status === 1
-                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
-                          : "bg-yellow-50 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400"
-                      }`}
-                    >
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          item.status === 1 ? "bg-emerald-500" : "bg-yellow-500"
+                    <div className="flex items-center justify-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={item.status === 1}
+                        onClick={() => item.status !== 1 && setPublishTarget(item)}
+                        title={t("exam.publishToggleTooltip", { defaultValue: "Chuyển sang xuất bản" })}
+                        className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all select-none whitespace-nowrap ${
+                          item.status === 1
+                            ? "bg-emerald-500 text-white border-emerald-500 shadow-xs cursor-default"
+                            : "bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-750 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
                         }`}
-                      />
-                      {item.status === 1 ? t("exam.statusPublished") : t("exam.statusDraft")}
-                    </span>
+                      >
+                        {t("exam.statusPublished")}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={item.status !== 1 || item.submissionCount > 0}
+                        onClick={() => item.status === 1 && item.submissionCount === 0 && setPublishTarget(item)}
+                        title={
+                          item.status === 1 && item.submissionCount > 0
+                            ? t("exam.publishedLockedTooltip", { defaultValue: "Đã có lượt làm bài — không thể chuyển lại bản nháp" })
+                            : t("exam.unpublishToggleTooltip", { defaultValue: "Chuyển về bản nháp" })
+                        }
+                        className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all select-none whitespace-nowrap ${
+                          item.status !== 1
+                            ? "bg-yellow-500 text-white border-yellow-500 shadow-xs cursor-default"
+                            : item.submissionCount > 0
+                            ? "bg-white dark:bg-gray-900 text-gray-300 dark:text-gray-600 border-gray-200 dark:border-gray-750 cursor-not-allowed opacity-60"
+                            : "bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-750 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                        }`}
+                      >
+                        {t("exam.statusDraft")}
+                      </button>
+                    </div>
                   </TableCell>
 
                   {/* Submission Count */}
@@ -430,33 +442,6 @@ export function TeacherExamTable() {
                         className="p-1.5 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 rounded-md hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
                       >
                         <Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        disabled={item.status === 1 && item.submissionCount > 0}
-                        onClick={() =>
-                          (item.status !== 1 || item.submissionCount === 0) && setPublishTarget(item)
-                        }
-                        title={
-                          item.status === 1
-                            ? item.submissionCount > 0
-                              ? t("exam.publishedLockedTooltip", { defaultValue: "Đã có lượt làm bài — không thể chuyển lại bản nháp" })
-                              : t("exam.unpublishToggleTooltip", { defaultValue: "Chuyển về bản nháp" })
-                            : t("exam.publishToggleTooltip", { defaultValue: "Chuyển sang xuất bản" })
-                        }
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full shrink-0 transition-colors ${
-                          item.status === 1
-                            ? item.submissionCount > 0
-                              ? "bg-brand-500 cursor-not-allowed opacity-80"
-                              : "bg-brand-500 cursor-pointer hover:bg-brand-600"
-                            : "bg-gray-200 dark:bg-white/10 cursor-pointer hover:bg-gray-300 dark:hover:bg-white/20"
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-theme-sm transition-transform ${
-                            item.status === 1 ? "translate-x-5" : "translate-x-0.5"
-                          }`}
-                        />
                       </button>
                     </div>
                   </TableCell>

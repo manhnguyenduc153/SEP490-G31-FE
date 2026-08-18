@@ -120,7 +120,6 @@ export default function MyScoresPage() {
                               <th className="px-4 py-3 text-left">{t("class.gradeComponentName", { defaultValue: "Component" })}</th>
                               <th className="px-4 py-3 text-center">{t("class.gradeWeight", { defaultValue: "Weight (%)" })}</th>
                               <th className="px-4 py-3 text-center">{t("studentScores.finalScore", { defaultValue: "Final score" })}</th>
-                              <th className="px-4 py-3 text-center">{t("studentScores.band", { defaultValue: "IELTS Band" })}</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -133,15 +132,6 @@ export default function MyScoresPage() {
                                     {Number(component.score).toFixed(1)}
                                   </span>
                                 </td>
-                                <td className="px-4 py-3 text-center">
-                                  {component.band != null ? (
-                                    <span className="inline-flex min-w-14 items-center justify-center rounded border border-brand-200/60 bg-brand-50 px-2.5 py-1 text-xs font-bold text-brand-600 dark:border-brand-500/20 dark:bg-brand-500/10 dark:text-brand-400">
-                                      {Number(component.band).toFixed(1)}
-                                    </span>
-                                  ) : (
-                                    <span className="text-gray-400">—</span>
-                                  )}
-                                </td>
                               </tr>
                             ))}
                             <tr className="bg-gray-50/80 font-bold dark:bg-gray-800/40">
@@ -152,7 +142,6 @@ export default function MyScoresPage() {
                                   {Number(item.averageScore).toFixed(1)}
                                 </span>
                               </td>
-                              <td className="px-4 py-3 text-center text-gray-400">—</td>
                             </tr>
                           </tbody>
                         </table>
