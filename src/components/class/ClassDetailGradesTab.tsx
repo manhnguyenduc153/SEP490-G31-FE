@@ -32,6 +32,11 @@ interface ScoreRule {
 
 const round1 = (value: number) => Math.round(value * 10) / 10;
 
+const roundBand = (value: number) => {
+  const clamped = Math.max(0, Math.min(9, value));
+  return Math.floor(clamped * 2 + 0.5) / 2;
+};
+
 const componentToRule = (component: GradeComponentDto): ScoreRule => ({
   id: component.code,
   backendId: component.id,
@@ -48,7 +53,7 @@ const calculateAverage = (row: ScoreRow, rules: ScoreRule[]) => {
   const totalWeight = rules.reduce((sum, rule) => sum + Math.max(0, Number(rule.weight) || 0), 0);
   if (totalWeight <= 0) return 0;
   const weightedScore = rules.reduce((sum, rule) => sum + (row.componentScores[rule.id] ?? 0) * Math.max(0, Number(rule.weight) || 0), 0);
-  return round1(weightedScore / totalWeight);
+  return roundBand(weightedScore / totalWeight);
 };
 
 const buildOverrideMap = (overrides: { studentId: number; componentCode: string; score: number }[]): ScoreOverrideMap => {
@@ -167,7 +172,7 @@ export default function ClassDetailGradesTab({
     if (!classId) return;
     const invalidScore = Object.values(overrides).some((componentScores) =>
       (Object.values(componentScores) as Array<number | undefined>).some((score) =>
-        score !== undefined && (!Number.isFinite(score) || score < 0 || score > 10)
+        score !== undefined && (!Number.isFinite(score) || score < 0 || score > 9)
       )
     );
     if (invalidScore) {
@@ -280,10 +285,10 @@ export default function ClassDetailGradesTab({
           rules.forEach((rule) => {
             const score = Number(item[rule.name] ?? item[rule.id]);
             if (!Number.isNaN(score)) {
-              if (score < 0 || score > 10) {
+              if (score < 0 || score > 9) {
                 hasInvalidScore = true;
               } else {
-                nextOverrides[matchedRow.studentId][rule.id] = score;
+                nextOverrides[matchedRow.studentId][rule.id] = roundBand(score);
               }
             }
           });
@@ -331,8 +336,8 @@ export default function ClassDetailGradesTab({
         type="number"
         inputMode="decimal"
         min={0}
-        max={10}
-        step={0.1}
+        max={9}
+        step={0.25}
         value={inputValue}
         onChange={(event) => updateScore(row.studentId, rule.id, event.target.value)}
         className="mx-auto h-9 w-28 rounded-lg border border-gray-200 bg-white px-2 text-center text-sm font-semibold text-gray-800 outline-none [appearance:textfield] focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
