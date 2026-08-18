@@ -121,6 +121,73 @@ export interface AutoScheduleConstraintDto {
   roomIds?: number[];
 }
 
+// ── Schedule reliability report (returned alongside the semester auto-schedule draft) ──────
+// "reasonCode" maps to backendMessages.unscheduledReasons.<code> for localization.
+export interface UnscheduledStudent {
+  studentId: number;
+  studentName: string;
+  courseId: number;
+  courseName: string;
+  reasonCode: string;
+}
+
+export interface ScheduleCoverage {
+  totalRequested: number;
+  totalScheduled: number;
+  scheduledRatePercent: number;
+  unscheduledStudents: UnscheduledStudent[];
+}
+
+export interface HardConstraintCheck {
+  name: string;
+  violationCount: number;
+  violationDetails: string[];
+}
+
+export interface SoftMetric {
+  name: string;
+  displayValue: string;
+  status: "Good" | "Warning" | "Bad" | string;
+  details: string[];
+}
+
+export interface ClassSizeExtreme {
+  classCode: string;
+  className: string;
+  size: number;
+}
+
+export interface ScheduleDescriptiveStats {
+  classesByGradeBand: Record<string, number>;
+  teachersByGradeBandInUse: Record<string, number>;
+  avgClassSize: number;
+  largestClass?: ClassSizeExtreme | null;
+  smallestClass?: ClassSizeExtreme | null;
+  avgRoomCapacity?: number | null;
+  avgRoomFillRatePercent?: number | null;
+}
+
+export interface ScheduleReliabilityReport {
+  solverStatus: string;
+  isProvenOptimal: boolean;
+  coverage: ScheduleCoverage;
+  hardConstraintChecks: HardConstraintCheck[];
+  softMetrics: SoftMetric[];
+  descriptiveStats: ScheduleDescriptiveStats;
+}
+
+// "code" maps to backendMessages.infeasibilityReasons.<code>; "params" are interpolation values for it.
+export interface InfeasibilityReason {
+  code: string;
+  params: Record<string, string>;
+}
+
+export interface AutoScheduleSemesterResult {
+  classes: ClassItem[];
+  reliability: ScheduleReliabilityReport;
+  infeasibilityReasons?: InfeasibilityReason[] | null;
+}
+
 export const classApi = {
   async getAll(
     pageIndex: number,
@@ -227,8 +294,8 @@ export const classApi = {
     maxClassSize: number;
     minClassSize: number;
     constraints: AutoScheduleConstraintDto;
-  }): Promise<ApiResponse<ClassItem[]>> {
-    return api.post<ClassItem[]>(ENDPOINTS.SEMESTER.AUTO_SCHEDULE_SEMESTER, dto);
+  }): Promise<ApiResponse<AutoScheduleSemesterResult>> {
+    return api.post<AutoScheduleSemesterResult>(ENDPOINTS.SEMESTER.AUTO_SCHEDULE_SEMESTER, dto);
   },
 
   async saveScheduleDraft(dto: {

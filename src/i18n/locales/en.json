@@ -898,6 +898,7 @@
     "btnStartScheduling": "Start Scheduling",
     "errAutoScheduleConflict": "Auto scheduling failed due to constraint conflicts or teacher busy schedules.",
     "successAutoSchedule": "Auto scheduling completed successfully!",
+    "toastSelectSemester": "Please select a semester.",
     "availabilitySelectTeacherLabel": "Select Teacher:",
     "availabilityLoadingTeachers": "Loading list...",
     "availabilitySelectPrompt": "Please select a teacher to view and configure their availability.",
@@ -2496,6 +2497,18 @@
     "ERR_NO_ACTIVE_ROOMS": "No active rooms found in the system!",
     "ERR_NO_TIMESLOTS": "No timeslots found in the system!",
     "ERR_NO_FEASIBLE_SCHEDULE_FOUND": "Could not find a feasible schedule (please add more rooms, teachers, or timeslots)!",
+    "ERR_SCHEDULE_INFEASIBLE": "Could not find a feasible schedule:",
+    "infeasibilityReasons": {
+      "ROOM_CAPACITY_INSUFFICIENT": "Course '{{courseName}}': no room has enough capacity for {{classSize}} students (largest room: {{maxRoomCapacity}}).",
+      "TEACHER_NO_AVAILABILITY": "Course '{{courseName}}': no teacher is available for Slot {{slotNumber}} on the class's preferred days ({{days}}).",
+      "ROOM_SLOT_CAPACITY_EXCEEDED": "The total sessions to schedule ({{totalSessions}}) exceed the total available room capacity ({{totalRoomSlots}} slots). Please add more rooms or allow more days/slots.",
+      "TEACHER_SLOT_CAPACITY_INSUFFICIENT": "The total sessions teachers can teach ({{totalTeacherSlots}}) is less than the total sessions to schedule ({{totalSessions}}). Please add more teachers or widen the allowed days/slots.",
+      "GENERIC_INFEASIBLE": "No feasible schedule found due to conflicting constraints between teacher/room availability or day-spacing rules."
+    },
+    "unscheduledReasons": {
+      "NO_GROUP_CLASS": "Not enough students to meet the minimum class size for this course/enrollment type.",
+      "TIME_MISMATCH": "Could not be grouped into any class because the preferred time/days didn't overlap enough with other students in the course."
+    },
     "AUTO_SCHEDULING_SEMESTER_DRAFT_GENERATED": "Auto-scheduled semester draft generated successfully!",
     "SCHEDULE_DRAFT_SAVED": "Semester schedule draft saved successfully!",
     "ERR_NO_PENDING_REGISTRATIONS_FOUND": "No pending student registrations found in this semester.",
@@ -3176,7 +3189,28 @@
     "toastSaveDraftError": "Cannot save the base schedule.",
     "toastSaveDraftSystemError": "System error occurred while saving the schedule.",
     "teacherConflictWarning": "Teacher {{teacher}} is already scheduled for {{slot}} on {{date}}!",
-    "roomConflictWarning": "Room {{room}} is already in use during {{slot}} on {{date}}!"
+    "roomConflictWarning": "Room {{room}} is already in use during {{slot}} on {{date}}!",
+    "toastDraftGenerateError": "Scheduling failed due to constraint conflicts or teacher busy schedules.",
+    "toastDraftSystemError": "A system error occurred while auto-scheduling.",
+    "reliability": {
+      "viewReport": "Schedule reliability report",
+      "optimal": "Optimal",
+      "nearOptimal": "Near-optimal",
+      "studentsPlacedShort": "students placed",
+      "studentsPlaced": "students placed into classes",
+      "noViolations": "0 hard-constraint violations",
+      "violationsFound": "{{count}} hard-constraint violations",
+      "solverStatusOptimal": "The algorithm has proven this is the best possible plan given the constraints.",
+      "solverStatusFeasible": "This is a good feasible plan; the algorithm stopped due to the time limit, so it may not be strictly optimal.",
+      "avgClassSize": "Average class size",
+      "avgRoomFillRate": "Avg. room fill rate",
+      "largestClass": "Largest class",
+      "smallestClass": "Smallest class",
+      "classesByBand": "Classes by band",
+      "teachersByBand": "Teachers by band",
+      "bandNoneRequired": "No band required",
+      "bandUnspecified": "Band unspecified"
+    }
   },
   "questionBank": {
     "title": "Question Bank & Passages",

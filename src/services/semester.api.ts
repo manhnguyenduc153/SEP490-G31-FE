@@ -1,5 +1,6 @@
 import { api, ApiResponse } from "./api";
 import { ENDPOINTS } from "@/constants/endpoints";
+import type { AutoScheduleSemesterResult } from "./class.api";
 
 export interface SemesterItem {
   id: number;
@@ -186,7 +187,7 @@ export const semesterApi = {
     return api.post<boolean>(`/api/Semester/registrations/bulk-delete`, ids);
   },
 
-  async autoScheduleSemester(dto: AutoScheduleSemesterRequestDto): Promise<ApiResponse<any>> {
-    return api.post<any>(ENDPOINTS.SEMESTER.AUTO_SCHEDULE_SEMESTER, dto);
+  async autoScheduleSemester(dto: AutoScheduleSemesterRequestDto): Promise<ApiResponse<AutoScheduleSemesterResult>> {
+    return api.post<AutoScheduleSemesterResult>(ENDPOINTS.SEMESTER.AUTO_SCHEDULE_SEMESTER, dto);
   },
 };
