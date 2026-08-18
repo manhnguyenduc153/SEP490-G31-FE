@@ -129,6 +129,9 @@ export const ENDPOINTS = {
     CLASSES: "/api/Common/classes",
     ACCESSIBLE_CLASSES: "/api/Common/classes/accessible",
     QUESTION_CATEGORIES: "/api/Common/question-categories",
+    AVAILABLE_TEACHERS: "/api/Common/teachers/available",
+    AVAILABLE_ROOMS: "/api/Common/rooms/available",
+    UPDATE_SCHEDULE_SLOT: (id: number) => `/api/Common/schedules/${id}`,
   },
 };
 
