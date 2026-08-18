@@ -76,6 +76,7 @@ export interface MyGradeComponentScoreDto {
   score: number;
   rawScore: number;
   isOverride: boolean;
+  band?: number | null; // average IELTS band across exams of this skill, when computable
 }
 
 export interface MyGradeHomeworkDto {
@@ -92,6 +93,7 @@ export interface MyGradeExamDto {
   totalScore: number;
   score?: number | null;
   normalizedScore?: number | null;
+  band?: number | null; // IELTS band for this exam, when computable
 }
 
 export interface MyGradeClassDto {
