@@ -68,6 +68,13 @@ export function StudentExamList({ t }: StudentExamListProps) {
     return matchesKeyword && matchesClass;
   });
 
+  // Listening/Reading/Writing/Speaking exams store their score directly as an IELTS band (0-9),
+  // computed server-side from correct-answer count (L/R) or entered directly by the teacher (W/S).
+  const isBandScoredExam = (exam: ExamItem) => {
+    const skill = exam.skillType;
+    return skill === 1 || skill === 2 || skill === 3 || skill === 4;
+  };
+
   const isAttemptPassed = (exam: ExamItem) => {
     if (exam.latestScore === null || exam.latestScore === undefined) return false;
     return exam.latestScore >= (exam.passingScore || 5);
@@ -218,7 +225,9 @@ export function StudentExamList({ t }: StudentExamListProps) {
                     {exam.submissionCount && exam.submissionCount > 0 ? (
                       exam.isGraded || (exam.latestScore !== null && exam.latestScore !== undefined) ? (
                         <span className={`text-xs font-black ${isAttemptPassed(exam) ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                          {exam.latestScore} / {exam.totalScore || 10} {t("exams.points").toLowerCase()}
+                          {isBandScoredExam(exam)
+                            ? `Band ${exam.latestScore}`
+                            : `${exam.latestScore} / ${exam.totalScore || 10} ${t("exams.points").toLowerCase()}`}
                         </span>
                       ) : (
                         <span className="text-xs font-bold text-amber-600 dark:text-amber-400 font-mono">

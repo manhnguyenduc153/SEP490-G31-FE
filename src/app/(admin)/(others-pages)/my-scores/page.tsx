@@ -6,9 +6,10 @@ import { MyGradeClassDto, studentGradeApi } from "@/services/score.api";
 import { Award, ChevronDown, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+// Thresholds are on the 0-9 band scale now (component/average scores are IELTS bands, not /10).
 const scoreTone = (score: number) => {
-  if (score >= 7) return "bg-emerald-50 text-emerald-600 border-emerald-200/60 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20";
-  if (score >= 5) return "bg-blue-50 text-blue-600 border-blue-200/60 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20";
+  if (score >= 6.5) return "bg-emerald-50 text-emerald-600 border-emerald-200/60 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20";
+  if (score >= 4.5) return "bg-blue-50 text-blue-600 border-blue-200/60 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20";
   return "bg-amber-50 text-amber-600 border-amber-200/60 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20";
 };
 
@@ -119,6 +120,7 @@ export default function MyScoresPage() {
                               <th className="px-4 py-3 text-left">{t("class.gradeComponentName", { defaultValue: "Component" })}</th>
                               <th className="px-4 py-3 text-center">{t("class.gradeWeight", { defaultValue: "Weight (%)" })}</th>
                               <th className="px-4 py-3 text-center">{t("studentScores.finalScore", { defaultValue: "Final score" })}</th>
+                              <th className="px-4 py-3 text-center">{t("studentScores.band", { defaultValue: "IELTS Band" })}</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -131,6 +133,15 @@ export default function MyScoresPage() {
                                     {Number(component.score).toFixed(1)}
                                   </span>
                                 </td>
+                                <td className="px-4 py-3 text-center">
+                                  {component.band != null ? (
+                                    <span className="inline-flex min-w-14 items-center justify-center rounded border border-brand-200/60 bg-brand-50 px-2.5 py-1 text-xs font-bold text-brand-600 dark:border-brand-500/20 dark:bg-brand-500/10 dark:text-brand-400">
+                                      {Number(component.band).toFixed(1)}
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-400">—</span>
+                                  )}
+                                </td>
                               </tr>
                             ))}
                             <tr className="bg-gray-50/80 font-bold dark:bg-gray-800/40">
@@ -141,6 +152,7 @@ export default function MyScoresPage() {
                                   {Number(item.averageScore).toFixed(1)}
                                 </span>
                               </td>
+                              <td className="px-4 py-3 text-center text-gray-400">—</td>
                             </tr>
                           </tbody>
                         </table>

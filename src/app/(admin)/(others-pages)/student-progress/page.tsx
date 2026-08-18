@@ -31,9 +31,10 @@ const formatDate = (val?: string | null) => {
   catch { return val; }
 };
 
+// Thresholds are on the 0-9 band scale now (component/average scores are IELTS bands, not /10).
 const scoreTone = (score: number) => {
-  if (score >= 7) return "bg-emerald-50 text-emerald-600 border-emerald-200/60 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20";
-  if (score >= 5) return "bg-blue-50 text-blue-600 border-blue-200/60 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20";
+  if (score >= 6.5) return "bg-emerald-50 text-emerald-600 border-emerald-200/60 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20";
+  if (score >= 4.5) return "bg-blue-50 text-blue-600 border-blue-200/60 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20";
   return "bg-amber-50 text-amber-600 border-amber-200/60 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20";
 };
 
@@ -155,10 +156,10 @@ export default function StudentProgressPage() {
 
   const scoreBarOptions: ApexOptions = useMemo(() => ({
     chart: { type: "bar", fontFamily: "Outfit, sans-serif", toolbar: { show: false }, background: "transparent" },
-    colors: selectedGrade?.components.map((c) => c.score >= 7 ? "#10b981" : c.score >= 5 ? "#465fff" : "#f59e0b") || ["#465fff"],
+    colors: selectedGrade?.components.map((c) => c.score >= 6.5 ? "#10b981" : c.score >= 4.5 ? "#465fff" : "#f59e0b") || ["#465fff"],
     plotOptions: { bar: { horizontal: true, distributed: true, borderRadius: 6, dataLabels: { position: "right" } } },
-    dataLabels: { enabled: true, formatter: (val: number) => `${Number(val).toFixed(1)}/10`, style: { fontSize: "11px", fontFamily: "Outfit, sans-serif" }, offsetX: 4 },
-    xaxis: { categories: selectedGrade?.components.map((c) => c.componentName) || [], min: 0, max: 10, labels: { style: { fontFamily: "Outfit, sans-serif", fontSize: "11px" } } },
+    dataLabels: { enabled: true, formatter: (val: number) => Number(val).toFixed(1), style: { fontSize: "11px", fontFamily: "Outfit, sans-serif" }, offsetX: 4 },
+    xaxis: { categories: selectedGrade?.components.map((c) => c.componentName) || [], min: 0, max: 9, labels: { style: { fontFamily: "Outfit, sans-serif", fontSize: "11px" } } },
     yaxis: { labels: { style: { fontFamily: "Outfit, sans-serif", fontSize: "12px" } } },
     grid: { borderColor: "#f1f5f9", xaxis: { lines: { show: true } }, yaxis: { lines: { show: false } } },
     legend: { show: false },
@@ -252,9 +253,9 @@ export default function StudentProgressPage() {
               <div className="space-y-4">
               {/* Summary Cards */}
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <StatCard icon={<Award className="w-5 h-5" />} label={t("studentProgress.averageScore", { defaultValue: "Điểm trung bình" })} value={Number(selectedGrade.averageScore).toFixed(1)} sub={t("studentProgress.outOf10", { defaultValue: "/ 10 điểm" })}
-                  colorText={selectedGrade.averageScore >= 7 ? "text-emerald-600 dark:text-emerald-400" : selectedGrade.averageScore >= 5 ? "text-blue-600 dark:text-blue-400" : "text-amber-600 dark:text-amber-400"}
-                  colorBg={selectedGrade.averageScore >= 7 ? "bg-emerald-50 dark:bg-emerald-500/10" : selectedGrade.averageScore >= 5 ? "bg-blue-50 dark:bg-blue-500/10" : "bg-amber-50 dark:bg-amber-500/10"} />
+                <StatCard icon={<Award className="w-5 h-5" />} label={t("studentProgress.averageScore", { defaultValue: "Điểm trung bình" })} value={Number(selectedGrade.averageScore).toFixed(1)} sub={t("studentProgress.outOf10", { defaultValue: "/ 9 (band)" })}
+                  colorText={selectedGrade.averageScore >= 6.5 ? "text-emerald-600 dark:text-emerald-400" : selectedGrade.averageScore >= 4.5 ? "text-blue-600 dark:text-blue-400" : "text-amber-600 dark:text-amber-400"}
+                  colorBg={selectedGrade.averageScore >= 6.5 ? "bg-emerald-50 dark:bg-emerald-500/10" : selectedGrade.averageScore >= 4.5 ? "bg-blue-50 dark:bg-blue-500/10" : "bg-amber-50 dark:bg-amber-500/10"} />
                 <StatCard icon={<CalendarCheck className="w-5 h-5" />} label={t("studentProgress.attendance", { defaultValue: "Chuyên cần" })} value={isLoadingAtt ? "..." : `${attStats.rate}%`} sub={isLoadingAtt ? "" : `${attStats.present}/${sessions.length} ${t("studentProgress.sessionsPresent", { defaultValue: "buổi có mặt" })}`}
                   colorText={attStats.rate >= 80 ? "text-emerald-600 dark:text-emerald-400" : attStats.rate >= 60 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400"}
                   colorBg={attStats.rate >= 80 ? "bg-emerald-50 dark:bg-emerald-500/10" : attStats.rate >= 60 ? "bg-amber-50 dark:bg-amber-500/10" : "bg-rose-50 dark:bg-rose-500/10"} />

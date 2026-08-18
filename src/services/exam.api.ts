@@ -28,6 +28,7 @@ export interface ExamItem {
   submissionCount: number;
   latestScore?: number | null;
   isGraded?: boolean;
+  skillType?: number | null; // 1=Listening 2=Reading 3=Speaking 4=Writing when single-skill; drives band display
   questionIds: number[];
   questions?: QuestionItem[];
 }
@@ -187,6 +188,7 @@ export interface ExamAttemptDto {
   startTime: string;
   submitTime?: string | null;
   score?: number | null;
+  band?: number | null; // IELTS band (0-9); null when the exam isn't band-eligible
   status: number; // 1 = In Progress, 2 = Submitted
   duration?: number | null;
   tabExitsCount?: number;
