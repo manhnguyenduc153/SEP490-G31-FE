@@ -930,20 +930,28 @@ function EditSlotModal({ isOpen, onClose, event, rooms, classes, onSave, saving 
 
   const roomOptions: { value: string; label: string }[] = [];
 
+  const currentSuffix = t("classSchedules.currentSuffix", { defaultValue: " (Hiện tại)" });
+
   if (selectedRoomId && !availableRooms.some(r => r.id === selectedRoomId)) {
     const currentRoom = rooms.find(r => r.id === selectedRoomId);
     if (currentRoom) {
+      const floorStr = currentRoom.floor ? ` - ${t("classSchedules.floorLevel", { floor: currentRoom.floor, defaultValue: `T${currentRoom.floor}` })}` : "";
+      const bldgStr = currentRoom.building ? ` (${currentRoom.building}${floorStr})` : "";
+      const capStr = currentRoom.capacity ? ` · ${t("classSchedules.capacitySeats", { count: currentRoom.capacity, defaultValue: `${currentRoom.capacity} chỗ` })}` : "";
       roomOptions.push({
         value: String(currentRoom.id),
-        label: `${currentRoom.name}${currentRoom.building ? ` (${currentRoom.building}${currentRoom.floor ? ` - T${currentRoom.floor}` : ""})` : ""}${currentRoom.capacity ? ` · ${currentRoom.capacity} chỗ` : ""} (Hiện tại)`,
+        label: `${currentRoom.name}${bldgStr}${capStr}${currentSuffix}`,
       });
     }
   }
 
   availableRooms.forEach(r => {
+    const floorStr = r.floor ? ` - ${t("classSchedules.floorLevel", { floor: r.floor, defaultValue: `T${r.floor}` })}` : "";
+    const bldgStr = r.building ? ` (${r.building}${floorStr})` : "";
+    const capStr = r.capacity ? ` · ${t("classSchedules.capacitySeats", { count: r.capacity, defaultValue: `${r.capacity} chỗ` })}` : "";
     roomOptions.push({
       value: String(r.id),
-      label: `${r.name}${r.building ? ` (${r.building}${r.floor ? ` - T${r.floor}` : ""})` : ""}${r.capacity ? ` · ${r.capacity} chỗ` : ""}`,
+      label: `${r.name}${bldgStr}${capStr}`,
     });
   });
 
@@ -952,14 +960,15 @@ function EditSlotModal({ isOpen, onClose, event, rooms, classes, onSave, saving 
   if (selectedTeacherId && !availableTeachers.some(t => t.id === selectedTeacherId)) {
     teacherOptions.push({
       value: String(selectedTeacherId),
-      label: `${event.teacherName} (Hiện tại)`,
+      label: `${event.teacherName}${currentSuffix}`,
     });
   }
 
   availableTeachers.forEach(tea => {
+    const bandStr = tea.gradeLevelName ? ` · ${t("classSchedules.bandLevel", { band: tea.gradeLevelName, defaultValue: `Band ${tea.gradeLevelName}` })}` : "";
     teacherOptions.push({
       value: String(tea.id),
-      label: `${tea.name} (${tea.code})${tea.gradeLevelName ? ` · Band ${tea.gradeLevelName}` : ""}`,
+      label: `${tea.name} (${tea.code})${bandStr}`,
     });
   });
 
@@ -975,7 +984,7 @@ function EditSlotModal({ isOpen, onClose, event, rooms, classes, onSave, saving 
       setAttemptedSubmit(true);
       return;
     }
-    const roomName = isOnline ? "Online" : (selectedRoom?.name ?? event.roomName);
+    const roomName = isOnline ? t("classSchedules.onlineNoRoom", { defaultValue: "Online" }) : (selectedRoom?.name ?? event.roomName);
     const teacherName = selectedTeacher?.name ?? event.teacherName;
     onSave(
       event,
@@ -997,6 +1006,7 @@ function EditSlotModal({ isOpen, onClose, event, rooms, classes, onSave, saving 
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             {t("classSchedules.editRoomSubtitle", {
               classCode: event.classCode,
+              className: event.className,
               defaultValue: `Lớp: ${event.classCode} — ${event.className}`
             })}
           </p>
@@ -1035,7 +1045,7 @@ function EditSlotModal({ isOpen, onClose, event, rooms, classes, onSave, saving 
             </span>
             {loadingRooms && !isOnline && (
               <span className="text-xs text-violet-500 flex items-center gap-1 font-normal">
-                <Loader2 className="w-3 h-3 animate-spin" /> Đang tải phòng phù hợp...
+                <Loader2 className="w-3 h-3 animate-spin" /> {t("classSchedules.loadingSuitableRooms", { defaultValue: "Đang tải phòng phù hợp..." })}
               </span>
             )}
           </label>
@@ -1063,8 +1073,8 @@ function EditSlotModal({ isOpen, onClose, event, rooms, classes, onSave, saving 
               )}
               {selectedRoom && (
                 <p className="text-xs text-violet-600 dark:text-violet-400">
-                  {selectedRoom.building && `${selectedRoom.building}${selectedRoom.floor ? ` · Tầng ${selectedRoom.floor}` : ""} · `}
-                  {selectedRoom.capacity ? `${selectedRoom.capacity} chỗ ngồi` : ""}
+                  {selectedRoom.building && `${selectedRoom.building}${selectedRoom.floor ? ` · ${t("classSchedules.floorLevel", { floor: selectedRoom.floor, defaultValue: `Tầng ${selectedRoom.floor}` })}` : ""} · `}
+                  {selectedRoom.capacity ? t("classSchedules.capacitySeats", { count: selectedRoom.capacity, defaultValue: `${selectedRoom.capacity} chỗ ngồi` }) : ""}
                 </p>
               )}
             </>
@@ -1078,7 +1088,7 @@ function EditSlotModal({ isOpen, onClose, event, rooms, classes, onSave, saving 
             </span>
             {loadingTeachers && (
               <span className="text-xs text-violet-500 flex items-center gap-1 font-normal">
-                <Loader2 className="w-3 h-3 animate-spin" /> Đang tải GV thỏa mãn...
+                <Loader2 className="w-3 h-3 animate-spin" /> {t("classSchedules.loadingSuitableTeachers", { defaultValue: "Đang tải GV thỏa mãn..." })}
               </span>
             )}
           </label>
@@ -1098,7 +1108,7 @@ function EditSlotModal({ isOpen, onClose, event, rooms, classes, onSave, saving 
             </p>
           )}
           <p className="text-[11px] text-gray-500 dark:text-gray-400">
-            * Danh sách chỉ hiển thị các giáo viên rảnh vào ca này và đạt band yêu cầu của khóa học.
+            {t("classSchedules.teacherFilterHint", { defaultValue: "* Danh sách chỉ hiển thị các giáo viên rảnh vào ca này và đạt band yêu cầu của khóa học." })}
           </p>
         </div>
 
@@ -2677,7 +2687,7 @@ export default function ClassScheduleCalendar() {
                   {
                     icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z",
                     label: t("classSchedules.studentCountLabel", { defaultValue: "Số lượng học viên" }),
-                    value: `${studentCount} học viên`,
+                    value: t("classSchedules.studentCountUnit", { count: studentCount, defaultValue: `${studentCount} học viên` }),
                   },
                   {
                     icon: "M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z",
