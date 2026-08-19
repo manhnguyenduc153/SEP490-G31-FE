@@ -29,8 +29,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi">
-      <body className={`${inter.className} dark:bg-gray-900`}>
+    <html lang="vi" suppressHydrationWarning>
+      <body className={`${inter.className} dark:bg-gray-900`} suppressHydrationWarning>
         <NextTopLoader color="#465fff" showSpinner={false} height={3} />
         <I18nProvider>
           <ThemeProvider>

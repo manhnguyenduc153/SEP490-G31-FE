@@ -2503,9 +2503,15 @@
     "ERR_SCHEDULE_INFEASIBLE": "Could not find a feasible schedule:",
     "infeasibilityReasons": {
       "ROOM_CAPACITY_INSUFFICIENT": "Course '{{courseName}}': no room has enough capacity for {{classSize}} students (largest room: {{maxRoomCapacity}}).",
+      "TEACHER_BAND_INSUFFICIENT": "Course '{{courseName}}': requires teachers with at least Band {{requiredBand}}, but no active teacher currently holds this qualification.",
       "TEACHER_NO_AVAILABILITY": "Course '{{courseName}}': no teacher is available for Slot {{slotNumber}} on the class's preferred days ({{days}}).",
+      "TEACHER_NO_QUALIFIED_AVAILABILITY": "Course '{{courseName}}': no qualified teacher (Band {{requiredBand}}) is available for Slot {{slotNumber}} on the requested days ({{days}}).",
+      "TEACHER_OVERLOAD_IN_SLOT": "Time slot Slot {{slotNumber}} ({{dayName}}): requires {{requiredTeachers}} teachers, but only {{availableTeachers}} available teachers are free in this slot.",
+      "ROOM_OVERLOAD_IN_SLOT": "Time slot Slot {{slotNumber}} ({{dayName}}): {{offlineClasses}} offline classes need rooms, but only {{availableRooms}} classrooms are available.",
+      "NOT_ENOUGH_DAYS_FOR_FREQUENCY": "Course '{{courseName}}': students only specified {{availableDaysCount}} valid days, which is not enough to schedule {{freq}} sessions/week.",
       "ROOM_SLOT_CAPACITY_EXCEEDED": "The total sessions to schedule ({{totalSessions}}) exceed the total available room capacity ({{totalRoomSlots}} slots). Please add more rooms or allow more days/slots.",
       "TEACHER_SLOT_CAPACITY_INSUFFICIENT": "The total sessions teachers can teach ({{totalTeacherSlots}}) is less than the total sessions to schedule ({{totalSessions}}). Please add more teachers or widen the allowed days/slots.",
+      "NO_STUDENTS_TO_SCHEDULE": "No classes could be formed from student registrations (insufficient minimum class size or conflicting schedules).",
       "GENERIC_INFEASIBLE": "No feasible schedule found due to conflicting constraints between teacher/room availability or day-spacing rules."
     },
     "unscheduledReasons": {
@@ -3255,6 +3261,17 @@
     "classStatusLabel": "Class Status",
     "toastSlotSaveSuccess": "Updated session for class {{classCode}} successfully!",
     "toastSlotDraftSuccess": "Updated session (draft) successfully!",
+    "moveModeTitle": "Reschedule Options",
+    "selectMoveScopePrompt": "How would you like to apply this schedule change?",
+    "moveSingleSlot": "Move this session only",
+    "moveSingleSlotDesc": "Only moves this single session on the selected date. All other sessions remain unchanged.",
+    "moveAllSlots": "All sessions in this slot (Entire Semester)",
+    "moveAllSlotsDesc": "Changes the recurring weekly schedule for the entire semester from the old slot to the new slot.",
+    "toastMoveSingleSuccess": "Rescheduled session for class {{classCode}} to {{slot}} on {{date}}!",
+    "softConflictTitle": "Student Preference Warning",
+    "softConflictSubtitle": "There are {{count}} students whose preferred schedule does not match this new slot.",
+    "softConflictExplanation": "The students listed below registered with different preferred days/slots. You can still proceed if you accept this change.",
+    "confirmOverride": "Override Warning & Save",
     "reliability": {
       "viewReport": "Schedule reliability report",
       "optimal": "Optimal",
@@ -3303,5 +3320,31 @@
       "homeworkCreated": "You have a new homework assignment: '{{homeworkTitle}}' in class {{className}}.",
       "upcomingClass": "Class {{className}} {{classCode}} has been scheduled."
     }
+  },
+  "semester": {
+    "autoScheduleTitle": "Auto Schedule Semester",
+    "targetSemester": "Target Semester:",
+    "autoScheduleRunningSubtitle": "Optimizing schedules with constraint solver...",
+    "autoScheduleStep1": "Loading student registration preferences...",
+    "autoScheduleStep2": "Forming optimal class draft groups...",
+    "autoScheduleStep3": "Solving constraints & assigning timeslots...",
+    "autoScheduleStep4": "Semester draft schedule completed!",
+    "autoScheduleMaxClassSize": "Maximum Class Size",
+    "autoScheduleMinClassSize": "Minimum Class Size",
+    "autoScheduleSessionsPerWeek": "Sessions Per Week",
+    "sessionsPerWeekOption": "{{count}} sessions / week",
+    "autoSchedulePreferences": "Eligible Timeframes",
+    "autoSchedulePrefMorning": "Morning",
+    "autoSchedulePrefAfternoon": "Afternoon",
+    "autoSchedulePrefEvening": "Evening",
+    "autoScheduleWeekend": "Allow scheduling on weekends (Saturday, Sunday)",
+    "autoScheduleTeachers": "Select Teachers for Scheduling",
+    "autoScheduleRooms": "Select Classrooms for Scheduling",
+    "btnCancel": "Cancel",
+    "btnStartScheduling": "Start Auto Scheduling",
+    "successAutoSchedule": "Auto-schedule semester draft generated successfully!",
+    "errAutoScheduleConflict": "Scheduling failed due to constraint conflicts or teacher unavailability.",
+    "errAutoScheduleInfeasibleSummary": "Scheduling failed due to violated constraints. Please review the detailed error list below.",
+    "infeasibleReasonsTitle": "Constraint Violations Found:"
   }
 }

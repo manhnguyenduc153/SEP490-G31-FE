@@ -2490,9 +2490,15 @@
     "ERR_SCHEDULE_INFEASIBLE": "Không thể tìm được phương án xếp lịch khả thi:",
     "infeasibilityReasons": {
       "ROOM_CAPACITY_INSUFFICIENT": "Khóa học '{{courseName}}': không có phòng học nào có sức chứa đủ cho sĩ số {{classSize}} (phòng lớn nhất: {{maxRoomCapacity}}).",
+      "TEACHER_BAND_INSUFFICIENT": "Khóa học '{{courseName}}': yêu cầu giáo viên tối thiểu đạt trình độ Band {{requiredBand}}, nhưng trung tâm hiện không có giáo viên nào đạt trình độ này.",
       "TEACHER_NO_AVAILABILITY": "Khóa học '{{courseName}}': không có giáo viên nào có lịch rảnh vào Ca {{slotNumber}} trong các ngày mong muốn của lớp ({{days}}).",
+      "TEACHER_NO_QUALIFIED_AVAILABILITY": "Khóa học '{{courseName}}': không có giáo viên đủ trình độ (Band {{requiredBand}}) rảnh vào Ca {{slotNumber}} trong các ngày mong muốn ({{days}}).",
+      "TEACHER_OVERLOAD_IN_SLOT": "Khung giờ Ca {{slotNumber}} ({{dayName}}): cần {{requiredTeachers}} giáo viên nhưng chỉ có {{availableTeachers}} giáo viên khả dụng rảnh vào ca này.",
+      "ROOM_OVERLOAD_IN_SLOT": "Khung giờ Ca {{slotNumber}} ({{dayName}}): có {{offlineClasses}} lớp học trực tiếp cần phòng nhưng chỉ có {{availableRooms}} phòng học khả dụng.",
+      "NOT_ENOUGH_DAYS_FOR_FREQUENCY": "Khóa học '{{courseName}}': học viên chỉ đăng ký {{availableDaysCount}} ngày hợp lệ, không đủ để xếp lịch học {{freq}} buổi/tuần.",
       "ROOM_SLOT_CAPACITY_EXCEEDED": "Tổng số buổi học cần xếp ({{totalSessions}} buổi) vượt quá tổng công suất phòng học khả dụng ({{totalRoomSlots}} lượt). Vui lòng thêm phòng học hoặc chọn thêm ngày/ca học.",
       "TEACHER_SLOT_CAPACITY_INSUFFICIENT": "Tổng số buổi giáo viên có thể dạy ({{totalTeacherSlots}} buổi) ít hơn tổng số buổi học cần xếp ({{totalSessions}} buổi). Vui lòng thêm giáo viên hoặc mở rộng ca/ngày dạy.",
+      "NO_STUDENTS_TO_SCHEDULE": "Không có nhóm lớp nào được tạo từ danh sách đăng ký học viên (do không đủ sĩ số tối thiểu hoặc không trùng lịch mong muốn).",
       "GENERIC_INFEASIBLE": "Không tìm thấy phương án xếp lịch khả thi do xung đột ràng buộc bận giữa giáo viên, phòng học hoặc các quy định giãn cách ngày học."
     },
     "unscheduledReasons": {
@@ -3252,6 +3258,17 @@
     "classStatusLabel": "Trạng thái lớp học",
     "toastSlotSaveSuccess": "Đã cập nhật buổi học lớp {{classCode}} thành công!",
     "toastSlotDraftSuccess": "Đã cập nhật buổi học (bản nháp) thành công!",
+    "moveModeTitle": "Tùy chọn chuyển lịch",
+    "selectMoveScopePrompt": "Bạn muốn áp dụng thay đổi lịch này như thế nào?",
+    "moveSingleSlot": "Chỉ chuyển buổi học này",
+    "moveSingleSlotDesc": "Chỉ cập nhật duy nhất buổi học vào ngày đã chọn. Các buổi học khác trong kỳ giữ nguyên.",
+    "moveAllSlots": "Tất cả các buổi cùng slot (Cả kỳ)",
+    "moveAllSlotsDesc": "Đổi lịch định kỳ hàng tuần cho toàn bộ học kỳ từ slot cũ sang slot mới.",
+    "toastMoveSingleSuccess": "Đã đổi lịch buổi học lớp {{classCode}} sang {{slot}} ngày {{date}}!",
+    "softConflictTitle": "Cảnh báo nguyện vọng học viên",
+    "softConflictSubtitle": "Có {{count}} học viên có nguyện vọng lịch học khác với slot mới này.",
+    "softConflictExplanation": "Những học viên dưới đây đã đăng ký thời gian học ưu tiên khác. Bạn vẫn có thể tiếp tục chuyển lịch nếu chấp thuận sự thay đổi này.",
+    "confirmOverride": "Bỏ qua cảnh báo & Lưu",
     "reliability": {
       "viewReport": "Báo cáo độ tin cậy lịch học",
       "optimal": "Đã tối ưu",
@@ -3300,5 +3317,31 @@
       "homeworkCreated": "Bạn có bài tập về nhà mới: '{{homeworkTitle}}' trong lớp {{className}}.",
       "upcomingClass": "Lớp {{className}} {{classCode}} đã được lên lịch."
     }
+  },
+  "semester": {
+    "autoScheduleTitle": "Xếp lịch học tự động",
+    "targetSemester": "Học kỳ áp dụng:",
+    "autoScheduleRunningSubtitle": "Hệ thống đang tính toán lịch học tối ưu...",
+    "autoScheduleStep1": "Đang nạp danh sách đăng ký học sinh...",
+    "autoScheduleStep2": "Đang phân nhóm lớp học tối ưu...",
+    "autoScheduleStep3": "Đang giải ràng buộc & lập ca học...",
+    "autoScheduleStep4": "Hoàn tất tạo lịch nháp học kỳ!",
+    "autoScheduleMaxClassSize": "Sĩ số tối đa",
+    "autoScheduleMinClassSize": "Sĩ số tối thiểu",
+    "autoScheduleSessionsPerWeek": "Số buổi mỗi tuần",
+    "sessionsPerWeekOption": "{{count}} buổi / tuần",
+    "autoSchedulePreferences": "Khung thời gian có thể xếp lớp",
+    "autoSchedulePrefMorning": "Buổi sáng",
+    "autoSchedulePrefAfternoon": "Buổi chiều",
+    "autoSchedulePrefEvening": "Buổi tối",
+    "autoScheduleWeekend": "Cho phép xếp lịch vào cuối tuần (Thứ 7, CN)",
+    "autoScheduleTeachers": "Chỉ định Giáo viên xếp lịch",
+    "autoScheduleRooms": "Chỉ định Phòng học xếp lịch",
+    "btnCancel": "Hủy",
+    "btnStartScheduling": "Bắt đầu lập lịch",
+    "successAutoSchedule": "Lập lịch tự động học kỳ thành công!",
+    "errAutoScheduleConflict": "Xếp lịch thất bại do xung đột ràng buộc hoặc bận lịch giáo viên.",
+    "errAutoScheduleInfeasibleSummary": "Xếp lịch thất bại do vi phạm một số ràng buộc. Vui lòng xem danh sách lỗi chi tiết bên dưới.",
+    "infeasibleReasonsTitle": "Chi tiết các ràng buộc bị vi phạm:"
   }
 }

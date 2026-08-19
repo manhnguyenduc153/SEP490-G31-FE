@@ -41,8 +41,10 @@ export default function LandingPage() {
   const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     setIsAuthenticated(authApi.isAuthenticated());
   }, []);
 
@@ -61,6 +63,14 @@ export default function LandingPage() {
     { icon: Sparkles, title: t("landing.feature2Title"), description: t("landing.feature2Description") },
     { icon: Award, title: t("landing.feature3Title"), description: t("landing.feature3Description") },
   ];
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-white text-gray-900 antialiased dark:bg-gray-950 dark:text-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white text-gray-900 antialiased dark:bg-gray-950 dark:text-white">

@@ -17,6 +17,9 @@ import { teacherApi } from "@/services/teacher.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useTranslation } from "react-i18next";
 import { commonApi } from "@/services/common.api";
+import { MoveModeModal } from "./MoveModeModal";
+import { SoftConflictModal } from "./SoftConflictModal";
+import { StudentPreferenceWarning } from "@/services/class.api";
 
 // ── Fixed time slots (must stay in sync with backend FixedTimeSlot.All) ──────
 const FIXED_SLOTS = [
@@ -406,17 +409,26 @@ interface AutoScheduleModalProps {
   }) => void;
   loading: boolean;
   showToast: (msg: string, type?: "success" | "error") => void;
+  infeasibilityErrors?: Array<{ code: string; params: any; text: string }>;
+  onClearErrors?: () => void;
 }
 
-function AutoScheduleModal({ isOpen, onClose, semesters, onGenerate, loading, showToast }: AutoScheduleModalProps) {
+function AutoScheduleModal({
+  isOpen,
+  onClose,
+  semesters,
+  onGenerate,
+  loading,
+  showToast,
+  infeasibilityErrors = [],
+  onClearErrors,
+}: AutoScheduleModalProps) {
   const { t } = useTranslation();
   const [semesterId, setSemesterId] = useState<number | null>(null);
-  const [maxClassSize, setMaxClassSize] = useState<number>(15);
-  const [minClassSize, setMinClassSize] = useState<number>(5);
+  const [maxClassSize, setMaxClassSize] = useState<number>(30);
+  const [minClassSize, setMinClassSize] = useState<number>(20);
   const [sessionsPerWeek, setSessionsPerWeek] = useState<number>(2);
   const [timePreferences, setTimePreferences] = useState<string[]>(["Morning", "Afternoon", "Evening"]);
-  const [allowConsecutiveDays, setAllowConsecutiveDays] = useState<boolean>(false);
-  const [allowWeekend, setAllowWeekend] = useState<boolean>(true);
 
   const [teachers, setTeachers] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
@@ -509,8 +521,8 @@ function AutoScheduleModal({ isOpen, onClose, semesters, onGenerate, loading, sh
       minClassSize,
       sessionsPerWeek,
       timePreferences: timePreferences.map(p => p.toLowerCase()),
-      allowConsecutiveDays,
-      allowWeekend,
+      allowConsecutiveDays: true,
+      allowWeekend: true,
       teacherIds: selectedTeachers,
       roomIds: selectedRooms,
     });
@@ -652,31 +664,6 @@ function AutoScheduleModal({ isOpen, onClose, semesters, onGenerate, loading, sh
                   </div>
                 </div>
 
-                <div className="space-y-3 pt-2">
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={allowWeekend}
-                      onChange={(e) => setAllowWeekend(e.target.checked)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-650 dark:text-gray-300">
-                      {t("semester.autoScheduleWeekend", { defaultValue: "Cho xếp lịch cuối tuần" })}
-                    </span>
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={allowConsecutiveDays}
-                      onChange={(e) => setAllowConsecutiveDays(e.target.checked)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-650 dark:text-gray-300">
-                      {t("semester.autoScheduleConsecutiveDays", { defaultValue: "Cho phép học các ngày liên tiếp" })}
-                    </span>
-                  </label>
-                </div>
               </div>
 
               {/* Cột phải: Giáo viên và Phòng học dạng card */}
@@ -807,6 +794,35 @@ function AutoScheduleModal({ isOpen, onClose, semesters, onGenerate, loading, sh
                   </div>
                 </div>
               </div>
+
+              {/* Danh sách lỗi chi tiết vi phạm ràng buộc */}
+              {infeasibilityErrors.length > 0 && (
+                <div className="col-span-12 p-4 bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl space-y-3 shadow-xs animate-fade-in text-left">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-rose-800 dark:text-rose-300 font-semibold text-sm">
+                      <AlertCircle className="w-5 h-5 text-rose-500 shrink-0" />
+                      <span>{t("semester.infeasibleReasonsTitle", { defaultValue: "Chi tiết các ràng buộc bị vi phạm:" })} ({infeasibilityErrors.length})</span>
+                    </div>
+                    {onClearErrors && (
+                      <button
+                        type="button"
+                        onClick={onClearErrors}
+                        className="text-xs text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
+                      >
+                        {t("common.dismiss", { defaultValue: "Đóng" })}
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-52 overflow-y-auto space-y-2 pr-1 divide-y divide-rose-100 dark:divide-rose-900/40">
+                    {infeasibilityErrors.map((err, idx) => (
+                      <div key={idx} className="pt-2 first:pt-0 flex items-start gap-2.5 text-xs text-rose-700 dark:text-rose-200 leading-relaxed">
+                        <span className="font-bold text-rose-500 select-none mt-0.5">•</span>
+                        <span>{err.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Hàng nút dưới cùng (kéo dài cả 12 cột) */}
               <div className="col-span-12 flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
@@ -1191,6 +1207,7 @@ export default function ClassScheduleCalendar() {
   const [draftSemesterId, setDraftSemesterId] = useState<number | null>(null);
   const [reloadTrigger, setReloadTrigger] = useState(0);
   const [scheduleReliability, setScheduleReliability] = useState<ScheduleReliabilityReport | null>(null);
+  const [calendarInfeasibilityErrors, setCalendarInfeasibilityErrors] = useState<Array<{ code: string; params: any; text: string }>>([]);
 
   // Schedule version state (save checkpoints + rollback-to-version)
   const [showSaveVersionModal, setShowSaveVersionModal] = useState(false);
@@ -1245,12 +1262,48 @@ export default function ClassScheduleCalendar() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editSaving, setEditSaving] = useState(false); // true while an immediate drag-save is in progress
 
+  // Move Mode & Soft Conflict modal states
+  const [moveModeModalState, setMoveModeModalState] = useState<{
+    isOpen: boolean;
+    draggedEvent: ScheduleEvent | null;
+    targetDate: string;
+    targetSlotIdx: number;
+  }>({
+    isOpen: false,
+    draggedEvent: null,
+    targetDate: "",
+    targetSlotIdx: 0,
+  });
+
+  const [softConflictModalState, setSoftConflictModalState] = useState<{
+    isOpen: boolean;
+    draggedEvent: ScheduleEvent | null;
+    targetDate: string;
+    targetSlotIdx: number;
+    warnings: StudentPreferenceWarning[];
+  }>({
+    isOpen: false,
+    draggedEvent: null,
+    targetDate: "",
+    targetSlotIdx: 0,
+    warnings: [],
+  });
+
   // Undo stacks — separate because undoing a draft move is a pure client-side state
   // restore, while undoing a persisted move re-commits the previous state to the DB.
   const UNDO_STACK_LIMIT = 5;
   const [draftUndoStack, setDraftUndoStack] = useState<ClassItem[][]>([]);
   const [dbUndoStack, setDbUndoStack] = useState<
-    { classId: number; classCode: string; previousWeeklySchedules: any[]; previousEvents: ScheduleEvent[] }[]
+    {
+      classId: number;
+      classCode: string;
+      previousEvents: ScheduleEvent[];
+      isSingleSlot?: boolean;
+      singleSlotId?: number;
+      previousDate?: string;
+      previousSlotIdx?: number;
+      previousWeeklySchedules?: any[];
+    }[]
   >([]);
   const [undoingDbMove, setUndoingDbMove] = useState(false);
 
@@ -1386,9 +1439,224 @@ export default function ClassScheduleCalendar() {
     return schedules;
   };
 
+  const handleExecuteMoveSingleSlot = async (
+    draggedEvent: ScheduleEvent,
+    targetDate: string,
+    targetSlotIdx: number,
+    forceOverride = false
+  ) => {
+    const scheduleId = Number(draggedEvent.id);
+    if (!scheduleId || isNaN(scheduleId)) {
+      showToast(t("classSchedules.toastUpdateError", { defaultValue: "ID buổi học không hợp lệ." }), "error");
+      return;
+    }
+
+    setEditSaving(true);
+    try {
+      const res = await classApi.moveScheduleSlot(scheduleId, {
+        newDate: targetDate,
+        newSlotIndex: targetSlotIdx,
+        forceOverride,
+      });
+
+      if (res.success && res.data) {
+        if (res.data.hasSoftConflict && !forceOverride) {
+          setSoftConflictModalState({
+            isOpen: true,
+            draggedEvent,
+            targetDate,
+            targetSlotIdx,
+            warnings: res.data.warnings || [],
+          });
+          setMoveModeModalState((prev) => ({ ...prev, isOpen: false }));
+          setEditSaving(false);
+          return;
+        }
+
+        const prevEvents = [...events];
+        const updatedEvents = events.map((ev) => {
+          if (ev.id === draggedEvent.id) {
+            return {
+              ...ev,
+              scheduleDate: targetDate,
+              slotIndex: targetSlotIdx,
+              startTime: FIXED_SLOTS[targetSlotIdx].start,
+              endTime: FIXED_SLOTS[targetSlotIdx].end,
+            };
+          }
+          return ev;
+        });
+        setEvents(updatedEvents);
+
+        setDbUndoStack((stack) =>
+          [
+            ...stack,
+            {
+              classId: draggedEvent.classId || 0,
+              classCode: draggedEvent.classCode,
+              previousEvents: prevEvents,
+              isSingleSlot: true,
+              singleSlotId: scheduleId,
+              previousDate: draggedEvent.scheduleDate,
+              previousSlotIdx: draggedEvent.slotIndex,
+            },
+          ].slice(-UNDO_STACK_LIMIT)
+        );
+
+        setMoveModeModalState({ isOpen: false, draggedEvent: null, targetDate: "", targetSlotIdx: 0 });
+        setSoftConflictModalState({ isOpen: false, draggedEvent: null, targetDate: "", targetSlotIdx: 0, warnings: [] });
+
+        showToast(
+          t("classSchedules.toastMoveSingleSuccess", {
+            classCode: draggedEvent.classCode,
+            slot: t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label }),
+            date: targetDate,
+            defaultValue: `Đã đổi lịch buổi học lớp ${draggedEvent.classCode} sang ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!`,
+          }),
+          "success"
+        );
+      } else {
+        const errMsg = res.message
+          ? getFriendlyRoomError(res.message)
+          : t("classSchedules.toastUpdateError", { defaultValue: "Lỗi khi cập nhật lịch lớp học." });
+        showToast(errMsg, "error");
+      }
+    } catch {
+      showToast(t("classSchedules.toastUpdateError", { defaultValue: "Có lỗi xảy ra khi cập nhật lịch." }), "error");
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const handleExecuteMoveSeriesSlots = async (
+    draggedEvent: ScheduleEvent,
+    targetDate: string,
+    targetSlotIdx: number
+  ) => {
+    const targetClass = classes.find((c) => c.code === draggedEvent.classCode);
+    if (!targetClass) return;
+
+    const originalDayOfWeek = new Date(draggedEvent.scheduleDate).getDay();
+    const targetDayOfWeek = new Date(targetDate).getDay();
+    const dayDiff = targetDayOfWeek - originalDayOfWeek;
+
+    const prevEvents = [...events];
+
+    const optimisticEvents = events.map((ev) => {
+      if (ev.classCode !== draggedEvent.classCode) return ev;
+      if (new Date(ev.scheduleDate).getDay() !== originalDayOfWeek) return ev;
+      if (ev.slotIndex !== draggedEvent.slotIndex) return ev;
+
+      const d = new Date(ev.scheduleDate);
+      d.setDate(d.getDate() + dayDiff);
+
+      return {
+        ...ev,
+        scheduleDate: toISO(d),
+        slotIndex: targetSlotIdx,
+        startTime: FIXED_SLOTS[targetSlotIdx].start,
+        endTime: FIXED_SLOTS[targetSlotIdx].end,
+      };
+    });
+
+    setEvents(optimisticEvents);
+    setMoveModeModalState({ isOpen: false, draggedEvent: null, targetDate: "", targetSlotIdx: 0 });
+
+    setEditSaving(true);
+    try {
+      const detailRes = await classApi.getById(targetClass.id);
+      if (!detailRes.success || !detailRes.data) {
+        showToast(t("classSchedules.toastFetchDetailError", { defaultValue: "Không thể lấy thông tin chi tiết lớp học để cập nhật." }), "error");
+        setEvents(prevEvents);
+        setEditSaving(false);
+        return;
+      }
+
+      const cls = detailRes.data;
+      let weeklySchedules: any[] = [];
+      try {
+        weeklySchedules = cls.weeklySchedulesJson ? JSON.parse(cls.weeklySchedulesJson) : [];
+      } catch {
+        weeklySchedules = [];
+      }
+      const previousWeeklySchedules = JSON.parse(JSON.stringify(weeklySchedules));
+
+      const wsIdx = weeklySchedules.findIndex((w: any) => w.dayOfWeek === originalDayOfWeek && w.startTime === draggedEvent.startTime);
+      if (wsIdx < 0) {
+        const wsIdxFallback = weeklySchedules.findIndex((w: any) => w.dayOfWeek === originalDayOfWeek);
+        if (wsIdxFallback >= 0) {
+          weeklySchedules[wsIdxFallback].dayOfWeek = targetDayOfWeek;
+          weeklySchedules[wsIdxFallback].startTime = FIXED_SLOTS[targetSlotIdx].start;
+          weeklySchedules[wsIdxFallback].endTime = FIXED_SLOTS[targetSlotIdx].end;
+        }
+      } else {
+        weeklySchedules[wsIdx].dayOfWeek = targetDayOfWeek;
+        weeklySchedules[wsIdx].startTime = FIXED_SLOTS[targetSlotIdx].start;
+        weeklySchedules[wsIdx].endTime = FIXED_SLOTS[targetSlotIdx].end;
+      }
+
+      const saveDto: ClassSaveDto = {
+        id: cls.id,
+        code: cls.code,
+        name: cls.name,
+        status: cls.status,
+        type: cls.type,
+        url: cls.url,
+        description: cls.description,
+        startDate: cls.startDate,
+        endDate: cls.endDate,
+        courseId: cls.courseId,
+        teacherId: cls.teacherId,
+        semesterId: cls.semesterId,
+        expectedLessons: cls.expectedLessons,
+        weeklySchedules,
+        students: (cls.studentClasses || []).map((sc: any) => ({
+          studentId: sc.studentId,
+          enrollType: sc.enrollType ?? 0,
+        })),
+      };
+
+      const updateRes = await classApi.update(cls.id, saveDto);
+      if (updateRes.success) {
+        setDbUndoStack((stack) =>
+          [
+            ...stack,
+            {
+              classId: cls.id,
+              classCode: cls.code,
+              previousWeeklySchedules,
+              previousEvents: prevEvents,
+              isSingleSlot: false,
+            },
+          ].slice(-UNDO_STACK_LIMIT)
+        );
+        showToast(
+          t("classSchedules.toastMoveSuccess", {
+            classCode: draggedEvent.classCode,
+            slot: t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label }),
+            date: targetDate,
+            defaultValue: `Đã đổi lịch lớp ${draggedEvent.classCode} sang ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!`,
+          }),
+          "success"
+        );
+      } else {
+        setEvents(prevEvents);
+        const errMsg = updateRes.message
+          ? getFriendlyRoomError(updateRes.message)
+          : t("classSchedules.toastUpdateError", { defaultValue: "Lỗi khi cập nhật lịch lớp học." });
+        showToast(errMsg, "error");
+      }
+    } catch {
+      setEvents(prevEvents);
+      showToast(t("classSchedules.toastUpdateError", { defaultValue: "Có lỗi xảy ra khi cập nhật lịch." }), "error");
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   const handleMoveEvent = (draggedEvent: ScheduleEvent, targetDate: string, targetSlotIdx: number): boolean => {
     // Cannot move events in the past
-    if (isPastSlot(draggedEvent.scheduleDate, draggedEvent.endTime)) {
+    if (isPastSlot(draggedEvent.scheduleDate, draggedEvent.endTime) || isPastSlot(targetDate, FIXED_SLOTS[targetSlotIdx].end)) {
       showToast(t("classSchedules.cannotEditPastSlot", { defaultValue: "Buổi học trong quá khứ không thể chỉnh sửa." }), "error");
       return false;
     }
@@ -1396,47 +1664,56 @@ export default function ClassScheduleCalendar() {
     // Conflict check against all currently displayed events
     const checkEvents = allDisplayEvents;
 
-    const teacherConflict = checkEvents.some(ev => 
-      ev.id !== draggedEvent.id &&
-      ev.scheduleDate === targetDate &&
-      ev.slotIndex === targetSlotIdx &&
-      ev.teacherName === draggedEvent.teacherName &&
-      draggedEvent.teacherName !== "—" &&
-      draggedEvent.teacherName !== "Chưa phân công"
+    const teacherConflict = checkEvents.some(
+      (ev) =>
+        ev.id !== draggedEvent.id &&
+        ev.scheduleDate === targetDate &&
+        ev.slotIndex === targetSlotIdx &&
+        ev.teacherName === draggedEvent.teacherName &&
+        draggedEvent.teacherName !== "—" &&
+        draggedEvent.teacherName !== "Chưa phân công"
     );
 
-    const roomConflict = checkEvents.some(ev => 
-      ev.id !== draggedEvent.id &&
-      ev.scheduleDate === targetDate &&
-      ev.slotIndex === targetSlotIdx &&
-      ev.roomName === draggedEvent.roomName &&
-      draggedEvent.roomName !== "—" &&
-      draggedEvent.roomName !== "N/A"
+    const roomConflict = checkEvents.some(
+      (ev) =>
+        ev.id !== draggedEvent.id &&
+        ev.scheduleDate === targetDate &&
+        ev.slotIndex === targetSlotIdx &&
+        ev.roomName === draggedEvent.roomName &&
+        draggedEvent.roomName !== "—" &&
+        draggedEvent.roomName !== "N/A"
     );
 
     if (teacherConflict) {
-      showToast(t("classSchedules.teacherConflictWarning", { 
-        teacher: draggedEvent.teacherName, 
-        slot: t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label }), 
-        date: targetDate, 
-        defaultValue: `Giáo viên ${draggedEvent.teacherName} đã có lịch dạy vào ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!` 
-      }), "error");
+      showToast(
+        t("classSchedules.teacherConflictWarning", {
+          teacher: draggedEvent.teacherName,
+          slot: t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label }),
+          date: targetDate,
+          defaultValue: `Giáo viên ${draggedEvent.teacherName} đã có lịch dạy vào ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!`,
+        }),
+        "error"
+      );
       return false;
     }
 
     if (roomConflict) {
-      showToast(t("classSchedules.roomConflictWarning", { 
-        room: draggedEvent.roomName, 
-        slot: t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label }), 
-        date: targetDate, 
-        defaultValue: `Phòng ${draggedEvent.roomName} đã được sử dụng vào ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!` 
-      }), "error");
+      showToast(
+        t("classSchedules.roomConflictWarning", {
+          room: draggedEvent.roomName,
+          slot: t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label }),
+          date: targetDate,
+          defaultValue: `Phòng ${draggedEvent.roomName} đã được sử dụng vào ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!`,
+        }),
+        "error"
+      );
       return false;
     }
 
     // Check teacher availability against cached map
-    const targetClass = (draftClasses || []).find(c => c.code === draggedEvent.classCode) 
-                      || classes.find(c => c.code === draggedEvent.classCode);
+    const targetClass =
+      (draftClasses || []).find((c) => c.code === draggedEvent.classCode) ||
+      classes.find((c) => c.code === draggedEvent.classCode);
     const teacherId = targetClass?.teacherId;
 
     if (teacherId) {
@@ -1445,143 +1722,32 @@ export default function ClassScheduleCalendar() {
         const targetDayOfWeek = new Date(targetDate).getDay();
         const slotKey = `${targetDayOfWeek}-${targetSlotIdx}`;
         if (!availSet.has(slotKey)) {
-          showToast(t("class.errTeacherUnavailable", { 
-            defaultValue: "Giáo viên không rảnh trong khoảng thời gian đã chọn của học kỳ." 
-          }), "error");
+          showToast(
+            t("class.errTeacherUnavailable", {
+              defaultValue: "Giáo viên không rảnh trong khoảng thời gian đã chọn của học kỳ.",
+            }),
+            "error"
+          );
           return false;
         }
       }
     }
 
-    // ── DB event in Edit Mode: optimistic update + background API call ──────────
+    // ── DB event in Edit Mode: open mode selector modal ──────────
     if (!draggedEvent.isDraft && isEditMode) {
-      const targetClass = classes.find(c => c.code === draggedEvent.classCode);
-      if (!targetClass) return false;
-
-      // ── 1. Optimistic update: move all occurrences of this class on the same
-      //       day-of-week to the new day-of-week + slot, so the calendar reflects
-      //       the change instantly without waiting for the API.
-      const originalDayOfWeek = new Date(draggedEvent.scheduleDate).getDay();
-      const targetDayOfWeek = new Date(targetDate).getDay();
-      const dayDiff = targetDayOfWeek - originalDayOfWeek;
-
-      const prevEvents = [...events]; // snapshot for revert
-
-      const optimisticEvents = events.map(ev => {
-        if (ev.classCode !== draggedEvent.classCode) return ev;
-        if (new Date(ev.scheduleDate).getDay() !== originalDayOfWeek) return ev;
-        if (ev.slotIndex !== draggedEvent.slotIndex) return ev;
-
-        // Shift date by day difference, keeping week intact
-        const d = new Date(ev.scheduleDate);
-        d.setDate(d.getDate() + dayDiff);
-
-        return {
-          ...ev,
-          scheduleDate: toISO(d),
-          slotIndex: targetSlotIdx,
-          startTime: FIXED_SLOTS[targetSlotIdx].start,
-          endTime: FIXED_SLOTS[targetSlotIdx].end,
-        };
+      setMoveModeModalState({
+        isOpen: true,
+        draggedEvent,
+        targetDate,
+        targetSlotIdx,
       });
-
-      setEvents(optimisticEvents);
-
-      // ── 2. Background API call (getById to get full weeklySchedulesJson, then update)
-      setEditSaving(true);
-      classApi.getById(targetClass.id).then((detailRes) => {
-        if (!detailRes.success || !detailRes.data) {
-          showToast(t("classSchedules.toastFetchDetailError", { defaultValue: "Không thể lấy thông tin chi tiết lớp học để cập nhật." }), "error");
-          setEvents(prevEvents); // revert
-          setEditSaving(false);
-          return;
-        }
-
-        const cls = detailRes.data;
-        let weeklySchedules: any[] = [];
-        try {
-          weeklySchedules = cls.weeklySchedulesJson ? JSON.parse(cls.weeklySchedulesJson) : [];
-        } catch {
-          weeklySchedules = [];
-        }
-        const previousWeeklySchedules = JSON.parse(JSON.stringify(weeklySchedules)); // snapshot for undo
-
-        const wsIdx = weeklySchedules.findIndex((w: any) => w.dayOfWeek === originalDayOfWeek && w.startTime === draggedEvent.startTime);
-        if (wsIdx < 0) {
-          const wsIdxFallback = weeklySchedules.findIndex((w: any) => w.dayOfWeek === originalDayOfWeek);
-          if (wsIdxFallback >= 0) {
-            weeklySchedules[wsIdxFallback].dayOfWeek = targetDayOfWeek;
-            weeklySchedules[wsIdxFallback].startTime = FIXED_SLOTS[targetSlotIdx].start;
-            weeklySchedules[wsIdxFallback].endTime = FIXED_SLOTS[targetSlotIdx].end;
-          }
-        } else {
-          weeklySchedules[wsIdx].dayOfWeek = targetDayOfWeek;
-          weeklySchedules[wsIdx].startTime = FIXED_SLOTS[targetSlotIdx].start;
-          weeklySchedules[wsIdx].endTime = FIXED_SLOTS[targetSlotIdx].end;
-        }
-
-        const saveDto: ClassSaveDto = {
-          id: cls.id,
-          code: cls.code,
-          name: cls.name,
-          status: cls.status,
-          type: cls.type,
-          url: cls.url,
-          description: cls.description,
-          startDate: cls.startDate,
-          endDate: cls.endDate,
-          courseId: cls.courseId,
-          teacherId: cls.teacherId,
-          semesterId: cls.semesterId,
-          expectedLessons: cls.expectedLessons,
-          weeklySchedules,
-          students: (cls.studentClasses || []).map((sc: any) => ({
-            studentId: sc.studentId,
-            enrollType: sc.enrollType ?? 0,
-          })),
-        };
-
-        classApi.update(cls.id, saveDto).then((updateRes) => {
-          if (updateRes.success) {
-            // Optimistic state is already correct — just show toast, no reload needed
-            setDbUndoStack((stack) =>
-              [...stack, { classId: cls.id, classCode: cls.code, previousWeeklySchedules, previousEvents: prevEvents }].slice(-UNDO_STACK_LIMIT)
-            );
-            showToast(t("classSchedules.toastMoveSuccess", {
-              classCode: draggedEvent.classCode,
-              slot: t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label }),
-              date: targetDate,
-              defaultValue: `Đã đổi lịch lớp ${draggedEvent.classCode} sang ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!`
-            }), "success");
-          } else {
-            // API rejected (room/teacher conflict from backend) → revert optimistic change
-            setEvents(prevEvents);
-            const errMsg = updateRes.message
-              ? getFriendlyRoomError(updateRes.message)
-              : t("classSchedules.toastUpdateError", { defaultValue: "Lỗi khi cập nhật lịch lớp học." });
-            showToast(errMsg, "error");
-          }
-        }).catch(() => {
-          setEvents(prevEvents); // revert on network error
-          showToast(t("classSchedules.toastUpdateError", { defaultValue: "Có lỗi xảy ra khi cập nhật lịch." }), "error");
-        }).finally(() => {
-          setEditSaving(false);
-        });
-      }).catch(() => {
-        setEvents(prevEvents); // revert on network error
-        showToast(t("classSchedules.toastUpdateError", { defaultValue: "Có lỗi xảy ra khi cập nhật lịch." }), "error");
-        setEditSaving(false);
-      });
-
       return true;
     }
 
-
     if (!draftClasses) return false;
 
-
-    // Find class
-    const clsIndex = draftClasses.findIndex(c => c.code === draggedEvent.classCode);
+    // Find class in draft classes
+    const clsIndex = draftClasses.findIndex((c) => c.code === draggedEvent.classCode);
     if (clsIndex < 0) return false;
 
     const cls = { ...draftClasses[clsIndex] };
@@ -1632,12 +1798,15 @@ export default function ClassScheduleCalendar() {
     const newDraftEvents = updatedDraftClasses.flatMap((c) => mapDraftClass(c));
     setDraftEvents(newDraftEvents);
 
-    showToast(t("classSchedules.toastMoveSuccess", {
-      classCode: draggedEvent.classCode,
-      slot: t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label }),
-      date: targetDate,
-      defaultValue: `Đã đổi lịch lớp ${draggedEvent.classCode} sang ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!`
-    }), "success");
+    showToast(
+      t("classSchedules.toastMoveSuccess", {
+        classCode: draggedEvent.classCode,
+        slot: t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label }),
+        date: targetDate,
+        defaultValue: `Đã đổi lịch lớp ${draggedEvent.classCode} sang ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!`,
+      }),
+      "success"
+    );
 
     return true;
   };
@@ -1667,42 +1836,65 @@ export default function ClassScheduleCalendar() {
     };
 
     try {
-      const detailRes = await classApi.getById(entry.classId);
-      if (!detailRes.success || !detailRes.data) {
-        revertOptimisticState();
-        showToast(t("classSchedules.toastFetchDetailError", { defaultValue: "Không thể lấy thông tin chi tiết lớp học để cập nhật." }), "error");
-        return;
-      }
-
-      const cls = detailRes.data;
-      const saveDto: ClassSaveDto = {
-        id: cls.id,
-        code: cls.code,
-        name: cls.name,
-        status: cls.status,
-        type: cls.type,
-        url: cls.url,
-        description: cls.description,
-        startDate: cls.startDate,
-        endDate: cls.endDate,
-        courseId: cls.courseId,
-        teacherId: cls.teacherId,
-        semesterId: cls.semesterId,
-        expectedLessons: cls.expectedLessons,
-        weeklySchedules: entry.previousWeeklySchedules,
-        students: (cls.studentClasses || []).map((sc: any) => ({
-          studentId: sc.studentId,
-          enrollType: sc.enrollType ?? 0,
-        })),
-      };
-
-      const updateRes = await classApi.update(cls.id, saveDto);
-      if (updateRes.success) {
-        showToast(t("classSchedules.toastUndoDbSuccess", { classCode: entry.classCode, defaultValue: `Đã hoàn tác thay đổi lịch lớp ${entry.classCode}!` }), "success");
+      if (entry.isSingleSlot && entry.singleSlotId && entry.previousDate && entry.previousSlotIdx !== undefined) {
+        const moveRes = await classApi.moveScheduleSlot(entry.singleSlotId, {
+          newDate: entry.previousDate,
+          newSlotIndex: entry.previousSlotIdx,
+          forceOverride: true,
+        });
+        if (moveRes.success) {
+          showToast(
+            t("classSchedules.toastUndoDbSuccess", {
+              classCode: entry.classCode,
+              defaultValue: `Đã hoàn tác thay đổi lịch lớp ${entry.classCode}!`,
+            }),
+            "success"
+          );
+        } else {
+          revertOptimisticState();
+          const errMsg = moveRes.message
+            ? getFriendlyRoomError(moveRes.message)
+            : t("classSchedules.toastUpdateError", { defaultValue: "Lỗi khi cập nhật lịch lớp học." });
+          showToast(errMsg, "error");
+        }
       } else {
-        revertOptimisticState();
-        const errMsg = updateRes.message ? getFriendlyRoomError(updateRes.message) : t("classSchedules.toastUpdateError", { defaultValue: "Lỗi khi cập nhật lịch lớp học." });
-        showToast(errMsg, "error");
+        const detailRes = await classApi.getById(entry.classId);
+        if (!detailRes.success || !detailRes.data) {
+          revertOptimisticState();
+          showToast(t("classSchedules.toastFetchDetailError", { defaultValue: "Không thể lấy thông tin chi tiết lớp học để cập nhật." }), "error");
+          return;
+        }
+
+        const cls = detailRes.data;
+        const saveDto: ClassSaveDto = {
+          id: cls.id,
+          code: cls.code,
+          name: cls.name,
+          status: cls.status,
+          type: cls.type,
+          url: cls.url,
+          description: cls.description,
+          startDate: cls.startDate,
+          endDate: cls.endDate,
+          courseId: cls.courseId,
+          teacherId: cls.teacherId,
+          semesterId: cls.semesterId,
+          expectedLessons: cls.expectedLessons,
+          weeklySchedules: entry.previousWeeklySchedules,
+          students: (cls.studentClasses || []).map((sc: any) => ({
+            studentId: sc.studentId,
+            enrollType: sc.enrollType ?? 0,
+          })),
+        };
+
+        const updateRes = await classApi.update(cls.id, saveDto);
+        if (updateRes.success) {
+          showToast(t("classSchedules.toastUndoDbSuccess", { classCode: entry.classCode, defaultValue: `Đã hoàn tác thay đổi lịch lớp ${entry.classCode}!` }), "success");
+        } else {
+          revertOptimisticState();
+          const errMsg = updateRes.message ? getFriendlyRoomError(updateRes.message) : t("classSchedules.toastUpdateError", { defaultValue: "Lỗi khi cập nhật lịch lớp học." });
+          showToast(errMsg, "error");
+        }
       }
     } catch {
       revertOptimisticState();
@@ -1933,6 +2125,7 @@ export default function ClassScheduleCalendar() {
           localStorage.removeItem("semester_draft_reliability");
         }
         const newDraftEvents = draftList.flatMap((cls) => mapDraftClass(cls));
+        setCalendarInfeasibilityErrors([]);
         setDraftEvents(newDraftEvents);
         setShowScheduleModal(false);
         showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: "Tạo lịch nháp học kỳ thành công! Hãy kiểm tra trên lịch." }) : "Tạo lịch nháp học kỳ thành công! Hãy kiểm tra trên lịch.", "success");
@@ -1940,13 +2133,23 @@ export default function ClassScheduleCalendar() {
         if (draftList.length > 0 && draftList[0].startDate) {
           setWeekStart(getWeekStart(new Date(draftList[0].startDate)));
         }
-      } else if (res.message === "ERR_SCHEDULE_INFEASIBLE" && res.data?.infeasibilityReasons?.length) {
-        const reasonTexts = res.data.infeasibilityReasons.map((r) =>
-          t(`backendMessages.infeasibilityReasons.${r.code}`, { ...r.params, defaultValue: r.code })
-        );
-        showToast(reasonTexts.join(" "), "error");
       } else {
-        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("classSchedules.toastDraftGenerateError", { defaultValue: "Xếp lịch thất bại do xung đột ràng buộc hoặc bận lịch giáo viên." }), "error");
+        const reasons = res.data?.infeasibilityReasons || (res.data as any)?.data?.infeasibilityReasons || (res as any)?.infeasibilityReasons;
+        if ((res.message === "ERR_SCHEDULE_INFEASIBLE" || !res.success) && Array.isArray(reasons) && reasons.length > 0) {
+          const uniqueTexts = Array.from(
+            new Set(
+              reasons.map((r: any) =>
+                String(t(`backendMessages.infeasibilityReasons.${r.code}`, { ...r.params, defaultValue: r.code }))
+              )
+            )
+          );
+          const formatted = uniqueTexts.map((text) => ({ code: "", params: {}, text }));
+          setCalendarInfeasibilityErrors(formatted);
+          showToast(t("semester.errAutoScheduleInfeasibleSummary", { defaultValue: "Xếp lịch thất bại do vi phạm một số ràng buộc. Vui lòng xem chi tiết lỗi bên dưới." }), "error");
+        } else {
+          setCalendarInfeasibilityErrors([]);
+          showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: res.message }) : t("classSchedules.toastDraftGenerateError", { defaultValue: "Xếp lịch thất bại do xung đột ràng buộc hoặc bận lịch giáo viên." }), "error");
+        }
       }
     } catch (err: any) {
       showToast(t("classSchedules.toastDraftSystemError", { defaultValue: "Có lỗi hệ thống xảy ra khi lập lịch tự động." }), "error");
@@ -2742,11 +2945,16 @@ export default function ClassScheduleCalendar() {
       {/* Auto-Schedule Modal */}
       <AutoScheduleModal
         isOpen={showScheduleModal}
-        onClose={() => setShowScheduleModal(false)}
+        onClose={() => {
+          setShowScheduleModal(false);
+          setCalendarInfeasibilityErrors([]);
+        }}
         semesters={semesters}
         onGenerate={handleGenerate}
         loading={scheduleLoading}
         showToast={showToast}
+        infeasibilityErrors={calendarInfeasibilityErrors}
+        onClearErrors={() => setCalendarInfeasibilityErrors([])}
       />
 
       {/* Schedule Version Picker Modal (rollback to a chosen version) */}
@@ -3050,6 +3258,63 @@ export default function ClassScheduleCalendar() {
           </div>
         </div>
       </Modal>
+
+      {/* Move Mode Selector Modal */}
+      {moveModeModalState.isOpen && moveModeModalState.draggedEvent && (
+        <MoveModeModal
+          isOpen={moveModeModalState.isOpen}
+          onClose={() => setMoveModeModalState({ isOpen: false, draggedEvent: null, targetDate: "", targetSlotIdx: 0 })}
+          classCode={moveModeModalState.draggedEvent.classCode}
+          className={moveModeModalState.draggedEvent.className}
+          sourceDate={moveModeModalState.draggedEvent.scheduleDate}
+          sourceSlotLabel={t(`classSchedules.ca${moveModeModalState.draggedEvent.slotIndex + 1}`, {
+            defaultValue: FIXED_SLOTS[moveModeModalState.draggedEvent.slotIndex]?.label,
+          })}
+          targetDate={moveModeModalState.targetDate}
+          targetSlotLabel={t(`classSchedules.ca${moveModeModalState.targetSlotIdx + 1}`, {
+            defaultValue: FIXED_SLOTS[moveModeModalState.targetSlotIdx]?.label,
+          })}
+          onConfirm={(mode) => {
+            if (mode === "single") {
+              handleExecuteMoveSingleSlot(
+                moveModeModalState.draggedEvent!,
+                moveModeModalState.targetDate,
+                moveModeModalState.targetSlotIdx,
+                false
+              );
+            } else {
+              handleExecuteMoveSeriesSlots(
+                moveModeModalState.draggedEvent!,
+                moveModeModalState.targetDate,
+                moveModeModalState.targetSlotIdx
+              );
+            }
+          }}
+          loading={editSaving}
+        />
+      )}
+
+      {/* Soft Conflict Override Modal */}
+      {softConflictModalState.isOpen && softConflictModalState.draggedEvent && (
+        <SoftConflictModal
+          isOpen={softConflictModalState.isOpen}
+          onClose={() => setSoftConflictModalState({ isOpen: false, draggedEvent: null, targetDate: "", targetSlotIdx: 0, warnings: [] })}
+          onConfirm={() => {
+            handleExecuteMoveSingleSlot(
+              softConflictModalState.draggedEvent!,
+              softConflictModalState.targetDate,
+              softConflictModalState.targetSlotIdx,
+              true
+            );
+          }}
+          warnings={softConflictModalState.warnings}
+          targetDate={softConflictModalState.targetDate}
+          targetSlotLabel={t(`classSchedules.ca${softConflictModalState.targetSlotIdx + 1}`, {
+            defaultValue: FIXED_SLOTS[softConflictModalState.targetSlotIdx]?.label,
+          })}
+          loading={editSaving}
+        />
+      )}
     </div>
   );
 }

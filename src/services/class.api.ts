@@ -334,4 +334,36 @@ export const classApi = {
   async rollbackSemesterSchedule(semesterId: number, versionId: number): Promise<ApiResponse<ClassItem[]>> {
     return api.post<ClassItem[]>(ENDPOINTS.SEMESTER.ROLLBACK_SCHEDULE_DRAFT(semesterId, versionId), {});
   },
+
+  async updateScheduleSlot(id: number, dto: { teacherId?: number | null; roomId?: number | null; note?: string | null }): Promise<ApiResponse<ClassScheduleItem>> {
+    return api.put<ClassScheduleItem>(`/api/Common/schedules/${id}`, dto);
+  },
+
+  async moveScheduleSlot(id: number, dto: MoveScheduleSlotDto): Promise<ApiResponse<MoveScheduleSlotResult>> {
+    return api.post<MoveScheduleSlotResult>(`/api/Common/schedules/${id}/move`, dto);
+  },
 };
+
+export interface MoveScheduleSlotDto {
+  newDate: string;
+  newSlotIndex?: number;
+  newSlotId?: number;
+  teacherId?: number | null;
+  roomId?: number | null;
+  forceOverride?: boolean;
+}
+
+export interface StudentPreferenceWarning {
+  studentId: number;
+  studentName?: string;
+  studentEmail?: string;
+  preferredDays?: string;
+  preferredSlot?: string;
+}
+
+export interface MoveScheduleSlotResult {
+  updatedSlot?: ClassScheduleItem;
+  hasSoftConflict: boolean;
+  warnings: StudentPreferenceWarning[];
+}
+
