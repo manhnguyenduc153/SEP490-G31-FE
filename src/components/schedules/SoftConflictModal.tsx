@@ -29,7 +29,7 @@ export const SoftConflictModal: React.FC<SoftConflictModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="relative w-full max-w-xl bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-amber-200 dark:border-amber-900/50 overflow-hidden transform transition-all">
         {/* Header */}
         <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-700 bg-amber-50/50 dark:bg-amber-950/20 flex items-center justify-between">

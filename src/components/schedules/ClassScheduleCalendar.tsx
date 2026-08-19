@@ -1506,6 +1506,8 @@ export default function ClassScheduleCalendar() {
         setMoveModeModalState({ isOpen: false, draggedEvent: null, targetDate: "", targetSlotIdx: 0 });
         setSoftConflictModalState({ isOpen: false, draggedEvent: null, targetDate: "", targetSlotIdx: 0, warnings: [] });
 
+        setReloadTrigger((prev) => prev + 1);
+
         showToast(
           t("classSchedules.toastMoveSingleSuccess", {
             classCode: draggedEvent.classCode,
@@ -1630,6 +1632,7 @@ export default function ClassScheduleCalendar() {
             },
           ].slice(-UNDO_STACK_LIMIT)
         );
+        setReloadTrigger((prev) => prev + 1);
         showToast(
           t("classSchedules.toastMoveSuccess", {
             classCode: draggedEvent.classCode,
@@ -1843,6 +1846,7 @@ export default function ClassScheduleCalendar() {
           forceOverride: true,
         });
         if (moveRes.success) {
+          setReloadTrigger((prev) => prev + 1);
           showToast(
             t("classSchedules.toastUndoDbSuccess", {
               classCode: entry.classCode,
@@ -1889,6 +1893,7 @@ export default function ClassScheduleCalendar() {
 
         const updateRes = await classApi.update(cls.id, saveDto);
         if (updateRes.success) {
+          setReloadTrigger((prev) => prev + 1);
           showToast(t("classSchedules.toastUndoDbSuccess", { classCode: entry.classCode, defaultValue: `Đã hoàn tác thay đổi lịch lớp ${entry.classCode}!` }), "success");
         } else {
           revertOptimisticState();
