@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Search, ChevronDown, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface Option {
   value: string | number;
@@ -15,6 +16,8 @@ interface SearchableSelectProps {
   onChange: (value: any) => void;
   placeholder?: string;
   className?: string;
+  triggerClassName?: string;
+  size?: "sm" | "md" | "lg";
   disabled?: boolean;
   onClear?: () => void;
   searchPlaceholder?: string;
@@ -26,14 +29,20 @@ export function SearchableSelect({
   options,
   value,
   onChange,
-  placeholder = "Chọn...",
+  placeholder,
   className = "",
+  triggerClassName = "",
+  size = "md",
   disabled = false,
   onClear,
-  searchPlaceholder = "Tìm kiếm...",
-  noResultsText = "Không tìm thấy kết quả",
+  searchPlaceholder,
+  noResultsText,
   isError = false,
 }: SearchableSelectProps) {
+  const { t } = useTranslation();
+  const effectivePlaceholder = placeholder ?? t("common.select", { defaultValue: "Chọn..." });
+  const effectiveSearchPlaceholder = searchPlaceholder ?? t("common.searchPlaceholder", { defaultValue: "Tìm kiếm..." });
+  const effectiveNoResultsText = noResultsText ?? t("common.noResults", { defaultValue: "Không tìm thấy kết quả" });
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
@@ -118,16 +127,20 @@ export function SearchableSelect({
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex h-11 w-full items-center justify-between rounded-lg border bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-2 dark:bg-gray-900 dark:text-white/90 disabled:opacity-50 disabled:cursor-not-allowed text-left transition-all ${
+        className={`flex w-full items-center justify-between border bg-white text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-2 dark:bg-gray-900 dark:text-white/90 disabled:opacity-50 disabled:cursor-not-allowed text-left transition-all ${
+          size === "sm"
+            ? "h-8 px-2.5 py-1 text-xs rounded-md"
+            : "h-11 px-4 py-2.5 text-sm rounded-lg"
+        } ${
           isError
             ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10 dark:border-rose-500"
             : isOpen
             ? "border-brand-500 ring-2 ring-brand-500/20 dark:border-gray-700"
             : "border-gray-300 focus:border-brand-500 focus:ring-brand-500/20 dark:border-gray-700"
-        }`}
+        } ${triggerClassName}`}
       >
         <span className={`block truncate ${selectedOption ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-white/30"}`}>
-          {selectedOption ? selectedOption.label : placeholder}
+          {selectedOption ? selectedOption.label : effectivePlaceholder}
         </span>
         <div className="flex items-center gap-1.5 shrink-0 ml-2">
           {onClear && value !== "" && value !== null && value !== undefined && value !== "all" && (
@@ -156,7 +169,7 @@ export function SearchableSelect({
             <input
               ref={searchInputRef}
               type="text"
-              placeholder={searchPlaceholder}
+              placeholder={effectiveSearchPlaceholder}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="h-10 w-full pl-9 pr-4 py-2 text-sm bg-transparent border border-gray-300 rounded-lg dark:bg-gray-900 dark:border-gray-800 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all placeholder-gray-400"
@@ -188,7 +201,7 @@ export function SearchableSelect({
               })
             ) : (
               <div className="py-6 text-center text-sm text-gray-400 dark:text-gray-600 font-medium">
-                {noResultsText}
+                {effectiveNoResultsText}
               </div>
             )}
           </div>

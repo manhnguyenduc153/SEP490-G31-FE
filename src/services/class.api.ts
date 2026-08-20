@@ -89,6 +89,9 @@ export interface ClassSaveDto {
   autoRefund?: boolean | null;
   expectedLessons?: number | null;
   semesterId?: number | null;
+  scheduleConfigMode?: number; // 0 = Weekly, 1 = SpecificSessions
+  specificSchedules?: SpecificSessionScheduleDto[];
+  forceOverride?: boolean;
   weeklySchedules?: {
     dayOfWeek: number;
     startTime: string;
@@ -103,6 +106,18 @@ export interface ClassSaveDto {
   newTeacherEmail?: string | null;
   newTeacherName?: string | null;
   newCourseName?: string | null;
+}
+
+export interface SpecificSessionScheduleDto {
+  id?: number;
+  lessonNo: number;
+  scheduleDate: string;
+  slotId?: number | null;
+  slotIndex?: number | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  roomId?: number | null;
+  teacherId?: number | null;
 }
 
 export interface ScheduleVersionListItem {

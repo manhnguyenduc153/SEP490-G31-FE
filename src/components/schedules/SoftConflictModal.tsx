@@ -62,11 +62,11 @@ export const SoftConflictModal: React.FC<SoftConflictModalProps> = ({
         <div className="px-6 py-3 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between text-xs">
           <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
             <Calendar className="w-4 h-4 text-gray-400" />
-            <span>Ngày: <strong>{targetDate}</strong></span>
+            <span>{t("classSchedules.targetDateLabel", { defaultValue: "Ngày:" })} <strong>{targetDate}</strong></span>
           </div>
           <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
             <Clock className="w-4 h-4 text-gray-400" />
-            <span>Khung giờ: <strong>{targetSlotLabel}</strong></span>
+            <span>{t("classSchedules.targetSlotLabel", { defaultValue: "Khung giờ:" })} <strong>{targetSlotLabel}</strong></span>
           </div>
         </div>
 
@@ -90,7 +90,7 @@ export const SoftConflictModal: React.FC<SoftConflictModalProps> = ({
                   </div>
                   <div className="min-w-0">
                     <p className="font-semibold text-gray-900 dark:text-white truncate">
-                      {w.studentName || `Học viên #${w.studentId}`}
+                      {w.studentName || t("classSchedules.studentPrefix", { id: w.studentId, defaultValue: `Học viên #${w.studentId}` })}
                     </p>
                     {w.studentEmail && (
                       <p className="text-gray-500 dark:text-gray-400 truncate">{w.studentEmail}</p>
@@ -100,7 +100,7 @@ export const SoftConflictModal: React.FC<SoftConflictModalProps> = ({
 
                 <div className="text-right shrink-0">
                   <span className="inline-block px-2 py-0.5 rounded bg-amber-100/80 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-medium text-[11px] mb-1">
-                    Nguyện vọng
+                    {t("classSchedules.preferenceBadge", { defaultValue: "Nguyện vọng" })}
                   </span>
                   <p className="text-gray-600 dark:text-gray-300 text-[11px]">{w.preferredDays}</p>
                   <p className="text-gray-500 dark:text-gray-400 text-[10px]">{w.preferredSlot}</p>

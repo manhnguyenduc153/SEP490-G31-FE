@@ -11,13 +11,12 @@ import { Modal } from "@/components/ui/modal";
 import { classApi, ClassItem, ClassScheduleItem, ClassSaveDto, ScheduleVersionListItem, ScheduleReliabilityReport } from "@/services/class.api";
 import ScheduleReliabilityCard from "./ScheduleReliabilityCard";
 import { semesterApi, SemesterItem } from "@/services/semester.api";
-import { ChevronLeft, ChevronRight, CalendarClock, Save, X, Loader2, AlertTriangle, Cpu, Check, AlertCircle, Edit, DoorOpen, RotateCcw, History, Trash2, Eye, Lock, GitCompare, Undo2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarClock, Save, X, Loader2, AlertTriangle, Cpu, Check, AlertCircle, Edit, DoorOpen, RotateCcw, History, Trash2, Eye, Lock, GitCompare, Undo2, Repeat } from "lucide-react";
 import { roomApi, RoomItem } from "@/services/room.api";
 import { teacherApi } from "@/services/teacher.api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useTranslation } from "react-i18next";
 import { commonApi } from "@/services/common.api";
-import { MoveModeModal } from "./MoveModeModal";
 import { SoftConflictModal } from "./SoftConflictModal";
 import { StudentPreferenceWarning } from "@/services/class.api";
 
@@ -259,9 +258,10 @@ interface WeekGridProps {
   isEventEditable: (ev: ScheduleEvent) => boolean;
   /** false = weekly-pattern view (no real dates behind it): hides date numbers and the "today" highlight. */
   showDates?: boolean;
+  semesterRange?: { startDate: string; endDate: string } | null;
 }
 
-function WeekGrid({ events, weekStart, onEventClick, onEventDrop, isEventEditable, showDates = true }: WeekGridProps) {
+function WeekGrid({ events, weekStart, onEventClick, onEventDrop, isEventEditable, showDates = true, semesterRange }: WeekGridProps) {
   const { t } = useTranslation();
   const [dragOverCell, setDragOverCell] = useState<{ date: string; slotIdx: number } | null>(null);
 
@@ -281,12 +281,24 @@ function WeekGrid({ events, weekStart, onEventClick, onEventDrop, isEventEditabl
 
   const todayISO = toISO(new Date());
 
+  const isDateOutsideSemester = (isoDate: string): boolean => {
+    if (!showDates || !semesterRange?.startDate || !semesterRange?.endDate) return false;
+    const target = isoDate.slice(0, 10);
+    const start = semesterRange.startDate.slice(0, 10);
+    const end = semesterRange.endDate.slice(0, 10);
+    return target < start || target > end;
+  };
+
   const handleDragStart = (e: React.DragEvent, ev: ScheduleEvent) => {
     e.dataTransfer.setData("text/plain", ev.id);
   };
 
   const handleDragOver = (e: React.DragEvent, date: string, slotIdx: number) => {
     e.preventDefault();
+    if (isDateOutsideSemester(date)) {
+      e.dataTransfer.dropEffect = "none";
+      return;
+    }
     setDragOverCell({ date, slotIdx });
   };
 
@@ -312,22 +324,27 @@ function WeekGrid({ events, weekStart, onEventClick, onEventDrop, isEventEditabl
             <th className="w-28 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-850 px-3 py-2.5 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">
               {t("classSchedules.slotDayLabel", { defaultValue: "Ca / Ngày" })}
             </th>
-            {days.map((d) => (
-              <th
-                key={d.iso}
-                className={`border border-gray-200 dark:border-gray-700 px-2 py-2.5 text-center text-xs font-bold uppercase tracking-wider
-                  ${showDates && d.iso === todayISO
-                    ? "bg-brand-500/10 text-brand-600 dark:text-brand-400"
-                    : "bg-gray-50 dark:bg-gray-850 text-gray-500 dark:text-gray-400"}`}
-              >
-                <span className="block">{d.dayLabel}</span>
-                {showDates && (
-                  <span className={`mt-0.5 block text-[11px] font-semibold ${d.iso === todayISO ? "text-brand-600 dark:text-brand-400" : "text-gray-700 dark:text-gray-300"}`}>
-                    {d.label}
-                  </span>
-                )}
-              </th>
-            ))}
+            {days.map((d) => {
+              const disabled = isDateOutsideSemester(d.iso);
+              return (
+                <th
+                  key={d.iso}
+                  className={`border border-gray-200 dark:border-gray-700 px-2 py-2.5 text-center text-xs font-bold uppercase tracking-wider
+                    ${disabled
+                      ? "bg-gray-100/90 dark:bg-gray-800/90 text-gray-400 dark:text-gray-500 opacity-60"
+                      : showDates && d.iso === todayISO
+                        ? "bg-brand-500/10 text-brand-600 dark:text-brand-400"
+                        : "bg-gray-50 dark:bg-gray-850 text-gray-500 dark:text-gray-400"}`}
+                >
+                  <span className="block">{d.dayLabel}</span>
+                  {showDates && (
+                    <span className={`mt-0.5 block text-[11px] font-semibold ${disabled ? "text-gray-400 dark:text-gray-500" : d.iso === todayISO ? "text-brand-600 dark:text-brand-400" : "text-gray-700 dark:text-gray-300"}`}>
+                      {d.label}
+                    </span>
+                  )}
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>
@@ -339,7 +356,8 @@ function WeekGrid({ events, weekStart, onEventClick, onEventDrop, isEventEditabl
               </td>
               {days.map((d) => {
                 const cellEvents = lookup[d.iso]?.[slot.index] ?? [];
-                const isDraggingOver = dragOverCell?.date === d.iso && dragOverCell?.slotIdx === slot.index;
+                const disabled = isDateOutsideSemester(d.iso);
+                const isDraggingOver = !disabled && dragOverCell?.date === d.iso && dragOverCell?.slotIdx === slot.index;
                 return (
                   <td
                     key={d.iso}
@@ -348,7 +366,11 @@ function WeekGrid({ events, weekStart, onEventClick, onEventDrop, isEventEditabl
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, d.iso, slot.index)}
                     className={`border border-gray-200 dark:border-gray-700 p-1.5 align-top min-w-[90px] transition-colors duration-150
-                      ${showDates && d.iso === todayISO ? "bg-brand-500/5 dark:bg-brand-950/10" : "bg-white dark:bg-gray-900"}
+                      ${disabled
+                        ? "bg-gray-100/70 dark:bg-gray-850/70 opacity-45 cursor-not-allowed select-none border-dashed"
+                        : showDates && d.iso === todayISO
+                          ? "bg-brand-500/5 dark:bg-brand-950/10"
+                          : "bg-white dark:bg-gray-900"}
                       ${isDraggingOver ? "bg-brand-500/10 ring-2 ring-brand-500 ring-inset" : ""}`}
                   >
                     <div className="flex flex-col gap-1 h-full">
@@ -373,9 +395,9 @@ function WeekGrid({ events, weekStart, onEventClick, onEventDrop, isEventEditabl
                                       : SLOT_COLORS[slot.index] + " cursor-pointer"}`}
                           >
                             <span className="flex items-center gap-1">
-                              <span className="block truncate font-bold">{ev.classCode}</span>
+                              <span className="block truncate font-bold">{ev.className || ev.classCode}</span>
                             </span>
-                            <span className="block truncate text-[10px] opacity-70 font-normal">{ev.className}</span>
+                            <span className="block truncate text-[10px] opacity-70 font-normal">{ev.classCode}</span>
                           </button>
                         );
                       })}
@@ -1180,6 +1202,47 @@ export default function ClassScheduleCalendar() {
   const [toasts, setToasts] = useState<{ id: number; message: string; type: "success" | "error" }[]>([]);
   const [mounted, setMounted] = useState(false);
 
+  // Floating Bottom-Center Series Apply Prompt (Similar to bulk action bar in ClassTable)
+  const [seriesPrompt, setSeriesPrompt] = useState<{
+    classCode: string;
+    className?: string;
+    targetDate: string;
+    targetSlotIdx: number;
+    draggedEvent: ScheduleEvent;
+  } | null>(null);
+  const seriesPromptTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const startSeriesPromptTimer = () => {
+    if (seriesPromptTimerRef.current) {
+      clearTimeout(seriesPromptTimerRef.current);
+    }
+    seriesPromptTimerRef.current = setTimeout(() => {
+      setSeriesPrompt(null);
+    }, 6000);
+  };
+
+  const pauseSeriesPromptTimer = () => {
+    if (seriesPromptTimerRef.current) {
+      clearTimeout(seriesPromptTimerRef.current);
+      seriesPromptTimerRef.current = null;
+    }
+  };
+
+  const showSeriesUpgradePrompt = (
+    draggedEvent: ScheduleEvent,
+    targetDate: string,
+    targetSlotIdx: number
+  ) => {
+    setSeriesPrompt({
+      classCode: draggedEvent.classCode,
+      className: draggedEvent.className,
+      targetDate,
+      targetSlotIdx,
+      draggedEvent,
+    });
+    startSeriesPromptTimer();
+  };
+
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     if (!msg) return;
     const messages = msg
@@ -1231,6 +1294,7 @@ export default function ClassScheduleCalendar() {
   const [teacherAvailMap, setTeacherAvailMap] = useState<Record<number, Set<string>>>({});
 
   const activeSemesterId = selectedSemesterId || draftSemesterId;
+  const activeSemester = semesters.find((s) => s.id === activeSemesterId);
 
   useEffect(() => {
     if (!activeSemesterId) {
@@ -1262,18 +1326,7 @@ export default function ClassScheduleCalendar() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editSaving, setEditSaving] = useState(false); // true while an immediate drag-save is in progress
 
-  // Move Mode & Soft Conflict modal states
-  const [moveModeModalState, setMoveModeModalState] = useState<{
-    isOpen: boolean;
-    draggedEvent: ScheduleEvent | null;
-    targetDate: string;
-    targetSlotIdx: number;
-  }>({
-    isOpen: false,
-    draggedEvent: null,
-    targetDate: "",
-    targetSlotIdx: 0,
-  });
+  // Soft Conflict modal state
 
   const [softConflictModalState, setSoftConflictModalState] = useState<{
     isOpen: boolean;
@@ -1443,11 +1496,12 @@ export default function ClassScheduleCalendar() {
     draggedEvent: ScheduleEvent,
     targetDate: string,
     targetSlotIdx: number,
-    forceOverride = false
+    forceOverride = false,
+    showSeriesAction = false
   ) => {
     const scheduleId = Number(draggedEvent.id);
     if (!scheduleId || isNaN(scheduleId)) {
-      showToast(t("classSchedules.toastUpdateError", { defaultValue: "ID buổi học không hợp lệ." }), "error");
+      showToast(t("classSchedules.errInvalidScheduleId", { defaultValue: "ID buổi học không hợp lệ." }), "error");
       return;
     }
 
@@ -1461,6 +1515,8 @@ export default function ClassScheduleCalendar() {
 
       if (res.success && res.data) {
         if (res.data.hasSoftConflict && !forceOverride) {
+          if (seriesPromptTimerRef.current) clearTimeout(seriesPromptTimerRef.current);
+          setSeriesPrompt(null);
           setSoftConflictModalState({
             isOpen: true,
             draggedEvent,
@@ -1468,7 +1524,6 @@ export default function ClassScheduleCalendar() {
             targetSlotIdx,
             warnings: res.data.warnings || [],
           });
-          setMoveModeModalState((prev) => ({ ...prev, isOpen: false }));
           setEditSaving(false);
           return;
         }
@@ -1503,20 +1558,25 @@ export default function ClassScheduleCalendar() {
           ].slice(-UNDO_STACK_LIMIT)
         );
 
-        setMoveModeModalState({ isOpen: false, draggedEvent: null, targetDate: "", targetSlotIdx: 0 });
         setSoftConflictModalState({ isOpen: false, draggedEvent: null, targetDate: "", targetSlotIdx: 0, warnings: [] });
 
         setReloadTrigger((prev) => prev + 1);
 
-        showToast(
-          t("classSchedules.toastMoveSingleSuccess", {
-            classCode: draggedEvent.classCode,
-            slot: t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label }),
-            date: targetDate,
-            defaultValue: `Đã đổi lịch buổi học lớp ${draggedEvent.classCode} sang ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!`,
-          }),
-          "success"
-        );
+        const successMsg = t("classSchedules.toastMoveSingleSuccess", {
+          classCode: draggedEvent.classCode,
+          slot: t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label }),
+          date: targetDate,
+          defaultValue: `Đã đổi lịch buổi học lớp ${draggedEvent.classCode} sang ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!`,
+        });
+
+        showToast(successMsg, "success");
+
+        if (showSeriesAction) {
+          showSeriesUpgradePrompt(draggedEvent, targetDate, targetSlotIdx);
+        } else {
+          if (seriesPromptTimerRef.current) clearTimeout(seriesPromptTimerRef.current);
+          setSeriesPrompt(null);
+        }
       } else {
         const errMsg = res.message
           ? getFriendlyRoomError(res.message)
@@ -1562,7 +1622,6 @@ export default function ClassScheduleCalendar() {
     });
 
     setEvents(optimisticEvents);
-    setMoveModeModalState({ isOpen: false, draggedEvent: null, targetDate: "", targetSlotIdx: 0 });
 
     setEditSaving(true);
     try {
@@ -1612,6 +1671,7 @@ export default function ClassScheduleCalendar() {
         semesterId: cls.semesterId,
         expectedLessons: cls.expectedLessons,
         weeklySchedules,
+        forceOverride: true,
         students: (cls.studentClasses || []).map((sc: any) => ({
           studentId: sc.studentId,
           enrollType: sc.enrollType ?? 0,
@@ -1662,6 +1722,25 @@ export default function ClassScheduleCalendar() {
     if (isPastSlot(draggedEvent.scheduleDate, draggedEvent.endTime) || isPastSlot(targetDate, FIXED_SLOTS[targetSlotIdx].end)) {
       showToast(t("classSchedules.cannotEditPastSlot", { defaultValue: "Buổi học trong quá khứ không thể chỉnh sửa." }), "error");
       return false;
+    }
+
+    // Cannot move events outside the active semester date range
+    const activeSem = semesters.find((s) => s.id === (selectedSemesterId || draftSemesterId));
+    if (activeSem?.startDate && activeSem?.endDate) {
+      const targetDateNorm = targetDate.slice(0, 10);
+      const semStartNorm = activeSem.startDate.slice(0, 10);
+      const semEndNorm = activeSem.endDate.slice(0, 10);
+      if (targetDateNorm < semStartNorm || targetDateNorm > semEndNorm) {
+        showToast(
+          t("classSchedules.errOutsideSemesterRange", {
+            defaultValue: `Không thể xếp lịch ngoài phạm vi thời gian học kỳ (${semStartNorm} - ${semEndNorm})!`,
+            start: semStartNorm,
+            end: semEndNorm,
+          }),
+          "error"
+        );
+        return false;
+      }
     }
 
     // Conflict check against all currently displayed events
@@ -1736,14 +1815,10 @@ export default function ClassScheduleCalendar() {
       }
     }
 
-    // ── DB event in Edit Mode: open mode selector modal ──────────
+    // ── DB event in Edit Mode: auto-save as single slot, show toast with inline "apply series" action ──
     if (!draggedEvent.isDraft && isEditMode) {
-      setMoveModeModalState({
-        isOpen: true,
-        draggedEvent,
-        targetDate,
-        targetSlotIdx,
-      });
+      // Immediately execute single-slot move; offer series upgrade via toast action button
+      handleExecuteMoveSingleSlot(draggedEvent, targetDate, targetSlotIdx, false, true /* showSeriesAction */);
       return true;
     }
 
@@ -2133,7 +2208,12 @@ export default function ClassScheduleCalendar() {
         setCalendarInfeasibilityErrors([]);
         setDraftEvents(newDraftEvents);
         setShowScheduleModal(false);
-        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: "Tạo lịch nháp học kỳ thành công! Hãy kiểm tra trên lịch." }) : "Tạo lịch nháp học kỳ thành công! Hãy kiểm tra trên lịch.", "success");
+        showToast(
+          res.message
+            ? t(`backendMessages.${res.message}`, { defaultValue: t("semester.successAutoScheduleDraft", { defaultValue: "Tạo lịch nháp học kỳ thành công! Hãy kiểm tra trên lịch." }) })
+            : t("semester.successAutoScheduleDraft", { defaultValue: "Tạo lịch nháp học kỳ thành công! Hãy kiểm tra trên lịch." }),
+          "success"
+        );
         // Navigate to the semester start week
         if (draftList.length > 0 && draftList[0].startDate) {
           setWeekStart(getWeekStart(new Date(draftList[0].startDate)));
@@ -2202,7 +2282,12 @@ export default function ClassScheduleCalendar() {
         localStorage.removeItem("semester_original_draft_classes");
         localStorage.removeItem("semester_draft_id");
         localStorage.removeItem("semester_draft_reliability");
-        showToast(res.message ? t(`backendMessages.${res.message}`, { defaultValue: "Lưu chính thức thời khóa biểu thành công!" }) : "Lưu chính thức thời khóa biểu thành công!", "success");
+        showToast(
+          res.message
+            ? t(`backendMessages.${res.message}`, { defaultValue: t("classSchedules.toastSaveOfficialSuccess", { defaultValue: "Lưu chính thức thời khóa biểu thành công!" }) })
+            : t("classSchedules.toastSaveOfficialSuccess", { defaultValue: "Lưu chính thức thời khóa biểu thành công!" }),
+          "success"
+        );
         // Reload classes + schedules from DB — must refresh `classes` too, not just `events`,
         // since the semester filter falls back to looking up each event's class in `classes`
         // (freshly-created classes wouldn't be found there otherwise, hiding them from the filter).
@@ -2246,10 +2331,10 @@ export default function ClassScheduleCalendar() {
         }
       } catch (e) {
         console.error("Failed to parse original draft classes", e);
-        showToast("Lỗi khi giải nén lịch gốc.", "error");
+        showToast(t("classSchedules.toastUnpackError", { defaultValue: "Lỗi khi giải nén lịch gốc." }), "error");
       }
     } else {
-      showToast("Không tìm thấy dữ liệu bản lịch gốc để khôi phục.", "error");
+      showToast(t("classSchedules.toastNoOriginalData", { defaultValue: "Không tìm thấy dữ liệu bản lịch gốc để khôi phục." }), "error");
     }
   };
 
@@ -2427,7 +2512,7 @@ export default function ClassScheduleCalendar() {
     return (
       <div className={`rounded px-1.5 py-0.5 text-[10px] font-bold border truncate cursor-pointer transition-all duration-150 ${color}`}>
         {ev.isDraft && <span className="mr-1 opacity-70">[{t("classSchedules.draftStatusLabel", { defaultValue: "Chưa lưu" })}]</span>}
-        {ev.classCode}
+        {ev.className || ev.classCode}
       </div>
     );
   };
@@ -2451,7 +2536,7 @@ export default function ClassScheduleCalendar() {
 
   const handleFcEventDrop = (info: any) => {
     const ev = info.event.extendedProps as ScheduleEvent;
-    if (!ev.isDraft) {
+    if (!isEventEditable(ev)) {
       info.revert();
       return;
     }
@@ -2495,15 +2580,15 @@ export default function ClassScheduleCalendar() {
 
   return (
     <div className="space-y-4">
-      {/* Toast Notification Container */}
+      {/* Toast Notification Container (Bottom Right) */}
       {mounted && typeof document !== "undefined" && createPortal(
         <div className="fixed bottom-5 right-5 z-[999999] flex flex-col gap-2 max-w-md w-full sm:w-auto">
-          {toasts.map((t) => (
+          {toasts.map((toast) => (
             <div
-              key={t.id}
-              className="flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5"
+              key={toast.id}
+              className="flex items-center gap-3 px-4 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl shadow-2xl border border-white/10 dark:border-black/5 animate-in slide-in-from-right-5 duration-200"
             >
-              {t.type === "success" ? (
+              {toast.type === "success" ? (
                 <svg className="w-5 h-5 text-emerald-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -2512,9 +2597,56 @@ export default function ClassScheduleCalendar() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               )}
-              <span className="text-sm font-medium">{t.message}</span>
+              <span className="text-sm font-medium">{toast.message}</span>
             </div>
           ))}
+        </div>,
+        document.body
+      )}
+
+      {/* Floating Bottom-Center Series Apply Bar (Like Batch Action in ClassTable) */}
+      {mounted && seriesPrompt && typeof document !== "undefined" && createPortal(
+        <div
+          onMouseEnter={pauseSeriesPromptTimer}
+          onMouseLeave={startSeriesPromptTimer}
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[999999] flex items-center justify-between gap-4 px-6 py-3.5 bg-gray-900 text-white rounded-xl shadow-2xl border border-gray-800 animate-slideUp"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 rounded-lg bg-brand-500/20 text-brand-400 shrink-0">
+              <Repeat className="w-4 h-4" />
+            </div>
+            <span className="text-sm font-medium">
+              {t("classSchedules.seriesPromptMsg", {
+                defaultValue: "Đã đổi lịch 1 buổi học. Bạn có muốn áp dụng cho toàn bộ học kỳ không?",
+              })}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                if (seriesPromptTimerRef.current) clearTimeout(seriesPromptTimerRef.current);
+                setSeriesPrompt(null);
+              }}
+              className="px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-white transition-colors"
+            >
+              {t("common.dismiss", { defaultValue: "Bỏ qua" })}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const p = seriesPrompt;
+                if (seriesPromptTimerRef.current) clearTimeout(seriesPromptTimerRef.current);
+                setSeriesPrompt(null);
+                handleExecuteMoveSeriesSlots(p.draggedEvent, p.targetDate, p.targetSlotIdx);
+              }}
+              disabled={editSaving}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg disabled:opacity-50 transition-colors cursor-pointer"
+            >
+              <Repeat className="w-3.5 h-3.5" />
+              {t("classSchedules.applyWholeSeries", { defaultValue: "Áp dụng cả kỳ" })}
+            </button>
+          </div>
         </div>,
         document.body
       )}
@@ -2548,16 +2680,7 @@ export default function ClassScheduleCalendar() {
               <RotateCcw className="w-4 h-4" />
               {t("classSchedules.revertDraft", { defaultValue: "Khôi phục gốc" })}
             </button>
-            <button
-              onClick={handleUndoDraftMove}
-              disabled={draftUndoStack.length === 0}
-              title={draftUndoStack.length === 0 ? t("classSchedules.noUndoAvailable", { defaultValue: "Không có thay đổi nào để hoàn tác" }) : undefined}
-              className="px-4 py-2 rounded-xl border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 text-sm font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Undo2 className="w-4 h-4" />
-              {t("classSchedules.undoBtn", { defaultValue: "Hoàn tác" })}
-              {draftUndoStack.length > 0 && <span className="ml-0.5 text-[10px] font-bold opacity-70">({draftUndoStack.length})</span>}
-            </button>
+
             <button
               onClick={handleSaveDraft}
               disabled={saveLoading}
@@ -2594,16 +2717,7 @@ export default function ClassScheduleCalendar() {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {editSaving && <Loader2 className="w-4 h-4 animate-spin text-violet-500" />}
-            <button
-              onClick={handleUndoDbMove}
-              disabled={dbUndoStack.length === 0 || undoingDbMove}
-              title={dbUndoStack.length === 0 ? t("classSchedules.noUndoAvailable", { defaultValue: "Không có thay đổi nào để hoàn tác" }) : undefined}
-              className="px-4 py-2 rounded-xl border border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300 text-sm font-semibold hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {undoingDbMove ? <Loader2 className="w-4 h-4 animate-spin" /> : <Undo2 className="w-4 h-4" />}
-              {t("classSchedules.undoBtn", { defaultValue: "Hoàn tác" })}
-              {dbUndoStack.length > 0 && <span className="ml-0.5 text-[10px] font-bold opacity-70">({dbUndoStack.length})</span>}
-            </button>
+
             {selectedSemesterId && (
               <button
                 onClick={handleOpenSaveVersionModal}
@@ -2812,6 +2926,7 @@ export default function ClassScheduleCalendar() {
                 onEventClick={handleEventClick}
                 onEventDrop={handleMoveEvent}
                 isEventEditable={isEventEditable}
+                semesterRange={activeSemester ? { startDate: activeSemester.startDate, endDate: activeSemester.endDate } : null}
               />
             </div>
           </div>
@@ -2822,8 +2937,10 @@ export default function ClassScheduleCalendar() {
               plugins={[dayGridPlugin, interactionPlugin]}
               initialView="dayGridMonth"
               initialDate={weekStart}
-              locale="vi"
-              buttonText={{ today: "Hôm nay", month: "Tháng" }}
+              buttonText={{
+                today: t("classSchedules.today", { defaultValue: "Hôm nay" }),
+                month: t("classSchedules.month", { defaultValue: "Tháng" }),
+              }}
               headerToolbar={{ left: "prev,next today", center: "title", right: "" }}
               events={fcEvents}
               selectable={false}
@@ -2833,6 +2950,17 @@ export default function ClassScheduleCalendar() {
               eventDrop={handleFcEventDrop}
               eventClick={handleFcEventClick}
               eventContent={renderMonthEvent}
+              dayCellClassNames={(arg) => {
+                if (activeSemester?.startDate && activeSemester?.endDate) {
+                  const iso = toISO(arg.date).slice(0, 10);
+                  const start = activeSemester.startDate.slice(0, 10);
+                  const end = activeSemester.endDate.slice(0, 10);
+                  if (iso < start || iso > end) {
+                    return "opacity-35 bg-gray-100/80 dark:bg-gray-850/80 cursor-not-allowed pointer-events-none";
+                  }
+                }
+                return "";
+              }}
               height="auto"
             />
           </div>
@@ -3264,40 +3392,7 @@ export default function ClassScheduleCalendar() {
         </div>
       </Modal>
 
-      {/* Move Mode Selector Modal */}
-      {moveModeModalState.isOpen && moveModeModalState.draggedEvent && (
-        <MoveModeModal
-          isOpen={moveModeModalState.isOpen}
-          onClose={() => setMoveModeModalState({ isOpen: false, draggedEvent: null, targetDate: "", targetSlotIdx: 0 })}
-          classCode={moveModeModalState.draggedEvent.classCode}
-          className={moveModeModalState.draggedEvent.className}
-          sourceDate={moveModeModalState.draggedEvent.scheduleDate}
-          sourceSlotLabel={t(`classSchedules.ca${moveModeModalState.draggedEvent.slotIndex + 1}`, {
-            defaultValue: FIXED_SLOTS[moveModeModalState.draggedEvent.slotIndex]?.label,
-          })}
-          targetDate={moveModeModalState.targetDate}
-          targetSlotLabel={t(`classSchedules.ca${moveModeModalState.targetSlotIdx + 1}`, {
-            defaultValue: FIXED_SLOTS[moveModeModalState.targetSlotIdx]?.label,
-          })}
-          onConfirm={(mode) => {
-            if (mode === "single") {
-              handleExecuteMoveSingleSlot(
-                moveModeModalState.draggedEvent!,
-                moveModeModalState.targetDate,
-                moveModeModalState.targetSlotIdx,
-                false
-              );
-            } else {
-              handleExecuteMoveSeriesSlots(
-                moveModeModalState.draggedEvent!,
-                moveModeModalState.targetDate,
-                moveModeModalState.targetSlotIdx
-              );
-            }
-          }}
-          loading={editSaving}
-        />
-      )}
+
 
       {/* Soft Conflict Override Modal */}
       {softConflictModalState.isOpen && softConflictModalState.draggedEvent && (
@@ -3309,6 +3404,7 @@ export default function ClassScheduleCalendar() {
               softConflictModalState.draggedEvent!,
               softConflictModalState.targetDate,
               softConflictModalState.targetSlotIdx,
+              true,
               true
             );
           }}

@@ -214,14 +214,14 @@ function WeekGrid({
                             className={`w-full text-left rounded-xl border p-2 text-[11px] font-semibold leading-tight transition-all duration-150 cursor-pointer shadow-xs hover:shadow-md hover:-translate-y-px ${SLOT_COLORS[slot.index]}`}
                           >
                             <div className="flex items-center justify-between gap-1 mb-1">
-                              <span className="block truncate font-bold">{ev.classCode}</span>
+                              <span className="block truncate font-bold">{ev.className || ev.classCode}</span>
                               {type === "student" && (
                                 <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold border ${attInfo.badgeClass}`}>
                                   {attInfo.labelShort}
                                 </span>
                               )}
                             </div>
-                            <span className="block truncate text-[10px] opacity-70 font-normal">{ev.className}</span>
+                            <span className="block truncate text-[10px] opacity-70 font-normal">{ev.classCode}</span>
                             <div className="mt-1 flex items-center justify-between text-[9px] text-gray-500 dark:text-gray-400 font-medium">
                               <span>{t("schedules.lessonShort", { lessonNo: ev.lessonNo, defaultValue: `Buổi ${ev.lessonNo}` })}</span>
                               <span className="truncate max-w-[55%]">{ev.roomName}</span>
