@@ -357,6 +357,10 @@ export const classApi = {
   async moveScheduleSlot(id: number, dto: MoveScheduleSlotDto): Promise<ApiResponse<MoveScheduleSlotResult>> {
     return api.post<MoveScheduleSlotResult>(`/api/Common/schedules/${id}/move`, dto);
   },
+
+  async checkDraftSoftConflict(dto: DraftSoftConflictCheckDto): Promise<ApiResponse<StudentPreferenceWarning[]>> {
+    return api.post<StudentPreferenceWarning[]>("/api/Common/draft/check-soft-conflict", dto);
+  },
 };
 
 export interface MoveScheduleSlotDto {
@@ -366,6 +370,16 @@ export interface MoveScheduleSlotDto {
   teacherId?: number | null;
   roomId?: number | null;
   forceOverride?: boolean;
+}
+
+export interface DraftSoftConflictCheckDto {
+  semesterId: number;
+  courseId: number;
+  studentIds: number[];
+  /** 0 = Sunday, 1 = Monday, … 6 = Saturday */
+  targetDayOfWeek: number;
+  /** 0–4, matching FixedTimeSlot.All */
+  targetSlotIndex: number;
 }
 
 export interface StudentPreferenceWarning {

@@ -18,7 +18,7 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useTranslation } from "react-i18next";
 import { commonApi } from "@/services/common.api";
 import { SoftConflictModal } from "./SoftConflictModal";
-import { StudentPreferenceWarning } from "@/services/class.api";
+import { StudentPreferenceWarning, DraftSoftConflictCheckDto } from "@/services/class.api";
 
 // ── Fixed time slots (must stay in sync with backend FixedTimeSlot.All) ──────
 const FIXED_SLOTS = [
@@ -1334,12 +1334,15 @@ export default function ClassScheduleCalendar() {
     targetDate: string;
     targetSlotIdx: number;
     warnings: StudentPreferenceWarning[];
+    /** true = confirming will execute a draft-only state update; false = re-calls handleExecuteMoveSingleSlot with forceOverride */
+    isDraftMove: boolean;
   }>({
     isOpen: false,
     draggedEvent: null,
     targetDate: "",
     targetSlotIdx: 0,
     warnings: [],
+    isDraftMove: false,
   });
 
   // Undo stacks — separate because undoing a draft move is a pure client-side state
@@ -1467,9 +1470,8 @@ export default function ClassScheduleCalendar() {
     
     while (cur <= end) {
       const dayOfWeek = cur.getDay();
-      const match = weeklySchedules.find((w: any) => w.dayOfWeek === dayOfWeek);
-      if (match) {
-        const slotIdx = resolveSlotIndex(match.startTime);
+      const matches = weeklySchedules.filter((w: any) => w.dayOfWeek === dayOfWeek);
+      for (const match of matches) {
         schedules.push({
           id: 0,
           classId: cls.id,
@@ -1523,6 +1525,7 @@ export default function ClassScheduleCalendar() {
             targetDate,
             targetSlotIdx,
             warnings: res.data.warnings || [],
+            isDraftMove: false,
           });
           setEditSaving(false);
           return;
@@ -1558,7 +1561,7 @@ export default function ClassScheduleCalendar() {
           ].slice(-UNDO_STACK_LIMIT)
         );
 
-        setSoftConflictModalState({ isOpen: false, draggedEvent: null, targetDate: "", targetSlotIdx: 0, warnings: [] });
+        setSoftConflictModalState({ isOpen: false, draggedEvent: null, targetDate: "", targetSlotIdx: 0, warnings: [], isDraftMove: false });
 
         setReloadTrigger((prev) => prev + 1);
 
@@ -1717,136 +1720,33 @@ export default function ClassScheduleCalendar() {
     }
   };
 
-  const handleMoveEvent = (draggedEvent: ScheduleEvent, targetDate: string, targetSlotIdx: number): boolean => {
-    // Cannot move events in the past
-    if (isPastSlot(draggedEvent.scheduleDate, draggedEvent.endTime) || isPastSlot(targetDate, FIXED_SLOTS[targetSlotIdx].end)) {
-      showToast(t("classSchedules.cannotEditPastSlot", { defaultValue: "Buổi học trong quá khứ không thể chỉnh sửa." }), "error");
-      return false;
-    }
+  /**
+   * Applies the weekly-schedule state mutation for a draft event move.
+   * Called either directly (after soft-conflict check passes) or from the
+   * SoftConflictModal confirm handler when the user overrides warnings.
+   */
+  const executeDraftMoveWithoutCheck = (draggedEvent: ScheduleEvent, targetDate: string, targetSlotIdx: number): void => {
+    if (!draftClasses) return;
 
-    // Cannot move events outside the active semester date range
-    const activeSem = semesters.find((s) => s.id === (selectedSemesterId || draftSemesterId));
-    if (activeSem?.startDate && activeSem?.endDate) {
-      const targetDateNorm = targetDate.slice(0, 10);
-      const semStartNorm = activeSem.startDate.slice(0, 10);
-      const semEndNorm = activeSem.endDate.slice(0, 10);
-      if (targetDateNorm < semStartNorm || targetDateNorm > semEndNorm) {
-        showToast(
-          t("classSchedules.errOutsideSemesterRange", {
-            defaultValue: `Không thể xếp lịch ngoài phạm vi thời gian học kỳ (${semStartNorm} - ${semEndNorm})!`,
-            start: semStartNorm,
-            end: semEndNorm,
-          }),
-          "error"
-        );
-        return false;
-      }
-    }
-
-    // Conflict check against all currently displayed events
-    const checkEvents = allDisplayEvents;
-
-    const teacherConflict = checkEvents.some(
-      (ev) =>
-        ev.id !== draggedEvent.id &&
-        ev.scheduleDate === targetDate &&
-        ev.slotIndex === targetSlotIdx &&
-        ev.teacherName === draggedEvent.teacherName &&
-        draggedEvent.teacherName !== "—" &&
-        draggedEvent.teacherName !== "Chưa phân công"
-    );
-
-    const roomConflict = checkEvents.some(
-      (ev) =>
-        ev.id !== draggedEvent.id &&
-        ev.scheduleDate === targetDate &&
-        ev.slotIndex === targetSlotIdx &&
-        ev.roomName === draggedEvent.roomName &&
-        draggedEvent.roomName !== "—" &&
-        draggedEvent.roomName !== "N/A"
-    );
-
-    if (teacherConflict) {
-      showToast(
-        t("classSchedules.teacherConflictWarning", {
-          teacher: draggedEvent.teacherName,
-          slot: t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label }),
-          date: targetDate,
-          defaultValue: `Giáo viên ${draggedEvent.teacherName} đã có lịch dạy vào ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!`,
-        }),
-        "error"
-      );
-      return false;
-    }
-
-    if (roomConflict) {
-      showToast(
-        t("classSchedules.roomConflictWarning", {
-          room: draggedEvent.roomName,
-          slot: t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label }),
-          date: targetDate,
-          defaultValue: `Phòng ${draggedEvent.roomName} đã được sử dụng vào ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!`,
-        }),
-        "error"
-      );
-      return false;
-    }
-
-    // Check teacher availability against cached map
-    const targetClass =
-      (draftClasses || []).find((c) => c.code === draggedEvent.classCode) ||
-      classes.find((c) => c.code === draggedEvent.classCode);
-    const teacherId = targetClass?.teacherId;
-
-    if (teacherId) {
-      const availSet = teacherAvailMap[teacherId];
-      if (availSet && availSet.size > 0) {
-        const targetDayOfWeek = new Date(targetDate).getDay();
-        const slotKey = `${targetDayOfWeek}-${targetSlotIdx}`;
-        if (!availSet.has(slotKey)) {
-          showToast(
-            t("class.errTeacherUnavailable", {
-              defaultValue: "Giáo viên không rảnh trong khoảng thời gian đã chọn của học kỳ.",
-            }),
-            "error"
-          );
-          return false;
-        }
-      }
-    }
-
-    // ── DB event in Edit Mode: auto-save as single slot, show toast with inline "apply series" action ──
-    if (!draggedEvent.isDraft && isEditMode) {
-      // Immediately execute single-slot move; offer series upgrade via toast action button
-      handleExecuteMoveSingleSlot(draggedEvent, targetDate, targetSlotIdx, false, true /* showSeriesAction */);
-      return true;
-    }
-
-    if (!draftClasses) return false;
-
-    // Find class in draft classes
     const clsIndex = draftClasses.findIndex((c) => c.code === draggedEvent.classCode);
-    if (clsIndex < 0) return false;
+    if (clsIndex < 0) return;
 
     const cls = { ...draftClasses[clsIndex] };
-    let weeklySchedules = [];
+    let weeklySchedules: any[] = [];
     try {
       weeklySchedules = cls.weeklySchedulesJson ? JSON.parse(cls.weeklySchedulesJson) : [];
     } catch {
       weeklySchedules = [];
     }
 
-    const originalDateObj = new Date(draggedEvent.scheduleDate);
-    const originalDayOfWeek = originalDateObj.getDay();
-
-    const targetDateObj = new Date(targetDate);
-    const targetDayOfWeek = targetDateObj.getDay();
+    const originalDayOfWeek = new Date(draggedEvent.scheduleDate).getDay();
+    const targetDayOfWeek = new Date(targetDate).getDay();
 
     // Find the weekly schedule entry to change
     const wsIdx = weeklySchedules.findIndex((w: any) => w.dayOfWeek === originalDayOfWeek && w.startTime === draggedEvent.startTime);
     if (wsIdx < 0) {
       const wsIdxFallback = weeklySchedules.findIndex((w: any) => w.dayOfWeek === originalDayOfWeek);
-      if (wsIdxFallback < 0) return false;
+      if (wsIdxFallback < 0) return;
       weeklySchedules[wsIdxFallback].dayOfWeek = targetDayOfWeek;
       weeklySchedules[wsIdxFallback].startTime = FIXED_SLOTS[targetSlotIdx].start;
       weeklySchedules[wsIdxFallback].endTime = FIXED_SLOTS[targetSlotIdx].end;
@@ -1857,7 +1757,6 @@ export default function ClassScheduleCalendar() {
     }
 
     cls.weeklySchedulesJson = JSON.stringify(weeklySchedules);
-
     cls.scheduleDisplay = weeklySchedules
       .sort((a: any, b: any) => a.dayOfWeek - b.dayOfWeek)
       .map((w: any) => `${t(`common.day${w.dayOfWeek}`, { defaultValue: DAY_LABELS[w.dayOfWeek] })} ${w.startTime}-${w.endTime}`)
@@ -1885,8 +1784,421 @@ export default function ClassScheduleCalendar() {
       }),
       "success"
     );
+  };
 
-    return true;
+  const handleMoveEvent = async (draggedEvent: ScheduleEvent, targetDate: string, targetSlotIdx: number): Promise<boolean> => {
+    // Cannot move events in the past
+    if (isPastSlot(draggedEvent.scheduleDate, draggedEvent.endTime) || isPastSlot(targetDate, FIXED_SLOTS[targetSlotIdx].end)) {
+      showToast(t("classSchedules.cannotEditPastSlot", { defaultValue: "Buổi học trong quá khứ không thể chỉnh sửa." }), "error");
+      return false;
+    }
+
+    // Cannot move events outside the active semester date range
+    const activeSem = semesters.find((s) => s.id === (selectedSemesterId || draftSemesterId));
+    if (activeSem?.startDate && activeSem?.endDate) {
+      const targetDateNorm = targetDate.slice(0, 10);
+      const semStartNorm = activeSem.startDate.slice(0, 10);
+      const semEndNorm = activeSem.endDate.slice(0, 10);
+      if (targetDateNorm < semStartNorm || targetDateNorm > semEndNorm) {
+        showToast(
+          t("classSchedules.errOutsideSemesterRange", {
+            defaultValue: `Không thể xếp lịch ngoài phạm vi thời gian học kỳ (${semStartNorm} - ${semEndNorm})!`,
+            start: semStartNorm,
+            end: semEndNorm,
+          }),
+          "error"
+        );
+        return false;
+      }
+    }
+
+    const targetDayOfWeek = new Date(targetDate).getDay();
+
+    // ── DB event in Edit Mode: single slot move with series upgrade option ──
+    if (!draggedEvent.isDraft && isEditMode) {
+      // Conflict check against all currently displayed events for the single target date
+      const checkEvents = allDisplayEvents;
+
+      const teacherConflict = checkEvents.some(
+        (ev) =>
+          ev.id !== draggedEvent.id &&
+          ev.scheduleDate === targetDate &&
+          ev.slotIndex === targetSlotIdx &&
+          ev.teacherName === draggedEvent.teacherName &&
+          draggedEvent.teacherName !== "—" &&
+          draggedEvent.teacherName !== "Chưa phân công"
+      );
+
+      const roomConflict = checkEvents.some(
+        (ev) =>
+          ev.id !== draggedEvent.id &&
+          ev.scheduleDate === targetDate &&
+          ev.slotIndex === targetSlotIdx &&
+          ev.roomName === draggedEvent.roomName &&
+          draggedEvent.roomName !== "—" &&
+          draggedEvent.roomName !== "N/A"
+      );
+
+      if (teacherConflict) {
+        showToast(
+          t("classSchedules.teacherConflictWarning", {
+            teacher: draggedEvent.teacherName,
+            slot: t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label }),
+            date: targetDate,
+            defaultValue: `Giáo viên ${draggedEvent.teacherName} đã có lịch dạy vào ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!`,
+          }),
+          "error"
+        );
+        return false;
+      }
+
+      if (roomConflict) {
+        showToast(
+          t("classSchedules.roomConflictWarning", {
+            room: draggedEvent.roomName,
+            slot: t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label }),
+            date: targetDate,
+            defaultValue: `Phòng ${draggedEvent.roomName} đã được sử dụng vào ${FIXED_SLOTS[targetSlotIdx].label} ngày ${targetDate}!`,
+          }),
+          "error"
+        );
+        return false;
+      }
+
+      // Check teacher availability against cached map
+      const targetClass = classes.find((c) => c.code === draggedEvent.classCode);
+      const teacherId = targetClass?.teacherId;
+      if (teacherId) {
+        const availSet = teacherAvailMap[teacherId];
+        if (availSet && availSet.size > 0) {
+          const slotKey = `${targetDayOfWeek}-${targetSlotIdx}`;
+          if (!availSet.has(slotKey)) {
+            showToast(
+              t("class.errTeacherUnavailable", {
+                defaultValue: "Giáo viên không rảnh trong khoảng thời gian đã chọn của học kỳ.",
+              }),
+              "error"
+            );
+            return false;
+          }
+        }
+      }
+
+      // Immediately execute single-slot move; offer series upgrade via toast action button
+      handleExecuteMoveSingleSlot(draggedEvent, targetDate, targetSlotIdx, false, true /* showSeriesAction */);
+      return true;
+    }
+
+    // ── Draft event: fixed weekly pattern across the entire semester with full Hard Constraint checking ──
+    if (draggedEvent.isDraft && draftClasses) {
+      const clsIndex = draftClasses.findIndex((c) => c.code === draggedEvent.classCode);
+      if (clsIndex < 0) return false;
+
+      const cls = { ...draftClasses[clsIndex] };
+      let weeklySchedules: any[] = [];
+      try {
+        weeklySchedules = cls.weeklySchedulesJson ? JSON.parse(cls.weeklySchedulesJson) : [];
+      } catch {
+        weeklySchedules = [];
+      }
+
+      const originalDayOfWeek = new Date(draggedEvent.scheduleDate).getDay();
+
+      // Find the specific weekly schedule item being moved
+      let movingWsIdx = weeklySchedules.findIndex(
+        (w: any) => w.dayOfWeek === originalDayOfWeek && w.startTime === draggedEvent.startTime
+      );
+      if (movingWsIdx < 0) {
+        movingWsIdx = weeklySchedules.findIndex((w: any) => w.dayOfWeek === originalDayOfWeek);
+      }
+      if (movingWsIdx < 0) return false;
+
+      // ─────────────────────────────────────────────────────────────────────────────
+      // HARD CONSTRAINT 1: Intra-class duplicate day check
+      // A class cannot have multiple sessions on the same day of the week.
+      // ─────────────────────────────────────────────────────────────────────────────
+      const duplicateDayInSameClass = weeklySchedules.some(
+        (w: any, idx: number) => idx !== movingWsIdx && w.dayOfWeek === targetDayOfWeek
+      );
+      if (duplicateDayInSameClass) {
+        const dayName = t(`common.day${targetDayOfWeek}`, { defaultValue: DAY_LABELS[targetDayOfWeek] });
+        showToast(
+          t("classSchedules.errSameDaySlot", {
+            classCode: cls.code,
+            day: dayName,
+            defaultValue: `Lớp ${cls.code} đã có lịch học vào ${dayName}. Mỗi lớp không được xếp nhiều hơn 1 buổi trong cùng 1 ngày!`,
+          }),
+          "error"
+        );
+        return false;
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────────
+      // HARD CONSTRAINT 2: Teacher Availability
+      // The teacher must be free in the semester availability calendar for (targetDayOfWeek, targetSlotIdx).
+      // ─────────────────────────────────────────────────────────────────────────────
+      const effectiveTeacherId = cls.teacherId ?? draggedEvent.teacherId;
+      const effectiveTeacherName = cls.teacherName ?? draggedEvent.teacherName;
+      if (effectiveTeacherId) {
+        const availSet = teacherAvailMap[effectiveTeacherId];
+        if (availSet && availSet.size > 0) {
+          const slotKey = `${targetDayOfWeek}-${targetSlotIdx}`;
+          if (!availSet.has(slotKey)) {
+            showToast(
+              t("class.errTeacherUnavailable", {
+                defaultValue: "Giáo viên không rảnh trong khoảng thời gian đã chọn của học kỳ.",
+              }),
+              "error"
+            );
+            return false;
+          }
+        }
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────────
+      // HARD CONSTRAINT 3: Teacher Conflict across all other classes
+      // No two classes can share the same teacher at the same (dayOfWeek, slotIndex).
+      // ─────────────────────────────────────────────────────────────────────────────
+      if (effectiveTeacherName && effectiveTeacherName !== "—" && effectiveTeacherName !== "Chưa phân công") {
+        // 3a. Check other draft classes
+        for (const otherCls of draftClasses) {
+          if (otherCls.code === cls.code) continue;
+          const isSameTeacher =
+            (effectiveTeacherId && otherCls.teacherId === effectiveTeacherId) ||
+            otherCls.teacherName === effectiveTeacherName;
+          if (!isSameTeacher) continue;
+
+          let otherWeekly: any[] = [];
+          try {
+            otherWeekly = otherCls.weeklySchedulesJson ? JSON.parse(otherCls.weeklySchedulesJson) : [];
+          } catch {
+            otherWeekly = [];
+          }
+
+          const conflictSlot = otherWeekly.find(
+            (w: any) => w.dayOfWeek === targetDayOfWeek && resolveSlotIndex(w.startTime) === targetSlotIdx
+          );
+          if (conflictSlot) {
+            const dayName = t(`common.day${targetDayOfWeek}`, { defaultValue: DAY_LABELS[targetDayOfWeek] });
+            const slotName = t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label });
+            showToast(
+              t("classSchedules.errTeacherConflictWithClass", {
+                teacher: effectiveTeacherName,
+                otherClass: otherCls.code,
+                day: dayName,
+                slot: slotName,
+                defaultValue: `Giáo viên ${effectiveTeacherName} đã có lịch dạy lớp ${otherCls.code} vào ${dayName} ${slotName}!`,
+              }),
+              "error"
+            );
+            return false;
+          }
+        }
+
+        // 3b. Check existing non-draft DB events
+        const dbTeacherConflict = events.find(
+          (ev) =>
+            !ev.isDraft &&
+            ev.classCode !== cls.code &&
+            ev.slotIndex === targetSlotIdx &&
+            new Date(ev.scheduleDate).getDay() === targetDayOfWeek &&
+            ev.teacherName === effectiveTeacherName
+        );
+        if (dbTeacherConflict) {
+          const dayName = t(`common.day${targetDayOfWeek}`, { defaultValue: DAY_LABELS[targetDayOfWeek] });
+          const slotName = t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label });
+          showToast(
+            t("classSchedules.errTeacherConflictWithClass", {
+              teacher: effectiveTeacherName,
+              otherClass: dbTeacherConflict.classCode,
+              day: dayName,
+              slot: slotName,
+              defaultValue: `Giáo viên ${effectiveTeacherName} đã có lịch dạy lớp ${dbTeacherConflict.classCode} vào ${dayName} ${slotName}!`,
+            }),
+            "error"
+          );
+          return false;
+        }
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────────
+      // HARD CONSTRAINT 4: Room Conflict across all other classes
+      // No two classes can share the same physical room at the same (dayOfWeek, slotIndex).
+      // ─────────────────────────────────────────────────────────────────────────────
+      const effectiveRoomName = draggedEvent.roomName;
+      const effectiveRoomId = draggedEvent.roomId;
+      if (cls.type !== 1 && effectiveRoomName && effectiveRoomName !== "—" && effectiveRoomName !== "N/A") {
+        // 4a. Check other draft classes
+        for (const otherCls of draftClasses) {
+          if (otherCls.code === cls.code || otherCls.type === 1) continue;
+          let otherWeekly: any[] = [];
+          try {
+            otherWeekly = otherCls.weeklySchedulesJson ? JSON.parse(otherCls.weeklySchedulesJson) : [];
+          } catch {
+            otherWeekly = [];
+          }
+
+          const conflictRoomSlot = otherWeekly.find((w: any) => {
+            if (w.dayOfWeek !== targetDayOfWeek || resolveSlotIndex(w.startTime) !== targetSlotIdx) return false;
+            if (effectiveRoomId && w.roomId) return w.roomId === effectiveRoomId;
+            const otherRoomName = otherCls.schedules?.[0]?.roomName;
+            return otherRoomName === effectiveRoomName;
+          });
+
+          if (conflictRoomSlot) {
+            const dayName = t(`common.day${targetDayOfWeek}`, { defaultValue: DAY_LABELS[targetDayOfWeek] });
+            const slotName = t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label });
+            showToast(
+              t("classSchedules.errRoomConflictWithClass", {
+                room: effectiveRoomName,
+                otherClass: otherCls.code,
+                day: dayName,
+                slot: slotName,
+                defaultValue: `Phòng ${effectiveRoomName} đã được sử dụng bởi lớp ${otherCls.code} vào ${dayName} ${slotName}!`,
+              }),
+              "error"
+            );
+            return false;
+          }
+        }
+
+        // 4b. Check existing DB events
+        const dbRoomConflict = events.find(
+          (ev) =>
+            !ev.isDraft &&
+            ev.classCode !== cls.code &&
+            ev.slotIndex === targetSlotIdx &&
+            new Date(ev.scheduleDate).getDay() === targetDayOfWeek &&
+            ev.roomName === effectiveRoomName
+        );
+        if (dbRoomConflict) {
+          const dayName = t(`common.day${targetDayOfWeek}`, { defaultValue: DAY_LABELS[targetDayOfWeek] });
+          const slotName = t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label });
+          showToast(
+            t("classSchedules.errRoomConflictWithClass", {
+              room: effectiveRoomName,
+              otherClass: dbRoomConflict.classCode,
+              day: dayName,
+              slot: slotName,
+              defaultValue: `Phòng ${effectiveRoomName} đã được sử dụng bởi lớp ${dbRoomConflict.classCode} vào ${dayName} ${slotName}!`,
+            }),
+            "error"
+          );
+          return false;
+        }
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────────
+      // HARD CONSTRAINT 5: Student Schedule Conflict
+      // A student cannot be scheduled for 2 different classes at the same (dayOfWeek, slotIndex).
+      // ─────────────────────────────────────────────────────────────────────────────
+      const currentStudentIds = new Set(
+        (cls.studentClasses || [])
+          .map((sc: any) => sc.studentId || sc.student?.id)
+          .filter(Boolean)
+      );
+
+      if (currentStudentIds.size > 0) {
+        for (const otherCls of draftClasses) {
+          if (otherCls.code === cls.code) continue;
+          const overlappingStudents = (otherCls.studentClasses || []).filter((sc: any) =>
+            currentStudentIds.has(sc.studentId || sc.student?.id)
+          );
+          if (overlappingStudents.length === 0) continue;
+
+          let otherWeekly: any[] = [];
+          try {
+            otherWeekly = otherCls.weeklySchedulesJson ? JSON.parse(otherCls.weeklySchedulesJson) : [];
+          } catch {
+            otherWeekly = [];
+          }
+
+          const otherConflictWs = otherWeekly.find(
+            (w: any) => w.dayOfWeek === targetDayOfWeek && resolveSlotIndex(w.startTime) === targetSlotIdx
+          );
+
+          if (otherConflictWs) {
+            const studentNames = overlappingStudents
+              .map((sc: any) => sc.student?.name || sc.student?.email || `Học viên #${sc.studentId}`)
+              .join(", ");
+            const dayName = t(`common.day${targetDayOfWeek}`, { defaultValue: DAY_LABELS[targetDayOfWeek] });
+            const slotName = t(`classSchedules.ca${targetSlotIdx + 1}`, { defaultValue: FIXED_SLOTS[targetSlotIdx].label });
+            showToast(
+              t("classSchedules.errStudentConflictWithClass", {
+                students: studentNames,
+                otherClass: otherCls.code,
+                day: dayName,
+                slot: slotName,
+                defaultValue: `Học viên (${studentNames}) bị trùng lịch với lớp ${otherCls.code} vào ${dayName} ${slotName}!`,
+              }),
+              "error"
+            );
+            return false;
+          }
+        }
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────────
+      // HARD CONSTRAINT 6: Room Capacity Check
+      // Offline class must not exceed room capacity.
+      // ─────────────────────────────────────────────────────────────────────────────
+      if (cls.type !== 1 && effectiveRoomId && cls.studentCount) {
+        const targetRoom = rooms.find((r) => r.id === effectiveRoomId);
+        if (targetRoom && targetRoom.capacity && cls.studentCount > targetRoom.capacity) {
+          showToast(
+            t("class.errRoomCapacityExceeded", {
+              roomName: targetRoom.name,
+              defaultValue: `Sức chứa phòng ${targetRoom.name} (${targetRoom.capacity} chỗ) không đủ cho ${cls.studentCount} học viên.`,
+            }),
+            "error"
+          );
+          return false;
+        }
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────────
+      // SOFT CONSTRAINT: Student Preferences
+      // Check whether enrolled students' preferred slot/days match this change.
+      // If violated, prompt SoftConflictModal to allow user to confirm or cancel.
+      // ─────────────────────────────────────────────────────────────────────────────
+      const semId = cls.semesterId || draftSemesterId;
+      const courseId = cls.courseId;
+      const studentIds = (cls.studentClasses || [])
+        .map((sc) => sc.studentId)
+        .filter(Boolean) as number[];
+
+      if (semId && courseId && studentIds.length > 0) {
+        try {
+          const res = await classApi.checkDraftSoftConflict({
+            semesterId: semId,
+            courseId,
+            studentIds,
+            targetDayOfWeek,
+            targetSlotIndex: targetSlotIdx,
+          });
+
+          if (res.success && res.data && res.data.length > 0) {
+            setSoftConflictModalState({
+              isOpen: true,
+              draggedEvent,
+              targetDate,
+              targetSlotIdx,
+              warnings: res.data,
+              isDraftMove: true,
+            });
+            return true;
+          }
+        } catch {
+          // Fall through if network error
+        }
+      }
+
+      // All hard & soft checks passed: commit the move
+      executeDraftMoveWithoutCheck(draggedEvent, targetDate, targetSlotIdx);
+      return true;
+    }
+
+    return false;
   };
 
   const handleUndoDraftMove = () => {
@@ -2534,7 +2846,7 @@ export default function ClassScheduleCalendar() {
     openModal();
   };
 
-  const handleFcEventDrop = (info: any) => {
+  const handleFcEventDrop = async (info: any) => {
     const ev = info.event.extendedProps as ScheduleEvent;
     if (!isEventEditable(ev)) {
       info.revert();
@@ -2556,7 +2868,7 @@ export default function ClassScheduleCalendar() {
       targetSlotIdx = ev.slotIndex;
     }
     
-    const success = handleMoveEvent(ev, targetDate, targetSlotIdx);
+    const success = await handleMoveEvent(ev, targetDate, targetSlotIdx);
     if (!success) {
       info.revert();
     }
@@ -3398,15 +3710,26 @@ export default function ClassScheduleCalendar() {
       {softConflictModalState.isOpen && softConflictModalState.draggedEvent && (
         <SoftConflictModal
           isOpen={softConflictModalState.isOpen}
-          onClose={() => setSoftConflictModalState({ isOpen: false, draggedEvent: null, targetDate: "", targetSlotIdx: 0, warnings: [] })}
+          onClose={() => setSoftConflictModalState({ isOpen: false, draggedEvent: null, targetDate: "", targetSlotIdx: 0, warnings: [], isDraftMove: false })}
           onConfirm={() => {
-            handleExecuteMoveSingleSlot(
-              softConflictModalState.draggedEvent!,
-              softConflictModalState.targetDate,
-              softConflictModalState.targetSlotIdx,
-              true,
-              true
-            );
+            if (softConflictModalState.isDraftMove) {
+              // Draft path: execute the state-only move and close modal
+              executeDraftMoveWithoutCheck(
+                softConflictModalState.draggedEvent!,
+                softConflictModalState.targetDate,
+                softConflictModalState.targetSlotIdx
+              );
+              setSoftConflictModalState({ isOpen: false, draggedEvent: null, targetDate: "", targetSlotIdx: 0, warnings: [], isDraftMove: false });
+            } else {
+              // DB edit path: re-call with forceOverride = true
+              handleExecuteMoveSingleSlot(
+                softConflictModalState.draggedEvent!,
+                softConflictModalState.targetDate,
+                softConflictModalState.targetSlotIdx,
+                true,
+                true
+              );
+            }
           }}
           warnings={softConflictModalState.warnings}
           targetDate={softConflictModalState.targetDate}
