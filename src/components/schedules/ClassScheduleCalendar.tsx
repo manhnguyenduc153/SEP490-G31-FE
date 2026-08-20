@@ -1448,10 +1448,10 @@ export default function ClassScheduleCalendar() {
     if (ev.isDraft) return true; // Temp draft always draggable
     if (!isEditMode) return false; // DB events only draggable when Edit Mode is ON
     if (ev.classStatus !== undefined && ev.classStatus !== null) {
-      return ev.classStatus === 0; // Only Planning classes
+      return ev.classStatus === 0 || ev.classStatus === 1; // Allow Planning (0) and Active (1) for future slots
     }
     const cls = classes.find((c) => c.code === ev.classCode);
-    return cls?.status === 0; // 0 = Planning
+    return cls ? (cls.status === 0 || cls.status === 1) : true;
   }, [classes, isEditMode, editSaving]);
 
   const regenerateSchedulesForClass = (cls: ClassItem, semesterStartStr: string, semesterEndStr: string): ClassScheduleItem[] => {
