@@ -71,6 +71,7 @@ export interface MyGradeComponentScoreDto {
   score: number;
   rawScore: number;
   isOverride: boolean;
+  band?: number | null; // average IELTS band across exams of this skill, when computable
 }
 
 export interface MyGradeHomeworkDto {
@@ -87,6 +88,7 @@ export interface MyGradeExamDto {
   totalScore: number;
   score?: number | null;
   normalizedScore?: number | null;
+  band?: number | null; // IELTS band for this exam, when computable
 }
 
 export interface MyGradeClassDto {
@@ -104,9 +106,27 @@ export interface MyGradeClassDto {
 
 const round1 = (value: number) => Math.round(value * 10) / 10;
 
+const roundBand = (value: number) => {
+  const clamped = Math.max(0, Math.min(9, value));
+  return Math.floor(clamped * 2 + 0.5) / 2;
+};
+
 const normalizeScore = (score?: number | null, total?: number | null) => {
   if (score === null || score === undefined || !total || total <= 0) return 0;
-  return Math.max(0, Math.min(10, (Number(score) / Number(total)) * 10));
+  return roundBand((Number(score) / Number(total)) * 9);
+};
+
+const resolveAttemptBandScore = (
+  attempt: { score?: number | null; band?: number | null },
+  total?: number | null,
+  isSingleSkillExam = false
+) => {
+  const score = attempt.band ?? (isSingleSkillExam ? attempt.score : null);
+  if (score !== null && score !== undefined) {
+    return roundBand(Number(score));
+  }
+
+  return normalizeScore(attempt.score, total);
 };
 
 type ExamSkillCode = "listening" | "reading" | "speaking" | "writing";
@@ -217,7 +237,7 @@ export async function buildClassScoreRows(classId: number, overrides: ScoreOverr
       const studentAttempts = attempts.filter((item) => item.studentId === studentId);
       const hasScoredAttempt = studentAttempts.some((item) => item.score !== null && item.score !== undefined);
       const bestScore = studentAttempts.reduce(
-        (max, item) => Math.max(max, normalizeScore(item.score, exam.totalScore || 10)),
+        (max, item) => Math.max(max, resolveAttemptBandScore(item, exam.totalScore || 10, Boolean(skillCode))),
         0
       );
       hasExamScore = hasExamScore || hasScoredAttempt;
@@ -229,19 +249,19 @@ export async function buildClassScoreRows(classId: number, overrides: ScoreOverr
 
       return bestScore;
     });
-    const examRaw = averageScores(examScores);
-    const listeningRaw = averageScores(examScoresBySkill.listening);
-    const readingRaw = averageScores(examScoresBySkill.reading);
-    const speakingRaw = averageScores(examScoresBySkill.speaking);
-    const writingRaw = averageScores(examScoresBySkill.writing);
+    const examRaw = roundBand(averageScores(examScores));
+    const listeningRaw = roundBand(averageScores(examScoresBySkill.listening));
+    const readingRaw = roundBand(averageScores(examScoresBySkill.reading));
+    const speakingRaw = roundBand(averageScores(examScoresBySkill.speaking));
+    const writingRaw = roundBand(averageScores(examScoresBySkill.writing));
 
     const studentOverrides = overrides[studentId] || {};
     const rawComponentScores = {
-      listening: round1(listeningRaw),
-      reading: round1(readingRaw),
-      speaking: round1(speakingRaw),
-      writing: round1(writingRaw),
-      exam: round1(examRaw),
+      listening: listeningRaw,
+      reading: readingRaw,
+      speaking: speakingRaw,
+      writing: writingRaw,
+      exam: examRaw,
     };
     const rawComponentHasScore: Record<string, boolean> = {
       listening: examHasScoreBySkill.listening,
@@ -251,21 +271,21 @@ export async function buildClassScoreRows(classId: number, overrides: ScoreOverr
       exam: hasExamScore,
     };
     const componentScores: Record<string, number> = {
-      listening: round1(studentOverrides.listening ?? listeningRaw),
-      reading: round1(studentOverrides.reading ?? readingRaw),
-      speaking: round1(studentOverrides.speaking ?? speakingRaw),
-      writing: round1(studentOverrides.writing ?? writingRaw),
-      exam: round1(studentOverrides.exam ?? examRaw),
+      listening: roundBand(studentOverrides.listening ?? listeningRaw),
+      reading: roundBand(studentOverrides.reading ?? readingRaw),
+      speaking: roundBand(studentOverrides.speaking ?? speakingRaw),
+      writing: roundBand(studentOverrides.writing ?? writingRaw),
+      exam: roundBand(studentOverrides.exam ?? examRaw),
     };
 
     Object.entries(studentOverrides).forEach(([componentId, value]) => {
       if (value !== undefined && value !== null) {
-        componentScores[componentId] = round1(value);
+        componentScores[componentId] = roundBand(value);
       }
     });
 
     const examScore = componentScores.exam ?? 0;
-    const averageScore = round1(averageScores([
+    const averageScore = roundBand(averageScores([
       componentScores.listening ?? 0,
       componentScores.reading ?? 0,
       componentScores.speaking ?? 0,
@@ -282,7 +302,7 @@ export async function buildClassScoreRows(classId: number, overrides: ScoreOverr
       componentScores,
       rawComponentScores,
       rawComponentHasScore,
-      rawExamScore: round1(examRaw),
+      rawExamScore: examRaw,
       examSummary: `${examAttemptPairs.length} bài`,
     } satisfies ScoreRow;
   });

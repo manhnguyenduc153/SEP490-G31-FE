@@ -67,6 +67,10 @@ export function ExamForm({ id }: ExamFormProps) {
   // one skill now (no "Tất cả"/mixed option), and the question picker is always locked to it so
   // mismatched-skill questions can neither be shown nor stay selected.
   const [examSkillType, setExamSkillType] = useState<number>(2); // Default to Reading (2)
+  // Every exam skill (Listening/Reading/Writing/Speaking) is now graded directly on the IELTS
+  // band scale (0-9) — Listening/Reading from correct-answer count, Writing/Speaking from direct
+  // teacher grading — so per-question points/TotalScore are never used for scoring anymore.
+  const isBandGradedSkill = examSkillType === 1 || examSkillType === 2 || examSkillType === 3 || examSkillType === 4;
   const [questionPassages, setQuestionPassages] = useState<QuestionPassageItem[]>([]);
   const [questions, setQuestions] = useState<QuestionItem[]>([]);
   const [expandedPassageIds, setExpandedPassageIds] = useState<number[]>([]);
@@ -799,28 +803,39 @@ export function ExamForm({ id }: ExamFormProps) {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                  {t("exams.formTotalScoreLabel", { defaultValue: "Tổng điểm" })}
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  value={totalScore}
-                  onChange={(e) => setTotalScore(Math.max(1, parseFloat(e.target.value) || 0))}
-                  className="w-full h-11 px-3.5 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-300 focus:outline-hidden dark:text-white"
-                />
-              </div>
+              {/* Not used for scoring anymore — every skill is graded directly on the 0-9 band
+                  scale rather than a configured points total, so this field is moot. */}
+              {!isBandGradedSkill && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                    {t("exams.formTotalScoreLabel", { defaultValue: "Tổng điểm" })}
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={totalScore}
+                    onChange={(e) => setTotalScore(Math.max(1, parseFloat(e.target.value) || 0))}
+                    className="w-full h-11 px-3.5 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-300 focus:outline-hidden dark:text-white"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                  {t("exams.formPassingScoreLabel", { defaultValue: "Điểm đạt" })}
+                  {isBandGradedSkill
+                    ? t("exams.formPassingBandLabel", { defaultValue: "Điểm đạt (band 0-9)" })
+                    : t("exams.formPassingScoreLabel", { defaultValue: "Điểm đạt" })}
                 </label>
                 <input
                   type="number"
                   min={0}
+                  max={isBandGradedSkill ? 9 : undefined}
+                  step={isBandGradedSkill ? 0.5 : 1}
                   value={passingScore}
-                  onChange={(e) => setPassingScore(Math.max(0, parseFloat(e.target.value) || 0))}
+                  onChange={(e) => {
+                    const upperBound = isBandGradedSkill ? 9 : Number.MAX_SAFE_INTEGER;
+                    setPassingScore(Math.max(0, Math.min(upperBound, parseFloat(e.target.value) || 0)));
+                  }}
                   className="w-full h-11 px-3.5 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-300 focus:outline-hidden dark:text-white"
                 />
               </div>
@@ -1051,7 +1066,7 @@ export function ExamForm({ id }: ExamFormProps) {
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between gap-2">
                                           <span className="font-bold text-gray-500">{q.code}</span>
-                                          {examSkillType !== 4 && examSkillType !== 3 && (
+                                          {!isBandGradedSkill && (
                                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 font-semibold text-gray-600 dark:text-gray-400">
                                               {q.point || 1} điểm
                                             </span>
@@ -1112,10 +1127,9 @@ export function ExamForm({ id }: ExamFormProps) {
               )}
             </div>
 
-            {/* Points preview footer — Writing/Speaking are graded manually by staff per
-                submission, not auto-scored per question, so a per-question point split
-                doesn't apply. */}
-            {examSkillType !== 4 && examSkillType !== 3 && (
+            {/* Points preview footer — every skill is now graded directly on the IELTS band
+                scale (0-9) rather than a per-question point split, so this never applies. */}
+            {!isBandGradedSkill && (
               <div className="mt-3 pt-3 border-t border-gray-100 dark:border-white/[0.05] flex justify-between items-center text-xs">
                 <span className="font-semibold text-gray-500">{t("exams.formPointPerQuestion", { defaultValue: "Điểm mỗi câu (ước tính):" })}</span>
                 <span className="font-bold text-brand-500">

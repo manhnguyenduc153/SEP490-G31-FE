@@ -92,6 +92,15 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
     );
   };
 
+  // Listening/Reading/Writing/Speaking all store Score directly as an IELTS band (0-9) now —
+  // Listening/Reading from correct-answer count, Writing/Speaking from direct teacher grading.
+  const isBandScoredExam = () => {
+    if (!exam?.questions?.length) return false;
+    const skills = new Set(exam.questions.map((q) => q.skillType));
+    const skill = skills.size === 1 ? Array.from(skills)[0] : null;
+    return skill === 1 || skill === 2 || skill === 3 || skill === 4;
+  };
+
   const checkIfPendingGrading = (att?: ExamAttemptDto | null) => {
     if (!att || !exam) return false;
     return isManualGradedExam() && (att.score === null || att.score === undefined || att.score === 0);
@@ -760,7 +769,7 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                         </span>
                       ) : (
                         <span className={`text-sm font-black ${(att.score ?? 0) >= (exam.passingScore || 5) ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                          {att.score ?? 0}/{exam.totalScore || 10}
+                          {isBandScoredExam() ? `Band ${att.score ?? 0}` : `${att.score ?? 0}/${exam.totalScore || 10}`}
                         </span>
                       )}
                       <span className="block text-[8px] text-gray-400 uppercase font-black tracking-wider">{t("exams.gradeScore")}</span>
@@ -1717,7 +1726,9 @@ export function StudentExamTaker({ examId, onBack, showToast }: StudentExamTaker
                 }`}>
                   <span className="text-[10px] uppercase font-black tracking-widest block opacity-70">{t("exams.gradeScore")}</span>
                   <span className="text-3xl font-black tracking-tight mt-1 block">
-                    {isPending ? `-- / ${exam.totalScore || 10}` : `${attempt.score || 0}/${exam.totalScore || 10}`}
+                    {isBandScoredExam()
+                      ? (isPending ? "Band --" : `Band ${attempt.score || 0}`)
+                      : (isPending ? `-- / ${exam.totalScore || 10}` : `${attempt.score || 0}/${exam.totalScore || 10}`)}
                   </span>
                   <span className="text-[10px] font-bold block pt-2 opacity-90 border-t border-white/20 mt-3 uppercase tracking-wider">
                     {isPending

@@ -58,6 +58,27 @@ const isManualGradedExam = (examData?: ExamItem | null) => {
   );
 };
 
+// Mirrors the backend's IeltsBandScale.GetSingleSkillType: only exams whose questions are a
+// single, homogeneous skill are graded on the IELTS band scale (0-9) instead of exam.totalScore.
+const getSingleSkillType = (examData?: ExamItem | null): number | null => {
+  if (!examData?.questions?.length) return null;
+  const skills = new Set(examData.questions.map((q: any) => q.skillType));
+  return skills.size === 1 ? (Array.from(skills)[0] as number) : null;
+};
+
+const isBandGradedExam = (examData?: ExamItem | null) => {
+  const skill = getSingleSkillType(examData);
+  return skill === 3 || skill === 4; // Speaking or Writing (graded directly on 0-9 by the teacher)
+};
+
+// Listening/Reading are auto-graded straight to a 0-9 band too (from correct-answer count), so
+// their attempt.score is band-scaled just like Speaking/Writing — used for score DISPLAY only
+// (not the manual-grading input, which stays scoped to isBandGradedExam / skill 3-4).
+const isBandScoredExam = (examData?: ExamItem | null) => {
+  const skill = getSingleSkillType(examData);
+  return skill === 1 || skill === 2 || skill === 3 || skill === 4;
+};
+
 const isWritingExam = (examData?: ExamItem | null, passages?: QuestionPassageItem[]) => {
   if (!examData) return false;
   const titleStr = String(examData.title || "").toLowerCase();
@@ -201,7 +222,7 @@ export default function ExamDetailPage() {
     text += `Mã bài: ${exam.code}\n`;
     if (exam.description) text += `Mô tả: ${exam.description}\n`;
     text += `Thời gian làm bài: ${exam.duration ? `${exam.duration} phút` : "Tự do"}\n`;
-    text += `Tổng điểm: ${exam.totalScore || 10}đ\n`;
+    text += isBandScoredExam(exam) ? `Thang điểm: Band 0-9\n` : `Tổng điểm: ${exam.totalScore || 10}đ\n`;
     text += `=========================================\n\n`;
 
     exam.questions.forEach((q, idx) => {
@@ -892,7 +913,9 @@ export default function ExamDetailPage() {
                       }`}>
                         <span className="text-[10px] uppercase font-black tracking-widest block opacity-70">{t("exams.gradeScore")}</span>
                         <span className="text-3xl font-black tracking-tight block">
-                          {isPending ? `-- / ${exam.totalScore || 10}đ` : `${attempt.score ?? 0} / ${exam.totalScore || 10}đ`}
+                          {isBandScoredExam(exam)
+                            ? (isPending ? "Band --" : `Band ${attempt.score ?? 0}`)
+                            : (isPending ? `-- / ${exam.totalScore || 10}đ` : `${attempt.score ?? 0} / ${exam.totalScore || 10}đ`)}
                         </span>
                         <span className="inline-block text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-white/20 uppercase tracking-wider">
                           {isPending
@@ -969,7 +992,7 @@ export default function ExamDetailPage() {
                     </h5>
 
                     {(() => {
-                      const maxScore = exam.totalScore || 10;
+                      const maxScore = isBandGradedExam(exam) ? 9 : (exam.totalScore || 10);
                       const parsedScore = parseFloat(gradeScoreInput);
                       const isScoreEmpty = !gradeScoreInput || gradeScoreInput.trim() === "";
                       const isScoreNaN = !isScoreEmpty && isNaN(parsedScore);
@@ -994,7 +1017,7 @@ export default function ExamDetailPage() {
                             </label>
                             <input
                               type="number"
-                              step="0.1"
+                              step={isBandGradedExam(exam) ? "0.5" : "0.1"}
                               min={0}
                               max={maxScore}
                               value={gradeScoreInput}
@@ -1608,7 +1631,9 @@ export default function ExamDetailPage() {
                           <th className="px-6 py-4">{t("registration.colStudentCode")}</th>
                           <th className="px-6 py-4">{t("registration.colStudent")}</th>
                           <th className="px-6 py-4">{t("exams.gradeSubmitTime")}</th>
-                          <th className="px-6 py-4 text-center">{t("exams.attemptCorrectCount")}</th>
+                          {!isBandGradedExam(exam) && (
+                            <th className="px-6 py-4 text-center">{t("exams.attemptCorrectCount")}</th>
+                          )}
                           <th className="px-6 py-4 text-center">{t("exams.gradeScore")}</th>
                           <th className="px-6 py-4 text-center">{t("registration.colStatus")}</th>
                           <th className="px-6 py-4 text-center w-28">{t("questionCategory.colActions")}</th>
@@ -1628,9 +1653,11 @@ export default function ExamDetailPage() {
                               <td className="px-6 py-4 text-gray-500 text-xs">
                                 {att.submitTime ? new Date(att.submitTime).toLocaleString("vi-VN") : "—"}
                               </td>
-                              <td className="px-6 py-4 text-center font-bold text-gray-700 dark:text-gray-300">
-                                {att.status === 2 ? `${correctCount} / ${totalQuestions}` : "—"}
-                              </td>
+                              {!isBandGradedExam(exam) && (
+                                <td className="px-6 py-4 text-center font-bold text-gray-700 dark:text-gray-300">
+                                  {att.status === 2 ? `${correctCount} / ${totalQuestions}` : "—"}
+                                </td>
+                              )}
                               <td className="px-6 py-4 text-center">
                                 {att.status === 2 ? (
                                   checkIfPendingGrading(att, exam) ? (
@@ -1639,7 +1666,7 @@ export default function ExamDetailPage() {
                                     </span>
                                   ) : (
                                     <span className={`text-base font-black tracking-tight ${isPassed ? "text-emerald-500" : "text-rose-500"}`}>
-                                      {att.score}đ
+                                      {isBandScoredExam(exam) ? `Band ${att.score}` : `${att.score}đ`}
                                     </span>
                                   )
                                 ) : (
@@ -1803,11 +1830,15 @@ export default function ExamDetailPage() {
               </div>
               <div className="flex justify-between items-center py-1.5 border-b border-gray-50 dark:border-white/[0.02]">
                 <span className="text-gray-500">{t("exams.settingsTotalScore")}:</span>
-                <span className="font-semibold text-gray-900 dark:text-white">{exam.totalScore || 10}đ</span>
+                <span className="font-semibold text-gray-900 dark:text-white">
+                  {isBandScoredExam(exam) ? "Band 0-9" : `${exam.totalScore || 10}đ`}
+                </span>
               </div>
               <div className="flex justify-between items-center py-1.5 border-b border-gray-50 dark:border-white/[0.02]">
                 <span className="text-gray-500">{t("exams.settingsPassingScore")}:</span>
-                <span className="font-semibold text-gray-900 dark:text-white">{exam.passingScore || 5}đ</span>
+                <span className="font-semibold text-gray-900 dark:text-white">
+                  {isBandScoredExam(exam) ? `Band ${exam.passingScore || 5}` : `${exam.passingScore || 5}đ`}
+                </span>
               </div>
               <div className="flex justify-between items-center py-1.5 border-b border-gray-50 dark:border-white/[0.02]">
                 <span className="text-gray-500">{t("exams.settingsAttempts")}:</span>
