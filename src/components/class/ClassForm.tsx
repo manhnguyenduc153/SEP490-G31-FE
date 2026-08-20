@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { z } from "zod";
-import { classApi, ClassItem } from "@/services/class.api";
+import { classApi, ClassItem, SpecificSessionScheduleDto, StudentPreferenceWarning } from "@/services/class.api";
 import { courseApi, CourseItem } from "@/services/course.api";
 import { teacherApi, TeacherItem } from "@/services/teacher.api";
 import { studentApi, StudentItem } from "@/services/student.api";
@@ -11,8 +11,9 @@ import { semesterApi, SemesterItem } from "@/services/semester.api";
 import { commonApi } from "@/services/common.api";
 import { CodeHelper } from "@/helpers/CodeHelper";
 import * as XLSX from "xlsx";
-import { Calendar, FileSpreadsheet, Plus, Search, X, ArrowLeft, BookOpen, Info, UserPlus, BookPlus, CalendarDays, AlertCircle, Download } from "lucide-react";
+import { Calendar, FileSpreadsheet, Plus, Search, X, ArrowLeft, BookOpen, Info, UserPlus, BookPlus, CalendarDays, AlertCircle, Download, Layers, Repeat, Clock, Trash2, RefreshCw, CheckCircle2 } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { SoftConflictModal } from "@/components/schedules/SoftConflictModal";
 
 interface ClassFormProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -90,6 +91,9 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
   const startDateInputRef = useRef<HTMLInputElement>(null);
   
   const getFriendlyErrorMessage = (msg: string) => {
+    if (msg === "ERR_TEACHER_GRADE_LEVEL_INSUFFICIENT") {
+      return t("class.errTeacherGradeLevel", { defaultValue: "Giáo viên không đủ điều kiện giảng dạy khóa học này (Band IELTS chưa đạt yêu cầu)." });
+    }
     if (msg === "ERR_TEACHER_UNAVAILABLE") {
       return t("class.errTeacherUnavailable");
     }
@@ -133,6 +137,15 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
   const [formAutoRefund, setFormAutoRefund] = useState(false);
   const [formType, setFormType] = useState<number>(0); // 0=Offline, 1=Online
   const [formUrl, setFormUrl] = useState<string>("");
+
+  // Schedule Configuration Mode: 0 = Weekly, 1 = SpecificSessions (Monthly / Custom)
+  const [scheduleConfigMode, setScheduleConfigMode] = useState<number>(0);
+  const [specificSchedules, setSpecificSchedules] = useState<SpecificSessionScheduleDto[]>([]);
+  const [selectedMonthFilter, setSelectedMonthFilter] = useState<string>("ALL");
+
+  // Soft conflict modal states
+  const [showSoftConflictModal, setShowSoftConflictModal] = useState(false);
+  const [softWarnings, setSoftWarnings] = useState<StudentPreferenceWarning[]>([]);
 
   // Filter dropdown states
   const [courses, setCourses] = useState<CourseItem[]>([]);
@@ -299,15 +312,229 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Background conflict checking hook
+  // Generate session list from weekly pattern
+  const generateSessionsFromWeeklyPattern = () => {
+    const selectedDays = Object.entries(dayConfigs)
+      .filter(([_, config]) => config.selected)
+      .map(([dayStr, config]) => ({
+        dayOfWeek: Number(dayStr),
+        startTime: config.startTime,
+        endTime: config.endTime,
+        roomId: config.roomId,
+      }));
+
+    if (selectedDays.length === 0 || !formStartDate) {
+      return [];
+    }
+
+    const sessions: SpecificSessionScheduleDto[] = [];
+    const curr = new Date(formStartDate);
+    const endDate = formEndDate ? new Date(formEndDate) : null;
+    let lessonNo = 1;
+    const maxLessons = formSemesterId ? 200 : (formExpectedLessons || 30);
+
+    while ((endDate ? curr <= endDate : lessonNo <= maxLessons)) {
+      const dayOfWeek = curr.getDay();
+      const match = selectedDays.find((d) => d.dayOfWeek === dayOfWeek);
+      if (match) {
+        const yyyy = curr.getFullYear();
+        const mm = String(curr.getMonth() + 1).padStart(2, "0");
+        const dd = String(curr.getDate()).padStart(2, "0");
+        const dateStr = `${yyyy}-${mm}-${dd}`;
+
+        sessions.push({
+          lessonNo,
+          scheduleDate: dateStr,
+          startTime: match.startTime,
+          endTime: match.endTime,
+          roomId: match.roomId,
+          teacherId: formTeacherId,
+        });
+        lessonNo++;
+      }
+      curr.setDate(curr.getDate() + 1);
+      if (sessions.length >= 120) break;
+    }
+
+    return sessions;
+  };
+
+  const studentIdsKey = formStudentIds.join(",");
+  const dayConfigsKey = JSON.stringify(dayConfigs);
+  const specificSchedulesKey = JSON.stringify(specificSchedules);
+
+  // Cached student registrations for instant client-side conflict checking
+  const [studentRegistrationsMap, setStudentRegistrationsMap] = useState<Record<number, {
+    preferredDaysOfWeek?: number | null;
+    preferredSlotIndex?: number | null;
+    studentName?: string;
+    studentEmail?: string;
+  }>>({});
+
+  useEffect(() => {
+    if (!formSemesterId || !formCourseId || formStudentIds.length === 0) {
+      return;
+    }
+    let active = true;
+    async function fetchRegistrations() {
+      try {
+        const res = await semesterApi.getStudentRegistrations(formSemesterId!, "", formCourseId!, undefined, 1, 1000);
+        if (active && res.success && res.data && res.data.items) {
+          const map: Record<number, any> = {};
+          res.data.items.forEach((item) => {
+            map[item.studentId] = {
+              preferredDaysOfWeek: item.preferredDaysOfWeek,
+              preferredSlotIndex: item.preferredSlotIndex,
+              studentName: item.studentName,
+              studentEmail: item.studentEmail,
+            };
+          });
+          setStudentRegistrationsMap(map);
+        }
+      } catch (err) {
+        console.error("Failed to load student registration preferences", err);
+      }
+    }
+    fetchRegistrations();
+    return () => {
+      active = false;
+    };
+  }, [formSemesterId, formCourseId, studentIdsKey]);
+
+  // Instant synchronous soft warning calculation
+  const instantSoftWarnings = React.useMemo(() => {
+    if (!formStudentIds.length || Object.keys(studentRegistrationsMap).length === 0) {
+      return [];
+    }
+
+    const DAY_NAMES = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+    const warnings: StudentPreferenceWarning[] = [];
+
+    if (scheduleConfigMode === 1) {
+      // Check each specific session
+      const validSessions = specificSchedules.filter((s) => s.scheduleDate);
+      if (validSessions.length === 0) return [];
+
+      for (const sId of formStudentIds) {
+        const reg = studentRegistrationsMap[sId];
+        if (!reg) continue;
+
+        let hasMismatch = false;
+        for (const session of validSessions) {
+          const d = new Date(session.scheduleDate);
+          if (isNaN(d.getTime())) continue;
+          const dayOfWeek = d.getDay();
+          const slot = FIXED_SLOTS.find((s) => s.start === (session.startTime || DEFAULT_SLOT.start));
+          const slotIdx = slot ? slot.index : -1;
+
+          if (reg.preferredDaysOfWeek !== undefined && reg.preferredDaysOfWeek !== null && reg.preferredDaysOfWeek > 0) {
+            if ((reg.preferredDaysOfWeek & (1 << dayOfWeek)) === 0) {
+              hasMismatch = true;
+              break;
+            }
+          }
+          if (reg.preferredSlotIndex !== undefined && reg.preferredSlotIndex !== null && slotIdx >= 0) {
+            if (reg.preferredSlotIndex !== slotIdx) {
+              hasMismatch = true;
+              break;
+            }
+          }
+        }
+
+        if (hasMismatch) {
+          const prefDaysList: string[] = [];
+          if (reg.preferredDaysOfWeek) {
+            for (let d = 0; d < 7; d++) {
+              if ((reg.preferredDaysOfWeek & (1 << d)) !== 0) prefDaysList.push(DAY_NAMES[d]);
+            }
+          }
+          const prefSlotObj = reg.preferredSlotIndex !== null && reg.preferredSlotIndex !== undefined ? FIXED_SLOTS[reg.preferredSlotIndex] : null;
+
+          warnings.push({
+            studentId: sId,
+            studentName: reg.studentName || `Học sinh #${sId}`,
+            studentEmail: reg.studentEmail,
+            preferredDays: prefDaysList.length ? prefDaysList.join(", ") : "Bất kỳ",
+            preferredSlot: prefSlotObj ? prefSlotObj.label : "Bất kỳ",
+          });
+        }
+      }
+    } else {
+      // Check weekly pattern
+      const selectedDays = Object.entries(dayConfigs)
+        .filter(([_, config]) => config.selected)
+        .map(([dayStr, config]) => ({
+          dayOfWeek: Number(dayStr),
+          startTime: config.startTime,
+          endTime: config.endTime,
+        }));
+
+      if (selectedDays.length === 0) return [];
+
+      for (const sId of formStudentIds) {
+        const reg = studentRegistrationsMap[sId];
+        if (!reg) continue;
+
+        let hasMismatch = false;
+        for (const d of selectedDays) {
+          const slot = FIXED_SLOTS.find((s) => s.start === (d.startTime || DEFAULT_SLOT.start));
+          const slotIdx = slot ? slot.index : -1;
+
+          if (reg.preferredDaysOfWeek !== undefined && reg.preferredDaysOfWeek !== null && reg.preferredDaysOfWeek > 0) {
+            if ((reg.preferredDaysOfWeek & (1 << d.dayOfWeek)) === 0) {
+              hasMismatch = true;
+              break;
+            }
+          }
+          if (reg.preferredSlotIndex !== undefined && reg.preferredSlotIndex !== null && slotIdx >= 0) {
+            if (reg.preferredSlotIndex !== slotIdx) {
+              hasMismatch = true;
+              break;
+            }
+          }
+        }
+
+        if (hasMismatch) {
+          const prefDaysList: string[] = [];
+          if (reg.preferredDaysOfWeek) {
+            for (let d = 0; d < 7; d++) {
+              if ((reg.preferredDaysOfWeek & (1 << d)) !== 0) prefDaysList.push(DAY_NAMES[d]);
+            }
+          }
+          const prefSlotObj = reg.preferredSlotIndex !== null && reg.preferredSlotIndex !== undefined ? FIXED_SLOTS[reg.preferredSlotIndex] : null;
+
+          warnings.push({
+            studentId: sId,
+            studentName: reg.studentName || `Học sinh #${sId}`,
+            studentEmail: reg.studentEmail,
+            preferredDays: prefDaysList.length ? prefDaysList.join(", ") : "Bất kỳ",
+            preferredSlot: prefSlotObj ? prefSlotObj.label : "Bất kỳ",
+          });
+        }
+      }
+    }
+
+    return warnings;
+  }, [formStudentIds, studentRegistrationsMap, scheduleConfigMode, specificSchedules, dayConfigs]);
+
+  // Combined real-time soft warnings (instant client-side or verified from backend)
+  const displaySoftWarnings = softWarnings.length > 0 ? softWarnings : instantSoftWarnings;
+
+  // Background conflict checking hook (100ms debounce)
   useEffect(() => {
     let active = true;
     async function performConflictCheck() {
       const selectedSchedules = Object.entries(dayConfigs)
         .filter(([_, config]) => config.selected);
 
-      if (!formStartDate || !formExpectedLessons || selectedSchedules.length === 0) {
+      if (scheduleConfigMode === 0 && (!formStartDate || !formExpectedLessons || selectedSchedules.length === 0)) {
         setConflicts([]);
+        setSoftWarnings([]);
+        return;
+      }
+      if (scheduleConfigMode === 1 && specificSchedules.length === 0) {
+        setConflicts([]);
+        setSoftWarnings([]);
         return;
       }
 
@@ -319,25 +546,33 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
           name: formName || "TEMP",
           status: formStatus,
           type: formType,
-          startDate: formStartDate,
+          startDate: formStartDate || (specificSchedules[0]?.scheduleDate || null),
           expectedLessons: formExpectedLessons,
           teacherId: formTeacherId,
           semesterId: formSemesterId,
-          students: [],
-          weeklySchedules: selectedSchedules.map(([dayStr, config]) => ({
+          courseId: formCourseId,
+          students: formStudentIds.map((id) => ({
+            studentId: id,
+            enrollType: formStudentEnrollTypes[id] ?? formType,
+          })),
+          scheduleConfigMode,
+          specificSchedules: scheduleConfigMode === 1 ? specificSchedules : [],
+          weeklySchedules: scheduleConfigMode === 0 ? selectedSchedules.map(([dayStr, config]) => ({
             dayOfWeek: Number(dayStr),
             startTime: config.startTime,
             endTime: config.endTime,
             roomId: config.roomId,
-          })),
+          })) : [],
         };
 
         const res = await classApi.checkConflict(payload);
         if (!active) return;
         if (res.success && res.data) {
           setConflicts(res.data.conflicts || []);
+          setSoftWarnings((res.data as any).softWarnings || []);
         } else {
           setConflicts([]);
+          setSoftWarnings([]);
         }
       } catch (err) {
         console.error("Conflict check failed", err);
@@ -348,13 +583,13 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
 
     const timer = setTimeout(() => {
       performConflictCheck();
-    }, 600); // 600ms debounce
+    }, 100); // 100ms debounce for instant responsive feel
 
     return () => {
       active = false;
       clearTimeout(timer);
     };
-  }, [formStartDate, formExpectedLessons, formTeacherId, formSemesterId, dayConfigs, editingItem]);
+  }, [formStartDate, formExpectedLessons, formTeacherId, formSemesterId, formCourseId, studentIdsKey, dayConfigsKey, scheduleConfigMode, specificSchedulesKey, editingItem]);
 
   // Initialize values when editing
   useEffect(() => {
@@ -414,6 +649,22 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
             }
             if (detail.semesterId !== undefined && detail.semesterId !== null) {
               setFormSemesterId(detail.semesterId);
+            }
+
+            // Load specific session schedules if exists
+            if (detail.schedules && detail.schedules.length > 0) {
+              const loadedSpecific = detail.schedules.map((s: any) => ({
+                id: s.id,
+                lessonNo: s.lessonNo,
+                scheduleDate: s.scheduleDate ? s.scheduleDate.split("T")[0] : "",
+                slotId: s.slotId,
+                startTime: s.startTime,
+                endTime: s.endTime,
+                roomId: s.roomId,
+                teacherId: s.teacherId,
+              }));
+              setSpecificSchedules(loadedSpecific);
+              setScheduleConfigMode(1);
             }
 
             // Load weekly schedule config from JSON if exists
@@ -741,8 +992,8 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
     if (e.target) e.target.value = "";
   };
 
-  const handleSubmitForm = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmitForm = async (e?: React.FormEvent, forceOverride = false) => {
+    if (e) e.preventDefault();
     
     setErrors({});
     const schema = getClassSchema(t);
@@ -752,7 +1003,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
       semesterId: formSemesterId,
       teacherId: formTeacherId,
       courseId: formCourseId,
-      startDate: formStartDate,
+      startDate: formStartDate || (specificSchedules[0]?.scheduleDate || ""),
       expectedLessons: formExpectedLessons,
     });
 
@@ -769,6 +1020,20 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
     const selectedSchedules = Object.entries(dayConfigs)
       .filter(([_, config]) => config.selected);
 
+    if (scheduleConfigMode === 0 && selectedSchedules.length === 0) {
+      const msg = t("class.errWeeklyScheduleEmpty", { defaultValue: "Vui lòng chọn ít nhất 1 ngày học trong tuần" });
+      setFormError(msg);
+      showToast(msg, "error");
+      return;
+    }
+
+    if (scheduleConfigMode === 1 && specificSchedules.length === 0) {
+      const msg = t("class.noSessions");
+      setFormError(msg);
+      showToast(msg, "error");
+      return;
+    }
+
     const finalCode = formCode.trim();
 
     setIsSubmitting(true);
@@ -781,7 +1046,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
         type: formType,
         url: formUrl.trim() || null,
         description: formDesc.trim() || null,
-        startDate: formStartDate || null,
+        startDate: formStartDate || (specificSchedules[0]?.scheduleDate || null),
         endDate: formEndDate || null,
         courseId: formCourseId,
         teacherId: formTeacherId,
@@ -791,12 +1056,15 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
         expectedLessons: formSemesterId ? null : formExpectedLessons,
         students: formStudentIds.map((id) => ({
           studentId: id,
-          enrollType: formType,
+          enrollType: formStudentEnrollTypes[id] ?? formType,
         })),
         newStudents: formNewStudents,
         newTeacherEmail: formNewTeacherEmail,
         newTeacherName: formNewTeacherName,
         newCourseName: formNewCourseName,
+        scheduleConfigMode,
+        forceOverride,
+        specificSchedules: scheduleConfigMode === 1 ? specificSchedules : [],
         weeklySchedules: selectedSchedules.map(([dayStr, config]) => ({
           dayOfWeek: Number(dayStr),
           startTime: config.startTime,
@@ -805,27 +1073,34 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
         })),
       };
 
+      let res;
       if (editingItem) {
-        const res = await classApi.update(editingItem.id, {
+        res = await classApi.update(editingItem.id, {
           ...payload,
           id: editingItem.id,
         });
-        if (res.success && res.data) {
-          onSuccess(t("class.updateSuccess", { name: res.data.name }));
-        } else {
-          const errMsg = res.message ? getFriendlyErrorMessage(res.message) : t("class.updateError");
-          setFormError(errMsg);
-          showToast(errMsg, "error");
-        }
       } else {
-        const res = await classApi.create(payload);
-        if (res.success && res.data) {
-          onSuccess(t("class.createSuccess", { name: res.data.name }));
-        } else {
-          const errMsg = res.message ? getFriendlyErrorMessage(res.message) : t("class.createError");
-          setFormError(errMsg);
-          showToast(errMsg, "error");
+        res = await classApi.create(payload);
+      }
+
+      if (res.success && res.data) {
+        onSuccess(editingItem ? t("class.updateSuccess", { name: res.data.name }) : t("class.createSuccess", { name: res.data.name }));
+      } else {
+        if (res.message && res.message.startsWith("WARNING_STUDENT_PREFERENCES_VIOLATED__")) {
+          const jsonStr = res.message.replace("WARNING_STUDENT_PREFERENCES_VIOLATED__", "");
+          try {
+            const parsedWarnings = JSON.parse(jsonStr);
+            setSoftWarnings(parsedWarnings);
+            setShowSoftConflictModal(true);
+            return;
+          } catch (parseErr) {
+            console.error("Failed to parse soft warnings", parseErr);
+          }
         }
+
+        const errMsg = res.message ? getFriendlyErrorMessage(res.message) : (editingItem ? t("class.updateError") : t("class.createError"));
+        setFormError(errMsg);
+        showToast(errMsg, "error");
       }
     } catch (err) {
       setFormError(t("class.systemError"));
@@ -835,9 +1110,61 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
     }
   };
 
+  const availableMonths = React.useMemo(() => {
+    const months = new Set<string>();
+    specificSchedules.forEach((s) => {
+      if (s.scheduleDate && s.scheduleDate.length >= 7) {
+        months.add(s.scheduleDate.substring(0, 7));
+      }
+    });
+    return Array.from(months).sort();
+  }, [specificSchedules]);
+
+  const filteredSpecificSchedules = React.useMemo(() => {
+    if (selectedMonthFilter === "ALL") return specificSchedules;
+    return specificSchedules.filter((s) => s.scheduleDate.startsWith(selectedMonthFilter));
+  }, [specificSchedules, selectedMonthFilter]);
+
+  const handleAddSession = () => {
+    let nextDate = formStartDate || new Date().toISOString().split("T")[0];
+    if (specificSchedules.length > 0) {
+      const last = specificSchedules[specificSchedules.length - 1];
+      if (last.scheduleDate) {
+        const d = new Date(last.scheduleDate);
+        d.setDate(d.getDate() + 2);
+        nextDate = d.toISOString().split("T")[0];
+      }
+    }
+
+    const newSession: SpecificSessionScheduleDto = {
+      lessonNo: specificSchedules.length + 1,
+      scheduleDate: nextDate,
+      startTime: DEFAULT_SLOT.start,
+      endTime: DEFAULT_SLOT.end,
+      roomId: rooms[0]?.id ?? null,
+      teacherId: formTeacherId,
+    };
+    setSpecificSchedules([...specificSchedules, newSession]);
+  };
+
+  const handleRemoveSession = (index: number) => {
+    const updated = specificSchedules.filter((_, idx) => idx !== index).map((s, idx) => ({
+      ...s,
+      lessonNo: idx + 1,
+    }));
+    setSpecificSchedules(updated);
+  };
+
+  const handleUpdateSession = (index: number, field: keyof SpecificSessionScheduleDto, val: any) => {
+    setSpecificSchedules((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], [field]: val };
+      return copy;
+    });
+  };
+
   return (
     <div className="space-y-6 w-full pb-10">
-      {/* Top Header Card */}
       <div className="flex items-center justify-between p-5 sm:p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs">
         <div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -850,53 +1177,18 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
         </div>
 
         <div className="flex items-center gap-3">
-           {/* Temporarily hidden Import Excel & Download Template buttons
-           <button
-             type="button"
-             disabled={isStarted}
-             onClick={() => excelInputRef.current?.click()}
-             className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-               isStarted
-                 ? "text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed dark:bg-gray-800 dark:border-gray-700 dark:text-gray-600"
-                 : "text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950/20 dark:border-emerald-900/30 dark:hover:bg-emerald-950/40"
-             }`}
-           >
-             <FileSpreadsheet className="w-4.5 h-4.5" />
-             {t("class.importExcel")}
-           </button>
-           <a
-             href={isStarted ? undefined : "/class_import_template.xlsx"}
-             onClick={(e) => isStarted && e.preventDefault()}
-             download
-             className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-               isStarted
-                 ? "text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed dark:bg-gray-800 dark:border-gray-700 dark:text-gray-600 pointer-events-none"
-                 : "text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-850 dark:border-gray-700 dark:hover:bg-gray-800"
-             }`}
-           >
-             <Download className="w-4 h-4 text-gray-500 dark:text-gray-400 shrink-0" />
-             {t("class.downloadTemplate")}
-           </a>
-           */}
-          <input
-            type="file"
-            ref={excelInputRef}
-            onChange={handleImportExcel}
-            accept=".xlsx, .xls"
-            style={{ display: "none" }}
-          />
-
           <button
             onClick={onCancel}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-850 dark:border-gray-700 dark:hover:bg-gray-800 transition-colors"
+            type="button"
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-250 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-800 transition-colors"
           >
-            <ArrowLeft className="w-4 h-4" />
             {t("class.btnBack")}
           </button>
           <button
-            onClick={handleSubmitForm}
+            onClick={() => handleSubmitForm()}
+            type="button"
             disabled={isSubmitting}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-theme-xs transition-colors disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 shadow-theme-xs disabled:opacity-60 transition-colors"
           >
             <Plus className="w-4 h-4" />
             {editingItem ? t("class.btnUpdateClass") : t("class.btnCreateClass")}
@@ -904,15 +1196,12 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
         </div>
       </div>
 
-      {/* Main Form Content */}
       <div className="space-y-6 w-full">
-          {/* Card: Thông tin cơ bản */}
           <div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs space-y-5">
             <h3 className="text-md font-bold text-gray-900 dark:text-white flex items-center gap-2 border-b border-gray-50 dark:border-gray-800/80 pb-3">
               <Info className="w-4.5 h-4.5 text-brand-500" />
               {t("class.basicInfo")}
             </h3>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div className="space-y-1.5 col-span-1 sm:col-span-2">
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
@@ -946,8 +1235,6 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                   <p className="text-xs text-red-500 font-medium mt-1 animate-fadeIn">{errors.semesterId}</p>
                 )}
               </div>
-
-              {/* Tên lớp học */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                   {t("class.formNameLabel")} <span className="text-rose-500">*</span>
@@ -974,8 +1261,6 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                   <p className="text-xs text-red-500 font-medium mt-1 animate-fadeIn">{errors.name}</p>
                 )}
               </div>
-
-              {/* Mã lớp học */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                   {t("class.formCodeLabel")} <span className="text-rose-500">*</span>
@@ -1001,10 +1286,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                   <p className="text-xs text-red-500 font-medium mt-1 animate-fadeIn">{errors.code}</p>
                 )}
               </div>
-
-              {/* Nhóm Ngày bắt đầu, Ngày kết thúc trên cùng 1 dòng */}
               <div className="col-span-1 sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-5">
-                {/* Ngày bắt đầu */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                     {t("class.formStartDateLabel")} <span className="text-rose-500">*</span>
@@ -1048,8 +1330,6 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                     </span>
                   )}
                 </div>
-
-                {/* Ngày kết thúc */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                     {t("class.formEndDateLabel")}{formSemesterId ? "" : t("class.formEndDateExpectedSuffix")}
@@ -1113,8 +1393,6 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                   </div>
                 )}
               </div>
-
-              {/* Khóa học */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                   {t("class.formCourseLabel")} <span className="text-rose-500">*</span>
@@ -1156,10 +1434,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                   </div>
                 )}
               </div>
-
-              {/* Loại lớp học, URL & Trạng thái */}
               <div className="col-span-1 sm:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-5">
-                {/* Loại lớp học: Offline / Online */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                     {t("class.formTypeLabel")} <span className="text-rose-500">*</span>
@@ -1186,12 +1461,10 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                   {formType === 1 && (
                     <span className="text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-1">
                       <Info className="w-3 h-3 shrink-0" />
-                      Lớp Online không bị giới hạn bởi sức chứa phòng học
+                      {t("class.onlineNoCapacityLimit", { defaultValue: "Lớp Online không bị giới hạn bởi sức chứa phòng học" })}
                     </span>
                   )}
                 </div>
-
-                {/* URL lớp học */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                     {t("class.formUrlLabel")}
@@ -1205,8 +1478,6 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                     className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm focus:border-brand-500 focus:outline-hidden dark:border-gray-800 dark:bg-gray-955 dark:text-white text-gray-805 placeholder:text-gray-400"
                   />
                 </div>
-
-                {/* Trạng thái lớp học */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                     {t("class.formStatusLabel")}
@@ -1223,180 +1494,8 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                   </select>
                 </div>
               </div>
-
-              {/* Chọn học sinh */}
-              <div className="col-span-1 sm:col-span-2 space-y-2">
-                <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                  {t("class.formStudentsSelectLabel")}
-                </label>
-                
-                {/* Search Combobox Container */}
-                <div ref={dropdownRef} className="relative">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder={t("class.searchStudentsPlaceholder")}
-                      value={studentSearchText}
-                      onFocus={() => setShowDropdown(true)}
-                      onChange={(e) => setStudentSearchText(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-white dark:bg-gray-900 text-gray-800 dark:text-white dark:border-gray-800 focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
-                    />
-                    <span className="absolute left-3 top-2.5 text-gray-400">
-                      <Search className="w-4 h-4 text-gray-400" />
-                    </span>
-                  </div>
-
-                  {showDropdown && (
-                    <div className="absolute z-50 left-0 right-0 mt-1.5 max-h-60 overflow-y-auto bg-white dark:bg-gray-955 border border-gray-200 dark:border-gray-800 rounded-lg shadow-lg animate-fadeIn pr-1">
-                      {isSearching ? (
-                        <div className="flex items-center justify-center py-4 text-xs text-gray-500 dark:text-gray-400">
-                          <div className="inline-block animate-spin rounded-full h-4.5 w-4.5 border-2 border-brand-500 border-t-transparent mr-2"></div>
-                          {t("class.searchingStudents")}
-                        </div>
-                      ) : searchResults.length === 0 ? (
-                        <div className="py-3 px-4 text-xs text-gray-400 italic">
-                          {(!formSemesterId || !formCourseId)
-                            ? t("class.selectSemesterAndCourseFirst", { defaultValue: "Vui lòng chọn Học kỳ và Khóa học trước" })
-                            : t("class.noStudentsFound")}
-                        </div>
-                      ) : (
-                        <div className="py-1">
-                          {searchResults.map((student) => {
-                            const isAlreadySelected = formStudentIds.includes(student.id);
-                            return (
-                              <button
-                                key={student.id}
-                                type="button"
-                                disabled={isAlreadySelected}
-                                onClick={() => handleSelectStudent(student)}
-                                className={`w-full text-left px-4 py-2.5 text-xs flex items-center justify-between border-b border-gray-50 dark:border-gray-900/60 last:border-0 transition-colors ${
-                                  isAlreadySelected
-                                    ? "bg-gray-50 text-gray-400 dark:bg-gray-900/40 dark:text-gray-600 cursor-not-allowed"
-                                    : "hover:bg-brand-50/50 dark:hover:bg-brand-950/20 text-gray-700 dark:text-gray-300"
-                                }`}
-                              >
-                                <span className="font-semibold text-xs">
-                                  {student.name} <span className="text-[10px] font-normal text-gray-400 dark:text-gray-500 ml-1">({student.code})</span>
-                                </span>
-                                {isAlreadySelected && (
-                                  <span className="text-[10px] bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400 px-1.5 py-0.5 rounded font-bold">
-                                    {t("class.studentAlreadySelectedBadge")}
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Selected Students Cards Region */}
-                {selectedStudents.length > 0 && (
-                   <div className="mt-3 space-y-2">
-                     <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 block">
-                       {t("class.selectedCountStudents", { count: selectedStudents.length })}
-                     </span>
-                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-64 overflow-y-auto pr-1 py-1">
-                       {selectedStudents.map((student) => (
-                         <div
-                           key={student.id}
-                           className={`relative p-2.5 border rounded-xl flex flex-col gap-1.5 shadow-theme-xs transition-colors duration-300 animate-fadeIn ${
-                             conflictingEmails.includes(student.email || "")
-                               ? "bg-white dark:bg-gray-900 border-red-300 dark:border-red-500/50"
-                               : "bg-white dark:bg-gray-900 border-gray-150 dark:border-gray-800 hover:border-rose-300 dark:hover:border-rose-500/40"
-                           }`}
-                         >
-                           <div className="flex items-center gap-2.5">
-                             {/* Avatar Circle */}
-                             <div className="w-7 h-7 rounded-full bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center font-bold text-xs shrink-0">
-                               {student.name ? student.name.charAt(0).toUpperCase() : "?"}
-                             </div>
-                             
-                             {/* Student Details */}
-                             <div className="min-w-0 flex-1 pr-6">
-                               <div className="flex items-center justify-between gap-1">
-                                 <span className="text-xs font-semibold text-gray-900 dark:text-white truncate">
-                                   {student.name}
-                                 </span>
-                                 <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 shrink-0">
-                                   {student.code}
-                                 </span>
-                               </div>
-                               <span className="block text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                                 {student.email || t("class.noEmail")}
-                               </span>
-                             </div>
-
-                             {/* Remove Button */}
-                             <button
-                               type="button"
-                               onClick={() => handleRemoveStudent(student.id)}
-                               className="absolute right-1.5 top-1.5 text-gray-400 hover:text-rose-500 dark:text-gray-500 dark:hover:text-rose-450 transition-colors p-1"
-                               title={t("class.removeStudentTooltip")}
-                             >
-                               <X className="w-3 h-3" />
-                             </button>
-                           </div>
-                         </div>
-                       ))}
-                     </div>
-                   </div>
-                )}
-
-                {/* New Students Imported Cards Region */}
-                {formNewStudents.length > 0 && (
-                   <div className="mt-3 space-y-2 animate-fadeIn">
-                     <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-450 block flex items-center gap-1">
-                       <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-                       {t("class.newStudentsExcelDetected", { count: formNewStudents.length })}
-                     </span>
-                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-64 overflow-y-auto pr-1 py-1">
-                       {formNewStudents.map((student) => (
-                         <div
-                           key={student.email}
-                           className={`relative p-2.5 border rounded-xl flex items-center gap-2.5 shadow-theme-xs transition-colors duration-300 ${
-                             conflictingEmails.includes(student.email)
-                               ? "bg-emerald-50/20 dark:bg-emerald-950/10 border-red-300 dark:border-red-500/50"
-                               : "bg-emerald-50/20 dark:bg-emerald-950/10 border-emerald-150 dark:border-emerald-900/30 hover:border-rose-300 dark:hover:border-rose-500/40"
-                           }`}
-                         >
-                           <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-450 flex items-center justify-center font-bold text-xs shrink-0">
-                             {student.name ? student.name.charAt(0).toUpperCase() : "?"}
-                           </div>
-                           
-                           <div className="min-w-0 flex-1 pr-6">
-                             <div className="flex items-center justify-between gap-1">
-                               <span className="text-xs font-semibold text-gray-900 dark:text-white truncate">
-                                 {student.name}
-                               </span>
-                               <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-450 shrink-0">
-                                 {t("class.badgeNew")}
-                               </span>
-                             </div>
-                             <span className="block text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                               {student.email}
-                             </span>
-                           </div>
-
-                           <button
-                             type="button"
-                             onClick={() => handleRemoveNewStudent(student.email)}
-                             className="absolute right-1.5 top-1.5 text-gray-400 hover:text-rose-500 dark:text-gray-500 dark:hover:text-rose-450 transition-colors p-1"
-                             title={t("class.removeStudentTooltip")}
-                           >
-                             <X className="w-3 h-3" />
-                           </button>
-                         </div>
-                       ))}
-                     </div>
-                   </div>
-                )}
-              </div>
             </div>
 
-            {/* Mô tả lớp học */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                 {t("class.formDescLabel")}
@@ -1414,119 +1513,457 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
             </div>
           </div>
 
-          {/* Card: Lịch học hàng tuần */}
-          <div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs space-y-4">
-            <div>
-              <h3 className="text-md font-bold text-gray-900 dark:text-white flex items-center gap-2 pb-1">
-                <CalendarDays className="w-4.5 h-4.5 text-brand-500" />
-                {t("class.weeklyScheduleLabel")}
-              </h3>
-              <p className="text-xs text-gray-500">
-                {t("class.weeklyScheduleHelp")}
-              </p>
+          <div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-800 pb-3">
+              <div>
+                <h3 className="text-md font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <CalendarDays className="w-4.5 h-4.5 text-brand-500" />
+                  {t("class.weeklyScheduleLabel")}
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {scheduleConfigMode === 0 
+                    ? t("class.weeklyScheduleHelp", { defaultValue: "Chọn các thứ trong tuần và ca học để lặp lại cho cả kỳ." })
+                    : t("class.customScheduleHelp", { defaultValue: "Xem và tùy biến chi tiết ngày, ca học, phòng học, giáo viên cho từng buổi học cụ thể." })}
+                </p>
+              </div>
+
+              <div className="flex items-center p-1 bg-gray-100 dark:bg-gray-800 rounded-xl border border-gray-200/60 dark:border-gray-700/60">
+                <button
+                  type="button"
+                  disabled={isStarted}
+                  onClick={() => setScheduleConfigMode(0)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                    scheduleConfigMode === 0
+                      ? "bg-white dark:bg-gray-900 text-brand-600 dark:text-brand-400 shadow-xs"
+                      : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                  } ${isStarted ? "opacity-60 cursor-not-allowed" : ""}`}
+                >
+                  <Repeat className="w-3.5 h-3.5" />
+                  {t("class.modeWeekly")}
+                </button>
+                <button
+                  type="button"
+                  disabled={isStarted}
+                  onClick={() => {
+                    if (specificSchedules.length === 0) {
+                      const generated = generateSessionsFromWeeklyPattern();
+                      setSpecificSchedules(generated);
+                    }
+                    setScheduleConfigMode(1);
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                    scheduleConfigMode === 1
+                      ? "bg-white dark:bg-gray-900 text-brand-600 dark:text-brand-400 shadow-xs"
+                      : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                  } ${isStarted ? "opacity-60 cursor-not-allowed" : ""}`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  {t("class.modeCustomSessions")}
+                  {specificSchedules.length > 0 && (
+                    <span className="ml-1 px-1.5 py-0.5 bg-brand-50 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400 rounded-full text-[10px]">
+                      {specificSchedules.length}
+                    </span>
+                  )}
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
-              {DAYS_OF_WEEK.map((dayObj) => {
-                const day = dayObj.value;
-                const config = dayConfigs[day];
-                const isSelected = config?.selected ?? false;
-                
-                return (
-                  <div
-                    key={day}
-                    className={`p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between space-y-3.5 ${
-                      isSelected
-                        ? "bg-brand-50/20 border-brand-500 dark:bg-brand-950/10 dark:border-brand-500 shadow-xs"
-                        : "bg-gray-50/30 border-gray-200 dark:bg-gray-955 dark:border-gray-850 opacity-60 hover:opacity-80"
-                    }`}
-                  >
-                    {/* Header: Checkbox + Day Label */}
-                    <label className={`flex items-center gap-2 select-none pb-1 border-b border-gray-100 dark:border-gray-800/60 ${
-                      isStarted ? "cursor-not-allowed" : "cursor-pointer"
-                    }`}>
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        disabled={isStarted}
-                        onChange={() => toggleDaySelected(day)}
-                        className={`rounded text-brand-600 focus:ring-brand-500 w-4 h-4 ${
-                          isStarted ? "cursor-not-allowed" : "cursor-pointer"
-                        }`}
-                      />
-                      <span className={`text-sm font-bold ${
-                        isSelected ? "text-brand-700 dark:text-brand-400" : "text-gray-600 dark:text-gray-400"
+            {scheduleConfigMode === 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 animate-fadeIn">
+                {DAYS_OF_WEEK.map((dayObj) => {
+                  const day = dayObj.value;
+                  const config = dayConfigs[day];
+                  const isSelected = config?.selected ?? false;
+                  
+                  const isDayConflicting = (() => {
+                    if (!isSelected) return false;
+                    const slot = FIXED_SLOTS.find((s) => s.start === (config?.startTime ?? DEFAULT_SLOT.start));
+                    const slotIdx = slot ? slot.index : -1;
+
+                    return formStudentIds.some((sId) => {
+                      const reg = studentRegistrationsMap[sId];
+                      if (!reg) return false;
+                      if (reg.preferredDaysOfWeek !== undefined && reg.preferredDaysOfWeek !== null && reg.preferredDaysOfWeek > 0) {
+                        if ((reg.preferredDaysOfWeek & (1 << day)) === 0) return true;
+                      }
+                      if (reg.preferredSlotIndex !== undefined && reg.preferredSlotIndex !== null && slotIdx >= 0) {
+                        if (reg.preferredSlotIndex !== slotIdx) return true;
+                      }
+                      return false;
+                    });
+                  })();
+
+                  return (
+                    <div
+                      key={day}
+                      className={`p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between space-y-3.5 ${
+                        isSelected
+                          ? isDayConflicting
+                            ? "bg-amber-50/40 border-amber-400 dark:bg-amber-950/20 dark:border-amber-500 shadow-xs"
+                            : "bg-brand-50/20 border-brand-500 dark:bg-brand-950/10 dark:border-brand-500 shadow-xs"
+                          : "bg-gray-50/30 border-gray-200 dark:bg-gray-955 dark:border-gray-850 opacity-60 hover:opacity-80"
+                      }`}
+                    >
+                      <label className={`flex items-center justify-between select-none pb-1 border-b border-gray-100 dark:border-gray-800/60 ${
+                        isStarted ? "cursor-not-allowed" : "cursor-pointer"
                       }`}>
-                        {dayObj.value === 1 ? t("common.mon") : 
-                         dayObj.value === 2 ? t("common.tue") : 
-                         dayObj.value === 3 ? t("common.wed") : 
-                         dayObj.value === 4 ? t("common.thu") : 
-                         dayObj.value === 5 ? t("common.fri") : 
-                         dayObj.value === 6 ? t("common.sat") : 
-                         t("common.sun")}
-                      </span>
-                    </label>
-
-                    {/* Time Slot (fixed dropdown) */}
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                        {t("class.formSlotLabel")}
-                      </span>
-                      <select
-                        disabled={!isSelected || isStarted}
-                        value={config?.startTime ?? DEFAULT_SLOT.start}
-                        onChange={(e) => {
-                          const slot = FIXED_SLOTS.find(s => s.start === e.target.value);
-                          if (slot) {
-                            updateDayConfig(day, "startTime", slot.start);
-                            updateDayConfig(day, "endTime", slot.end);
-                          }
-                        }}
-                        className="w-full px-2 py-1 text-xs border border-gray-205 dark:border-gray-800 rounded-md bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 disabled:bg-gray-50 dark:disabled:bg-gray-950/60 disabled:text-gray-400"
-                      >
-                        {FIXED_SLOTS.map((slot) => (
-                          <option key={slot.index} value={slot.start}>
-                            {t(`classSchedules.ca${slot.index + 1}`)} ({slot.start} - {slot.end})
-                          </option>
-                        ))}
-                      </select>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={isStarted}
+                            onChange={() => toggleDaySelected(day)}
+                            className={`rounded text-brand-600 focus:ring-brand-500 w-4 h-4 ${
+                              isStarted ? "cursor-not-allowed" : "cursor-pointer"
+                            }`}
+                          />
+                          <span className={`text-sm font-bold ${
+                            isSelected 
+                              ? isDayConflicting ? "text-amber-800 dark:text-amber-300" : "text-brand-700 dark:text-brand-400" 
+                              : "text-gray-600 dark:text-gray-400"
+                          }`}>
+                            {dayObj.value === 1 ? t("common.mon") : 
+                             dayObj.value === 2 ? t("common.tue") : 
+                             dayObj.value === 3 ? t("common.wed") : 
+                             dayObj.value === 4 ? t("common.thu") : 
+                             dayObj.value === 5 ? t("common.fri") : 
+                             dayObj.value === 6 ? t("common.sat") : 
+                             t("common.sun")}
+                          </span>
+                        </div>
+                        {isDayConflicting && (
+                          <span title={t("class.studentPrefConflictTooltip", { defaultValue: "Lệch nguyện vọng học sinh" })}>
+                            <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          </span>
+                        )}
+                      </label>
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                          {t("class.formSlotLabel")}
+                        </span>
+                        <select
+                          disabled={!isSelected || isStarted}
+                          value={config?.startTime ?? DEFAULT_SLOT.start}
+                          onChange={(e) => {
+                            const slot = FIXED_SLOTS.find(s => s.start === e.target.value);
+                            if (slot) {
+                              updateDayConfig(day, "startTime", slot.start);
+                              updateDayConfig(day, "endTime", slot.end);
+                            }
+                          }}
+                          className={`w-full px-2 py-1 text-xs border rounded-md text-gray-800 dark:text-gray-200 disabled:bg-gray-50 dark:disabled:bg-gray-950/60 disabled:text-gray-400 ${
+                            isDayConflicting
+                              ? "border-amber-400 bg-amber-50/60 dark:border-amber-600 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 focus:border-amber-500"
+                              : "border-gray-205 dark:border-gray-800 bg-white dark:bg-gray-900"
+                          }`}
+                        >
+                          {FIXED_SLOTS.map((slot) => (
+                            <option key={slot.index} value={slot.start}>
+                              {t(`classSchedules.ca${slot.index + 1}`)} ({slot.start} - {slot.end})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                          {t("class.formRoomLabel")}
+                        </span>
+                        <SearchableSelect
+                          size="sm"
+                          disabled={!isSelected || isStarted || formType === 1}
+                          value={config?.roomId || ""}
+                          onChange={(val) => updateDayConfig(day, "roomId", val ? Number(val) : null)}
+                          options={[
+                            { value: "", label: formType === 1 ? t("class.onlineNoRoomTag", { defaultValue: "(Lớp Online)" }) : t("class.selectRoomEmpty") },
+                            ...rooms.map((r) => ({
+                              value: r.id,
+                              label: `${r.name} - ${r.capacity ? t("class.seats", { count: r.capacity }) : t("class.unlimitedSeats")}`,
+                            }))
+                          ]}
+                          placeholder={formType === 1 ? t("class.onlineNoRoomTag", { defaultValue: "(Lớp Online)" }) : t("class.selectRoomEmpty")}
+                          searchPlaceholder={t("class.searchRoomPlaceholder", { defaultValue: "Tìm phòng học..." })}
+                        />
+                      </div>
                     </div>
+                  );
+                })}
+              </div>
+            )}
 
-                    {/* Room */}
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                        {t("class.formRoomLabel")}
-                      </span>
-                      <select
-                        disabled={!isSelected || isStarted}
-                        value={config?.roomId || ""}
-                        onChange={(e) => updateDayConfig(day, "roomId", e.target.value ? Number(e.target.value) : null)}
-                        className="w-full px-2 py-1 text-xs border border-gray-205 dark:border-gray-800 rounded-md bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 disabled:bg-gray-50 dark:disabled:bg-gray-955/60 disabled:text-gray-400"
+            {scheduleConfigMode === 1 && (
+              <div className="space-y-4 animate-fadeIn">
+                <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200/70 dark:border-gray-700/70">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 mr-1">{t("class.filterMonthLabel", { defaultValue: "Lọc tháng:" })}</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMonthFilter("ALL")}
+                      className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-all ${
+                        selectedMonthFilter === "ALL"
+                          ? "bg-brand-500 text-white border-brand-500 shadow-xs"
+                          : "bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-gray-300"
+                      }`}
+                    >
+                      {t("class.filterAllMonths")} ({specificSchedules.length})
+                    </button>
+                    {availableMonths.map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setSelectedMonthFilter(m)}
+                        className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-all ${
+                          selectedMonthFilter === m
+                            ? "bg-brand-500 text-white border-brand-500 shadow-xs"
+                            : "bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-gray-300"
+                        }`}
                       >
-                        <option value="">{t("class.selectRoomEmpty")}</option>
-                        {rooms.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.name} - {r.capacity ? t("class.seats", { count: r.capacity }) : t("class.unlimitedSeats")}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                        {m} ({specificSchedules.filter((s) => s.scheduleDate.startsWith(m)).length})
+                      </button>
+                    ))}
                   </div>
-                );
-              })}
-            </div>
-          </div>
 
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={isStarted}
+                      onClick={() => {
+                        const generated = generateSessionsFromWeeklyPattern();
+                        setSpecificSchedules(generated);
+                        showToast(t("class.syncFromWeeklySuccess", { defaultValue: `Đã đồng bộ ${generated.length} buổi học từ lịch tuần!` }), "success");
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-250 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shadow-xs"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-brand-500" />
+                      {t("class.syncFromWeekly")}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isStarted}
+                      onClick={handleAddSession}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-brand-500 hover:bg-brand-600 text-white shadow-xs transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      {t("class.addSession")}
+                    </button>
+                  </div>
+                </div>
+
+                {filteredSpecificSchedules.length === 0 ? (
+                  <div className="py-10 text-center text-xs text-gray-400 dark:text-gray-500 border border-dashed border-gray-200 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-950/20">
+                    <p>{t("class.noSessions")}</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const generated = generateSessionsFromWeeklyPattern();
+                        setSpecificSchedules(generated);
+                      }}
+                      className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-brand-500 text-white hover:bg-brand-600 transition shadow-xs"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      {t("class.syncFromWeekly")}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto border border-gray-150 dark:border-gray-800 rounded-xl shadow-xs">
+                    <table className="w-full text-left text-xs text-gray-700 dark:text-gray-300">
+                      <thead className="bg-gray-50 dark:bg-gray-800/80 text-[11px] font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider border-b border-gray-150 dark:border-gray-800">
+                        <tr>
+                          <th className="px-3.5 py-2.5 w-14 text-center">#</th>
+                          <th className="px-3.5 py-2.5 min-w-[150px]">{t("class.scheduleDate")}</th>
+                          <th className="px-3.5 py-2.5 min-w-[200px]">{t("class.scheduleSlot")}</th>
+                          <th className="px-3.5 py-2.5 min-w-[170px]">{t("class.scheduleRoom")}</th>
+                          <th className="px-3.5 py-2.5 min-w-[190px]">{t("class.scheduleTeacher")}</th>
+                          <th className="px-3 py-2.5 w-12 text-center"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60 bg-white dark:bg-gray-900">
+                        {filteredSpecificSchedules.map((session, idx) => {
+                          const realIndex = specificSchedules.indexOf(session);
+                          const sessionDate = session.scheduleDate ? new Date(session.scheduleDate) : null;
+                          const dayOfWeekName = sessionDate && !isNaN(sessionDate.getTime()) 
+                            ? (sessionDate.getDay() === 0 ? t("common.sun") :
+                               sessionDate.getDay() === 1 ? t("common.mon") :
+                               sessionDate.getDay() === 2 ? t("common.tue") :
+                               sessionDate.getDay() === 3 ? t("common.wed") :
+                               sessionDate.getDay() === 4 ? t("common.thu") :
+                               sessionDate.getDay() === 5 ? t("common.fri") :
+                               t("common.sat")) 
+                            : "";
+
+                          const isSessionConflicting = (() => {
+                            if (!session.scheduleDate) return false;
+                            const d = new Date(session.scheduleDate);
+                            if (isNaN(d.getTime())) return false;
+                            const dayOfWeek = d.getDay();
+                            const slot = FIXED_SLOTS.find((s) => s.start === (session.startTime || DEFAULT_SLOT.start));
+                            const slotIdx = slot ? slot.index : -1;
+
+                            return formStudentIds.some((sId) => {
+                              const reg = studentRegistrationsMap[sId];
+                              if (!reg) return false;
+                              if (reg.preferredDaysOfWeek !== undefined && reg.preferredDaysOfWeek !== null && reg.preferredDaysOfWeek > 0) {
+                                if ((reg.preferredDaysOfWeek & (1 << dayOfWeek)) === 0) return true;
+                              }
+                              if (reg.preferredSlotIndex !== undefined && reg.preferredSlotIndex !== null && slotIdx >= 0) {
+                                if (reg.preferredSlotIndex !== slotIdx) return true;
+                              }
+                              return false;
+                            });
+                          })();
+
+                          return (
+                            <tr key={idx} className={`transition-colors ${
+                              isSessionConflicting
+                                ? "bg-amber-50/35 dark:bg-amber-950/15 hover:bg-amber-50/60 dark:hover:bg-amber-950/25"
+                                : "hover:bg-gray-50/70 dark:hover:bg-gray-800/40"
+                            }`}>
+                              <td className="px-3.5 py-2 text-center font-bold text-gray-500 dark:text-gray-400">
+                                <span className="inline-block px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-[11px]">
+                                  {session.lessonNo}
+                                </span>
+                              </td>
+                              <td className="px-3.5 py-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="relative flex items-center">
+                                    <input
+                                      type="date"
+                                      disabled={isStarted}
+                                      value={session.scheduleDate}
+                                      onChange={(e) => handleUpdateSession(realIndex, "scheduleDate", e.target.value)}
+                                      className={`pl-8 pr-2.5 py-1.5 text-xs font-medium rounded-lg transition shadow-2xs cursor-pointer ${
+                                        isSessionConflicting
+                                          ? "border border-amber-400 bg-amber-50/70 dark:border-amber-600 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                                          : "border border-gray-250 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-white focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                                      }`}
+                                    />
+                                    <Calendar className={`w-3.5 h-3.5 pointer-events-none absolute left-2.5 ${
+                                      isSessionConflicting ? "text-amber-500" : "text-brand-500"
+                                    }`} />
+                                  </div>
+                                  {dayOfWeekName && (
+                                    <span className={`px-2 py-0.5 text-[11px] font-bold rounded-md shrink-0 border ${
+                                      isSessionConflicting
+                                        ? "bg-amber-100/80 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-800"
+                                        : "bg-brand-50 text-brand-700 dark:bg-brand-950/40 dark:text-brand-350 border-brand-200/60 dark:border-brand-800/40"
+                                    }`}>
+                                      {dayOfWeekName}
+                                    </span>
+                                  )}
+                                  {isSessionConflicting && (
+                                    <span className="p-0.5 text-amber-500 dark:text-amber-400 shrink-0" title={t("class.sessionPrefConflictTooltip", { defaultValue: "Buổi này lệch ngày/ca học đã đăng ký của học sinh" })}>
+                                      <AlertCircle className="w-4 h-4" />
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-3.5 py-2">
+                                <select
+                                  disabled={isStarted}
+                                  value={session.startTime || DEFAULT_SLOT.start}
+                                  onChange={(e) => {
+                                    const matchedSlot = FIXED_SLOTS.find((s) => s.start === e.target.value);
+                                    if (matchedSlot) {
+                                      handleUpdateSession(realIndex, "startTime", matchedSlot.start);
+                                      handleUpdateSession(realIndex, "endTime", matchedSlot.end);
+                                    }
+                                  }}
+                                  className={`w-full px-2.5 py-1.5 text-xs font-medium rounded-lg focus:outline-hidden ${
+                                    isSessionConflicting
+                                      ? "border border-amber-400 bg-amber-50/70 dark:border-amber-600 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 focus:border-amber-500"
+                                      : "border border-gray-250 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-white focus:border-brand-500"
+                                  }`}
+                                >
+                                  {FIXED_SLOTS.map((slot) => (
+                                    <option key={slot.index} value={slot.start} className="dark:bg-gray-900">
+                                      {t(`classSchedules.ca${slot.index + 1}`)} ({slot.start} - {slot.end})
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td className="px-3.5 py-2 min-w-[175px]">
+                                <SearchableSelect
+                                  size="sm"
+                                  disabled={isStarted || formType === 1}
+                                  value={session.roomId || ""}
+                                  onChange={(val) => handleUpdateSession(realIndex, "roomId", val ? Number(val) : null)}
+                                  options={[
+                                    { value: "", label: formType === 1 ? t("class.onlineNoRoomTag", { defaultValue: "(Lớp Online)" }) : t("class.selectRoomEmpty") },
+                                    ...rooms.map((r) => ({
+                                      value: r.id,
+                                      label: `${r.name} - ${r.capacity ? t("class.seats", { count: r.capacity }) : t("class.unlimitedSeats")}`,
+                                    }))
+                                  ]}
+                                  placeholder={formType === 1 ? t("class.onlineNoRoomTag", { defaultValue: "(Lớp Online)" }) : t("class.selectRoomEmpty")}
+                                  searchPlaceholder={t("class.searchRoomPlaceholder", { defaultValue: "Tìm phòng học..." })}
+                                />
+                              </td>
+                              <td className="px-3.5 py-2 min-w-[195px]">
+                                <SearchableSelect
+                                  size="sm"
+                                  disabled={isStarted}
+                                  value={session.teacherId || ""}
+                                  onChange={(val) => handleUpdateSession(realIndex, "teacherId", val ? Number(val) : null)}
+                                  options={[
+                                    { value: "", label: t("class.defaultTeacher") },
+                                    ...teachers.map((tItem: any) => ({
+                                      value: tItem.id,
+                                      label: `${tItem.name}${tItem.gradeLevelName ? ` · Band ${tItem.gradeLevelName}` : ""}`,
+                                    }))
+                                  ]}
+                                  placeholder={t("class.defaultTeacher")}
+                                  searchPlaceholder={t("class.searchTeacherPlaceholder", { defaultValue: "Tìm giáo viên..." })}
+                                />
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                <button
+                                  type="button"
+                                  disabled={isStarted}
+                                  onClick={() => handleRemoveSession(realIndex)}
+                                  className="text-gray-400 hover:text-rose-500 dark:text-gray-500 dark:hover:text-rose-400 transition p-1 rounded-md"
+                                  title={t("class.deleteSession")}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {specificSchedules.length > 0 && (
+                  <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 pt-1 px-1">
+                    <span>
+                      {t("class.totalScheduledSessions", {
+                        count: specificSchedules.length,
+                        defaultValue: `Tổng số buổi đã lên lịch: ${specificSchedules.length} buổi`,
+                      })}
+                    </span>
+                    {specificSchedules[0] && specificSchedules[specificSchedules.length - 1] && (
+                      <span>
+                        {t("class.timeframeRange", {
+                          start: specificSchedules[0].scheduleDate,
+                          end: specificSchedules[specificSchedules.length - 1].scheduleDate,
+                          defaultValue: `Khung thời gian: ${specificSchedules[0].scheduleDate} đến ${specificSchedules[specificSchedules.length - 1].scheduleDate}`,
+                        })}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
       </div>
 
-      {/* Cảnh báo trùng lịch */}
+      {/* Cảnh báo trùng lịch cứng (Hard Conflict) */}
       {conflicts.length > 0 && (
-        <div className="mx-6 mt-4 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-xl space-y-2 animate-fadeIn">
-          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-400 font-semibold text-xs">
-            <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+        <div className="mx-6 mt-4 p-4 bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/30 rounded-xl space-y-2 animate-fadeIn">
+          <div className="flex items-center gap-2 text-rose-800 dark:text-rose-400 font-semibold text-xs">
+            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
             <span>{t("class.conflictsDetectedAlert")}</span>
           </div>
-          <ul className="list-disc pl-5 space-y-1 text-[11px] text-amber-700 dark:text-amber-450">
+          <ul className="list-disc pl-5 space-y-1 text-[11px] text-rose-700 dark:text-rose-450">
             {conflicts.map((c, index) => {
               const formattedDate = c.date ? new Date(c.date).toLocaleDateString("vi-VN") : "";
               if (c.type === "Teacher") {
@@ -1552,6 +1989,12 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
                     })
                   }} />
                 );
+              } else if (c.type === "Student") {
+                return (
+                  <li key={index}>
+                    Học sinh <strong>{c.conflictClassName}</strong> bị trùng lịch học với lớp <strong>{c.conflictClassCode}</strong> vào ngày <strong>{formattedDate}</strong> ({c.startTime} - {c.endTime})
+                  </li>
+                );
               } else {
                 return (
                   <li key={index} dangerouslySetInnerHTML={{
@@ -1570,8 +2013,38 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
         </div>
       )}
 
-      <div className="flex items-center justify-end p-5 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs">
+      {/* Cảnh báo nguyện vọng học sinh (Soft Conflict) hiển thị ngay lập tức khi onChange */}
+      {displaySoftWarnings.length > 0 && (
+        <div className="mx-6 mt-4 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-700/60 rounded-xl space-y-2.5 animate-fadeIn">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-amber-800 dark:text-amber-350 font-bold text-xs">
+              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span>
+                Cảnh báo nguyện vọng học sinh (Expected Lessons): Có {displaySoftWarnings.length} học sinh không khớp ngày/ca học đã chọn
+              </span>
+            </div>
+            <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+              (Hệ thống vẫn cho phép lưu nếu bạn xác nhận tiếp tục)
+            </span>
+          </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 pt-1">
+            {displaySoftWarnings.map((w, idx) => (
+              <div key={idx} className="p-2.5 bg-white dark:bg-gray-900 border border-amber-200/80 dark:border-amber-800/50 rounded-lg text-xs space-y-1 shadow-xs">
+                <div className="font-semibold text-gray-800 dark:text-gray-200 truncate">
+                  {w.studentName || "Học sinh"} {w.studentEmail ? <span className="text-[11px] text-gray-400 font-normal">({w.studentEmail})</span> : ""}
+                </div>
+                <div className="text-[11px] text-gray-500 dark:text-gray-400 space-y-0.5">
+                  <div>Nguyện vọng ngày: <strong className="text-amber-700 dark:text-amber-400">{w.preferredDays || "Bất kỳ"}</strong></div>
+                  <div>Nguyện vọng ca: <strong className="text-amber-700 dark:text-amber-400">{w.preferredSlot || "Bất kỳ"}</strong></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-end p-5 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs">
         <div className="flex items-center gap-3">
           <button
             onClick={onCancel}
@@ -1581,7 +2054,7 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
             {t("class.btnCancelDiscard")}
           </button>
           <button
-            onClick={handleSubmitForm}
+            onClick={() => handleSubmitForm()}
             type="button"
             disabled={isSubmitting}
             className="px-4 py-2 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 shadow-theme-xs disabled:opacity-60 transition-colors"
@@ -1590,6 +2063,19 @@ export default function ClassForm({ t, editingItem, onCancel, onSuccess, showToa
           </button>
         </div>
       </div>
+
+      <SoftConflictModal
+        isOpen={showSoftConflictModal}
+        onClose={() => setShowSoftConflictModal(false)}
+        onConfirm={() => {
+          setShowSoftConflictModal(false);
+          handleSubmitForm(undefined, true);
+        }}
+        warnings={displaySoftWarnings}
+        targetDate={formStartDate || (specificSchedules[0]?.scheduleDate || "")}
+        targetSlotLabel={scheduleConfigMode === 1 ? t("class.modeCustomSessions", { defaultValue: "Lịch theo từng buổi" }) : t("class.classScheduleLabel", { defaultValue: "Lịch học của lớp" })}
+        loading={isSubmitting}
+      />
     </div>
   );
 }

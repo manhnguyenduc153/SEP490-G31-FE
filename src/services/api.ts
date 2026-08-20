@@ -255,7 +255,7 @@ async function handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
       success: false,
       statusCode: response.status,
       message: String(errorData?.message || response.statusText || "Request failed"),
-      data: data as T,
+      data: (errorData && typeof errorData === "object" && "data" in errorData ? errorData.data : data) as T,
     };
   }
 

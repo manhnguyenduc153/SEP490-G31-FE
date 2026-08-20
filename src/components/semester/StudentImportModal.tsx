@@ -114,84 +114,48 @@ export function StudentImportModal({
   };
 
   const parsePreferredSlotsFromExcel = (slotsStr: string | undefined, daysStr: string | undefined): string[] => {
-    const result: string[] = [];
     const sStr = (slotsStr || "").toString().trim().toLowerCase();
     const dStr = (daysStr || "").toString().trim().toLowerCase();
 
-    if (!sStr && !dStr) {
-      return ["Slot:4:1", "Slot:4:2", "Slot:4:3", "Slot:4:4", "Slot:4:5"];
+    // 1. Parse Slot Index (0 to 4)
+    let slotIdx = 4; // default Ca 5
+    if (sStr.includes("ca 1") || sStr.includes("ca1") || sStr.includes("sáng 1")) slotIdx = 0;
+    else if (sStr.includes("ca 2") || sStr.includes("ca2") || sStr.includes("sáng 2")) slotIdx = 1;
+    else if (sStr.includes("ca 3") || sStr.includes("ca3") || sStr.includes("chiều 1")) slotIdx = 2;
+    else if (sStr.includes("ca 4") || sStr.includes("ca4") || sStr.includes("chiều 2")) slotIdx = 3;
+    else if (sStr.includes("ca 5") || sStr.includes("ca5") || sStr.includes("tối")) slotIdx = 4;
+    else {
+      const match = sStr.match(/\b([1-5])\b/);
+      if (match) slotIdx = parseInt(match[1]) - 1;
     }
 
-    const combined = `${sStr}; ${dStr}`;
-    const parts = combined.split(/[;,]/).map((p) => p.trim()).filter(Boolean);
-    
-    let hasDetailedPairs = false;
-    
-    const parseDayPart = (p: string): number | null => {
-      if (p.includes("hai") || p.includes("t2") || p.includes("mon") || p.includes("2")) return 1;
-      if (p.includes("ba") || p.includes("t3") || p.includes("tue") || p.includes("3")) return 2;
-      if (p.includes("tư") || p.includes("tu") || p.includes("t4") || p.includes("wed") || p.includes("4")) return 3;
-      if (p.includes("năm") || p.includes("nam") || p.includes("t5") || p.includes("thu") || p.includes("5")) return 4;
-      if (p.includes("sáu") || p.includes("sau") || p.includes("t6") || p.includes("fri") || p.includes("6")) return 5;
-      if (p.includes("bảy") || p.includes("bay") || p.includes("t7") || p.includes("sat") || p.includes("7")) return 6;
-      if (p.includes("chủ") || p.includes("chu") || p.includes("cn") || p.includes("sun")) return 0;
-      return null;
-    };
-
-    const parseSlotPart = (p: string): number | null => {
-      if (p.includes("ca 1") || p.includes("ca1") || p.includes("sáng 1")) return 0;
-      if (p.includes("ca 2") || p.includes("ca2") || p.includes("sáng 2")) return 1;
-      if (p.includes("ca 3") || p.includes("ca3") || p.includes("chiều 1")) return 2;
-      if (p.includes("ca 4") || p.includes("ca4") || p.includes("chiều 2")) return 3;
-      if (p.includes("ca 5") || p.includes("ca5") || p.includes("tối")) return 4;
-
-      const match = p.match(/\b([1-5])\b/);
-      if (match) {
-        return parseInt(match[1]) - 1;
-      }
-      return null;
-    };
-
-    parts.forEach((p) => {
-      const dVal = parseDayPart(p);
-      let cleanedPart = p;
-      if (dVal !== null) {
-        cleanedPart = p.replace(/(hai|t2|mon|ba|t3|tue|tư|tu|t4|wed|năm|nam|t5|thu|sáu|sau|t6|fri|bảy|bay|t7|sat|chủ|chu|cn|sun)/g, "");
-      }
-      const sVal = parseSlotPart(cleanedPart);
-
-      if (dVal !== null && sVal !== null) {
-        hasDetailedPairs = true;
-        const slotStr = `Slot:${sVal}:${dVal}`;
-        if (!result.includes(slotStr)) {
-          result.push(slotStr);
-        }
-      }
-    });
-
-    if (hasDetailedPairs && result.length > 0) {
-      return result;
-    }
-
-    const parsedSlotIdx = parseSlotPart(sStr) ?? 4;
+    // 2. Parse Days (0 = CN, 1 = T2, 2 = T3, 3 = T4, 4 = T5, 5 = T6, 6 = T7)
     const parsedDays: number[] = [];
-    const dayParts = dStr.split(/[,,;\/]/).map((s) => s.trim());
-    dayParts.forEach((p) => {
-      const dVal = parseDayPart(p);
-      if (dVal !== null && !parsedDays.includes(dVal)) {
-        parsedDays.push(dVal);
-      }
-    });
+    if (!dStr) {
+      parsedDays.push(1, 2, 3, 4, 5); // default Mon-Fri
+    } else {
+      const dayParts = dStr.split(/[;,/]/).map((s) => s.trim().toLowerCase()).filter(Boolean);
+      dayParts.forEach((p) => {
+        let dVal: number | null = null;
+        if (p.includes("chủ") || p.includes("chu") || p.includes("cn") || p.includes("sun")) dVal = 0;
+        else if (p.includes("hai") || p.includes("t2") || p.includes("mon") || p.includes("thứ 2") || p.includes("thu 2") || p === "2") dVal = 1;
+        else if (p.includes("ba") || p.includes("t3") || p.includes("tue") || p.includes("thứ 3") || p.includes("thu 3") || p === "3") dVal = 2;
+        else if (p.includes("tư") || p.includes("tu") || p.includes("t4") || p.includes("wed") || p.includes("thứ 4") || p.includes("thu 4") || p === "4") dVal = 3;
+        else if (p.includes("năm") || p.includes("nam") || p.includes("t5") || p.includes("thu 5") || p.includes("thứ 5") || p === "5") dVal = 4;
+        else if (p.includes("sáu") || p.includes("sau") || p.includes("t6") || p.includes("fri") || p.includes("thứ 6") || p.includes("thu 6") || p === "6") dVal = 5;
+        else if (p.includes("bảy") || p.includes("bay") || p.includes("t7") || p.includes("sat") || p.includes("thứ 7") || p.includes("thu 7") || p === "7") dVal = 6;
+
+        if (dVal !== null && !parsedDays.includes(dVal)) {
+          parsedDays.push(dVal);
+        }
+      });
+    }
 
     if (parsedDays.length === 0) {
       parsedDays.push(1, 2, 3, 4, 5);
     }
 
-    parsedDays.forEach((d) => {
-      result.push(`Slot:${parsedSlotIdx}:${d}`);
-    });
-
-    return result;
+    return parsedDays.map((d) => `Slot:${slotIdx}:${d}`);
   };
 
   const getDaysNameFromMask = (mask: number): string => {
@@ -255,6 +219,8 @@ export function StudentImportModal({
 
           const rawCourseName = courseStr ? String(courseStr).trim() : "";
           const studentEmailTrimmed = String(email).trim().toLowerCase();
+          const rawEnrollType = row["Loại lớp (Online/Offline)"] || row["Loại lớp"] || row["EnrollType"] || row["Type"] || "";
+          const parsedEnrollType = String(rawEnrollType).toLowerCase().includes("online") ? 1 : 0;
 
           // Try to match existing course
           let matchedCourse: CourseItem | undefined;
@@ -299,6 +265,7 @@ export function StudentImportModal({
             preferredSlotIndex: preferredSlotIdx,
             preferredDaysOfWeek: preferredDaysMsk,
             preferredSlots,
+            enrollType: parsedEnrollType,
             hasError: false,
             isAlreadyRegistered: isAlready,
           });
@@ -340,7 +307,7 @@ export function StudentImportModal({
       preferredSlotIndex: r.preferredSlotIndex,
       preferredDaysOfWeek: r.preferredDaysOfWeek,
       preferredSlots: r.preferredSlots || [],
-      enrollType: r.enrollType ?? 1,
+      enrollType: r.enrollType !== undefined ? r.enrollType : 0,
     }));
 
     try {
@@ -385,7 +352,7 @@ export function StudentImportModal({
   });
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} showCloseButton={false} className="max-w-[960px] p-6 sm:p-8">
+    <Modal isOpen={isOpen} onClose={onClose} showCloseButton={false} className="max-w-[1300px] w-full p-6 sm:p-8">
       <div className="flex flex-col gap-5">
         {/* Header */}
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between border-b border-gray-100 dark:border-gray-800 pb-4">
@@ -655,16 +622,17 @@ export function StudentImportModal({
                   </div>
                 )}
 
-                <div className="max-h-[300px] overflow-y-auto rounded-xl border border-gray-200 dark:border-gray-800 custom-scrollbar">
+                <div className="max-h-[380px] overflow-y-auto rounded-xl border border-gray-200 dark:border-gray-800 custom-scrollbar">
                   <table className="w-full border-collapse text-sm text-left">
                     <thead>
                       <tr className="bg-gray-50 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-10">
-                        <th className="py-2.5 px-3 font-semibold">{t("semester.importColName")}</th>
-                        <th className="py-2.5 px-3 font-semibold">{t("semester.importColContact")}</th>
-                        <th className="py-2.5 px-3 font-semibold">{t("semester.importColCourse")}</th>
-                        <th className="py-2.5 px-3 font-semibold">Ca học</th>
-                        <th className="py-2.5 px-3 font-semibold">Ngày học</th>
-                        <th className="py-2.5 px-3 font-semibold text-right">{t("semester.importColStatus")}</th>
+                        <th className="py-2.5 px-3.5 font-semibold min-w-[150px]">{t("semester.importColName")}</th>
+                        <th className="py-2.5 px-3.5 font-semibold min-w-[200px]">{t("semester.importColContact")}</th>
+                        <th className="py-2.5 px-3.5 font-semibold min-w-[140px]">{t("semester.importColCourse")}</th>
+                        <th className="py-2.5 px-3.5 font-semibold min-w-[80px]">Ca học</th>
+                        <th className="py-2.5 px-3.5 font-semibold min-w-[120px]">Ngày học</th>
+                        <th className="py-2.5 px-3.5 font-semibold min-w-[90px]">Loại lớp</th>
+                        <th className="py-2.5 px-3.5 font-semibold text-right min-w-[120px]">{t("semester.importColStatus")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -679,9 +647,9 @@ export function StudentImportModal({
                               : "hover:bg-gray-50/50 dark:hover:bg-gray-800/20"
                           }`}
                         >
-                          <td className={`py-2 px-3 font-medium ${r.isAlreadyRegistered ? "text-gray-400 line-through" : "text-gray-800 dark:text-gray-200"}`}>{r.studentName}</td>
-                          <td className="py-2 px-3 text-xs">{r.studentEmail}</td>
-                          <td className="py-2 px-3">
+                          <td className={`py-2 px-3.5 font-medium ${r.isAlreadyRegistered ? "text-gray-400 line-through" : "text-gray-800 dark:text-gray-200"}`}>{r.studentName}</td>
+                          <td className="py-2 px-3.5 text-xs">{r.studentEmail}</td>
+                          <td className="py-2 px-3.5">
                             {r.hasError ? (
                               <span className="text-gray-400 italic">—</span>
                             ) : r.courseResolved ? (
@@ -697,17 +665,26 @@ export function StudentImportModal({
                               <span className="text-rose-500 text-xs">{t("semester.importMissingCourse")}</span>
                             )}
                           </td>
-                          <td className="py-2 px-3 text-xs font-semibold whitespace-nowrap">
+                          <td className="py-2 px-3.5 text-xs font-semibold whitespace-nowrap">
                             <span className="px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400 rounded font-semibold">
                               Ca {r.preferredSlotIndex + 1}
                             </span>
                           </td>
-                          <td className="py-2 px-3 text-xs">
-                            <span className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded">
+                          <td className="py-2 px-3.5 text-xs font-semibold">
+                            <span className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded whitespace-nowrap">
                               {getDaysNameFromMask(r.preferredDaysOfWeek)}
                             </span>
                           </td>
-                          <td className="py-2 px-3 text-right">
+                          <td className="py-2 px-3.5 text-xs">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold ${
+                              r.enrollType === 1
+                                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400"
+                                : "bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400"
+                            }`}>
+                              {r.enrollType === 1 ? "Online" : "Offline"}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3.5 text-right">
                             {r.hasError ? (
                               <span
                                 title={r.errorMsg}

@@ -4,6 +4,7 @@ import { Modal } from "@/components/ui/modal";
 import { semesterApi } from "@/services/semester.api";
 import { commonApi } from "@/services/common.api";
 import { useTranslation } from "react-i18next";
+import { AlertCircle } from "lucide-react";
 
 interface AutoScheduleModalProps {
   isOpen: boolean;
@@ -23,10 +24,9 @@ export function AutoScheduleModal({
   onSuccess,
 }: AutoScheduleModalProps) {
   const { t } = useTranslation();
-  const [maxClassSize, setMaxClassSize] = useState<number>(15);
-  const [minClassSize, setMinClassSize] = useState<number>(5);
+  const [maxClassSize, setMaxClassSize] = useState<number>(30);
+  const [minClassSize, setMinClassSize] = useState<number>(20);
   const [sessionsPerWeek, setSessionsPerWeek] = useState<number>(2);
-  const [allowWeekend, setAllowWeekend] = useState<boolean>(true);
   const [timePreferences, setTimePreferences] = useState<string[]>(["Morning", "Afternoon", "Evening"]);
 
   const [teachers, setTeachers] = useState<any[]>([]);
@@ -39,6 +39,7 @@ export function AutoScheduleModal({
 
   const [isScheduling, setIsScheduling] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
+  const [infeasibilityErrors, setInfeasibilityErrors] = useState<Array<{ code: string; params: any; text: string }>>([]);
 
   // Reset selections and search keywords when modal opens
   useEffect(() => {
@@ -47,6 +48,7 @@ export function AutoScheduleModal({
       setSelectedRooms([]);
       setTeacherKeyword("");
       setRoomKeyword("");
+      setInfeasibilityErrors([]);
     }
   }, [isOpen]);
 
@@ -117,7 +119,7 @@ export function AutoScheduleModal({
         constraints: {
           sessionsPerWeek,
           timePreferences,
-          allowWeekend,
+          allowWeekend: true,
           teacherIds: selectedTeachers,
           roomIds: selectedRooms,
         },
@@ -143,6 +145,7 @@ export function AutoScheduleModal({
       };
 
       if (res.success) {
+        setInfeasibilityErrors([]);
         setLoadingStep(4);
         setTimeout(() => {
           showToast(res.message ? getFriendlyAutoScheduleError(res.message) : t("semester.successAutoSchedule", { defaultValue: "Lập lịch tự động học kỳ thành công!" }), "success");
@@ -151,15 +154,23 @@ export function AutoScheduleModal({
           setIsScheduling(false);
           setLoadingStep(0);
         }, 1500);
-      } else if (res.message === "ERR_SCHEDULE_INFEASIBLE" && res.data?.infeasibilityReasons?.length) {
-        const reasonTexts = res.data.infeasibilityReasons.map((r) =>
-          t(`backendMessages.infeasibilityReasons.${r.code}`, { ...r.params, defaultValue: r.code })
-        );
-        showToast(reasonTexts.join(" "), "error");
-        setIsScheduling(false);
-        setLoadingStep(0);
       } else {
-        showToast(res.message ? getFriendlyAutoScheduleError(res.message) : t("semester.errAutoScheduleConflict", { defaultValue: "Xếp lịch thất bại do xung đột ràng buộc hoặc bận lịch giáo viên." }), "error");
+        const reasons = res.data?.infeasibilityReasons || (res.data as any)?.data?.infeasibilityReasons || (res as any)?.infeasibilityReasons;
+        if ((res.message === "ERR_SCHEDULE_INFEASIBLE" || !res.success) && Array.isArray(reasons) && reasons.length > 0) {
+          const uniqueTexts = Array.from(
+            new Set(
+              reasons.map((r: any) =>
+                String(t(`backendMessages.infeasibilityReasons.${r.code}`, { ...r.params, defaultValue: r.code }))
+              )
+            )
+          );
+          const formatted = uniqueTexts.map((text) => ({ code: "", params: {}, text }));
+          setInfeasibilityErrors(formatted);
+          showToast(t("semester.errAutoScheduleInfeasibleSummary", { defaultValue: "Xếp lịch thất bại do vi phạm một số ràng buộc. Vui lòng xem chi tiết lỗi bên dưới." }), "error");
+        } else {
+          setInfeasibilityErrors([]);
+          showToast(res.message ? getFriendlyAutoScheduleError(res.message) : t("semester.errAutoScheduleConflict", { defaultValue: "Xếp lịch thất bại do xung đột ràng buộc hoặc bận lịch giáo viên." }), "error");
+        }
         setIsScheduling(false);
         setLoadingStep(0);
       }
@@ -305,20 +316,6 @@ export function AutoScheduleModal({
                   </div>
                 </div>
 
-                {/* Tùy chọn khác */}
-                <div className="space-y-3 pt-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={allowWeekend}
-                      onChange={(e) => setAllowWeekend(e.target.checked)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-600 dark:text-gray-300">
-                      {t("semester.autoScheduleWeekend")}
-                    </span>
-                  </label>
-                </div>
               </div>
 
               {/* Cột phải: Giáo viên (trên) và Phòng học (dưới) */}
@@ -449,6 +446,33 @@ export function AutoScheduleModal({
                   </div>
                 </div>
               </div>
+
+              {/* Danh sách lỗi chi tiết vi phạm ràng buộc */}
+              {infeasibilityErrors.length > 0 && (
+                <div className="col-span-12 p-4 bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl space-y-3 shadow-xs animate-fade-in text-left">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-rose-800 dark:text-rose-300 font-semibold text-sm">
+                      <AlertCircle className="w-5 h-5 text-rose-500 shrink-0" />
+                      <span>{t("semester.infeasibleReasonsTitle", { defaultValue: "Chi tiết các ràng buộc bị vi phạm:" })} ({infeasibilityErrors.length})</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setInfeasibilityErrors([])}
+                      className="text-xs text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
+                    >
+                      {t("common.dismiss", { defaultValue: "Đóng" })}
+                    </button>
+                  </div>
+                  <div className="max-h-52 overflow-y-auto space-y-2 pr-1 divide-y divide-rose-100 dark:divide-rose-900/40">
+                    {infeasibilityErrors.map((err, idx) => (
+                      <div key={idx} className="pt-2 first:pt-0 flex items-start gap-2.5 text-xs text-rose-700 dark:text-rose-200 leading-relaxed">
+                        <span className="font-bold text-rose-500 select-none mt-0.5">•</span>
+                        <span>{err.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Hàng nút dưới cùng (kéo dài cả 12 cột) */}
               <div className="col-span-12 flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
