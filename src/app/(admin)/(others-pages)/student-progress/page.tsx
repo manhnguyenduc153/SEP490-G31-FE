@@ -146,12 +146,12 @@ export default function StudentProgressPage() {
   const hwNotSubmitted = useMemo(() => homeworkList.filter((hw) => !hw.submission),  [homeworkList]);
 
   const attStats = useMemo(() => {
-    const now = new Date();
-    const pastSessions = sessions.filter((s) => s.date && new Date(s.date) < now);
-    const present  = pastSessions.filter((s) => s.status === 1 || s.status === 2 || s.status === 3);
-    const absent   = pastSessions.filter((s) => s.status !== 1 && s.status !== 2 && s.status !== 3);
-    const rate     = pastSessions.length ? Math.round((present.length / pastSessions.length) * 100) : 100;
-    return { recorded: pastSessions.length, present: present.length, absent: absent.length, rate };
+    const total = sessions.length;
+    const present = sessions.filter((s) => s.status === 1 || s.status === 2 || s.status === 3).length;
+    const absent = sessions.filter((s) => s.status === 0).length;
+    const notRecorded = sessions.filter((s) => s.status === -1 || s.status == null).length;
+    const rate = total > 0 ? Math.round((present / total) * 100) : 0;
+    return { recorded: total, total, present, absent, notRecorded, rate };
   }, [sessions]);
 
   const scoreBarOptions: ApexOptions = useMemo(() => ({
@@ -163,7 +163,7 @@ export default function StudentProgressPage() {
     yaxis: { labels: { style: { fontFamily: "Outfit, sans-serif", fontSize: "12px" } } },
     grid: { borderColor: "#f1f5f9", xaxis: { lines: { show: true } }, yaxis: { lines: { show: false } } },
     legend: { show: false },
-    tooltip: { y: { formatter: (val: number) => `${Number(val).toFixed(1)} / 10` }, theme: "light" },
+    tooltip: { y: { formatter: (val: number) => `${Number(val).toFixed(1)} / 9 (band)` }, theme: "light" },
   }), [selectedGrade]);
 
   const scoreBarSeries = useMemo(() => [{ name: t("studentProgress.scoreName", { defaultValue: "Điểm" }), data: selectedGrade?.components.map((c) => Math.round(c.score * 10) / 10) || [] }], [selectedGrade, t]);
@@ -178,10 +178,34 @@ export default function StudentProgressPage() {
 
   const attDonutOptions: ApexOptions = useMemo(() => ({
     chart: { type: "donut", fontFamily: "Outfit, sans-serif", background: "transparent" },
-    colors: ["#10b981", "#f43f5e"], labels: [t("studentProgress.statusPresent", { defaultValue: "Có mặt" }), t("studentProgress.statusAbsent", { defaultValue: "Vắng mặt" })],
-    plotOptions: { pie: { donut: { size: "68%", labels: { show: true, total: { show: true, label: t("studentProgress.totalSessionsShort", { defaultValue: "Tổng buổi" }), formatter: () => `${sessions.length}`, fontSize: "14px", fontFamily: "Outfit, sans-serif", color: "#374151" } } } } },
-    dataLabels: { enabled: false }, legend: { position: "bottom", fontFamily: "Outfit, sans-serif", fontSize: "12px" },
-    stroke: { show: false }, tooltip: { y: { formatter: (v: number) => `${v} ${t("studentProgress.sessionUnit", { defaultValue: "buổi" })}` } },
+    colors: ["#10b981", "#f43f5e", "#94a3b8"], 
+    labels: [
+      t("studentProgress.statusPresent", { defaultValue: "Có mặt" }), 
+      t("studentProgress.statusAbsent", { defaultValue: "Vắng mặt" }),
+      t("studentProgress.statusNotRecorded", { defaultValue: "Chưa ghi nhận" })
+    ],
+    plotOptions: { 
+      pie: { 
+        donut: { 
+          size: "68%", 
+          labels: { 
+            show: true, 
+            total: { 
+              show: true, 
+              label: t("studentProgress.totalSessionsShort", { defaultValue: "Tổng buổi" }), 
+              formatter: () => `${sessions.length}`, 
+              fontSize: "14px", 
+              fontFamily: "Outfit, sans-serif", 
+              color: "#374151" 
+            } 
+          } 
+        } 
+      } 
+    },
+    dataLabels: { enabled: false }, 
+    legend: { position: "bottom", fontFamily: "Outfit, sans-serif", fontSize: "12px" },
+    stroke: { show: false }, 
+    tooltip: { y: { formatter: (v: number) => `${v} ${t("studentProgress.sessionUnit", { defaultValue: "buổi" })}` } },
   }), [sessions.length, t]);
 
   if (isLoadingGrades) return (
@@ -242,11 +266,11 @@ export default function StudentProgressPage() {
           </div>
 
           {selectedGrade && (
-            !isLoadingAtt && (sessions.length === 0 || attStats.recorded === 0) ? (
+            !isLoadingAtt && sessions.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-12 text-center dark:border-gray-700 dark:bg-gray-900">
                 <Clock3 className="w-10 h-10 text-gray-300 mx-auto mb-3 animate-pulse" />
                 <p className="text-sm font-semibold text-gray-500">
-                  {t("studentProgress.classNotStarted", { defaultValue: "Lớp học chưa diễn ra buổi nào." })}
+                  {t("studentProgress.classNotStarted", { defaultValue: "Lớp học chưa có lịch học nào." })}
                 </p>
               </div>
             ) : (
@@ -390,7 +414,7 @@ export default function StudentProgressPage() {
                       <>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="flex flex-col gap-3 justify-center">
-                            <div className="grid grid-cols-3 gap-2">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                               <div className="rounded-xl bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.05] p-3 text-center">
                                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">{t("studentProgress.totalSessionsShort", { defaultValue: "Tổng buổi" })}</p>
                                 <p className="text-xl font-extrabold text-gray-800 dark:text-gray-100 mt-1">{sessions.length}</p>
@@ -403,6 +427,10 @@ export default function StudentProgressPage() {
                                 <p className="text-[10px] text-rose-600 dark:text-rose-400 font-bold uppercase tracking-wide">{t("studentProgress.statusAbsentShort", { defaultValue: "Vắng" })}</p>
                                 <p className="text-xl font-extrabold text-rose-600 dark:text-rose-400 mt-1">{attStats.absent}</p>
                               </div>
+                              <div className="rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 p-3 text-center">
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wide">{t("studentProgress.statusNotRecordedShort", { defaultValue: "Chưa ghi nhận" })}</p>
+                                <p className="text-xl font-extrabold text-slate-600 dark:text-slate-300 mt-1">{attStats.notRecorded}</p>
+                              </div>
                             </div>
                             <div className="rounded-xl border border-gray-100 dark:border-white/[0.05] bg-gray-50 dark:bg-white/[0.02] p-4">
                               <div className="flex items-center justify-between mb-2">
@@ -414,7 +442,7 @@ export default function StudentProgressPage() {
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center justify-center"><ReactApexChart options={attDonutOptions} series={[attStats.present, attStats.absent]} type="donut" height={200} /></div>
+                          <div className="flex items-center justify-center"><ReactApexChart options={attDonutOptions} series={[attStats.present, attStats.absent, attStats.notRecorded]} type="donut" height={200} /></div>
                         </div>
                         <div className="border-t border-gray-100 dark:border-white/[0.05]" />
                         <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-white/[0.05]">

@@ -224,12 +224,12 @@ export default function ChildProgressPage() {
   const hwNotSubmitted = useMemo(() => homeworkList.filter((hw) => !hw.submission), [homeworkList]);
 
   const attStats = useMemo(() => {
-    const now = new Date();
-    const pastSessions = sessions.filter((s) => s.date && new Date(s.date) < now);
-    const present  = pastSessions.filter((s) => s.status === 1 || s.status === 2 || s.status === 3);
-    const absent   = pastSessions.filter((s) => s.status !== 1 && s.status !== 2 && s.status !== 3);
-    const rate     = pastSessions.length ? Math.round((present.length / pastSessions.length) * 100) : 100;
-    return { total: sessions.length, recorded: pastSessions.length, present: present.length, absent: absent.length, rate };
+    const total = sessions.length;
+    const present = sessions.filter((s) => s.status === 1 || s.status === 2 || s.status === 3).length;
+    const absent = sessions.filter((s) => s.status === 0).length;
+    const notRecorded = sessions.filter((s) => s.status === -1 || s.status == null).length;
+    const rate = total > 0 ? Math.round((present / total) * 100) : 0;
+    return { total, recorded: total, present, absent, notRecorded, rate };
   }, [sessions]);
 
   // Score bar chart (horizontal)
@@ -255,7 +255,7 @@ export default function ChildProgressPage() {
     yaxis: { labels: { style: { fontFamily: "Outfit, sans-serif", fontSize: "12px", fontWeight: 600 } } },
     grid: { borderColor: "#f1f5f9", xaxis: { lines: { show: true } }, yaxis: { lines: { show: false } } },
     legend: { show: false },
-    tooltip: { y: { formatter: (val: number) => `${Number(val).toFixed(1)} / 10` }, theme: "light" },
+    tooltip: { y: { formatter: (val: number) => `${Number(val).toFixed(1)} / 9 (band)` }, theme: "light" },
   }), [selectedGrade]);
 
   const scoreBarSeries = useMemo(() => [{
@@ -296,10 +296,11 @@ export default function ChildProgressPage() {
   // Attendance donut
   const attDonutOptions: ApexOptions = useMemo(() => ({
     chart: { type: "donut", fontFamily: "Outfit, sans-serif", background: "transparent" },
-    colors: ["#10b981", "#f43f5e"],
+    colors: ["#10b981", "#f43f5e", "#94a3b8"],
     labels: [
       t("childProgress.statusPresent", { defaultValue: "Có mặt" }),
-      t("childProgress.statusAbsent", { defaultValue: "Vắng mặt" })
+      t("childProgress.statusAbsent", { defaultValue: "Vắng mặt" }),
+      t("childProgress.statusNotRecorded", { defaultValue: "Chưa ghi nhận" })
     ],
     plotOptions: {
       pie: {
@@ -443,11 +444,11 @@ export default function ChildProgressPage() {
 
           {/* ── Content for selected class ────────────────────────────────────── */}
           {selectedGrade && (
-            !isLoadingAtt && (sessions.length === 0 || attStats.recorded === 0) ? (
+            !isLoadingAtt && sessions.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-12 text-center dark:border-gray-700 dark:bg-gray-900">
                 <Clock3 className="w-10 h-10 text-gray-300 mx-auto mb-3 animate-pulse" />
                 <p className="text-sm font-semibold text-gray-500">
-                  {t("childProgress.classNotStarted", { defaultValue: "Lớp học chưa diễn ra buổi nào." })}
+                  {t("childProgress.classNotStarted", { defaultValue: "Lớp học chưa có lịch học nào." })}
                 </p>
               </div>
             ) : (
@@ -720,9 +721,9 @@ export default function ChildProgressPage() {
                       <>
                         {/* Stats row + donut */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          {/* Left: 3 stat cards */}
+                          {/* Left: 4 stat cards */}
                           <div className="flex flex-col gap-3 justify-center">
-                            <div className="grid grid-cols-3 gap-2">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                               <div className="rounded-xl bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.05] p-3 text-center">
                                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">{t("childProgress.totalSessions", { defaultValue: "Tổng buổi" })}</p>
                                 <p className="text-xl font-extrabold text-gray-800 dark:text-gray-100 mt-1">{sessions.length}</p>
@@ -734,6 +735,10 @@ export default function ChildProgressPage() {
                               <div className="rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 p-3 text-center">
                                 <p className="text-[10px] text-rose-600 dark:text-rose-400 font-bold uppercase tracking-wide">{t("childProgress.statusAbsentShort", { defaultValue: "Vắng" })}</p>
                                 <p className="text-xl font-extrabold text-rose-600 dark:text-rose-400 mt-1">{attStats.absent}</p>
+                              </div>
+                              <div className="rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 p-3 text-center">
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wide">{t("childProgress.statusNotRecordedShort", { defaultValue: "Chưa ghi nhận" })}</p>
+                                <p className="text-xl font-extrabold text-slate-600 dark:text-slate-300 mt-1">{attStats.notRecorded}</p>
                               </div>
                             </div>
                             {/* Attendance rate + progress bar */}
@@ -758,7 +763,7 @@ export default function ChildProgressPage() {
                           <div className="flex items-center justify-center">
                             <ReactApexChart
                               options={attDonutOptions}
-                              series={[attStats.present, attStats.absent]}
+                              series={[attStats.present, attStats.absent, attStats.notRecorded]}
                               type="donut"
                               height={200}
                             />

@@ -72,7 +72,7 @@ export const ManagerMetrics = ({ metrics, loading }: Props) => {
         </div>
       </div>
 
-      {/* Average Attendance Rate */}
+      {/* Active Teachers */}
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
         <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-xl dark:bg-gray-800">
           <BoxIconLine className="text-gray-800 size-6 dark:text-white/90" />
@@ -80,14 +80,14 @@ export const ManagerMetrics = ({ metrics, loading }: Props) => {
         <div className="flex items-end justify-between mt-5">
           <div>
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              {t("dashboardPage.averageAttendanceRate")}
+              {t("dashboardPage.activeTeachers", { defaultValue: "Giáo viên đang hoạt động" })}
             </span>
             <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-              {metrics.averageAttendanceRate}%
+              {metrics.activeTeachers ?? 0}
             </h4>
           </div>
-          <Badge color={metrics.averageAttendanceRate >= 80 ? "success" : "warning"}>
-            {metrics.averageAttendanceRate >= 80 ? t("dashboardPage.good") : t("dashboardPage.needsImprovement")}
+          <Badge color="success">
+            {t("dashboardPage.activeStatus", { defaultValue: "Hoạt động" })}
           </Badge>
         </div>
       </div>

@@ -84,10 +84,10 @@ export default function ClassGradeReport() {
 
       reportData.components.forEach((comp) => {
         const score = student.componentScores[comp.id];
-        rowData[`${comp.name} (${comp.weight}%)`] = score !== null && score !== undefined ? score : "-";
+        rowData[`${comp.name} (${comp.weight}%)`] = score !== null && score !== undefined ? (typeof score === "number" ? Number(score).toFixed(1) : score) : "-";
       });
 
-      rowData[t("classGradeReport.finalScore")] = student.finalScore !== null && student.finalScore !== undefined ? student.finalScore : "-";
+      rowData[t("classGradeReport.finalScore")] = student.finalScore !== null && student.finalScore !== undefined ? (typeof student.finalScore === "number" ? Number(student.finalScore).toFixed(1) : student.finalScore) : "-";
       rowData[t("classGradeReport.evaluation")] = student.finalScore !== null && student.finalScore !== undefined 
         ? (student.isPassed ? t("classGradeReport.passed") : t("classGradeReport.failed")) 
         : "-";
@@ -319,7 +319,7 @@ export default function ClassGradeReport() {
                               return (
                                 <td key={comp.id} className="px-4 py-3 text-center font-medium border-r border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300">
                                   {score !== null && score !== undefined ? (
-                                    <span className={score < 5 ? "text-red-500" : ""}>{score}</span>
+                                    <span className={score < 5 ? "text-red-500 font-semibold" : ""}>{Number(score).toFixed(1)}</span>
                                   ) : (
                                     <span className="text-gray-300">-</span>
                                   )}
@@ -330,7 +330,7 @@ export default function ClassGradeReport() {
                             <td className="px-4 py-3 text-center border-r border-gray-200 dark:border-gray-700">
                               {student.finalScore !== null && student.finalScore !== undefined ? (
                                 <span className={`font-bold ${student.finalScore < 5 ? "text-red-600" : "text-brand-600 dark:text-brand-400"}`}>
-                                  {student.finalScore}
+                                  {Number(student.finalScore).toFixed(1)}
                                 </span>
                               ) : (
                                 <span className="text-gray-300">-</span>
