@@ -63,6 +63,8 @@ export interface StudentRegistrationDto {
   status: number;
   enrollType: number; // 0 = Offline, 1 = Online
   enrollTypeName?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface StudentRegistrationSaveDto {

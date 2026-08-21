@@ -19,7 +19,7 @@ export default function ExamGradeDistributionChart({ data, loading }: Props) {
 
   if (loading || !data) {
     return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03] animate-pulse">
+      <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03] animate-pulse h-full flex flex-col justify-between">
         <div className="h-5 w-48 bg-gray-200 rounded dark:bg-gray-700 mb-6" />
         <div className="h-[310px] bg-gray-100 rounded dark:bg-gray-800" />
       </div>
@@ -107,7 +107,7 @@ export default function ExamGradeDistributionChart({ data, loading }: Props) {
   ];
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+    <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03] h-full flex flex-col justify-between">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h3 className="text-lg font-bold text-gray-900 dark:text-white">
@@ -120,13 +120,13 @@ export default function ExamGradeDistributionChart({ data, loading }: Props) {
       </div>
 
       {data.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20">
+        <div className="flex flex-col items-center justify-center flex-1 py-12">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {t("common.noData", { defaultValue: "Không có dữ liệu" })}
           </p>
         </div>
       ) : (
-        <div className="h-[310px]">
+        <div className="w-full flex-1 flex flex-col justify-center min-h-[310px]">
           <ReactApexChart options={options} series={series} type="bar" height={310} />
         </div>
       )}

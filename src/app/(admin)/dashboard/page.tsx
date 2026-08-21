@@ -141,29 +141,29 @@ export default function Dashboard() {
       </div>
 
       {/* 3. Academic Quality & Grading Progress Row */}
-      <div className="col-span-12 xl:col-span-7">
+      <div className="col-span-12 xl:col-span-7 flex flex-col">
         <ExamGradeDistributionChart data={data?.examGradeDistribution ?? null} loading={loading} />
       </div>
 
-      <div className="col-span-12 xl:col-span-5">
+      <div className="col-span-12 xl:col-span-5 flex flex-col">
         <GradingProgressCard data={data?.gradingProgress ?? null} loading={loading} />
       </div>
 
       {/* 4. Enrollment & Class Statistics Row */}
-      <div className="col-span-12 xl:col-span-7">
+      <div className="col-span-12 xl:col-span-7 flex flex-col">
         <EnrollmentChart data={data?.monthlyEnrollments ?? null} loading={loading} />
       </div>
 
-      <div className="col-span-12 xl:col-span-5">
+      <div className="col-span-12 xl:col-span-5 flex flex-col">
         <ClassStatusChart data={data?.classStatusDistribution ?? null} loading={loading} />
       </div>
 
       {/* 5. Course Popularity and Recent Registrations */}
-      <div className="col-span-12 xl:col-span-5">
+      <div className="col-span-12 xl:col-span-5 flex flex-col">
         <PopularCoursesChart data={data?.coursePopularity ?? null} loading={loading} />
       </div>
 
-      <div className="col-span-12 xl:col-span-7">
+      <div className="col-span-12 xl:col-span-7 flex flex-col">
         <RecentRegistrations data={data?.recentRegistrations ?? null} loading={loading} />
       </div>
     </div>

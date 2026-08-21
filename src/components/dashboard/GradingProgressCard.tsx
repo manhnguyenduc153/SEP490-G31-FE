@@ -14,9 +14,9 @@ export default function GradingProgressCard({ data, loading }: Props) {
 
   if (loading || !data) {
     return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03] animate-pulse">
+      <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03] animate-pulse h-full flex flex-col justify-between">
         <div className="h-5 w-48 bg-gray-200 rounded dark:bg-gray-700 mb-6" />
-        <div className="space-y-4">
+        <div className="space-y-4 flex-1 flex flex-col justify-between">
           <div className="h-20 bg-gray-100 rounded-xl dark:bg-gray-800" />
           <div className="h-20 bg-gray-100 rounded-xl dark:bg-gray-800" />
         </div>
@@ -27,7 +27,7 @@ export default function GradingProgressCard({ data, loading }: Props) {
   const totalPending = data.pendingHomeworksCount + data.pendingExamsCount;
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+    <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03] h-full flex flex-col justify-between">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h3 className="text-lg font-bold text-gray-900 dark:text-white">
@@ -39,7 +39,7 @@ export default function GradingProgressCard({ data, loading }: Props) {
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-4 flex-1 flex flex-col justify-between">
         {/* Homework Alerts */}
         <div className="flex items-center justify-between p-4 rounded-xl border border-gray-100 bg-gray-50/50 dark:border-gray-800 dark:bg-gray-950/20">
           <div className="flex items-center gap-3">

@@ -18,7 +18,7 @@ export default function EnrollmentChart({ data, loading }: Props) {
 
   if (loading || !data) {
     return (
-      <div className="rounded-2xl border border-gray-200 bg-white px-5 pb-5 pt-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:pt-6 animate-pulse">
+      <div className="rounded-2xl border border-gray-200 bg-white px-5 pb-5 pt-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:pt-6 animate-pulse h-full flex flex-col justify-between">
         <div className="h-5 w-64 bg-gray-200 rounded dark:bg-gray-700 mb-6" />
         <div className="h-[310px] bg-gray-100 rounded dark:bg-gray-800" />
       </div>
@@ -31,6 +31,7 @@ export default function EnrollmentChart({ data, loading }: Props) {
       fontFamily: "Outfit, sans-serif",
       type: "area",
       height: 310,
+      parentHeightOffset: 0,
       toolbar: {
         show: false,
       },
@@ -47,6 +48,13 @@ export default function EnrollmentChart({ data, loading }: Props) {
       gradient: {
         opacityFrom: 0.55,
         opacityTo: 0,
+      },
+    },
+    grid: {
+      borderColor: "#f1f1f1",
+      padding: {
+        left: 10,
+        right: 10,
       },
     },
     xaxis: {
@@ -69,6 +77,8 @@ export default function EnrollmentChart({ data, loading }: Props) {
       },
     },
     tooltip: {
+      shared: true,
+      intersect: false,
       y: {
         formatter: (val: number) => `${val} ${t("dashboardPage.studentUnit")}`,
       },
@@ -83,21 +93,19 @@ export default function EnrollmentChart({ data, loading }: Props) {
   ];
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white px-5 pb-5 pt-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
+    <div className="rounded-2xl border border-gray-200 bg-white px-5 pb-5 pt-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:pt-6 h-full flex flex-col justify-between">
       <div className="mb-6 flex justify-between items-center">
         <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
           {t("dashboardPage.enrollmentGrowthTitle")}
         </h3>
       </div>
-      <div className="max-w-full overflow-x-auto custom-scrollbar">
-        <div className="-ml-5 min-w-[500px] xl:min-w-full pl-2">
-          <ReactApexChart
-            options={options}
-            series={series}
-            type="area"
-            height={310}
-          />
-        </div>
+      <div className="w-full flex-1 flex flex-col justify-center min-h-[310px]">
+        <ReactApexChart
+          options={options}
+          series={series}
+          type="area"
+          height={310}
+        />
       </div>
     </div>
   );

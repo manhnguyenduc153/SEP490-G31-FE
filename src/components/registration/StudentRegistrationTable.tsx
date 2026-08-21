@@ -63,7 +63,7 @@ export default function StudentRegistrationTable() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   // ── Sort ──
-  type SortKey = "studentCode" | "studentName" | "courseName" | "status" | "id";
+  type SortKey = "studentCode" | "studentName" | "courseName" | "status" | "createdAt" | "id";
   type SortOrder = "asc" | "desc";
   const [sortKey, setSortKey] = useState<SortKey>("id");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
@@ -90,6 +90,10 @@ export default function StudentRegistrationTable() {
         av = a.id;
         bv = b.id;
         return sortOrder === "asc" ? av - bv : bv - av;
+      } else if (sortKey === "createdAt") {
+        const at = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return sortOrder === "asc" ? at - bt : bt - at;
       } else {
         av = String(a[sortKey] ?? "");
         bv = String(b[sortKey] ?? "");
@@ -484,6 +488,7 @@ export default function StudentRegistrationTable() {
                 <TableCell isHeader className="px-6 py-4 text-left">{t("registration.colCourse")}</TableCell>
                 <TableCell isHeader className="px-6 py-4 text-left">{t("registration.colPreferredSlots")}</TableCell>
                 <TableCell isHeader className="px-6 py-4 text-left">{t("registration.colEnrollType")}</TableCell>
+                <TableCell isHeader className="px-6 py-4 text-left">{t("registration.colCreatedAt")}</TableCell>
                 <TableCell isHeader className="px-6 py-4 text-left">{t("registration.colStatus")}</TableCell>
                 <TableCell isHeader className="px-6 py-4 text-center">{t("registration.colActions", { defaultValue: "Thao tác" })}</TableCell>
               </TableRow>
@@ -498,6 +503,8 @@ export default function StudentRegistrationTable() {
                   <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-32" /></TableCell>
                   <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-24" /></TableCell>
                   <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-20" /></TableCell>
+                  <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-16" /></TableCell>
+                  <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-24" /></TableCell>
                   <TableCell className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-16" /></TableCell>
                   <TableCell className="px-6 py-4 text-center">
                     <div className="flex justify-center gap-1.5">
@@ -569,6 +576,15 @@ export default function StudentRegistrationTable() {
                   <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">
                     {t("registration.colEnrollType")}
                   </p>
+                </TableCell>
+                <TableCell isHeader className="px-6 py-4 text-left">
+                  <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => handleSort("createdAt")}>
+                    <p className="font-semibold text-gray-800 text-theme-sm dark:text-gray-200">{t("registration.colCreatedAt")}</p>
+                    <button className="flex flex-col gap-0.5 ml-2">
+                      <AngleUpIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "createdAt" && sortOrder === "asc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                      <AngleDownIcon className={`text-gray-400 dark:text-gray-600 w-3 h-3 ${sortKey === "createdAt" && sortOrder === "desc" ? "text-brand-500 dark:text-brand-400" : ""}`} />
+                    </button>
+                  </div>
                 </TableCell>
                 <TableCell isHeader className="px-6 py-4 text-left">
                   <div className="flex items-center justify-between cursor-pointer select-none" onClick={() => handleSort("status")}>
@@ -708,6 +724,15 @@ export default function StudentRegistrationTable() {
                     }`}>
                       {item.enrollType === 1 ? t("registration.enrollTypeOnline") : t("registration.enrollTypeOffline")}
                     </span>
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap text-theme-sm text-gray-600 dark:text-gray-400">
+                    {item.createdAt ? new Date(item.createdAt).toLocaleString("vi-VN", {
+                      year: "numeric",
+                      month: "2-digit",
+                      day: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }) : "—"}
                   </TableCell>
                   <TableCell className="px-6 py-4 whitespace-nowrap text-theme-sm">
                     <span className={`inline-flex items-center text-xs font-semibold px-2.5 py-0.5 rounded-full ${getStatusBadgeClass(item.status)}`}>
