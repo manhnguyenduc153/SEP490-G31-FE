@@ -56,7 +56,7 @@ export default function ClassDetailInfoTab({
         <div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs space-y-5 h-full">
           <h3 className="text-md font-bold text-gray-900 dark:text-white flex items-center gap-2 border-b border-gray-50 dark:border-gray-800/80 pb-3">
             <Info className="w-4.5 h-4.5 text-brand-500" />
-            {t("class.generalInfo")}
+            {t("class.generalInfo", { defaultValue: "Thông tin chung" })}
           </h3>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-6">
@@ -82,7 +82,7 @@ export default function ClassDetailInfoTab({
 
             <div>
               <span className="block text-[10px] uppercase font-bold text-gray-400 tracking-wider">
-                Loại lớp
+                {t("class.colType", { defaultValue: "Loại lớp" })}
               </span>
               <div className="mt-1">
                 <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
@@ -98,7 +98,7 @@ export default function ClassDetailInfoTab({
             {itemDetail.url && (
               <div>
                 <span className="block text-[10px] uppercase font-bold text-gray-400 tracking-wider">
-                  Link lớp học
+                  {t("class.colClassUrl", { defaultValue: "Link lớp học" })}
                 </span>
                 <a
                   href={itemDetail.url}
@@ -109,7 +109,9 @@ export default function ClassDetailInfoTab({
                   {itemDetail.url}
                 </a>
               </div>
-            )}            <div className="sm:col-span-2">
+            )}
+
+            <div className="sm:col-span-2">
               <span className="block text-[10px] uppercase font-bold text-gray-400 tracking-wider">
                 {t("class.colName")}
               </span>

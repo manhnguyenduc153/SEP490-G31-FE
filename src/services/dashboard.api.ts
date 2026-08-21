@@ -6,7 +6,8 @@ import { ENDPOINTS } from "@/constants/endpoints";
 export interface DashboardMetrics {
   totalStudents: number;
   totalClasses: number;
-  averageAttendanceRate: number;
+  activeTeachers: number;
+  averageAttendanceRate?: number;
   pendingRegistrations: number;
 }
 

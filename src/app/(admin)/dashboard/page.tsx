@@ -6,7 +6,6 @@ import ClassStatusChart from "@/components/dashboard/ClassStatusChart";
 import EnrollmentChart from "@/components/dashboard/EnrollmentChart";
 import PopularCoursesChart from "@/components/dashboard/PopularCoursesChart";
 import RecentRegistrations from "@/components/dashboard/RecentRegistrations";
-import LowAttendanceAlerts from "@/components/dashboard/LowAttendanceAlerts";
 import TeacherWorkloadChart from "@/components/dashboard/TeacherWorkloadChart";
 import ExamGradeDistributionChart from "@/components/dashboard/ExamGradeDistributionChart";
 import GradingProgressCard from "@/components/dashboard/GradingProgressCard";
@@ -159,15 +158,15 @@ export default function Dashboard() {
         <ClassStatusChart data={data?.classStatusDistribution ?? null} loading={loading} />
       </div>
 
-      {/* 5. Course Popularity, Attendance Alerts, and Recent Registrations */}
+      {/* 5. Course Popularity and Recent Registrations */}
       <div className="col-span-12 xl:col-span-5">
         <PopularCoursesChart data={data?.coursePopularity ?? null} loading={loading} />
       </div>
 
-      <div className="col-span-12 xl:col-span-7 space-y-6">
-        <LowAttendanceAlerts data={data?.lowAttendanceAlerts ?? null} loading={loading} />
+      <div className="col-span-12 xl:col-span-7">
         <RecentRegistrations data={data?.recentRegistrations ?? null} loading={loading} />
       </div>
     </div>
   );
 }
+
