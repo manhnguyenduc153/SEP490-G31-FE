@@ -33,7 +33,9 @@ export interface RecentRegistration {
   id: number;
   studentName: string;
   courseName: string;
-  preferredSlots: string;
+  preferredSlots?: string;
+  enrollType?: number;
+  enrollTypeName?: string;
   registrationDate: string;
 }
 

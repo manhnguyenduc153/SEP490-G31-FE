@@ -160,11 +160,12 @@ export function SemesterRegistrationsViewModal({ isOpen, onClose, semesterId, se
               <Table>
                 <TableHeader className="bg-gray-50 dark:bg-gray-850 sticky top-0 z-10 shadow-xs">
                   <TableRow>
-                    <TableCell className="w-[8%] py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900">{t("semester.colId")}</TableCell>
-                    <TableCell className="w-[18%] py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900">{t("semester.registrationsColStudentCode")}</TableCell>
-                    <TableCell className="w-[24%] py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900">{t("semester.registrationsColStudentName")}</TableCell>
-                    <TableCell className="w-[25%] py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900">{t("semester.registrationsColContact")}</TableCell>
-                    <TableCell className="w-[25%] py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900">{t("semester.registrationsColCourse")}</TableCell>
+                    <TableCell className="w-[6%] py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900">{t("semester.colId")}</TableCell>
+                    <TableCell className="w-[15%] py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900">{t("semester.registrationsColStudentCode")}</TableCell>
+                    <TableCell className="w-[20%] py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900">{t("semester.registrationsColStudentName")}</TableCell>
+                    <TableCell className="w-[22%] py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900">{t("semester.registrationsColContact")}</TableCell>
+                    <TableCell className="w-[20%] py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900">{t("semester.registrationsColCourse")}</TableCell>
+                    <TableCell className="w-[17%] py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900">{t("registration.colCreatedAt", { defaultValue: "Ngày đăng ký" })}</TableCell>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-gray-150 dark:divide-gray-800">
@@ -185,6 +186,15 @@ export function SemesterRegistrationsViewModal({ isOpen, onClose, semesterId, se
                       </TableCell>
                       <TableCell className="py-3.5 text-sm text-gray-750 dark:text-gray-300 font-medium">
                         {item.courseName || t("semester.courseIdText", { id: item.courseId, defaultValue: `Khóa ID: ${item.courseId}` })}
+                      </TableCell>
+                      <TableCell className="py-3.5 text-xs text-gray-500 dark:text-gray-400">
+                        {item.createdAt ? new Date(item.createdAt).toLocaleString("vi-VN", {
+                          year: "numeric",
+                          month: "2-digit",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }) : "—"}
                       </TableCell>
                     </TableRow>
                   ))}
