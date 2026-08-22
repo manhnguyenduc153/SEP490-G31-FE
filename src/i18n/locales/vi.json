@@ -2553,6 +2553,13 @@
     "ERR_WEEKLY_SCHEDULES_EMPTY": "Lịch học hàng tuần không được để trống",
     "ERR_SCHEDULE_MAX_LENGTH": "Lịch học hiển thị không được vượt quá 200 ký tự",
     "ERR_NO_TIMESLOTS": "Không có ca học nào trong hệ thống!",
+    "ERR_NO_FILE_UPLOADED": "Vui lòng chọn tệp tin cần tải lên.",
+    "ERR_FILE_SIZE_EXCEEDS_10MB": "Dung lượng tệp vượt quá giới hạn cho phép (tối đa 10MB).",
+    "ERR_FILE_FORMAT_NOT_ALLOWED": "Định dạng tệp không được hỗ trợ.",
+    "ERR_UPLOAD_IMAGE_FORMAT_INVALID": "Chỉ chấp nhận định dạng ảnh (.jpg, .jpeg, .png, .webp).",
+    "ERR_FILE_UPLOAD_FAILED": "Tải tệp tin lên thất bại.",
+    "MSG_IMAGE_UPLOAD_SUCCESS": "Tải hình ảnh lên thành công.",
+    "MSG_DOCUMENT_UPLOAD_SUCCESS": "Tải tài liệu lên thành công.",
     "infeasibilityReasons": {
       "ROOM_CAPACITY_INSUFFICIENT": "Khóa học '{{courseName}}': không có phòng học nào có sức chứa đủ cho sĩ số {{classSize}} (phòng lớn nhất: {{maxRoomCapacity}}).",
       "TEACHER_BAND_INSUFFICIENT": "Khóa học '{{courseName}}': yêu cầu giáo viên tối thiểu đạt trình độ Band {{requiredBand}}, nhưng trung tâm hiện không có giáo viên nào đạt trình độ này.",
