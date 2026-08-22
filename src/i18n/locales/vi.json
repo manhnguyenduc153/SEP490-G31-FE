@@ -1046,7 +1046,7 @@
     "editTitle": "Chỉnh sửa phụ huynh",
     "createDesc": "Điền thông tin để tạo phụ huynh. Hệ thống sẽ tự động tạo tài khoản đăng nhập.",
     "editDesc": "Cập nhật thông tin phụ huynh.",
-    "autoAccountNote": "Mật khẩu mặc định: Parent@123456 — Phụ huynh nên đổi sau lần đăng nhập đầu tiên.",
+    "autoAccountNote": "Mật khẩu mặc định: 123456 — Phụ huynh nên đổi sau lần đăng nhập đầu tiên.",
     "formCodeLabel": "Mã phụ huynh",
     "formCodePlaceholder": "Nhập mã phụ huynh...",
     "formNameLabel": "Họ và tên phụ huynh",

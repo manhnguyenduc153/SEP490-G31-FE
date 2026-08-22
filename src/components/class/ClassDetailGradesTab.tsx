@@ -211,15 +211,12 @@ export default function ClassDetailGradesTab({
   const buildExcelRows = (sourceRows: ScoreRow[], includeScores: boolean) => sourceRows.map((row, index) => {
     const result: Record<string, string | number> = {
       STT: index + 1,
-      studentCode: row.studentCode || "",
-      studentName: row.studentName || "",
       [t("class.studentCode", { defaultValue: "Student Code" })]: row.studentCode || "",
-      [t("class.studentName", { defaultValue: "Student Name" })]: row.studentName || "",
+      [t("student.colName", { defaultValue: "Student Name" })]: row.studentName || "",
     };
 
     rules.forEach((rule) => {
-      result[rule.id] = includeScores ? row.componentScores[rule.id] ?? 0 : "";
-      result[rule.name] = includeScores ? row.componentScores[rule.id] ?? 0 : "";
+      result[rule.name] = includeScores ? (row.componentScores[rule.id] ?? 0) : "";
     });
 
     if (includeScores) {
@@ -230,14 +227,25 @@ export default function ClassDetailGradesTab({
   });
 
   const downloadTemplate = () => {
-    const worksheet = XLSX.utils.json_to_sheet(buildExcelRows(rows, false));
+    const data = buildExcelRows(rows, false);
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const wscols = [{ wch: 6 }, { wch: 18 }, { wch: 25 }];
+    rules.forEach(() => wscols.push({ wch: 18 }));
+    worksheet["!cols"] = wscols;
+
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, t("class.gradeTemplateSheetName", { defaultValue: "Grade template" }));
     XLSX.writeFile(workbook, `${t("class.gradeTemplateFileName", { defaultValue: "Grade_Template" })}_${itemDetail?.code || classId}.xlsx`);
   };
 
   const exportExcel = () => {
-    const worksheet = XLSX.utils.json_to_sheet(buildExcelRows(rows, true));
+    const data = buildExcelRows(rows, true);
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const wscols = [{ wch: 6 }, { wch: 18 }, { wch: 25 }];
+    rules.forEach(() => wscols.push({ wch: 18 }));
+    wscols.push({ wch: 15 });
+    worksheet["!cols"] = wscols;
+
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, t("class.gradeSheetName", { defaultValue: "Gradebook" }));
     XLSX.writeFile(workbook, `${t("class.gradeFileName", { defaultValue: "Gradebook" })}_${itemDetail?.code || classId}.xlsx`);
@@ -260,17 +268,20 @@ export default function ClassDetailGradesTab({
 
         importedRows.forEach((item) => {
           const studentCode = String(
-            item.studentCode ??
             item[t("class.studentCode", { defaultValue: "Student Code" })] ??
+            item.studentCode ??
             item["Student Code"] ??
             item["Mã học sinh"] ??
+            item["Mã học viên"] ??
             ""
           ).trim();
           const studentName = String(
-            item.studentName ??
+            item[t("student.colName", { defaultValue: "Student Name" })] ??
             item[t("class.studentName", { defaultValue: "Student Name" })] ??
+            item.studentName ??
             item["Student Name"] ??
             item["Họ và tên"] ??
+            item["Tên học sinh"] ??
             item["Học sinh"] ??
             ""
           ).trim();
@@ -283,12 +294,15 @@ export default function ClassDetailGradesTab({
           nextOverrides[matchedRow.studentId] = { ...nextOverrides[matchedRow.studentId] };
 
           rules.forEach((rule) => {
-            const score = Number(item[rule.name] ?? item[rule.id]);
-            if (!Number.isNaN(score)) {
-              if (score < 0 || score > 9) {
-                hasInvalidScore = true;
-              } else {
-                nextOverrides[matchedRow.studentId][rule.id] = roundBand(score);
+            const scoreVal = item[rule.name] ?? item[rule.id] ?? item[`${rule.name} (${rule.weight}%)`];
+            if (scoreVal !== undefined && scoreVal !== null && String(scoreVal).trim() !== "") {
+              const score = Number(scoreVal);
+              if (!Number.isNaN(score)) {
+                if (score < 0 || score > 9) {
+                  hasInvalidScore = true;
+                } else {
+                  nextOverrides[matchedRow.studentId][rule.id] = roundBand(score);
+                }
               }
             }
           });

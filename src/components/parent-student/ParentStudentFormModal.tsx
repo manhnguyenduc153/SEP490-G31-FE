@@ -357,7 +357,7 @@ export function ParentStudentFormModal({
                   {t("parentStudent.autoAccountTitle", { defaultValue: "Tạo tài khoản tự động" })}
                 </p>
                 <p className="mt-0.5 text-xs text-blue-700/90 dark:text-blue-450 leading-relaxed">
-                  {t("parentStudent.autoAccountNote")}
+                  {t("parentStudent.autoAccountNote", { defaultValue: "Mật khẩu mặc định: 123456 — Phụ huynh nên đổi sau lần đăng nhập đầu tiên." })}
                 </p>
               </div>
             </div>

@@ -23,6 +23,7 @@ import { homeworkApi, HomeworkDto, HomeworkSubmissionDto } from "@/services/home
 import { useTranslation } from "react-i18next";
 import AttachmentPreview, { AttachmentPreviewModal } from "./AttachmentPreview";
 import { ENV } from "@/config/env";
+import { downloadFileFromUrl } from "@/utils";
 
 interface HomeworkSubmissionsProps {
   homework: HomeworkDto;
@@ -307,13 +308,13 @@ export default function HomeworkSubmissions({ homework, onBack, showToast }: Hom
                               <div className="mt-1 flex flex-col gap-1">
                                 {sub.attachmentUrls.map((url, idx) => (
                                   <div key={`${url}-${idx}`} className="flex items-center gap-1 text-xs">
-                                    <a
-                                      href={formatUrl(url)}
-                                      download
-                                      className="max-w-[150px] truncate text-left text-blue-600 hover:underline"
+                                    <button
+                                      type="button"
+                                      onClick={() => downloadFileFromUrl(formatUrl(url), url.split("/").pop())}
+                                      className="max-w-[150px] truncate text-left text-blue-600 hover:underline cursor-pointer"
                                     >
                                       {url.split("/").pop()}
-                                    </a>
+                                    </button>
                                     <button
                                       type="button"
                                       onClick={() => setPreviewAttachmentUrl(url)}

@@ -4,6 +4,7 @@ import { Modal } from "@/components/ui/modal";
 import { LearningMaterialItem } from "@/services/learningMaterial.api";
 import { ENV } from "@/config/env";
 import { FileText, Download, Eye, X } from "lucide-react";
+import { downloadFileFromUrl } from "@/utils";
 
 interface MaterialViewModalProps {
   isOpen: boolean;
@@ -32,7 +33,7 @@ export function MaterialViewModal({
 
   const handleDownload = () => {
     if (fullFileUrl) {
-      window.open(fullFileUrl, "_blank");
+      downloadFileFromUrl(fullFileUrl, `${item.title || item.name || "tai_lieu"}.${ext || "file"}`);
     }
   };
 
