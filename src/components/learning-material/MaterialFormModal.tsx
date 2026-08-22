@@ -112,6 +112,13 @@ export function MaterialFormModal({
   const processUpload = async (file: File) => {
     setUploading(true);
     setErrors([]);
+
+    if (file.size > 10 * 1024 * 1024) {
+      setErrors([t("backendMessages.ERR_FILE_SIZE_EXCEEDS_10MB", { defaultValue: "Dung lượng tệp vượt quá giới hạn cho phép (tối đa 10MB)." })]);
+      setUploading(false);
+      return;
+    }
+
     try {
       const res = await teacherApi.uploadDocument(file);
       if (res.success && res.data) {
@@ -140,7 +147,7 @@ export function MaterialFormModal({
     `w-full rounded-lg border bg-transparent px-4 py-2 text-sm text-gray-800 focus:outline-hidden focus:ring-3 dark:text-white/90 dark:placeholder:text-white/30 shadow-theme-xs ${
       invalidFields.includes(field)
         ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10 dark:border-rose-500"
-        : "border-gray-300 focus:border-brand-300 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:focus:border-brand-800"
+        : "border-gray-300 focus:border-brand-300 focus:ring-brand-500/10 dark:border-gray-700"
     }`;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -284,19 +291,36 @@ export function MaterialFormModal({
             </div>
           </div>
 
-          {/* Title */}
-          <div>
-            <label className="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t("learningMaterial.formTitleLabel", { defaultValue: "Tiêu đề hiển thị" })}
-            </label>
-            <input
-              type="text"
-              maxLength={250}
-              value={title}
-              onChange={(e) => { setTitle(e.target.value); clearField("title"); }}
-              placeholder={t("learningMaterial.formTitlePlaceholder", { defaultValue: "Nhập tiêu đề hiển thị..." })}
-              className={inputClass("title")}
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Title */}
+            <div>
+              <label className="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t("learningMaterial.formTitleLabel", { defaultValue: "Tiêu đề hiển thị" })}
+              </label>
+              <input
+                type="text"
+                maxLength={250}
+                value={title}
+                onChange={(e) => { setTitle(e.target.value); clearField("title"); }}
+                placeholder={t("learningMaterial.formTitlePlaceholder", { defaultValue: "Nhập tiêu đề hiển thị..." })}
+                className={inputClass("title")}
+              />
+            </div>
+
+            {/* Status */}
+            <div>
+              <label className="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t("learningMaterial.formStatusLabel", { defaultValue: "Trạng thái hoạt động" })}
+              </label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(Number(e.target.value))}
+                className="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 shadow-theme-xs"
+              >
+                <option value={1}>{t("student.formStatusActive", { defaultValue: "Hoạt động" })}</option>
+                <option value={0}>{t("student.formStatusInactive", { defaultValue: "Ngưng hoạt động" })}</option>
+              </select>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -344,23 +368,6 @@ export function MaterialFormModal({
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Status */}
-            <div>
-              <label className="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-                {t("learningMaterial.formStatusLabel", { defaultValue: "Trạng thái hoạt động" })}
-              </label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(Number(e.target.value))}
-                className="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 shadow-theme-xs"
-              >
-                <option value={1}>{t("student.formStatusActive", { defaultValue: "Hoạt động" })}</option>
-                <option value={0}>{t("student.formStatusInactive", { defaultValue: "Ngưng hoạt động" })}</option>
-              </select>
-            </div>
-          </div>
-
           {/* File Upload Dropzone */}
           <div>
             <label className="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -402,7 +409,7 @@ export function MaterialFormModal({
                   {uploading ? t("homework.uploadingFiles", { defaultValue: "Đang tải lên..." }) : t("homework.uploadPlaceholder", { defaultValue: "Kéo thả file vào đây, hoặc click để chọn file" })}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
-                  PDF, DOCX, Images, Audio, Video (Max: 50MB)
+                  PDF, DOCX, Images, Audio, Video (Max: 10MB)
                 </p>
               </div>
             )}

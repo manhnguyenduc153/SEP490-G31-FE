@@ -2456,7 +2456,6 @@ export default function ClassScheduleCalendar() {
     // In Edit Mode, clicking a non-draft DB event opens the Slot Edit modal
     if (isEditMode && !ev.isDraft) {
       if (isPastSlot(ev.scheduleDate, ev.endTime)) {
-        showToast(t("classSchedules.cannotEditPastSlot", { defaultValue: "Buổi học trong quá khứ không thể chỉnh sửa." }), "error");
         setSelectedEvent(ev);
         openModal();
         return;
@@ -2834,7 +2833,6 @@ export default function ClassScheduleCalendar() {
     // In Edit Mode, non-draft events open Slot Edit modal
     if (isEditMode && !ev.isDraft) {
       if (isPastSlot(ev.scheduleDate, ev.endTime)) {
-        showToast(t("classSchedules.cannotEditPastSlot", { defaultValue: "Buổi học trong quá khứ không thể chỉnh sửa." }), "error");
         setSelectedEvent(ev);
         openModal();
         return;
