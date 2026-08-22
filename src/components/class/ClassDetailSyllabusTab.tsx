@@ -129,8 +129,8 @@ export default function ClassDetailSyllabusTab({
                   <button
                     type="button"
                     onClick={() => {
-                      const fullUrl = getFullFileUrl(item.fileUrl);
-                      const ext = item.fileUrl.split(".").pop()?.toLowerCase() || "";
+                      const fullUrl = getFullFileUrl(item.fileUrl!);
+                      const ext = item.fileUrl!.split(".").pop()?.toLowerCase() || "";
                       downloadFileFromUrl(fullUrl, `${item.title || item.name || "tai_lieu"}.${ext || "file"}`);
                     }}
                     className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors cursor-pointer"
