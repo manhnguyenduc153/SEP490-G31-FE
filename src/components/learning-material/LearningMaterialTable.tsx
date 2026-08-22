@@ -28,6 +28,7 @@ import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { useTranslation } from "react-i18next";
 import { FileText, Plus, Search, Filter, BookOpen, Layers, CheckCircle, HelpCircle, HardDrive, ListFilter, Eye, Download, Edit, Trash2, ChevronDown } from "lucide-react";
 import { CodeHelper } from "@/helpers/CodeHelper";
+import { downloadFileFromUrl } from "@/utils";
 import { ENV } from "@/config/env";
 
 type SortKey = "code" | "name" | "title" | "createdAt" | "id";
@@ -748,18 +749,20 @@ export default function LearningMaterialTable() {
                             <Eye className="w-4 h-4" />
                           </button>
 
-                          {/* Download link */}
+                          {/* Download button */}
                           {item.fileUrl && (
-                            <a
-                              href={item.fileUrl.startsWith("http") ? item.fileUrl : `${ENV.API_BASE_URL}${item.fileUrl}`}
-                              download
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const fullUrl = item.fileUrl!.startsWith("http") ? item.fileUrl! : `${ENV.API_BASE_URL}${item.fileUrl}`;
+                                const ext = item.fileUrl!.split(".").pop()?.toLowerCase() || "";
+                                downloadFileFromUrl(fullUrl, `${item.title || item.name || "tai_lieu"}.${ext || "file"}`);
+                              }}
                               title={t("learningMaterial.downloadTooltip", { defaultValue: "Tải về" })}
-                              className="p-2 text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg dark:bg-blue-950/20 dark:text-blue-400 dark:hover:bg-blue-950/30 transition-colors"
+                              className="p-2 text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg dark:bg-blue-950/20 dark:text-blue-400 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
                             >
                               <Download className="w-4 h-4" />
-                            </a>
+                            </button>
                           )}
 
                           {/* Edit (Admin/Staff, or Owner Teacher) */}

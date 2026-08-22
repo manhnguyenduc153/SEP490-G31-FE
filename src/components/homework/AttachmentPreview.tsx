@@ -5,6 +5,7 @@ import { Download, File, FileAudio, FileText, FileVideo, Image as ImageIcon } fr
 import { ENV } from "@/config/env";
 import { useTranslation } from "react-i18next";
 import { Modal } from "@/components/ui/modal";
+import { downloadFileFromUrl } from "@/utils";
 
 interface AttachmentPreviewProps {
   urls?: string[];
@@ -157,17 +158,23 @@ export default function AttachmentPreview({ urls = [], title, compact = false }:
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
                 {getIcon(kind)}
-                <a href={url} download className="truncate text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">{fileName}</a>
+                <button
+                  type="button"
+                  onClick={() => downloadFileFromUrl(url, fileName)}
+                  className="truncate text-sm font-medium text-brand-600 hover:underline dark:text-brand-400 text-left cursor-pointer"
+                >
+                  {fileName}
+                </button>
               </div>
               <div className="flex items-center gap-2">
-                <a
-                  href={url}
-                  download
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.06]"
+                <button
+                  type="button"
+                  onClick={() => downloadFileFromUrl(url, fileName)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.06] cursor-pointer"
                   title={t("homework.downloadFile")}
                 >
                   <Download className="h-4 w-4" />
-                </a>
+                </button>
               </div>
             </div>
             <AttachmentBody url={url} kind={kind} fileName={fileName} compact={compact} />
@@ -200,8 +207,15 @@ export function AttachmentPreviewModal({ url, onClose }: { url: string | null; o
           <AttachmentBody url={resolvedUrl} kind={kind} fileName={fileName} fillHeight />
         </main>
         <footer className="flex shrink-0 items-center justify-end gap-3 border-t border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
-          <button type="button" onClick={onClose} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">{t("common.close", { defaultValue: "Close" })}</button>
-          <a href={resolvedUrl} download className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600"><Download className="h-4 w-4" />{t("homework.downloadFile")}</a>
+          <button type="button" onClick={onClose} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800 cursor-pointer">{t("common.close", { defaultValue: "Close" })}</button>
+          <button
+            type="button"
+            onClick={() => downloadFileFromUrl(resolvedUrl, fileName)}
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 cursor-pointer"
+          >
+            <Download className="h-4 w-4" />
+            {t("homework.downloadFile")}
+          </button>
         </footer>
       </div>
     </Modal>

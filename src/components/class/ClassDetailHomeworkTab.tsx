@@ -5,6 +5,7 @@ import { FileText, Download, Clock, AlertTriangle, Trophy, Target } from "lucide
 import { homeworkApi, HomeworkDto } from "@/services/homework.api";
 import { ENV } from "@/config/env";
 import { useRouter } from "next/navigation";
+import { downloadFileFromUrl } from "@/utils";
 
 interface ClassDetailHomeworkTabProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -143,17 +144,19 @@ export default function ClassDetailHomeworkTab({
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-gray-400">{t("class.attachments", { defaultValue: "Tài liệu đính kèm" })}:</span>
                         {hw.attachmentUrls.map((url, idx) => (
-                          <a
+                          <button
                             key={idx}
-                            href={getFullFileUrl(url)}
-                            download
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            type="button"
+                            onClick={() => {
+                              const fullUrl = getFullFileUrl(url);
+                              const ext = url.split(".").pop()?.toLowerCase() || "";
+                              downloadFileFromUrl(fullUrl, `${hw.title || "homework"}_file_${idx + 1}.${ext || "file"}`);
+                            }}
                             className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-bold text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 dark:text-brand-400 dark:bg-brand-500/10 dark:hover:bg-brand-500/20 border border-brand-200/50 dark:border-brand-900/30 rounded-lg transition-colors cursor-pointer"
                           >
                             <Download className="w-3 h-3" />
                             File {idx + 1}
-                          </a>
+                          </button>
                         ))}
                       </div>
                     )}

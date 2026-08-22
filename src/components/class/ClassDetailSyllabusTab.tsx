@@ -5,6 +5,7 @@ import { BookOpen, FileText, Download, Eye, X } from "lucide-react";
 import { learningMaterialApi, LearningMaterialItem } from "@/services/learningMaterial.api";
 import { ENV } from "@/config/env";
 import { createPortal } from "react-dom";
+import { downloadFileFromUrl } from "@/utils";
 
 interface ClassDetailSyllabusTabProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -125,16 +126,18 @@ export default function ClassDetailSyllabusTab({
                 )}
                 
                 {item.fileUrl && (
-                  <a
-                    href={getFullFileUrl(item.fileUrl)}
-                    download
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const fullUrl = getFullFileUrl(item.fileUrl);
+                      const ext = item.fileUrl.split(".").pop()?.toLowerCase() || "";
+                      downloadFileFromUrl(fullUrl, `${item.title || item.name || "tai_lieu"}.${ext || "file"}`);
+                    }}
                     className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors cursor-pointer"
                   >
                     <Download className="w-4 h-4" />
                     {t("class.btnDownload", { defaultValue: "Tải xuống" })}
-                  </a>
+                  </button>
                 )}
               </div>
             </div>
@@ -173,15 +176,16 @@ export default function ClassDetailSyllabusTab({
 
             {/* Footer */}
             <div className="p-5 border-t border-gray-100 dark:border-gray-800 flex justify-end bg-gray-50/50 dark:bg-gray-900/50 gap-3">
-              <a
-                href={previewUrl}
-                download
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={() => {
+                  const ext = previewUrl.split(".").pop()?.toLowerCase() || "pdf";
+                  downloadFileFromUrl(previewUrl, `${previewTitle || "tai_lieu"}.${ext}`);
+                }}
                 className="px-4 py-2 text-xs font-semibold text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-theme-xs transition-colors cursor-pointer"
               >
                 {t("class.btnDownloadFile", { defaultValue: "Tải file về máy" })}
-              </a>
+              </button>
               <button
                 type="button"
                 onClick={() => setPreviewUrl(null)}

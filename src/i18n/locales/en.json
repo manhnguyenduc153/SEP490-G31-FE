@@ -1050,7 +1050,7 @@
     "editTitle": "Edit parent",
     "createDesc": "Fill in the information to create a parent. The system will automatically create a login account.",
     "editDesc": "Update parent information.",
-    "autoAccountNote": "Default password: Parent@123456 — Parents should change it after the first login.",
+    "autoAccountNote": "Default password: 123456 — Parents should change it after the first login.",
     "formCodeLabel": "Parent Code",
     "formCodePlaceholder": "Enter parent code...",
     "formNameLabel": "Full Name",
