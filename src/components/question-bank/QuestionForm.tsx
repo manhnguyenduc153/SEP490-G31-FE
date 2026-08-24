@@ -660,7 +660,7 @@ export function QuestionForm({ id }: QuestionFormProps) {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {t("questionPassage.passageAudioUrlLabel")} <span className="text-rose-500">*</span>
+                {t("questionPassage.passageAudioUrlLabel")}
               </label>
 
               <div className="space-y-3">
