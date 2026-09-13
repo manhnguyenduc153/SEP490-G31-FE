@@ -38,7 +38,14 @@ export const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // 1. Lấy permission tương ứng với route hiện tại
+    // 1. Kiểm tra đăng nhập
+    if (!authApi.isAuthenticated()) {
+      setIsAuthorized(false);
+      router.replace("/signin");
+      return;
+    }
+
+    // 2. Lấy permission tương ứng với route hiện tại
     const requiredPermission = routePermissions[pathname];
 
     // Nếu route không yêu cầu permission đặc biệt -> cho phép truy cập
@@ -47,7 +54,7 @@ export const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }
       return;
     }
 
-    // 2. Kiểm tra xem user có permission đó không
+    // 3. Kiểm tra xem user có permission đó không
     const userPermissions = authApi.getPermissions();
 
     const hasRequired = Array.isArray(requiredPermission)
