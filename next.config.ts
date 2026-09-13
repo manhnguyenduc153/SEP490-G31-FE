@@ -13,16 +13,16 @@ const nextConfig = {
     return [
       {
         source: "/api/:path*",
-        destination: "http://13.211.170.13:5000/api/:path*",
+        destination: "https://api.qlaundry.io.vn/api/:path*",
       },
       {
         source: "/uploads/:path*",
-        destination: "http://13.211.170.13:5000/uploads/:path*",
+        destination: "https://api.qlaundry.io.vn/uploads/:path*",
       },
       {
         // Proxy SignalR hub (negotiate + long-polling) về EC2 backend
         source: "/hubs/:path*",
-        destination: "http://13.211.170.13:5000/hubs/:path*",
+        destination: "https://api.qlaundry.io.vn/hubs/:path*",
       },
     ];
   },
