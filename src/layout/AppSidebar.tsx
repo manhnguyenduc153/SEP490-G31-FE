@@ -700,7 +700,7 @@ const AppSidebar: React.FC = () => {
         className={`pt-6 pb-4 flex items-center ${!isExpanded && !isHovered ? "xl:justify-center" : "justify-start"
           }`}
       >
-        <Link href="/">
+        <Link href="/dashboard">
           {isExpanded || isHovered || isMobileOpen ? (
             <Image
               src="/images/logo/logo-text-removebg-preview.png"
