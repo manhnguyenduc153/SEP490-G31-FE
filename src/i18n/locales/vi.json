@@ -2807,7 +2807,7 @@
     "backToDashboard": "Quay lại bảng điều khiển",
     "backToHome": "Trở về trang chủ",
     "title": "Đăng Nhập",
-    "description": "Nhập tên đăng nhập và mật khẩu của bạn để đăng nhập!",
+    "description": "Nhập tên đăng nhập và mật khẩu của bạn để đăng nhập! (Username: Admin, Password: 123456)",
     "usernameLabel": "Tên đăng nhập",
     "usernamePlaceholder": "Ví dụ: admin",
     "passwordLabel": "Mật khẩu",
